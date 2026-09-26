@@ -6,25 +6,9 @@
 <title>Mythras Chargen</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header class="noprint">
-  <div class="top">
-    <div class="brand"><span>⚔</span> Mythras <em>Chargen</em></div>
-    <button id="menu" class="burger" aria-label="Menu" aria-expanded="false">☰</button>
-    <div class="tools" id="tools">
-      <button id="save" title="Save as JSON">Save</button>
-      <label class="btn" title="Load a saved character">Load<input type="file" id="load" accept=".json" hidden></label>
-      <button id="print">Print</button>
-      <button id="reset">New</button>
-    </div>
-  </div>
-  <nav id="steps"></nav>
-</header>
-<main id="main"></main>
-<script src="data/rules.js"></script>
-<script src="data/content.js"></script>
-<script src="app.js"></script>
+<div id="app"></div>
+<script type="module" src="/src/main.ts"></script>
 </body>
 </html>
