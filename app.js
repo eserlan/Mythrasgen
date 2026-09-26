@@ -172,6 +172,9 @@ document.addEventListener("change", e => {
   } else return;
   render();
 });
+const hdr = $("header");
+$("#menu").onclick = () => { const o = hdr.classList.toggle("open"); $("#menu").setAttribute("aria-expanded", o); };
+$("#tools").addEventListener("click", () => hdr.classList.remove("open"));
 $("#save").onclick = () => {
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([JSON.stringify(S, null, 2)], { type: "application/json" }));
