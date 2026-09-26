@@ -1,24 +1,40 @@
 <script lang="ts">
   import { rollStat } from "../lib/calc";
-  import { CHAR_ROLL, POINT_BUY, STATS } from "../lib/rules";
+  import { CHAR_ROLL, POINT_BUY, STATS, STAT_NAMES, type Stat } from "../lib/rules";
   import { char } from "../lib/store.svelte";
   import Derived from "./Derived.svelte";
+  import StepHead from "./StepHead.svelte";
   import Stepper from "./Stepper.svelte";
   const left = $derived(POINT_BUY.budget - STATS.reduce((s, k) => s + char.chars[k], 0));
+
+  let spinning = $state<Stat[]>([]);
+  const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+  /** Tumble the dice for a moment, then settle on the real rolls. */
+  function tumble(keys: readonly Stat[]) {
+    const final = Object.fromEntries(keys.map(k => [k, rollStat(k)])) as Record<Stat, number>;
+    if (reduced()) { keys.forEach(k => (char.chars[k] = final[k])); return; }
+    spinning = [...keys];
+    let n = 0;
+    const t = setInterval(() => {
+      n++;
+      keys.forEach(k => (char.chars[k] = n >= 9 ? final[k] : 3 + Math.floor(Math.random() * 16)));
+      if (n >= 9) { clearInterval(t); spinning = []; }
+    }, 55);
+  }
 </script>
 
-<h2>Characteristics</h2>
+<StepHead step={1} title="Characteristics" />
 <div class="card bar">
-  <button class="primary" onclick={() => STATS.forEach(k => (char.chars[k] = rollStat(k)))}>🎲 Roll all</button>
+  <button class="primary" onclick={() => tumble(STATS)}>Roll all the dice</button>
   <span class="mute">Or adjust by hand. Point-buy budget ({POINT_BUY.budget}, {POINT_BUY.min}–{POINT_BUY.max} each):</span>
   <span class="pill" class:over={left < 0} class:ok={left === 0}>{left} left</span>
 </div>
 <div class="chars">
   {#each STATS as k}
-    <div class="char">
-      <small>{k}</small>
+    <div class="char" class:spin={spinning.includes(k)}>
+      <small>{k}</small><em>{STAT_NAMES[k]}</em>
       <Stepper label={k} value={char.chars[k]} min={1} max={30} onchange={v => (char.chars[k] = v)} />
-      <button class="ghost" title="Reroll {k}" onclick={() => (char.chars[k] = rollStat(k))}>🎲 {CHAR_ROLL[k]}</button>
+      <button class="ghost" title="Reroll {STAT_NAMES[k]} ({CHAR_ROLL[k]})" aria-label="Reroll {STAT_NAMES[k]}" onclick={() => tumble([k])}>↻ {CHAR_ROLL[k]}</button>
     </div>
   {/each}
 </div>

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import StepHead from "./StepHead.svelte";
   import { careers, cultures } from "../lib/content";
   import { char, culture, career } from "../lib/store.svelte";
   const cu = $derived(culture()), ca = $derived(career());
@@ -6,7 +7,7 @@
   const pick = (kind: "culture" | "career", i: number) => { char[kind] = i; char.alloc[kind] = {}; };
 </script>
 
-<h2>Who are you?</h2>
+<StepHead step={0} title="Who are you?" />
 <div class="card">
   <label class="field"><span>Name</span><input bind:value={char.name} placeholder="Name your character"></label>
 </div>

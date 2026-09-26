@@ -2,6 +2,9 @@
 // Adjust here if your edition differs.
 export const STATS = ["STR", "CON", "SIZ", "DEX", "INT", "POW", "CHA"] as const;
 export type Stat = (typeof STATS)[number];
+export const STAT_NAMES: Record<Stat, string> = {
+  STR: "Strength", CON: "Constitution", SIZ: "Size", DEX: "Dexterity", INT: "Intelligence", POW: "Power", CHA: "Charisma",
+};
 export type Chars = Record<Stat, number>;
 /** A stat, a constant, or [stat, multiplier]. A formula is the sum of its terms. */
 export type Term = Stat | number | [Stat, number];

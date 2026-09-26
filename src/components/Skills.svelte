@@ -2,6 +2,7 @@
   import { skillDef } from "../lib/calc";
   import { PER_SKILL_CAP, POOLS, type Kind } from "../lib/rules";
   import { addExtra, base, career, char, culture, setAlloc, stepSkills, total, used } from "../lib/store.svelte";
+  import StepHead from "./StepHead.svelte";
   import Stepper from "./Stepper.svelte";
   let { kind }: { kind: Kind } = $props();
   const pool = $derived(POOLS[kind]);
@@ -11,9 +12,9 @@
   let extra = $state("");
 </script>
 
-<h2>{title}</h2>
+<StepHead step={{ culture: 2, career: 3, bonus: 4 }[kind]} {title} />
 <div class="poolbar">
-  <div><b>{left}</b> points left <span class="mute">of {pool} · max +{PER_SKILL_CAP} per skill</span></div>
+  <div class="left"><b>{left}</b><span>points remain <em>of {pool} · max +{PER_SKILL_CAP} per skill</em></span></div>
   <div class="meter"><i style:width="{(pool - left) / pool * 100}%"></i></div>
 </div>
 <div class="card skills">

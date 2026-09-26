@@ -5,13 +5,24 @@ import { PER_SKILL_CAP, POOLS, STANDARD, STATS, type Chars, type Kind } from "./
 export interface Character {
   name: string; chars: Chars; culture: number; career: number;
   alloc: Record<Kind, Record<string, number>>; extras: string[]; step: number;
+  /** True while the landing page is showing. */
+  home: boolean;
 }
 const KEY = "mythresgen.v1";
 export const STEPS = ["Concept", "Characteristics", "Culture", "Career", "Bonus Skills", "Sheet"];
+export const ROMAN = ["I", "II", "III", "IV", "V", "VI"];
+export const INTRO = [
+  "Name your hero and choose the people who raised them.",
+  "The raw measure of body and mind. Roll the dice, or set each by hand.",
+  "The customs and skills every child of your people learns.",
+  "The trade or calling that shaped your adult years.",
+  "Personal passions and hard-won lessons. Spend these freely.",
+  "Your hero, ready for the table.",
+];
 
 const blank = (): Character => ({
   name: "", chars: Object.fromEntries(STATS.map(k => [k, 10])) as Chars, culture: 0, career: 0,
-  alloc: { culture: {}, career: {}, bonus: {} }, extras: [], step: 0,
+  alloc: { culture: {}, career: {}, bonus: {} }, extras: [], step: 0, home: true,
 });
 function load(): Character {
   try { return { ...blank(), ...JSON.parse(localStorage.getItem(KEY) ?? "null") }; } catch { return blank(); }
@@ -19,8 +30,10 @@ function load(): Character {
 export const char: Character = $state(load());
 
 export function persist() { try { localStorage.setItem(KEY, JSON.stringify(char)); } catch { /* storage unavailable */ } }
-export const reset = () => Object.assign(char, blank());
-export const replace = (c: Partial<Character>) => Object.assign(char, blank(), c);
+export const reset = (home = true) => Object.assign(char, blank(), { home });
+export const replace = (c: Partial<Character>) => Object.assign(char, blank(), c, { home: false });
+export const hasProgress = () => !!char.name || char.step > 0 || used("culture") + used("career") + used("bonus") > 0
+  || STATS.some(k => char.chars[k] !== 10);
 
 export const culture = () => cultures[char.culture] ?? cultures[0];
 export const career = () => careers[char.career] ?? careers[0];
