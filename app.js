@@ -68,73 +68,102 @@ function allSkills() {
 }
 
 // ---- views
+const NEXT_HINT = ["Pick a culture and career", "Roll or set your characteristics", "Spend culture points", "Spend career points", "Spend bonus points", ""];
 function render() {
-  $("#steps").innerHTML = STEPS.map((s, i) => `<button data-step="${i}" class="${i === S.step ? "on" : ""}">${i + 1}. ${s}</button>`).join("");
-  $("#main").innerHTML = [vConcept, vChars, v => vSkills("culture"), v => vSkills("career"), v => vSkills("bonus"), vSheet][S.step]();
+  $("#steps").innerHTML = STEPS.map((s, i) => `<button data-step="${i}" class="step ${i === S.step ? "on" : ""} ${i < S.step ? "done" : ""}">
+    <i>${i < S.step ? "✓" : i + 1}</i><span>${s}</span></button>`).join("");
+  const views = [vConcept, vChars, () => vSkills("culture"), () => vSkills("career"), () => vSkills("bonus"), vSheet];
+  $("#main").innerHTML = views[S.step]() + `<div class="pager noprint">
+    ${S.step > 0 ? `<button data-step="${S.step - 1}">← ${STEPS[S.step - 1]}</button>` : "<span></span>"}
+    ${S.step < 5 ? `<button class="primary" data-step="${S.step + 1}">${STEPS[S.step + 1]} →</button>` : ""}</div>`;
   persist();
+  scrollTo(0, 0);
 }
+const field = (label, inner) => `<label class="field"><span>${label}</span>${inner}</label>`;
+const chips = (l, cls = "") => l.map(x => `<span class="chip ${cls}">${esc(x)}</span>`).join("");
+const opts = (list, sel) => list.map((c, i) => `<option value="${i}" ${i === sel ? "selected" : ""}>${esc(c.name)}</option>`).join("");
 function vConcept() {
-  return `<h2>Concept</h2><div class="card">
-  <div class="row"><label>Name <input id="name" value="${esc(S.name)}"></label></div>
-  <div class="row"><label>Culture <select id="culture">${C.cultures.map((c, i) => `<option value="${i}" ${i === S.culture ? "selected" : ""}>${esc(c.name)}</option>`).join("")}</select></label>
-  <label>Career <select id="career">${C.careers.map((c, i) => `<option value="${i}" ${i === S.career ? "selected" : ""}>${esc(c.name)}</option>`).join("")}</select></label></div>
-  <p class="mute">Add your own cultures and careers in <code>data/content.js</code>.</p></div>`;
+  const cu = cul(), ca = car();
+  return `<h2>Who are you?</h2>
+  <div class="card">${field("Name", `<input id="name" value="${esc(S.name)}" placeholder="Name your character">`)}</div>
+  <div class="two">
+    <div class="card"><h3>Culture</h3>${field("Choose", `<select id="culture">${opts(C.cultures, S.culture)}</select>`)}
+      <p class="label">Combat style</p><p>${chips([cu.combatStyle], "acc")}</p>
+      <p class="label">Skills</p><p>${chips([...cu.standard, ...cu.professional])}</p></div>
+    <div class="card"><h3>Career</h3>${field("Choose", `<select id="career">${opts(C.careers, S.career)}</select>`)}
+      <p class="label">Skills</p><p>${chips([...ca.standard, ...ca.professional])}</p></div>
+  </div>
+  <p class="mute">Add your own cultures and careers in <code>data/content.js</code>.</p>`;
 }
 function vChars() {
-  const spent = sum(R.chars.map(k => S.chars[k])), left = R.pointBuy - spent;
-  return `<h2>Characteristics</h2><div class="card">
-  <div class="row"><button data-act="roll">Roll all (3d6 / 2d6+6)</button>
-  <span class="mute">or enter values by hand / point-buy (${R.pointBuy} points, ${R.pointBuyMin}–${R.pointBuyMax}):</span>
-  <span class="pool ${left < 0 ? "over" : ""}">Point-buy left: ${left}</span></div>
-  <div class="grid">${R.chars.map(k => `<div class="stat card"><label>${k}<b>${S.chars[k]}</b>
-    <input type="number" data-char="${k}" value="${S.chars[k]}" min="1" max="30"></label>
-    <button data-act="rollone" data-k="${k}">🎲</button></div>`).join("")}</div>
-  ${derivedHtml()}</div>`;
+  const left = R.pointBuy - sum(R.chars.map(k => S.chars[k]));
+  return `<h2>Characteristics</h2>
+  <div class="card bar"><button class="primary" data-act="roll">🎲 Roll all</button>
+    <span class="mute">Or adjust by hand. Point-buy budget (${R.pointBuy}, ${R.pointBuyMin}–${R.pointBuyMax} each):</span>
+    <span class="pill ${left < 0 ? "over" : left === 0 ? "ok" : ""}">${left} left</span></div>
+  <div class="chars">${R.chars.map(k => `<div class="char"><small>${k}</small>
+    <div class="stepper"><button data-act="chdec" data-k="${k}" aria-label="decrease ${k}">−</button>
+    <input type="number" data-char="${k}" value="${S.chars[k]}" min="1" max="30">
+    <button data-act="chinc" data-k="${k}" aria-label="increase ${k}">+</button></div>
+    <button class="ghost" data-act="rollone" data-k="${k}" title="Reroll ${k} (${R.charRoll[k]})">🎲 ${R.charRoll[k]}</button></div>`).join("")}</div>
+  <h3>Attributes</h3>${derivedHtml()}`;
 }
 function derivedHtml() {
-  const D = derived();
-  return `<h3>Attributes</h3><div class="grid">${Object.entries(D).filter(([k]) => k !== "loc")
-    .map(([k, v]) => `<div class="stat card">${k}<b>${v}</b></div>`).join("")}</div>`;
+  return `<div class="derived">${Object.entries(derived()).filter(([k]) => k !== "loc")
+    .map(([k, v]) => `<div><small>${k}</small><b>${v}</b></div>`).join("")}</div>`;
 }
 function vSkills(kind) {
   const pool = R.pools[kind], names = stepSkills(kind), a = S.alloc[kind];
-  const used = sum(Object.values(a)), left = pool - used;
-  const title = { culture: `Culture: ${cul().name}`, career: `Career: ${car().name}`, bonus: "Bonus Skills" }[kind];
-  return `<h2>${title}</h2><div class="card">
-  <p class="pool ${left < 0 ? "over" : ""}">Points left: ${left} / ${pool} <span class="mute">(max +${R.perSkillCap} per skill in this step)</span></p>
-  <table><tr><th>Skill</th><th class="n">Base</th><th class="n">This step</th><th class="n">Total</th></tr>
-  ${names.map(n => `<tr><td>${esc(n)}${skillDef(n).pro ? " <span class='mute'>(pro)</span>" : ""}</td><td class="n">${base(n)}%</td>
-  <td class="n"><input type="number" min="0" max="${R.perSkillCap}" data-skill="${esc(n)}" data-kind="${kind}" value="${a[n] || 0}"></td>
-  <td class="n"><b>${total(n)}%</b></td></tr>`).join("")}</table>
-  ${kind === "bonus" ? `<div class="row"><input id="extra" placeholder="e.g. Lore (Astronomy)"><button data-act="addskill">Add skill</button></div>` : ""}</div>`;
+  const used = sum(Object.values(a)), left = pool - used, pct = Math.min(100, used / pool * 100);
+  const title = { culture: `Culture · ${cul().name}`, career: `Career · ${car().name}`, bonus: "Bonus skills" }[kind];
+  return `<h2>${title}</h2>
+  <div class="poolbar"><div><b class="${left < 0 ? "over" : ""}">${left}</b> points left <span class="mute">of ${pool} · max +${R.perSkillCap} per skill</span></div>
+    <div class="meter"><i style="width:${pct}%" class="${left < 0 ? "over" : ""}"></i></div></div>
+  <div class="card skills">${names.map(n => {
+    const v = a[n] || 0;
+    return `<div class="skill ${v ? "has" : ""}"><div class="nm"><span>${esc(n)}${skillDef(n).pro ? "<em>pro</em>" : ""}</span><small>base ${base(n)}%</small></div>
+    <div class="stepper"><button data-act="adj" data-kind="${kind}" data-skill="${esc(n)}" data-d="-1" ${v ? "" : "disabled"}>−</button>
+    <input type="number" min="0" max="${R.perSkillCap}" data-skill="${esc(n)}" data-kind="${kind}" value="${v}">
+    <button data-act="adj" data-kind="${kind}" data-skill="${esc(n)}" data-d="1" ${v >= R.perSkillCap || left <= 0 ? "disabled" : ""}>+</button></div>
+    <div class="tot">${total(n)}%</div></div>`;
+  }).join("")}</div>
+  ${kind === "bonus" ? `<div class="card bar"><input id="extra" placeholder="Add a skill, e.g. Lore (Astronomy)"><button data-act="addskill">Add</button></div>` : ""}`;
 }
 function vSheet() {
   const D = derived(), skills = allSkills().sort();
   const std = skills.filter(n => !skillDef(n).pro), pro = skills.filter(n => skillDef(n).pro);
-  const tbl = l => `<table>${l.map(n => `<tr><td>${esc(n)}</td><td class="n">${total(n)}%</td></tr>`).join("")}</table>`;
-  return `<h2>${esc(S.name || "Unnamed")} <span class="mute">— ${esc(cul().name)} ${esc(car().name)}</span></h2>
-  <div class="card"><div class="grid">${R.chars.map(k => `<div class="stat">${k}<b>${S.chars[k]}</b></div>`).join("")}</div></div>
-  <div class="card">${derivedHtml()}</div>
-  <div class="card"><h3>Hit Locations</h3><table><tr><th>Location</th><th>d20</th><th class="n">HP</th></tr>
-  ${D.loc.map(l => `<tr><td>${l[0]}</td><td>${l[1]}</td><td class="n">${l[2]}</td></tr>`).join("")}</table></div>
-  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">
-  <div class="card"><h3>Standard Skills</h3>${tbl(std)}</div><div class="card"><h3>Professional &amp; Combat</h3>${tbl(pro)}</div></div>`;
+  const tbl = l => `<table>${l.map(n => `<tr><td>${esc(n)}</td><td class="n"><b>${total(n)}%</b></td></tr>`).join("")}</table>`;
+  return `<div class="banner"><h1>${esc(S.name || "Unnamed hero")}</h1><p>${esc(cul().name)} · ${esc(car().name)}</p></div>
+  <div class="chars sheet">${R.chars.map(k => `<div class="char"><small>${k}</small><b>${S.chars[k]}</b></div>`).join("")}</div>
+  ${derivedHtml()}
+  <div class="two">
+    <div class="card"><h3>Hit locations</h3><table><tr><th>Location</th><th>d20</th><th class="n">HP</th></tr>
+    ${D.loc.map(l => `<tr><td>${l[0]}</td><td>${l[1]}</td><td class="n"><b>${l[2]}</b></td></tr>`).join("")}</table></div>
+    <div class="card"><h3>Professional &amp; combat</h3>${tbl(pro)}</div>
+  </div>
+  <div class="card"><h3>Standard skills</h3><div class="cols">${tbl(std)}</div></div>`;
 }
 
 // ---- events
 document.addEventListener("click", e => {
-  const t = e.target.closest("[data-step],[data-act]"); if (!t) return;
-  if (t.dataset.step) S.step = +t.dataset.step;
-  else if (t.dataset.act === "roll") R.chars.forEach(k => S.chars[k] = roll(R.charRoll[k]));
-  else if (t.dataset.act === "rollone") S.chars[t.dataset.k] = roll(R.charRoll[t.dataset.k]);
-  else if (t.dataset.act === "addskill") {
+  const t = e.target.closest("[data-step],[data-act]"); if (!t || t.disabled) return;
+  const D = t.dataset, act = D.act, ch = k => S.chars[k];
+  if (D.step) S.step = +D.step;
+  else if (act === "roll") R.chars.forEach(k => S.chars[k] = roll(R.charRoll[k]));
+  else if (act === "rollone") S.chars[D.k] = roll(R.charRoll[D.k]);
+  else if (act === "chinc") S.chars[D.k] = Math.min(30, ch(D.k) + 1);
+  else if (act === "chdec") S.chars[D.k] = Math.max(1, ch(D.k) - 1);
+  else if (act === "adj") {
+    const a = S.alloc[D.kind], v = Math.max(0, Math.min(R.perSkillCap, (a[D.skill] || 0) + +D.d));
+    if (v) a[D.skill] = v; else delete a[D.skill];
+  } else if (act === "addskill") {
     const v = $("#extra").value.trim(); if (v && !S.extras.includes(v)) S.extras.push(v);
   }
   render();
 });
 document.addEventListener("change", e => {
   const t = e.target;
-  if (t.id === "name") S.name = t.value;
+  if (t.id === "name") { S.name = t.value; persist(); return; }
   else if (t.id === "culture" || t.id === "career") { S[t.id] = +t.value; S.alloc[t.id] = {}; }
   else if (t.dataset.char) S.chars[t.dataset.char] = Math.max(1, +t.value || 1);
   else if (t.dataset.skill) {
