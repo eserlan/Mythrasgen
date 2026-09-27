@@ -6,7 +6,9 @@ export interface SocialClass {
   min: number;
   max: number;
   money: number;
+  /** Equipment granted or normally owned by this class. */
   equipment: string;
+  /** Other background resources listed by the core table. */
   possessions: string;
 }
 
@@ -64,27 +66,33 @@ const civilised: SocialClass[] = [
   { name: "Outcast", min: 1, max: 2, money: .25, equipment: "Clothes worn", possessions: "None; personal armament" },
   { name: "Slave", min: 3, max: 20, money: .5, equipment: "Clothes worn", possessions: "Keepsakes" },
   { name: "Freeman", min: 21, max: 70, money: 1, equipment: "Tools; simple weapons", possessions: "Rented accommodation; may own a few livestock" },
-  { name: "Gentry", min: 71, max: 95, money: 3, equipment: "Tools; weapons; armour; mount", possessions: "Farmstead, business or ship; servants; support from locals" },
-  { name: "Aristocracy", min: 96, max: 99, money: 5, equipment: "As Gentry, with several mounts", possessions: "Several properties or businesses; many servants; regional fealty" },
-  { name: "Ruling", min: 100, max: 100, money: 10, equipment: "Highest quality equipment", possessions: "As Aristocracy, with the fealty of a nation" },
+  { name: "Gentry", min: 71, max: 95, money: 3, equipment: "Tools; weapons; armour; mount", possessions: "Farmstead, business or ship; several servants or slaves; support from locals" },
+  { name: "Aristocracy", min: 96, max: 99, money: 5, equipment: "As Gentry, with several mounts", possessions: "Several properties, extensive farmlands or multiple businesses; many servants or slaves; regional fealty" },
+  { name: "Ruling", min: 100, max: 100, money: 10, equipment: "As Aristocracy, highest quality", possessions: "As Aristocracy, plus fealty from a nation" },
 ];
 
-function table(rows: [number, number, string][], equipment: Record<string, string> = {}): SocialClass[] {
+function table(rows: [number, number, string][], equipment: Record<string, string> = {}, resources: Record<string, string> = {}): SocialClass[] {
   return rows.map(([min, max, name]) => {
     const base = civilised.find(row => row.name === name) ?? civilised[4];
     return { ...base, name: name === "Ruling (Aristocracy)" ? "Ruling" : name,
       min, max, money: name === "Ruling (Aristocracy)" ? 5 : base.money,
-      equipment: equipment[name] ?? base.equipment };
+      equipment: equipment[name] ?? base.equipment,
+      possessions: resources[name] ?? base.possessions };
   });
 }
 
+/** Distinct culture tables from Mythras Core Rules, p. 24. */
 export const SOCIAL_CLASSES: Record<CultureKind, SocialClass[]> = {
   Civilised: civilised,
   Barbarian: table([[1, 5, "Outcast"], [6, 15, "Slave"], [16, 80, "Freeman"], [81, 95, "Gentry"], [96, 100, "Ruling (Aristocracy)"]]),
   Nomadic: table([[1, 5, "Outcast"], [6, 10, "Slave"], [11, 90, "Freeman"], [91, 100, "Ruling (Aristocracy)"],], {
-    "Ruling (Aristocracy)": "As Aristocracy; boats or carts instead of properties or businesses",
+    "Ruling (Aristocracy)": "As Gentry, with several mounts",
+  }, {
+    "Ruling (Aristocracy)": "Several boats or carts instead of properties or businesses; many servants or slaves; fealty from a region",
   }),
   Primitive: table([[1, 5, "Outcast"], [6, 80, "Freeman"], [81, 100, "Ruling"]], {
+    Ruling: "Campaign-defined equipment",
+  }, {
     Ruling: "Large hall; valuable trophies, skins or totems",
   }).map(row => row.name === "Ruling" ? { ...row, money: 2 } : row),
 };
@@ -97,8 +105,17 @@ export function classMoneyMultiplier(kind: CultureKind, rank: string): number {
   return SOCIAL_CLASSES[kind].find(row => row.name === rank)?.money ?? 1;
 }
 
-export function calculateStartingMoney(roll: number, moneyTable: CultureKind, socialTable: CultureKind, rank: string): number {
-  return roll * CULTURE_MONEY_MULTIPLIERS[moneyTable] * classMoneyMultiplier(socialTable, rank);
+export function isSocialClassResolvedForCulture(
+  currentCulture: CultureKind,
+  resolution: { rank: string; roll: number; method: "rolled" | "chosen"; money: number; equipment: string; resources: string },
+): boolean {
+  const row = SOCIAL_CLASSES[currentCulture].find(item => item.name === resolution.rank);
+  if (!row || row.money !== resolution.money || row.equipment !== resolution.equipment || row.possessions !== resolution.resources) return false;
+  return resolution.method === "chosen" || socialClassForRoll(currentCulture, resolution.roll).name === resolution.rank;
+}
+
+export function calculateStartingMoney(roll: number, moneyTable: CultureKind, socialClassModifier: number): number {
+  return roll * CULTURE_MONEY_MULTIPLIERS[moneyTable] * socialClassModifier;
 }
 
 export const PARENTS = [
