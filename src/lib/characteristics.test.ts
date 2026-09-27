@@ -1,12 +1,17 @@
 import { describe, expect, test } from "bun:test";
 import { deriveStats } from "./calc";
-import { swapAssignedValues } from "./characteristics";
+import { swapAssignedValues, swapCancellationAnnouncement } from "./characteristics";
 import { bodyRanges, reconcileMeasurements } from "./body";
 import { STATS, type Chars } from "./rules";
 
 const values = (): Chars => ({ STR: 11, CON: 8, SIZ: 12, DEX: 10, INT: 16, POW: 9, CHA: 13 });
 
 describe("rolled characteristic swaps", () => {
+  test("only announces cancellation when reroll clears an active swap selection", () => {
+    expect(swapCancellationAnnouncement(true)).toBe("Swap selection cancelled.");
+    expect(swapCancellationAnnouncement(false)).toBe("");
+  });
+
   test("exchanges two current values and their assignments without changing the roll results", () => {
     const chars = values();
     const rollResults = [...STATS.map(stat => chars[stat])];

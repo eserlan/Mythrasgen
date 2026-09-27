@@ -1,5 +1,6 @@
 <script lang="ts">
   import { canFinishPointBuy, pointBuyTotal, rollStat } from "../lib/calc";
+  import { swapCancellationAnnouncement } from "../lib/characteristics";
   import { CHAR_ROLL, POINT_BUY, STATS, STAT_NAMES, pointBuyMin, type Stat } from "../lib/rules";
   import { availableFrames, bodyRanges, isInRange, type Frame } from "../lib/body";
   import { char, setCharacteristic, setFrame, setHeight, setRollResults, setWeight, swapCharacteristics } from "../lib/store.svelte";
@@ -40,8 +41,9 @@
   }
   function reroll(k: Stat) {
     if (!char.rollResults) return;
+    const hadSelection = selectedStat !== null;
     selectedStat = null;
-    swapMessage = "Swap selection cancelled.";
+    swapMessage = swapCancellationAnnouncement(hadSelection);
     const index = char.rollAssignments[STATS.indexOf(k)];
     const result = rollStat(STATS[index]);
     char.rollResults[index] = result;

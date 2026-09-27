@@ -1,5 +1,10 @@
 import { STATS, type Chars, type Stat } from "./rules";
 
+/** Return an announcement only when rerolling cancels an active swap selection. */
+export function swapCancellationAnnouncement(selectionActive: boolean): string {
+  return selectionActive ? "Swap selection cancelled." : "";
+}
+
 /** Swap the rolled values currently assigned to two characteristics. */
 export function swapAssignedValues(chars: Chars, assignments: number[], first: Stat, second: Stat): boolean {
   const firstIndex = STATS.indexOf(first);
