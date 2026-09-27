@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { skillDef } from "../src/lib/calc";
+import { cultures } from "../src/lib/content";
 import { MAGIC, PROFESSIONAL, STANDARD } from "../src/lib/rules";
 
 const cases: [string, string][] = [
@@ -51,6 +52,11 @@ describe("skill definitions", () => {
   test("registered combat style names and Combat Style specialisations use STR+DEX", () => {
     expect(skillDef("Citizen Militia", ["Citizen Militia"]).f).toEqual(skillDef("Combat Style").f);
     expect(skillDef("Combat Style (Citizen Militia)").f).toEqual(skillDef("Combat Style").f);
+  });
+
+  test("every culture combat style is a professional skill", () => {
+    const styles = cultures.map(({ combatStyle }) => combatStyle);
+    for (const style of styles) expect(skillDef(style, styles).pro).toBe(true);
   });
 
   test("unknown names never default to the Combat Style formula", () => {
