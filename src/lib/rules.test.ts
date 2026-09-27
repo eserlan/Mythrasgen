@@ -107,13 +107,13 @@ describe("core culture and career packages", () => {
   // These fixtures lock the bundled core choices. Culture and career skills
   // are stage-eligible exactly where listed; a combat style enters at culture.
   test.each([
-    ["Civilised", "Citizen Militia", ["Customs", "Influence", "Locale", "Native Tongue", "Perception", "Willpower"], ["Bureaucracy", "Commerce", "Courtesy", "Streetwise"]],
-    ["Barbarian", "Tribal Warrior", ["Athletics", "Brawn", "Endurance", "Evade", "Native Tongue", "Stealth", "Swim"], ["Survival", "Track", "Lore (Tribal Lore)"]],
-    ["Nomad", "Horse Archer", ["Athletics", "Endurance", "Native Tongue", "Perception", "Ride"], ["Navigation", "Survival", "Track", "Craft (Leatherwork)"]],
-    ["Seafarer", "Boarding Party", ["Athletics", "Boating", "Brawn", "Endurance", "Native Tongue", "Swim"], ["Navigation", "Craft (Seamanship)", "Survival"]],
-  ] as const)("culture fixture %s", (name, style, standard, professional) => {
+    ["Civilised", "Civilised", "Citizen Militia", ["Customs", "Influence", "Locale", "Native Tongue", "Perception", "Willpower"], ["Bureaucracy", "Commerce", "Courtesy", "Streetwise"]],
+    ["Barbarian", "Barbarian", "Tribal Warrior", ["Athletics", "Brawn", "Endurance", "Evade", "Native Tongue", "Stealth", "Swim"], ["Survival", "Track", "Lore (Tribal Lore)"]],
+    ["Nomad", "Nomadic", "Horse Archer", ["Athletics", "Endurance", "Native Tongue", "Perception", "Ride"], ["Navigation", "Survival", "Track", "Craft (Leatherwork)"]],
+    ["Seafarer", null, "Boarding Party", ["Athletics", "Boating", "Brawn", "Endurance", "Native Tongue", "Swim"], ["Navigation", "Craft (Seamanship)", "Survival"]],
+  ] as const)("culture fixture %s", (name, kind, style, standard, professional) => {
     const culture = cultures.find(x => x.name === name)!;
-    expect(culture).toEqual({ name, combatStyle: style, standard: [...standard], professional: [...professional] });
+    expect(culture).toEqual({ name, kind, combatStyle: style, standard: [...standard], professional: [...professional] });
     expect(skillsForStage("culture", culture, careers[0])).toEqual([...new Set([...standard, style, ...professional])]);
   });
   test.each([
