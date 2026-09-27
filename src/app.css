@@ -262,3 +262,6 @@ svg.body text{text-anchor:middle;fill:var(--fg)}svg.body .hp{font:700 15px var(-
   .skills,.derived{margin:6px 0}
   .leaders.cols{columns:2}
 }
+.culture-combat-style{display:grid;gap:8px;margin-top:18px}
+.culture-combat-style .field{gap:8px}
+.culture-combat-style .hint{margin:0}
