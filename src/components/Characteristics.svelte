@@ -50,8 +50,13 @@
   <button class:primary={char.generation === "roll"} onclick={rollAll}>{characteristicsActionLabel(!!char.rollResults)}</button>
   <button class:primary={char.generation === "pointBuy"} onclick={() => (char.generation = "pointBuy")}>Point-buy</button>
   {#if char.generation === "pointBuy"}
-    <span class="mute">Spend exactly {POINT_BUY.budget} points. STR/CON/DEX/POW/CHA: {POINT_BUY.min}–{POINT_BUY.max}; INT/SIZ: 8–{POINT_BUY.max}.</span>
-    <span class="pill" class:over={left < 0} class:ok={left === 0}>{left} points left</span>
+    <div class="point-buy-guidance">
+      <strong>Distribute {POINT_BUY.budget} points between your Characteristics. All {POINT_BUY.budget} points must be spent.</strong>
+      <span class="mute point-buy-rules">STR, CON, DEX, POW and CHA: {POINT_BUY.min}–{POINT_BUY.max} · INT and SIZ: 8–{POINT_BUY.max}</span>
+    </div>
+    <span class="pill point-buy-status" class:over={left < 0} class:ok={left === 0} aria-live="polite" aria-atomic="true">
+      {left === 0 ? "All points spent" : `${left} points left`}
+    </span>
   {:else}
     <span class="mute">Assign the rolled results to fit your character concept. Select a result to swap it with another characteristic.</span>
   {/if}
