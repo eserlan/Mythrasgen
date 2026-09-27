@@ -4,7 +4,10 @@
   import { char, culture, career } from "../lib/store.svelte";
   const cu = $derived(culture()), ca = $derived(career());
   // Changing culture/career invalidates the points spent on it.
-  const pick = (kind: "culture" | "career", i: number) => { char[kind] = i; char.alloc[kind] = {}; };
+  const pick = (kind: "culture" | "career", i: number) => {
+    char[kind] = i; char.alloc[kind] = {};
+    if (kind === "career") char.careerProfessional = [];
+  };
 </script>
 
 <StepHead step={0} title="Who are you?" />
@@ -30,7 +33,7 @@
         {#each careers as c, i}<option value={i}>{c.name}</option>{/each}
       </select></label>
     <p class="label">Skills</p>
-    <p>{#each [...ca.standard, ...ca.professional] as s}<span class="chip">{s}</span>{/each}</p>
+    <p>{#each [...ca.standard, ...(ca.combatStyle ?? []), ...ca.professional] as s}<span class="chip">{s}</span>{/each}</p>
   </div>
 </div>
 <p class="mute">Add your own cultures and careers in <code>src/lib/content.ts</code>.</p>

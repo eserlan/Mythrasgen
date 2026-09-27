@@ -30,13 +30,16 @@ export const STANDARD: Skill[] = [
   ["Willpower", [["POW", 2]]],
 ];
 export const PROFESSIONAL: Skill[] = [
-  ["Acrobatics", ["STR", "DEX"]], ["Acting", ["CHA", "INT"]], ["Bureaucracy", [["INT", 2]]],
+  ["Acrobatics", ["STR", "DEX"]], ["Acting", ["CHA", "INT"]], ["Art", ["CHA", "POW"]], ["Bureaucracy", [["INT", 2]]],
   ["Commerce", ["INT", "CHA"]], ["Courtesy", ["INT", "CHA"]], ["Craft", ["INT", "DEX"]],
-  ["Disguise", ["INT", "CHA"]], ["Engineering", [["INT", 2]]], ["Gambling", ["INT", "POW"]],
-  ["Healing", ["INT", "POW"]], ["Language", ["INT", "CHA"]], ["Lore", [["INT", 2]]],
+  ["Binding", ["CHA", "POW"]], ["Culture", [["INT", 2]]], ["Disguise", ["INT", "CHA"]], ["Devotion", ["CHA", "POW"]],
+  ["Engineering", [["INT", 2]]], ["Exhort", ["INT", "CHA"]], ["Folk Magic", ["CHA", "POW"]], ["Gambling", ["INT", "POW"]],
+  ["Healing", ["INT", "POW"]], ["Invocation", [["INT", 2]]], ["Language", ["INT", "CHA"]], ["Literacy", [["INT", 2]]],
+  ["Lockpicking", [["DEX", 2]]], ["Lore", [["INT", 2]]],
   ["Mechanisms", ["DEX", "INT"]], ["Musicianship", ["DEX", "CHA"]], ["Navigation", ["INT", "POW"]],
-  ["Oratory", ["POW", "CHA"]], ["Seduction", ["INT", "CHA"]], ["Sleight", ["DEX", "CHA"]],
+  ["Meditation", ["INT", "CON"]], ["Mysticism", ["POW", "CON"]], ["Oratory", ["POW", "CHA"]],
+  ["Seduction", ["INT", "CHA"]], ["Shaping", ["INT", "POW"]], ["Sleight", ["DEX", "CHA"]],
   ["Streetwise", ["POW", "CHA"]], ["Survival", ["CON", "POW"]], ["Teach", ["INT", "CHA"]],
-  ["Track", ["INT", "CON"]],
+  ["Track", ["INT", "CON"]], ["Trance", ["POW", "CON"]], ["Seamanship", ["INT", "CON"]],
 ];
 export const COMBAT_STYLE_FORMULA: Term[] = ["STR", "DEX"];

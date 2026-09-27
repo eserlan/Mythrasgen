@@ -1,7 +1,7 @@
 <script lang="ts">
   import { skillDef } from "../lib/calc";
   import { PER_SKILL_CAP, POOLS, type Kind } from "../lib/rules";
-  import { addExtra, base, career, char, culture, setAlloc, stepSkills, total, used } from "../lib/store.svelte";
+  import { addExtra, base, career, char, culture, setAlloc, stepSkills, toggleCareerProfessional, total, used } from "../lib/store.svelte";
   import StepHead from "./StepHead.svelte";
   import Stepper from "./Stepper.svelte";
   let { kind }: { kind: Kind } = $props();
@@ -17,6 +17,18 @@
   <div class="left"><b>{left}</b><span>points remain <em>of {pool} · max +{PER_SKILL_CAP} per skill</em></span></div>
   <div class="meter"><i style:width="{(pool - left) / pool * 100}%"></i></div>
 </div>
+{#if kind === "career"}
+  <section class="card career-picks" aria-label="Career Professional Skill selection">
+    <h3>Choose up to three Professional Skills</h3>
+    <p class="mute">Only selected Professional Skills, listed Standard Skills, and career Combat Styles can receive career points.</p>
+    <div class="career-options">
+      {#each career().professional as s (s)}
+        <label><input type="checkbox" checked={char.careerProfessional.includes(s)} disabled={!char.careerProfessional.includes(s) && char.careerProfessional.length >= 3}
+          onchange={() => toggleCareerProfessional(s)}>{s}</label>
+      {/each}
+    </div>
+  </section>
+{/if}
 <div class="card skills">
   {#each names as n (n)}
     {@const v = char.alloc[kind][n] ?? 0}

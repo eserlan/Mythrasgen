@@ -1,10 +1,10 @@
-import { careers, cultures } from "./content";
+import { careerSkillOptions, careers, cultures, selectCareerProfessional } from "./content";
 import { baseName, formulaVal, skillDef, sum } from "./calc";
 import { PER_SKILL_CAP, POOLS, STANDARD, STATS, type Chars, type Kind } from "./rules";
 
 export interface Character {
   name: string; chars: Chars; culture: number; career: number;
-  alloc: Record<Kind, Record<string, number>>; extras: string[]; step: number;
+  alloc: Record<Kind, Record<string, number>>; extras: string[]; careerProfessional: string[]; step: number;
   /** True while the landing page is showing. */
   home: boolean;
 }
@@ -22,7 +22,7 @@ export const INTRO = [
 
 const blank = (): Character => ({
   name: "", chars: Object.fromEntries(STATS.map(k => [k, 10])) as Chars, culture: 0, career: 0,
-  alloc: { culture: {}, career: {}, bonus: {} }, extras: [], step: 0, home: true,
+  alloc: { culture: {}, career: {}, bonus: {} }, extras: [], careerProfessional: [], step: 0, home: true,
 });
 function load(): Character {
   try { return { ...blank(), ...JSON.parse(localStorage.getItem(KEY) ?? "null") }; } catch { return blank(); }
@@ -44,9 +44,20 @@ export const total = (n: string) => base(n) + added(n);
 export const used = (k: Kind) => sum(Object.values(char.alloc[k]));
 
 export function setAlloc(kind: Kind, name: string, v: number) {
+  if (kind === "career" && !careerSkillOptions(career(), char.careerProfessional).includes(name)) return;
   const a = char.alloc[kind], room = POOLS[kind] - used(kind) + (a[name] ?? 0);
   const n = Math.max(0, Math.min(PER_SKILL_CAP, room, Math.round(v) || 0));
   if (n) a[name] = n; else delete a[name];
+}
+export function toggleCareerProfessional(name: string) {
+  const selected = char.careerProfessional;
+  const next = selectCareerProfessional(career(), selected, name);
+  if (next !== selected) {
+    char.careerProfessional = next;
+    if (!next.includes(name)) {
+      if (!careerSkillOptions(career(), char.careerProfessional).includes(name)) delete char.alloc.career[name];
+    }
+  }
 }
 export function addExtra(name: string) {
   const v = name.trim(); if (v && !char.extras.includes(v)) char.extras.push(v);
@@ -54,13 +65,14 @@ export function addExtra(name: string) {
 
 export function allSkills(): string[] {
   const c = culture(), k = career();
-  return [...new Set([...STANDARD.map(s => s[0]), c.combatStyle, ...c.professional, ...k.professional,
+  return [...new Set([...STANDARD.map(s => s[0]), c.combatStyle, ...c.professional, ...k.standard,
+    ...(k.combatStyle ?? []), ...char.careerProfessional,
     ...char.extras, ...(Object.keys(POOLS) as Kind[]).flatMap(x => Object.keys(char.alloc[x]))])];
 }
 export function stepSkills(kind: Kind): string[] {
   const c = culture(), k = career();
   if (kind === "culture") return [...new Set([...c.standard, c.combatStyle, ...c.professional])];
-  if (kind === "career") return [...new Set([...k.standard, ...k.professional])];
+  if (kind === "career") return careerSkillOptions(k, char.careerProfessional);
   return allSkills();
 }
 export { baseName };
