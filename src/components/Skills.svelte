@@ -69,11 +69,13 @@
           onchange={e => toggleCultureProfessional(option, e.currentTarget.checked)}>{option}</label>
       {/each}
     </div>
-    <label class="field"><span>Cultural Combat Style (optional)</span>
-      <input class="wide" value={char.cultureSelections.combatStyle} placeholder="Enter one cultural Combat Style, if desired"
-        onchange={e => setCultureCombatStyle(e.currentTarget.value)}>
-    </label>
-    <p class="hint">This style is eligible for Culture points and uses its STR + DEX base.</p>
+    <div class="culture-combat-style">
+      <label class="field"><span>Cultural Combat Style (optional)</span>
+        <input class="wide" value={char.cultureSelections.combatStyle} placeholder="Enter one cultural Combat Style, if desired"
+          onchange={e => setCultureCombatStyle(e.currentTarget.value)}>
+      </label>
+      <p class="hint">This style is eligible for Culture points and uses its STR + DEX base.</p>
+    </div>
   </section>
 {/if}
 <div class="card skills">
