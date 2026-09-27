@@ -8,6 +8,7 @@ import { cultureSkills, reconcileCultureCombatStyle, validateCultureAllocation }
 import { migrateCharacter } from "./migration";
 import { AGE_CATEGORIES, bonusCap, bonusPool, MAGIC, PER_SKILL_CAP, POOLS, STANDARD, STATS, type AgeCategory, type Chars, type Kind, type PassionCategory } from "./rules";
 import { createCharacterRepository } from "./character-library";
+import { availableFrames, bodyRanges, FRAMES, isInRange, reconcileMeasurements, type Frame } from "./body";
 
 export interface Passion {
   type: "Loyalty" | "Love" | "Hate";
@@ -19,6 +20,9 @@ export interface Passion {
 
 export interface Character {
   id: string; name: string; race: string; nativeLanguage: string; chars: Chars; ageCategory: AgeCategory; age: number; culture: number; career: number;
+  frame: Frame; height: number | null; weight: number | null;
+  /** Optional race/template restriction; omitted for human characters. */
+  frameOptions?: Frame[];
   cultureSelections: { standard: string[][]; professional: string[]; combatStyle: string };
   cultureMigration?: boolean;
   alloc: Record<Kind, Record<string, number>>; hobbySkill: string; extras: string[]; careerProfessional: string[]; step: number;
@@ -52,6 +56,7 @@ export const INTRO = [
 
 const blank = (): Character => ({
   id: "", name: "", race: "", nativeLanguage: "", chars: Object.fromEntries(STATS.map(k => [k, 10])) as Chars,
+  frame: "Medium", height: null, weight: null,
   ageCategory: "adult", age: rollAge("adult"), culture: 0, career: 0,
   cultureSelections: { standard: [], professional: [], combatStyle: "" },
   alloc: { culture: {}, career: {}, bonus: {} }, hobbySkill: "", extras: [], careerProfessional: [], step: 0,
@@ -102,6 +107,15 @@ function normalize(value: Partial<Character> | null, home = true): Character {
     normalized.background.socialClassEquipment = savedClass.equipment;
     normalized.background.socialClassResources = savedClass.possessions;
   }
+  normalized.frameOptions = Array.isArray(migrated.frameOptions)
+    ? migrated.frameOptions.filter((frame): frame is Frame => FRAMES.includes(frame as Frame))
+    : undefined;
+  if (!FRAMES.includes(normalized.frame) || !availableFrames(normalized.frameOptions).includes(normalized.frame)) {
+    normalized.frame = availableFrames(normalized.frameOptions)[0] ?? "Medium";
+  }
+  const bodyRange = bodyRanges(normalized.chars.SIZ, normalized.frame);
+  normalized.height = isInRange(Number.isInteger(migrated.height) ? migrated.height : null, bodyRange?.height) ? migrated.height! : null;
+  normalized.weight = isInRange(Number.isInteger(migrated.weight) ? migrated.weight : null, bodyRange?.weight) ? migrated.weight! : null;
   const eventSlots = reconcileBackgroundEvents(normalized.background.events, normalized.background.archivedEvents, BACKGROUND_EVENT_COUNTS[ageCategory]);
   normalized.background.events = eventSlots.events;
   normalized.background.archivedEvents = eventSlots.archived;
@@ -200,22 +214,53 @@ export function renameCharacter(id: string, name: string) {
   refreshLibrary();
 }
 export function setRollResults(results: number[]) {
-  if (results.length !== STATS.length) return;
+  if (results.length !== STATS.length) return "";
   char.generation = "roll";
   char.rollResults = [...results];
   char.rollAssignments = STATS.map((_, i) => i);
   STATS.forEach((k, i) => { char.chars[k] = results[i]; });
+  return reconcileBodyMeasurements();
 }
 export function assignRoll(stat: (typeof STATS)[number], resultIndex: number) {
-  if (char.generation !== "roll" || !char.rollResults || resultIndex < 0 || resultIndex >= STATS.length) return;
+  if (char.generation !== "roll" || !char.rollResults || resultIndex < 0 || resultIndex >= STATS.length) return "";
   const statIndex = STATS.indexOf(stat);
   const current = char.rollAssignments[statIndex];
   const otherStat = char.rollAssignments.indexOf(resultIndex);
-  if (otherStat < 0 || otherStat === statIndex) return;
+  if (otherStat < 0 || otherStat === statIndex) return "";
   char.rollAssignments[statIndex] = resultIndex;
   char.rollAssignments[otherStat] = current;
   char.chars[stat] = char.rollResults[resultIndex];
   char.chars[STATS[otherStat]] = char.rollResults[current];
+  return stat === "SIZ" || STATS[otherStat] === "SIZ" ? reconcileBodyMeasurements() : "";
+}
+function reconcileBodyMeasurements(): string {
+  const reconciled = reconcileMeasurements(char.height, char.weight, bodyRanges(char.chars.SIZ, char.frame));
+  char.height = reconciled.height;
+  char.weight = reconciled.weight;
+  return reconciled.cleared.length
+    ? `${reconciled.cleared.map(value => value[0].toUpperCase() + value.slice(1)).join(" and ")} cleared because the new SIZ/Frame range no longer allows the previous value.`
+    : "";
+}
+export function setCharacteristic(stat: (typeof STATS)[number], value: number): string {
+  char.chars[stat] = value;
+  return stat === "SIZ" ? reconcileBodyMeasurements() : "";
+}
+export function setFrame(frame: Frame): string {
+  if (!availableFrames(char.frameOptions).includes(frame)) return "";
+  char.frame = frame;
+  return reconcileBodyMeasurements();
+}
+export function setHeight(value: number | null): boolean {
+  if (value === null) { char.height = null; return true; }
+  if (!isInRange(value, bodyRanges(char.chars.SIZ, char.frame)?.height)) return false;
+  char.height = value;
+  return true;
+}
+export function setWeight(value: number | null): boolean {
+  if (value === null) { char.weight = null; return true; }
+  if (!isInRange(value, bodyRanges(char.chars.SIZ, char.frame)?.weight)) return false;
+  char.weight = value;
+  return true;
 }
 export const hasProgress = () => !!char.name || char.step > 0 || used("culture") + used("career") + used("bonus") > 0
   || STATS.some(k => char.chars[k] !== 10);
