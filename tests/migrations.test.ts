@@ -1,5 +1,13 @@
 import { describe, expect, test } from "bun:test";
-import { migrateCharacterStep, migrateCultureTables, normalizeAgeCategory, normalizeBackground } from "../src/lib/migrations";
+import { migrateCharacterStep, migrateCultureTables, normalizeAgeCategory, normalizeBackground, normalizeRace } from "../src/lib/migrations";
+
+describe("race normalization", () => {
+  test("keeps a saved race and defaults missing or malformed legacy values to blank", () => {
+    expect(normalizeRace("Elf")).toBe("Elf");
+    expect(normalizeRace(undefined)).toBe("");
+    expect(normalizeRace(42)).toBe("");
+  });
+});
 
 describe("legacy character step migration", () => {
   test("keeps old sheet saves on the sheet after inserting Background", () => {

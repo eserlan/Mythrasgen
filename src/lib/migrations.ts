@@ -49,6 +49,11 @@ export function normalizeAgeCategory(value: unknown, fallback: AgeCategory): Age
   return typeof value === "string" ? legacy[value] ?? fallback : fallback;
 }
 
+/** Legacy character saves may not contain a race value. */
+export function normalizeRace(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
 /** Fill newly added background fields and discard malformed imported collection values. */
 export function normalizeBackground(value: unknown, fallback: BackgroundData): BackgroundData {
   const saved = value && typeof value === "object" && !Array.isArray(value)
