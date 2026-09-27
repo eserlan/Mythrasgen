@@ -1,6 +1,7 @@
 <script lang="ts">
   import { type Kind } from "../lib/rules";
-  import { addExtra, base, capFor, career, char, culture, cultureAllocationErrors, poolFor, refreshBonusEligibility, setAlloc, setCultureCombatStyle, setHobbySkill, skillDefinition, stepSkills, toggleCareerProfessional, total, used } from "../lib/store.svelte";
+  import { addExtra, base, capFor, career, careerAllocationErrors, char, culture, cultureAllocationErrors, poolFor, reconcileCultureSelection, refreshBonusEligibility, setAlloc, setCultureCombatStyle, setHobbySkill, setSkillSpecialisation, skillDefinition, stepSkills, toggleCareerProfessional, total, used } from "../lib/store.svelte";
+  import { requiresSpecialisation } from "../lib/specialisations";
   import StepHead from "./StepHead.svelte";
   import Stepper from "./Stepper.svelte";
   let { kind }: { kind: Kind } = $props();
@@ -10,6 +11,7 @@
   const left = $derived(pool - used(kind));
   const title = $derived({ culture: `Culture · ${culture().name}`, career: `Career · ${career().name}`, bonus: "Bonus skills" }[kind]);
   const cultureErrors = $derived(cultureAllocationErrors());
+  const careerErrors = $derived(careerAllocationErrors());
   let extra = $state("");
   let extraError = $state("");
   function toggleCultureStandard(group: number, option: string, checked: boolean) {
@@ -22,9 +24,9 @@
   function toggleCultureProfessional(option: string, checked: boolean) {
     const selected = char.cultureSelections.professional;
     char.cultureSelections.professional = checked ? [...selected, option] : selected.filter(x => x !== option);
-    char.alloc.culture = {};
+    if (!checked) delete char.skillSpecialisations.culture[option];
+    reconcileCultureSelection();
     char.cultureMigration = false;
-    refreshBonusEligibility();
   }
 </script>
 
@@ -39,11 +41,20 @@
     <p class="mute">Only selected Professional Skills, listed Standard Skills, and career Combat Styles can receive career points.</p>
     <div class="career-options">
       {#each career().professional as s (s)}
-        <label><input type="checkbox" checked={char.careerProfessional.includes(s)} disabled={!char.careerProfessional.includes(s) && char.careerProfessional.length >= 3}
-          onchange={() => toggleCareerProfessional(s)}>{s}</label>
+        <div class="professional-choice">
+          <label><input type="checkbox" checked={char.careerProfessional.includes(s)} disabled={!char.careerProfessional.includes(s) && char.careerProfessional.length >= 3}
+            onchange={() => toggleCareerProfessional(s)}>{requiresSpecialisation(s) ? s.replace(/\s*\([^)]*\)$/, "") : s}</label>
+          {#if char.careerProfessional.includes(s) && requiresSpecialisation(s)}
+            <label class="specialisation-field"><span class="sr-only">{s.replace(/\s*\([^)]*\)$/, "")} specialisation</span>
+              <input value={char.skillSpecialisations.career[s] ?? ""} placeholder="Enter specialisation" aria-label="{s.replace(/\s*\([^)]*\)$/, "")} specialisation"
+                oninput={e => setSkillSpecialisation("career", s, e.currentTarget.value)}>
+            </label>
+          {/if}
+        </div>
       {/each}
     </div>
   </section>
+  {#if careerErrors.length}<div class="validation" role="status"><b>Career selection incomplete</b><ul>{#each careerErrors as error}<li>{error}</li>{/each}</ul></div>{/if}
 {/if}
 {#if kind === "culture" && cultureErrors.length}
   <div class="validation" role="status"><b>Culture allocation incomplete</b><ul>{#each cultureErrors as error}<li>{error}</li>{/each}</ul></div>
@@ -64,9 +75,17 @@
     <p class="label">Select up to three Professional Skills ({char.cultureSelections.professional.length}/3)</p>
     <div class="choice-list">
       {#each culture().professional as option}
-        <label><input type="checkbox" checked={char.cultureSelections.professional.includes(option)}
-          disabled={!char.cultureSelections.professional.includes(option) && char.cultureSelections.professional.length >= 3}
-          onchange={e => toggleCultureProfessional(option, e.currentTarget.checked)}>{option}</label>
+        <div class="professional-choice">
+          <label><input type="checkbox" checked={char.cultureSelections.professional.includes(option)}
+            disabled={!char.cultureSelections.professional.includes(option) && char.cultureSelections.professional.length >= 3}
+            onchange={e => toggleCultureProfessional(option, e.currentTarget.checked)}>{requiresSpecialisation(option) ? option.replace(/\s*\([^)]*\)$/, "") : option}</label>
+          {#if char.cultureSelections.professional.includes(option) && requiresSpecialisation(option)}
+            <label class="specialisation-field"><span class="sr-only">{option.replace(/\s*\([^)]*\)$/, "")} specialisation</span>
+              <input value={char.skillSpecialisations.culture[option] ?? ""} placeholder="Enter specialisation" aria-label="{option.replace(/\s*\([^)]*\)$/, "")} specialisation"
+                oninput={e => setSkillSpecialisation("culture", option, e.currentTarget.value)}>
+            </label>
+          {/if}
+        </div>
       {/each}
     </div>
     <label class="field"><span>Cultural Combat Style (optional)</span>

@@ -9,13 +9,14 @@
   import Characters from "./components/Characters.svelte";
   import { canFinishPointBuy } from "./lib/calc";
   import { canVisitStep, isLandingView } from "./lib/navigation";
-  import { canComplete, char, createCharacter, cultureAllocationErrors, persist, replace, ROMAN, STEPS } from "./lib/store.svelte";
+  import { canComplete, careerAllocationErrors, char, createCharacter, cultureAllocationErrors, persist, replace, ROMAN, STEPS } from "./lib/store.svelte";
 
   let open = $state(false);
   let showLibrary = $state(false);
   const last = STEPS.length - 1;
   const canContinue = $derived(char.generation === "roll" || canFinishPointBuy(char.chars));
   const canVisit = (step: number) => canVisitStep(step, canContinue, cultureAllocationErrors().length === 0)
+    && (step < 4 || careerAllocationErrors().length === 0)
     && (step !== last || canComplete());
 
   // Persist on any change and scroll to top when the step changes.
