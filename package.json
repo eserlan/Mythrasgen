@@ -7,7 +7,8 @@
     "build": "vite build",
     "test": "bun test",
     "preview": "vite preview",
-    "check": "svelte-check"
+    "check": "svelte-check",
+    "test": "bun test"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.3.1",

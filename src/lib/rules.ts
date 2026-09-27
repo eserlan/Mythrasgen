@@ -31,13 +31,22 @@ export const STANDARD: Skill[] = [
   ["Willpower", [["POW", 2]]],
 ];
 export const PROFESSIONAL: Skill[] = [
-  ["Acrobatics", ["STR", "DEX"]], ["Acting", ["CHA", "INT"]], ["Bureaucracy", [["INT", 2]]],
-  ["Commerce", ["INT", "CHA"]], ["Courtesy", ["INT", "CHA"]], ["Craft", ["INT", "DEX"]],
-  ["Disguise", ["INT", "CHA"]], ["Engineering", [["INT", 2]]], ["Gambling", ["INT", "POW"]],
-  ["Healing", ["INT", "POW"]], ["Language", ["INT", "CHA"]], ["Lore", [["INT", 2]]],
-  ["Mechanisms", ["DEX", "INT"]], ["Musicianship", ["DEX", "CHA"]], ["Navigation", ["INT", "POW"]],
-  ["Oratory", ["POW", "CHA"]], ["Seduction", ["INT", "CHA"]], ["Sleight", ["DEX", "CHA"]],
+  ["Acrobatics", ["STR", "DEX"]], ["Acting", [["CHA", 2]]], ["Art", ["POW", "CHA"]],
+  ["Bureaucracy", [["INT", 2]]], ["Commerce", ["INT", "CHA"]], ["Courtesy", ["INT", "CHA"]],
+  ["Craft", ["DEX", "INT"]], ["Culture", [["INT", 2]]], ["Disguise", ["INT", "CHA"]],
+  ["Engineering", [["INT", 2]]], ["Exhort", ["INT", "CHA"]], ["Gambling", ["INT", "POW"]],
+  ["Healing", ["INT", "POW"]], ["Language", ["INT", "CHA"]], ["Literacy", [["INT", 2]]],
+  ["Lockpicking", [["DEX", 2]]], ["Lore", [["INT", 2]]], ["Mechanisms", ["DEX", "INT"]],
+  ["Musicianship", ["DEX", "CHA"]], ["Navigation", ["INT", "POW"]], ["Oratory", ["POW", "CHA"]],
+  ["Seamanship", ["INT", "CON"]], ["Seduction", ["INT", "CHA"]], ["Sleight", ["DEX", "CHA"]],
   ["Streetwise", ["POW", "CHA"]], ["Survival", ["CON", "POW"]], ["Teach", ["INT", "CHA"]],
   ["Track", ["INT", "CON"]],
 ];
+/** Professional skills used by the core magic traditions and character creation. */
+export const MAGIC: Skill[] = [
+  ["Binding", ["POW", "CHA"]], ["Devotion", ["POW", "CHA"]], ["Folk Magic", ["POW", "CHA"]],
+  ["Invocation", [["INT", 2]]], ["Meditation", ["INT", "CON"]], ["Mysticism", ["POW", "CON"]],
+  ["Shaping", ["INT", "POW"]], ["Trance", ["POW", "CON"]],
+];
 export const COMBAT_STYLE_FORMULA: Term[] = ["STR", "DEX"];
+export const COMBAT_STYLE: Skill = ["Combat Style", COMBAT_STYLE_FORMULA];
