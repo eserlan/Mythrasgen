@@ -5,7 +5,7 @@
   import Derived from "./Derived.svelte";
   import HitLocations from "./HitLocations.svelte";
   import StepHead from "./StepHead.svelte";
-  import { CONNECTIONS, FAMILY_STANDING, tableResult } from "../lib/background-rules";
+  import { CONNECTIONS, FAMILY_STANDING, resolvedBackgroundEvents, tableResult } from "../lib/background-rules";
   const loc = $derived(deriveStats(char.chars).loc);
   const skills = $derived(allSkills().sort());
   const std = $derived(skills.filter(n => !skillDefinition(n).pro));
@@ -32,7 +32,7 @@
     <p><b>Parents:</b> {char.background.parents || "Unrecorded"} · <b>Siblings:</b> {char.background.siblings || "Unrecorded"}</p>
     {#if char.background.extendedFamily}<p><b>Extended family:</b> {char.background.extendedFamily}</p>{/if}
     <p><b>Family standing:</b> {standing[2]} · ties: {char.background.familyTies.join(", ") || "None generated"} · <b>Connections:</b> {connectionTier[2]} — {char.background.connections.join(", ") || "None generated"}</p>
-    {#each char.background.events.filter(event => event.roll >= 1 && event.roll <= 100) as event, i}<p><b>Background event {i + 1} (official table result {event.roll}):</b> {event.text || "See Mythras Core Rules pp. 18–20"}</p>{/each}
+    {#each resolvedBackgroundEvents(char.background.events) as { event, index }}<p><b>Background event {index + 1} (official table result {event.roll}):</b> {event.text || "See Mythras Core Rules pp. 18–20"}</p>{/each}
     <p><b>Starting equipment:</b> {char.background.equipment || "Unrecorded"}</p>
     <p><b>Starting money:</b> {startingMoney()} sp · <b>Remaining:</b> {availableMoney()} sp</p>
     {#if char.background.purchases.length}<ul>{#each char.background.purchases as item}<li>{item.name} · {item.cost} sp</li>{/each}</ul>{/if}

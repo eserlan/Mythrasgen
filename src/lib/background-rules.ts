@@ -39,6 +39,10 @@ export function isResolvedBackgroundEvent(event: BackgroundEvent): boolean {
   return Number.isInteger(event.roll) && event.roll >= 1 && event.roll <= 100;
 }
 
+export function resolvedBackgroundEvents(events: BackgroundEvent[]): { event: BackgroundEvent; index: number }[] {
+  return events.flatMap((event, index) => isResolvedBackgroundEvent(event) ? [{ event, index }] : []);
+}
+
 export function setBackgroundEventResult(
   current: BackgroundEvent,
   roll: number,

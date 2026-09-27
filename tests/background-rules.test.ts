@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { BACKGROUND_EVENT_COUNTS, calculateStartingMoney, reconcileBackgroundEvents, setBackgroundEventResult, SOCIAL_CLASSES, socialClassForRoll } from "../src/lib/background-rules";
+import { BACKGROUND_EVENT_COUNTS, calculateStartingMoney, reconcileBackgroundEvents, resolvedBackgroundEvents, setBackgroundEventResult, SOCIAL_CLASSES, socialClassForRoll } from "../src/lib/background-rules";
 
 describe("background event counts", () => {
   test("uses the age category event totals", () => {
@@ -30,6 +30,11 @@ describe("background event counts", () => {
   test("clears text when the resolved result changes", () => {
     expect(setBackgroundEventResult({ roll: 41, text: "Old event" }, 42, "chosen"))
       .toEqual({ roll: 42, text: "", source: "chosen" });
+  });
+
+  test("keeps original slot numbers when unresolved events are omitted from the sheet", () => {
+    expect(resolvedBackgroundEvents([{ roll: 0, text: "" }, { roll: 42, text: "Resolved" }]))
+      .toEqual([{ event: { roll: 42, text: "Resolved" }, index: 1 }]);
   });
 });
 
