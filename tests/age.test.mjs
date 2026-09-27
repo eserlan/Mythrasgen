@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { rollAge } from "../src/lib/calc.ts";
+import { normalizeAge, rollAge } from "../src/lib/calc.ts";
 import { AGE_CATEGORIES, ageRollBounds, bonusCap, bonusPool } from "../src/lib/rules.ts";
 
 const expected = [
@@ -24,4 +24,12 @@ describe("age categories", () => {
       }
     });
   }
+
+  test("normalizes ages outside the selected category's integer bounds", () => {
+    expect(normalizeAge(17, "adult", () => 0)).toBe(17);
+    expect(normalizeAge(16, "adult", () => 0)).toBe(17);
+    expect(normalizeAge(28, "adult", () => 0)).toBe(17);
+    expect(normalizeAge(20.5, "adult", () => 0)).toBe(17);
+    expect(normalizeAge(Number.NaN, "adult", () => 0)).toBe(17);
+  });
 });

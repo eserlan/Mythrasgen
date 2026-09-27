@@ -1,5 +1,5 @@
 import { careers, cultures } from "./content";
-import { baseName, formulaVal, rollAge, skillDef, sum } from "./calc";
+import { baseName, formulaVal, normalizeAge, rollAge, skillDef, sum } from "./calc";
 import { AGE_CATEGORIES, bonusCap, bonusPool, PER_SKILL_CAP, POOLS, STANDARD, STATS, type AgeCategory, type Chars, type Kind } from "./rules";
 
 export interface Character {
@@ -39,7 +39,7 @@ function normalize(saved: Partial<Character> | null, home = true): Character {
     home,
   } as Character;
   if (!Object.hasOwn(AGE_CATEGORIES, c.ageCategory)) c.ageCategory = "adult";
-  if (!Number.isFinite(c.age)) c.age = rollAge(c.ageCategory);
+  c.age = normalizeAge(c.age, c.ageCategory);
   if (typeof c.hobbySkill !== "string") c.hobbySkill = "";
   if (c.generation !== "roll") c.generation = "pointBuy";
   if (!Array.isArray(c.rollResults) || c.rollResults.length !== STATS.length) c.rollResults = null;

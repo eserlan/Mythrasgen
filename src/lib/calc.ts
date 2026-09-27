@@ -1,4 +1,4 @@
-import { AGE_CATEGORIES, CHAR_ROLL, COMBAT_STYLE_FORMULA, POINT_BUY, PROFESSIONAL, STANDARD, STATS, pointBuyMin, type AgeCategory, type Chars, type Stat, type Term } from "./rules";
+import { AGE_CATEGORIES, ageRollBounds, CHAR_ROLL, COMBAT_STYLE_FORMULA, POINT_BUY, PROFESSIONAL, STANDARD, STATS, pointBuyMin, type AgeCategory, type Chars, type Stat, type Term } from "./rules";
 
 export const sum = (a: number[]) => a.reduce((x, y) => x + y, 0);
 const d = (n: number, random: () => number) => 1 + Math.floor(random() * n);
@@ -9,6 +9,10 @@ export function roll(expr: string, random: () => number = Math.random): number {
 }
 export const rollStat = (k: Stat, random: () => number = Math.random) => roll(CHAR_ROLL[k], random);
 export const rollAge = (category: AgeCategory) => roll(AGE_CATEGORIES[category].roll);
+export function normalizeAge(age: number, category: AgeCategory, random: () => number = Math.random): number {
+  const [min, max] = ageRollBounds(category);
+  return Number.isInteger(age) && age >= min && age <= max ? age : roll(AGE_CATEGORIES[category].roll, random);
+}
 
 export const pointBuyTotal = (chars: Chars) => sum(STATS.map(k => chars[k]));
 export const canFinishPointBuy = (chars: Chars) => pointBuyTotal(chars) === POINT_BUY.budget
