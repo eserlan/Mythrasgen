@@ -41,6 +41,7 @@
   function reroll(k: Stat) {
     if (!char.rollResults) return;
     selectedStat = null;
+    swapMessage = "Swap selection cancelled.";
     const index = char.rollAssignments[STATS.indexOf(k)];
     const result = rollStat(STATS[index]);
     char.rollResults[index] = result;
