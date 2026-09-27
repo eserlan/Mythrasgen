@@ -58,7 +58,7 @@ function normalize(value: Partial<Character>): Character {
   const normalized: Character = {
     ...fallback,
     ...migrated,
-    career: legacyCareer ? restoreLegacyCareerIndex(migrated.career) : migrated.career ?? fallback.career,
+    career: legacyCareer ? restoreLegacyCareerIndex(migrated.career ?? fallback.career) : migrated.career ?? fallback.career,
     cultureSelections: { ...fallback.cultureSelections, ...migrated.cultureSelections },
     step: migrateCharacterStep(migrated.step ?? fallback.step, !!migrated.background),
     ...migrateCultureTables(cultureKind, migrated.socialTable, migrated.moneyTable),
