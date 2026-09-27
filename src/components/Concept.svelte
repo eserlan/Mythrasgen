@@ -33,14 +33,7 @@
 <StepHead step={0} title="Who are you?" />
 <div class="card concept-identity">
   <label class="field"><span>Name</span><input bind:value={char.name} placeholder="Name your character"></label>
-  <label class="field"><span>Native Language</span>
-    <input value={char.nativeLanguage} oninput={e => setNativeLanguage(e.currentTarget.value)} placeholder="Elvish" autocomplete="off">
-  </label>
-  {#if char.nativeLanguage.trim()}
-    <p class="hint">The language your character learned growing up. It is recorded as Native Tongue ({char.nativeLanguage.trim()}) and receives the cultural +40.</p>
-  {:else}
-    <p class="hint">The language your character learned growing up. Its skill is Native Tongue, with the automatic cultural +40.</p>
-  {/if}
+  <label class="field"><span>Race</span><input bind:value={char.race} placeholder="Human" autocomplete="off"></label>
 </div>
 
 <section class="card age-card" aria-label="Age">
@@ -68,7 +61,14 @@
         {#each cultures as c, i}<option value={i}>{c.name}</option>{/each}
       </select>
     </label>
-    <p class="hint">Customs and Native Tongue receive their cultural +40 automatically, outside the cultural point pool.</p>
+    <label class="field native-language"><span>Native Language</span>
+      <input value={char.nativeLanguage} oninput={e => setNativeLanguage(e.currentTarget.value)} placeholder="Elvish" autocomplete="off">
+    </label>
+    {#if char.nativeLanguage.trim()}
+      <p class="hint">The language your character learned growing up is recorded as Native Tongue ({char.nativeLanguage.trim()}). Customs and Native Tongue receive the cultural +40 automatically.</p>
+    {:else}
+      <p class="hint">Enter the language your character learned growing up. Customs and Native Tongue receive the cultural +40 automatically.</p>
+    {/if}
     {#if char.cultureMigration}<p class="validation" role="status">This character uses the previous culture rules. Review the selected culture and make fresh cultural skill choices; its old cultural point allocations were cleared.</p>{/if}
     <p class="label">Standard skills</p>
     <p>{#each cu.standard as s}<span class="chip">{s}</span>{/each}</p>
