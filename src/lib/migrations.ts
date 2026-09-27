@@ -9,6 +9,11 @@ export interface BackgroundData {
   archivedEvents: BackgroundEvent[];
   socialClassRoll: number;
   socialClass: string;
+  socialClassCulture: CultureKind;
+  socialClassMethod: "rolled" | "chosen";
+  socialClassMoney: number;
+  socialClassEquipment: string;
+  socialClassResources: string;
   parentsRoll: number;
   parents: string;
   siblingsRoll: number;
@@ -91,6 +96,12 @@ export function normalizeBackground(value: unknown, fallback: BackgroundData): B
     ...saved,
     socialClassRoll: Number.isFinite(saved.socialClassRoll) ? saved.socialClassRoll! : fallback.socialClassRoll,
     socialClass: typeof saved.socialClass === "string" ? saved.socialClass : fallback.socialClass,
+    socialClassCulture: ["Barbarian", "Civilised", "Nomadic", "Primitive"].includes(saved.socialClassCulture as string)
+      ? saved.socialClassCulture as CultureKind : fallback.socialClassCulture,
+    socialClassMethod: saved.socialClassMethod === "chosen" ? "chosen" : "rolled",
+    socialClassMoney: Number.isFinite(saved.socialClassMoney) ? saved.socialClassMoney! : fallback.socialClassMoney,
+    socialClassEquipment: typeof saved.socialClassEquipment === "string" ? saved.socialClassEquipment : fallback.socialClassEquipment,
+    socialClassResources: typeof saved.socialClassResources === "string" ? saved.socialClassResources : fallback.socialClassResources,
     parentsRoll: Number.isFinite(saved.parentsRoll) ? saved.parentsRoll! : fallback.parentsRoll,
     parents: typeof saved.parents === "string" ? saved.parents : fallback.parents,
     siblingsRoll: Number.isFinite(saved.siblingsRoll) ? saved.siblingsRoll! : fallback.siblingsRoll,

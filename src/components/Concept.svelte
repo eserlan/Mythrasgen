@@ -2,7 +2,6 @@
   import StepHead from "./StepHead.svelte";
   import Passions from "./Passions.svelte";
   import { careers, cultures } from "../lib/content";
-  import { socialClassForRoll } from "../lib/background-rules";
   import { updateCulturePassions } from "../lib/passions";
   import { AGE_CATEGORIES, type AgeCategory } from "../lib/rules";
   import { char, culture, career, nativeTongue, refreshBonusEligibility, setAgeCategory, setNativeLanguage, rollCharacterAge } from "../lib/store.svelte";
@@ -21,9 +20,6 @@
     if (kind === "culture" && cultures[i]?.kind) {
       char.socialTable = cultures[i].kind;
       char.moneyTable = cultures[i].kind;
-      const rank = socialClassForRoll(char.socialTable, char.background.socialClassRoll);
-      char.background.socialClass = rank.name;
-      char.background.equipment = `${rank.equipment}. ${rank.possessions}.`;
     }
     if (replacementPassions) char.passions = replacementPassions;
     refreshBonusEligibility();

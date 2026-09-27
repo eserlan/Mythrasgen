@@ -1,5 +1,5 @@
 import { careerSkillOptions, careers, cultures, restoreCareerAllocation, restoreLegacyCareerIndex, selectCareerProfessional, type CultureKind } from "./content";
-import { BACKGROUND_EVENT_COUNTS, calculateStartingMoney, CULTURE_MONEY_MULTIPLIERS, classMoneyMultiplier, reconcileBackgroundEvents, type BackgroundEvent } from "./background-rules";
+import { BACKGROUND_EVENT_COUNTS, calculateStartingMoney, CULTURE_MONEY_MULTIPLIERS, classMoneyMultiplier, isSocialClassResolvedForCulture, reconcileBackgroundEvents, SOCIAL_CLASSES, socialClassForRoll, type BackgroundEvent } from "./background-rules";
 import { migrateCharacterStep, migrateCultureTables, normalizeAgeCategory, normalizeBackground, normalizeIdentityFields, normalizeRace } from "./migrations";
 import { baseName, formulaVal, nativeTongueName, normalizeAge, rollAge, skillDef, sum } from "./calc";
 import { culturePassions } from "./passions";
@@ -29,6 +29,8 @@ export interface Character {
   passionsEnabled: boolean; passions: Passion[];
   background: {
     events: BackgroundEvent[]; archivedEvents: BackgroundEvent[]; socialClassRoll: number; socialClass: string;
+    socialClassCulture: CultureKind; socialClassMethod: "rolled" | "chosen"; socialClassMoney: number;
+    socialClassEquipment: string; socialClassResources: string;
     parentsRoll: number; parents: string; siblingsRoll: number; siblings: string; extendedFamilyRoll: number; extendedFamily: string;
     standingRoll: number; familyTies: string[]; connectionsRoll: number;
     connections: string[]; startingMoneyRoll: number; equipment: string;
@@ -61,6 +63,8 @@ const blank = (): Character => ({
   passionsEnabled: false, passions: [],
   socialTable: "Barbarian", moneyTable: "Barbarian",
   background: { events: [{ roll: 0, text: "" }], archivedEvents: [], socialClassRoll: 50, socialClass: "Freeman",
+    socialClassCulture: "Barbarian", socialClassMethod: "rolled", socialClassMoney: 1,
+    socialClassEquipment: "Tools; simple weapons", socialClassResources: "Rented accommodation; may own a few livestock",
     parentsRoll: 50, parents: "", siblingsRoll: 50, siblings: "", extendedFamilyRoll: 50, extendedFamily: "",
     standingRoll: 50, familyTies: [], connectionsRoll: 50, connections: [], startingMoneyRoll: 14,
     equipment: "Tools; simple weapons; rented accommodation", purchases: [] },
@@ -92,6 +96,18 @@ function normalize(value: Partial<Character> | null, home = true): Character {
     nativeLanguage: typeof migrated.nativeLanguage === "string" ? migrated.nativeLanguage : "",
     home,
   } as Character;
+  const resolvedCulture = (migrated.background as Partial<Character["background"]> | undefined)?.socialClassCulture
+    ?? migrated.socialTable ?? cultureKind ?? "Civilised";
+  normalized.socialTable = cultureKind ?? "Civilised";
+  normalized.moneyTable = cultureKind ?? "Civilised";
+  normalized.background.socialClassCulture = resolvedCulture;
+  // Upgrade legacy saves with a snapshot of the official class data they resolved.
+  const savedClass = SOCIAL_CLASSES[resolvedCulture]?.find(row => row.name === normalized.background.socialClass);
+  if (savedClass && !(migrated.background as Partial<Character["background"]> | undefined)?.socialClassEquipment) {
+    normalized.background.socialClassMoney = savedClass.money;
+    normalized.background.socialClassEquipment = savedClass.equipment;
+    normalized.background.socialClassResources = savedClass.possessions;
+  }
   normalized.frameOptions = Array.isArray(migrated.frameOptions)
     ? migrated.frameOptions.filter((frame): frame is Frame => FRAMES.includes(frame as Frame))
     : undefined;
@@ -263,10 +279,29 @@ export const capFor = (kind: Kind) => kind === "bonus" ? bonusCap(char.ageCatego
 
 export const eventCount = () => BACKGROUND_EVENT_COUNTS[char.ageCategory];
 export const moneyMultiplier = () => CULTURE_MONEY_MULTIPLIERS[char.moneyTable];
-export const startingMoney = () => calculateStartingMoney(char.background.startingMoneyRoll, char.moneyTable, char.socialTable, char.background.socialClass);
+export const socialClassReady = () => isSocialClassResolvedForCulture(char.socialTable, {
+  rank: char.background.socialClass,
+  roll: char.background.socialClassRoll,
+  method: char.background.socialClassMethod,
+  money: char.background.socialClassMoney,
+  equipment: char.background.socialClassEquipment,
+  resources: char.background.socialClassResources,
+});
+export const resolveSocialClass = (row: ReturnType<typeof socialClassForRoll>, method: "rolled" | "chosen" = "rolled") => {
+  char.background.socialClass = row.name;
+  char.background.socialClassCulture = char.socialTable;
+  char.background.socialClassMethod = method;
+  char.background.socialClassMoney = row.money;
+  char.background.socialClassEquipment = row.equipment;
+  char.background.socialClassResources = row.possessions;
+  char.background.equipment = `${row.equipment}. ${row.possessions}.`;
+};
+export const startingMoney = () => socialClassReady()
+  ? calculateStartingMoney(char.background.startingMoneyRoll, char.moneyTable, char.background.socialClassMoney)
+  : 0;
 export const socialClassMoney = (kind: CultureKind, rank: string) => classMoneyMultiplier(kind, rank);
 export const spentMoney = () => char.background.purchases.reduce((total, item) => total + Math.max(0, item.cost), 0);
-export const availableMoney = () => startingMoney() - spentMoney();
+export const availableMoney = () => socialClassReady() ? startingMoney() - spentMoney() : 0;
 export const rollDie = (sides: number) => Math.floor(Math.random() * sides) + 1;
 export const rollPercentile = () => rollDie(100);
 export const roll4d6 = () => rollDie(6) + rollDie(6) + rollDie(6) + rollDie(6);

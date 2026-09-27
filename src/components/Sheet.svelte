@@ -1,7 +1,7 @@
 <script lang="ts">
   import { deriveStats, passionStartingValue } from "../lib/calc";
   import { AGE_CATEGORIES, STATS, STAT_NAMES } from "../lib/rules";
-  import { allSkills, availableMoney, career, char, culture, skillDefinition, startingMoney, total } from "../lib/store.svelte";
+  import { allSkills, availableMoney, career, char, culture, skillDefinition, socialClassReady, startingMoney, total } from "../lib/store.svelte";
   import Derived from "./Derived.svelte";
   import HitLocations from "./HitLocations.svelte";
   import StepHead from "./StepHead.svelte";
@@ -45,13 +45,14 @@
   <Derived />
   <div class="card">
     <h3>Background &amp; possessions</h3>
-    <p><b>Age:</b> {char.age} ({AGE_CATEGORIES[char.ageCategory].label}) · <b>Social class:</b> {char.background.socialClass}</p>
+    <p><b>Age:</b> {char.age} ({AGE_CATEGORIES[char.ageCategory].label}) · <b>Social class:</b> {socialClassReady() ? char.background.socialClass : "Reconciliation required"}</p>
+    {#if socialClassReady()}<p><b>Money modifier:</b> ×{char.background.socialClassMoney} · <b>Background resources:</b> {char.background.socialClassResources}</p>{/if}
     <p><b>Parents:</b> {char.background.parents || "Unrecorded"} · <b>Siblings:</b> {char.background.siblings || "Unrecorded"}</p>
     {#if char.background.extendedFamily}<p><b>Extended family:</b> {char.background.extendedFamily}</p>{/if}
     <p><b>Family standing:</b> {standing[2]} · ties: {char.background.familyTies.join(", ") || "None generated"} · <b>Connections:</b> {connectionTier[2]} — {char.background.connections.join(", ") || "None generated"}</p>
     {#each resolvedBackgroundEvents(char.background.events) as { event, index }}<p><b>Background event {index + 1} (official table result {event.roll}):</b> {event.text || "See Mythras Core Rules pp. 18–20"}</p>{/each}
-    <p><b>Starting equipment:</b> {char.background.equipment || "Unrecorded"}</p>
-    <p><b>Starting money:</b> {startingMoney()} sp · <b>Remaining:</b> {availableMoney()} sp</p>
+    <p><b>Starting equipment:</b> {socialClassReady() ? char.background.equipment || "Unrecorded" : "Pending Social Class reconciliation"}</p>
+    <p><b>Starting money:</b> {socialClassReady() ? `${startingMoney()} sp` : "Pending Social Class"} · <b>Remaining:</b> {availableMoney()} sp</p>
     {#if char.background.purchases.length}<ul>{#each char.background.purchases as item}<li>{item.name} · {item.cost} sp</li>{/each}</ul>{/if}
   </div>
   <div class="two sheet-body">
