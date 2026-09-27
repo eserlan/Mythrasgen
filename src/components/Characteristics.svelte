@@ -2,6 +2,7 @@
   import { canFinishPointBuy, pointBuyTotal, rollStat } from "../lib/calc";
   import { CHAR_ROLL, POINT_BUY, STATS, STAT_NAMES, pointBuyMin, type Stat } from "../lib/rules";
   import { availableFrames, bodyRanges, isInRange, type Frame } from "../lib/body";
+  import { characteristicsActionLabel, confirmCharacteristicsRoll } from "../lib/creation";
   import { assignRoll, char, setCharacteristic, setFrame, setHeight, setRollResults, setWeight } from "../lib/store.svelte";
   import Derived from "./Derived.svelte";
   import StepHead from "./StepHead.svelte";
@@ -30,6 +31,7 @@
     else { setWeight(value); weightError = ""; }
   }
   function rollAll() {
+    if (!confirmCharacteristicsRoll(!!char.rollResults, () => confirm("Reroll all Characteristics? This will replace the current rolled values and their assignment."))) return;
     spinning = [...STATS];
     bodyNotice = setRollResults(STATS.map(k => rollStat(k)));
     setTimeout(() => { spinning = []; }, 420);
@@ -45,7 +47,7 @@
 
 <StepHead step={1} title="Characteristics" />
 <div class="card bar">
-  <button class:primary={char.generation === "roll"} onclick={rollAll}>Roll characteristics</button>
+  <button class:primary={char.generation === "roll"} onclick={rollAll}>{characteristicsActionLabel(!!char.rollResults)}</button>
   <button class:primary={char.generation === "pointBuy"} onclick={() => (char.generation = "pointBuy")}>Point-buy</button>
   {#if char.generation === "pointBuy"}
     <span class="mute">Spend exactly {POINT_BUY.budget} points. STR/CON/DEX/POW/CHA: {POINT_BUY.min}–{POINT_BUY.max}; INT/SIZ: 8–{POINT_BUY.max}.</span>

@@ -1,11 +1,24 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { canFinishPointBuy, roll, rollStat } from "./calc";
+import { characteristicsActionLabel, confirmCharacteristicsRoll } from "./creation";
 import { CHAR_ROLL, POINT_BUY, STATS, pointBuyMin } from "./rules";
 
 const chars = (values = {}) => Object.fromEntries(STATS.map(stat => [stat, values[stat] ?? pointBuyMin(stat)]));
 
 describe("human characteristics", () => {
+  test("roll action copy reflects whether a rolled set already exists", () => {
+    expect(characteristicsActionLabel(false)).toBe("ROLL CHARACTERISTICS");
+    expect(characteristicsActionLabel(true)).toBe("REROLL CHARACTERISTICS");
+  });
+
+  test("only an existing rolled set needs confirmation before replacing it", () => {
+    const confirmReroll = () => false;
+    expect(confirmCharacteristicsRoll(false, confirmReroll)).toBe(true);
+    expect(confirmCharacteristicsRoll(true, confirmReroll)).toBe(false);
+    expect(confirmCharacteristicsRoll(true, () => true)).toBe(true);
+  });
+
   test("point-buy uses 75 points and the correct per-stat bounds", () => {
     expect(POINT_BUY.budget).toBe(75);
     expect(POINT_BUY.max).toBe(18);
