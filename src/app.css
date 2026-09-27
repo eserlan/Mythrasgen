@@ -138,6 +138,11 @@ main{padding:8px 16px 70px}
 .bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.bar input{flex:1;min-width:180px}
 .pill{margin-left:auto;padding:1px 14px;border:1px solid var(--line2);border-radius:99px;font-family:var(--display);font-weight:700}
 .pill.over{background:var(--acc);border-color:var(--acc);color:#fff}.pill.ok{border-color:var(--ok);color:var(--ok)}
+.point-buy-guidance{display:flex;flex:1 1 320px;min-width:0;flex-direction:column;gap:2px;line-height:1.3}
+.point-buy-guidance strong{font-size:1.02rem}
+.point-buy-rules{font-size:.88rem}
+.point-buy-status{flex:0 0 auto;background:var(--card2);padding:5px 12px;font-size:.72rem;letter-spacing:.08em;text-align:center;text-transform:uppercase}
+.point-buy-status.ok{background:color-mix(in srgb,var(--ok) 10%,var(--card));}
 
 .stepper{display:inline-flex;align-items:center;border:1px solid var(--line2);border-radius:3px;overflow:hidden;background:var(--bg)}
 .stepper button{touch-action:manipulation;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;border:0;border-radius:0;width:34px;padding:6px 0;background:none;font-size:1.1rem;letter-spacing:0}
@@ -212,6 +217,7 @@ svg.body text{text-anchor:middle;fill:var(--fg)}svg.body .hp{font:700 15px var(-
   .passion-row{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.passion-row .field>span:first-child{min-height:0;white-space:normal}.passion-row .passion-value{align-items:flex-start;min-height:0}.remove-passion{justify-self:start;align-self:end}
 }
 @media(max-width:640px){
+  .point-buy-guidance{flex-basis:100%}
   .character-entry{align-items:flex-start;flex-direction:column}.character-actions{justify-content:flex-start}
   .concept-identity{grid-template-columns:1fr}
   .concept-details-grid{grid-template-columns:1fr}
