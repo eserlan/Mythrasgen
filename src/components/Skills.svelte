@@ -1,9 +1,8 @@
 <script lang="ts">
   import { type Kind } from "../lib/rules";
-  import { addExtra, base, capFor, career, char, culture, cultureAllocationErrors, poolFor, setAlloc, setCultureCombatStyle, setHobbySkill, skillDefinition, stepSkills, toggleCareerProfessional, total, used } from "../lib/store.svelte";
+  import { addExtra, base, capFor, career, char, culture, cultureAllocationErrors, poolFor, refreshBonusEligibility, setAlloc, setCultureCombatStyle, setHobbySkill, skillDefinition, stepSkills, toggleCareerProfessional, total, used } from "../lib/store.svelte";
   import StepHead from "./StepHead.svelte";
   import Stepper from "./Stepper.svelte";
-  import Passions from "./Passions.svelte";
   let { kind }: { kind: Kind } = $props();
   const pool = $derived(poolFor(kind));
   const cap = $derived(capFor(kind));
@@ -13,6 +12,20 @@
   const cultureErrors = $derived(cultureAllocationErrors());
   let extra = $state("");
   let extraError = $state("");
+  function toggleCultureStandard(group: number, option: string, checked: boolean) {
+    const selected = [...(char.cultureSelections.standard[group] ?? [])];
+    char.cultureSelections.standard[group] = checked ? [...selected, option] : selected.filter(x => x !== option);
+    char.alloc.culture = {};
+    char.cultureMigration = false;
+    refreshBonusEligibility();
+  }
+  function toggleCultureProfessional(option: string, checked: boolean) {
+    const selected = char.cultureSelections.professional;
+    char.cultureSelections.professional = checked ? [...selected, option] : selected.filter(x => x !== option);
+    char.alloc.culture = {};
+    char.cultureMigration = false;
+    refreshBonusEligibility();
+  }
 </script>
 
 <StepHead step={{ culture: 2, career: 3, bonus: 4 }[kind]} {title} />
@@ -36,7 +49,26 @@
   <div class="validation" role="status"><b>Culture allocation incomplete</b><ul>{#each cultureErrors as error}<li>{error}</li>{/each}</ul></div>
 {/if}
 {#if kind === "culture"}
-  <section class="card" aria-label="Cultural Combat Style selection">
+  <section class="card culture-picks" aria-label="Culture skill choices">
+    <h3>Choose culture skills</h3>
+    {#each culture().standardChoices as group, gi}
+      <p class="label">{group.label} ({group.count})</p>
+      <div class="choice-list">
+        {#each group.options as option}
+          <label><input type="checkbox" checked={char.cultureSelections.standard[gi]?.includes(option) ?? false}
+            disabled={!char.cultureSelections.standard[gi]?.includes(option) && (char.cultureSelections.standard[gi]?.length ?? 0) >= group.count}
+            onchange={e => toggleCultureStandard(gi, option, e.currentTarget.checked)}>{option}</label>
+        {/each}
+      </div>
+    {/each}
+    <p class="label">Select up to three Professional Skills ({char.cultureSelections.professional.length}/3)</p>
+    <div class="choice-list">
+      {#each culture().professional as option}
+        <label><input type="checkbox" checked={char.cultureSelections.professional.includes(option)}
+          disabled={!char.cultureSelections.professional.includes(option) && char.cultureSelections.professional.length >= 3}
+          onchange={e => toggleCultureProfessional(option, e.currentTarget.checked)}>{option}</label>
+      {/each}
+    </div>
     <label class="field"><span>Cultural Combat Style (optional)</span>
       <input class="wide" value={char.cultureSelections.combatStyle} placeholder="Enter one cultural Combat Style, if desired"
         onchange={e => setCultureCombatStyle(e.currentTarget.value)}>
@@ -55,7 +87,6 @@
   {/each}
 </div>
 {#if kind === "bonus"}
-  <Passions />
   {#if char.hobbySkill}
     <div class="card bar"><span>Hobby skill: <b>{char.hobbySkill}</b></span><button type="button" onclick={() => { setHobbySkill(""); extra = ""; }}>Remove</button></div>
   {:else}
