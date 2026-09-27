@@ -465,8 +465,10 @@ export function chooseCareerCombatStyle(slot: number, definition: CombatStyleSel
     char.combatStyles = attachCharacterStyle(char.combatStyles, definition, "career");
     char.careerCombatStyles[slot] = definition.name;
   } else char.careerCombatStyles[slot] = "";
-  if (previous && !char.careerCombatStyles.includes(previous)) char.combatStyles = detachCharacterStyle(char.combatStyles, previous, "career");
-  if (previous && !careerSkills().includes(previous)) delete char.alloc.career[previous];
+  if (previous && !char.careerCombatStyles.includes(previous)) {
+    delete char.alloc.career[previous];
+    char.combatStyles = detachCharacterStyle(char.combatStyles, previous, "career");
+  }
   refreshBonusEligibility();
 }
 export function toggleCareerProfessional(name: string) {
