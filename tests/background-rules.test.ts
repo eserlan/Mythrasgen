@@ -25,4 +25,9 @@ describe("social class tables", () => {
     expect(calculateStartingMoney(14, "Barbarian", "Civilised", "Gentry")).toBe(2100);
     expect(calculateStartingMoney(14, "Primitive", "Primitive", "Ruling")).toBe(280);
   });
+
+  test("maps a manually recorded social-class roll to its class", () => {
+    expect(socialClassForRoll("Civilised", 20).name).toBe("Slave");
+    expect(socialClassForRoll("Civilised", 21).name).toBe("Freeman");
+  });
 });

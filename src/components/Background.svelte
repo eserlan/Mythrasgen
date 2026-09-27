@@ -107,6 +107,7 @@
   <div class="field-row">
     <label class="field"><span>1d100 result</span><input type="number" min="1" max="100" bind:value={background.socialClassRoll} /></label>
     <button onclick={() => setClass(rollPercentile())}>Roll social class</button>
+    <button onclick={() => setClass(background.socialClassRoll)}>Apply roll</button>
     <label class="field"><span>Social class</span><select value={background.socialClass} onchange={e => {
       background.socialClass = e.currentTarget.value;
       const row = classes.find(item => item.name === background.socialClass);
