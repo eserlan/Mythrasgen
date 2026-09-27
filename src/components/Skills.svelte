@@ -94,7 +94,6 @@
     </div>
     <div class="culture-combat-style">
       <CombatStyleChooser selectedName={char.cultureSelections.combatStyle} styles={char.combatStyles} onchoose={chooseCultureCombatStyle} />
-      <p class="hint">Optional. This style is eligible for Culture points and uses its STR + DEX base.</p>
     </div>
   </section>
 {/if}
