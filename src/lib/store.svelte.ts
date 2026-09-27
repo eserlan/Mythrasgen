@@ -1,10 +1,12 @@
-import { careers, cultures, type PassionPrompt } from "./content";
+import { cultures } from "./content";
+import { allocationValue, selectedCareer, skillsForStage } from "./creation";
+import { cultureSkills, validateCultureAllocation } from "./culture";
+import { migrateCharacter } from "./migration";
 import { baseName, formulaVal, skillDef, sum } from "./calc";
-import { allocationValue, selectedCareer, selectedCulture, skillsForStage } from "./creation";
 import { PER_SKILL_CAP, POOLS, STANDARD, STATS, type Chars, type Kind, type PassionCategory } from "./rules";
 
 export interface Passion {
-  type: PassionPrompt["type"];
+  type: "Loyalty" | "Love" | "Hate";
   subject: string;
   category: PassionCategory;
   subjectPow: number;
@@ -13,6 +15,8 @@ export interface Passion {
 
 export interface Character {
   name: string; chars: Chars; culture: number; career: number;
+  cultureSelections: { standard: string[][]; professional: string[]; combatStyle: string };
+  cultureMigration?: boolean;
   alloc: Record<Kind, Record<string, number>>; extras: string[]; step: number;
   passionsEnabled: boolean; passions: Passion[];
   generation: "pointBuy" | "roll"; rollResults: number[] | null; rollAssignments: number[];
@@ -33,18 +37,25 @@ export const INTRO = [
 
 const blank = (): Character => ({
   name: "", chars: Object.fromEntries(STATS.map(k => [k, 10])) as Chars, culture: 0, career: 0,
+  cultureSelections: { standard: [], professional: [], combatStyle: "" },
+
   alloc: { culture: {}, career: {}, bonus: {} }, extras: [], step: 0,
   passionsEnabled: false, passions: [],
   generation: "pointBuy", rollResults: null, rollAssignments: STATS.map((_, i) => i), home: true,
 });
 function load(): Character {
-  try { return { ...blank(), ...JSON.parse(localStorage.getItem(KEY) ?? "null") }; } catch { return blank(); }
+  try {
+    const saved = JSON.parse(localStorage.getItem(KEY) ?? "null");
+    const migrated = migrateCharacter(saved ?? {});
+    return { ...blank(), ...migrated, cultureSelections: { ...blank().cultureSelections, ...migrated.cultureSelections },
+      alloc: { ...blank().alloc, ...migrated.alloc } };
+  } catch { return blank(); }
 }
 export const char: Character = $state(load());
 
 export function persist() { try { localStorage.setItem(KEY, JSON.stringify(char)); } catch { /* storage unavailable */ } }
 export const reset = (home = true) => Object.assign(char, blank(), { home });
-export const replace = (c: Partial<Character>) => Object.assign(char, blank(), c, { home: false });
+export const replace = (c: Partial<Character>) => Object.assign(char, blank(), migrateCharacter(c), { home: false });
 export function setRollResults(results: number[]) {
   char.generation = "roll";
   char.rollResults = [...results];
@@ -65,13 +76,17 @@ export function assignRoll(stat: (typeof STATS)[number], resultIndex: number) {
 export const hasProgress = () => !!char.name || char.step > 0 || used("culture") + used("career") + used("bonus") > 0
   || STATS.some(k => char.chars[k] !== 10);
 
-export const culture = () => selectedCulture(char.culture);
+export const culture = () => cultures[char.culture] ?? cultures[0];
 export const career = () => selectedCareer(char.career);
 
-const COMBAT_STYLES = cultures.map(c => c.combatStyle);
+export function cultureAllocationErrors(): string[] {
+  return validateCultureAllocation(culture(), char.cultureSelections, char.alloc.culture, POOLS.culture);
+}
+
+const combatStyles = () => [char.cultureSelections.combatStyle, ...char.extras].filter(Boolean);
 // Older saves may contain arbitrary bonus skills, which previously used the
 // Combat Style formula as a fallback. Keep those entries renderable.
-export const skillDefinition = (n: string) => skillDef(n, [...COMBAT_STYLES, ...char.extras]);
+export const skillDefinition = (n: string) => skillDef(n, combatStyles());
 export const base = (n: string) => formulaVal(skillDefinition(n).f, char.chars);
 export const added = (n: string) => sum((Object.keys(POOLS) as Kind[]).map(k => char.alloc[k][n] ?? 0));
 export const total = (n: string) => base(n) + added(n);
@@ -79,23 +94,33 @@ export const used = (k: Kind) => sum(Object.values(char.alloc[k]));
 
 export function setAlloc(kind: Kind, name: string, v: number) {
   const a = char.alloc[kind];
-  const n = allocationValue(v, POOLS[kind], used(kind), a[name] ?? 0);
+  const n = kind === "culture"
+    ? (() => {
+        const room = POOLS.culture - used(kind) + (a[name] ?? 0);
+        const raw = Math.round(v) || 0;
+        return raw <= 0 || room < 5 ? 0 : Math.max(5, Math.min(PER_SKILL_CAP, room, raw));
+      })()
+    : allocationValue(v, POOLS[kind], used(kind), a[name] ?? 0);
   if (n) a[name] = n; else delete a[name];
 }
 export function addExtra(name: string): boolean {
   const v = name.trim();
   if (!v || char.extras.includes(v)) return false;
-  try { skillDef(v, COMBAT_STYLES); } catch { return false; }
+  try { skillDef(v, combatStyles()); } catch { return false; }
   char.extras.push(v);
   return true;
 }
 
-export function seedCulturePassions(prompts: PassionPrompt[] = culture().passions) {
-  char.passions = prompts.map(({ type, subject }) => ({
-    type, subject,
-    category: type === "Loyalty" ? "organisation/group" : type === "Hate" ? "adverse" : "platonic",
-    subjectPow: char.chars.POW, subjectCha: char.chars.CHA,
-  }));
+export function seedCulturePassions(prompts: string[] = culture().passions) {
+  char.passions = prompts.map(prompt => {
+    const type = prompt.startsWith("Loyalty") ? "Loyalty" : prompt.startsWith("Hate") ? "Hate" : "Love";
+    const subject = prompt.replace(/^Loyalty to\s*/i, "").replace(/^(?:Love|Hate)\s*\(/, "").replace(/\)$/, "");
+    return {
+      type, subject,
+      category: type === "Loyalty" ? "organisation/group" : type === "Hate" ? "adverse" : "platonic",
+      subjectPow: char.chars.POW, subjectCha: char.chars.CHA,
+    };
+  });
 }
 export function addPassion() {
   char.passions.push({ type: "Love", subject: "", category: "platonic", subjectPow: char.chars.POW, subjectCha: char.chars.CHA });
@@ -103,12 +128,15 @@ export function addPassion() {
 
 export function allSkills(): string[] {
   const c = culture(), k = career();
-  return skillsForStage("bonus", c, k, char.extras,
-    (Object.keys(POOLS) as Kind[]).flatMap(x => Object.keys(char.alloc[x])));
+  return [...new Set([...STANDARD.map(s => s[0]),
+    ...cultureSkills(c, char.cultureSelections.standard, char.cultureSelections.professional, char.cultureSelections.combatStyle), ...k.professional,
+    ...char.extras, ...(Object.keys(POOLS) as Kind[]).flatMap(x => Object.keys(char.alloc[x]))])];
 }
 export function stepSkills(kind: Kind): string[] {
-  return skillsForStage(kind, culture(), career(), char.extras,
-    (Object.keys(POOLS) as Kind[]).flatMap(x => Object.keys(char.alloc[x])));
+  const c = culture(), k = career();
+  if (kind === "culture") return cultureSkills(c, char.cultureSelections.standard, char.cultureSelections.professional, char.cultureSelections.combatStyle);
+  if (kind === "career") return skillsForStage(kind, c, k);
+  return allSkills();
 }
 
 export { baseName };
