@@ -3,7 +3,7 @@ import { BACKGROUND_EVENT_COUNTS, calculateStartingMoney, SOCIAL_CLASSES, social
 
 describe("background event counts", () => {
   test("uses the age category event totals", () => {
-    expect(BACKGROUND_EVENT_COUNTS).toEqual({ Young: 0, Adult: 1, "Middle-Aged": 2 });
+    expect(BACKGROUND_EVENT_COUNTS).toEqual({ young: 0, adult: 1, middleAged: 2, senior: 3, old: 4 });
   });
 });
 

@@ -3,6 +3,7 @@
   import { char, availableMoney, eventCount, moneyMultiplier, roll4d6, rollDie, rollPercentile, startingMoney } from "../lib/store.svelte";
   import { CONNECTIONS, CONNECTION_TYPES, EXTENDED_FAMILY, FAMILY_STANDING, PARENTS, SIBLINGS, SOCIAL_CLASSES, socialClassForRoll, tableResult } from "../lib/background-rules";
   import { cultures, type CultureKind } from "../lib/content";
+  import { AGE_CATEGORIES } from "../lib/rules";
 
   let purchaseName = $state("");
   let purchaseCost = $state(0);
@@ -19,10 +20,6 @@
     } else if (background.events.length > count) background.events.splice(count);
   });
 
-  function ageCategory(category: "Young" | "Adult" | "Middle-Aged") {
-    char.ageCategory = category;
-    char.age = category === "Young" ? rollDie(6) + 10 : category === "Adult" ? rollDie(6) + rollDie(6) + 15 : rollDie(6) + rollDie(6) + rollDie(6) + 25;
-  }
   function setClass(roll: number) {
     background.socialClassRoll = roll;
     const row = socialClassForRoll(char.socialTable, roll);
@@ -80,14 +77,8 @@
 
 <StepHead step={5} title="Background &amp; possessions" />
 <section class="card">
-  <h3>Age &amp; background events</h3>
-  <div class="field-row">
-    <label class="field"><span>Age category</span><select value={char.ageCategory} onchange={e => ageCategory(e.currentTarget.value as typeof char.ageCategory)}>
-      <option>Young</option><option>Adult</option><option>Middle-Aged</option>
-    </select></label>
-    <label class="field"><span>Age in years</span><input type="number" min="1" max="120" bind:value={char.age} /></label>
-  </div>
-  <p class="mute">Roll age by category if desired: Young 1d6+10, Adult 2d6+15, Middle-Aged 3d6+25. This age category calls for {eventCount()} background event roll{eventCount() === 1 ? "" : "s"}.</p>
+  <h3>Background events</h3>
+  <p class="mute">Age {char.age} ({AGE_CATEGORIES[char.ageCategory].label}) calls for {eventCount()} background event roll{eventCount() === 1 ? "" : "s"}.</p>
   {#each background.events as event, i}
     <div class="event-entry">
       <label class="field"><span>Event {i + 1} · d100 result</span><input type="number" min="1" max="100" bind:value={event.roll} /></label>

@@ -2,9 +2,9 @@ import { careers, cultures, type Career, type Culture } from "./content";
 import { PER_SKILL_CAP, POOLS, STANDARD, type Kind } from "./rules";
 
 /** Points allocated to one skill at one creation stage, bounded by both limits. */
-export function allocationValue(value: number, pool: number, used: number, previous: number): number {
+export function allocationValue(value: number, pool: number, used: number, previous: number, cap = PER_SKILL_CAP): number {
   const room = pool - used + previous;
-  return Math.max(0, Math.min(PER_SKILL_CAP, room, Math.round(value) || 0));
+  return Math.max(0, Math.min(cap, room, Math.round(value) || 0));
 }
 
 export function skillsForStage(

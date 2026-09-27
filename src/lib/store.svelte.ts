@@ -1,11 +1,11 @@
 import { careerSkillOptions, careers, cultures, restoreCareerAllocation, restoreLegacyCareerIndex, selectCareerProfessional, type CultureKind } from "./content";
 import { BACKGROUND_EVENT_COUNTS, calculateStartingMoney, CULTURE_MONEY_MULTIPLIERS, classMoneyMultiplier } from "./background-rules";
 import { migrateCharacterStep, migrateCultureTables, normalizeAgeCategory, normalizeBackground } from "./migrations";
-import { baseName, formulaVal, skillDef, sum } from "./calc";
+import { baseName, formulaVal, normalizeAge, rollAge, skillDef, sum } from "./calc";
 import { allocationValue, selectedCareer, selectedCulture, skillsForStage } from "./creation";
 import { cultureSkills, validateCultureAllocation } from "./culture";
 import { migrateCharacter } from "./migration";
-import { PER_SKILL_CAP, POOLS, STANDARD, STATS, type Chars, type Kind, type PassionCategory } from "./rules";
+import { AGE_CATEGORIES, bonusCap, bonusPool, MAGIC, PER_SKILL_CAP, POOLS, STANDARD, STATS, type AgeCategory, type Chars, type Kind, type PassionCategory } from "./rules";
 
 export interface Passion {
   type: "Loyalty" | "Love" | "Hate";
@@ -16,12 +16,11 @@ export interface Passion {
 }
 
 export interface Character {
-  name: string; chars: Chars; culture: number; career: number;
+  name: string; chars: Chars; ageCategory: AgeCategory; age: number; culture: number; career: number;
   cultureSelections: { standard: string[][]; professional: string[]; combatStyle: string };
   cultureMigration?: boolean;
-  alloc: Record<Kind, Record<string, number>>; extras: string[]; careerProfessional: string[]; step: number;
+  alloc: Record<Kind, Record<string, number>>; hobbySkill: string; extras: string[]; careerProfessional: string[]; step: number;
   passionsEnabled: boolean; passions: Passion[];
-  ageCategory: "Young" | "Adult" | "Middle-Aged"; age: number;
   background: {
     events: { roll: number; text: string }[]; socialClassRoll: number; socialClass: string;
     parentsRoll: number; parents: string; siblingsRoll: number; siblings: string; extendedFamilyRoll: number; extendedFamily: string;
@@ -49,37 +48,62 @@ export const INTRO = [
 ];
 
 const blank = (): Character => ({
-  name: "", chars: Object.fromEntries(STATS.map(k => [k, 10])) as Chars, culture: 0, career: 0,
+  name: "", chars: Object.fromEntries(STATS.map(k => [k, 10])) as Chars,
+  ageCategory: "adult", age: rollAge("adult"), culture: 0, career: 0,
   cultureSelections: { standard: [], professional: [], combatStyle: "" },
-  alloc: { culture: {}, career: {}, bonus: {} }, extras: [], careerProfessional: [], step: 0,
+  alloc: { culture: {}, career: {}, bonus: {} }, hobbySkill: "", extras: [], careerProfessional: [], step: 0,
   passionsEnabled: false, passions: [],
-  ageCategory: "Adult", age: 22, socialTable: "Barbarian", moneyTable: "Barbarian",
+  socialTable: "Barbarian", moneyTable: "Barbarian",
   background: { events: [{ roll: 0, text: "" }], socialClassRoll: 50, socialClass: "Freeman",
     parentsRoll: 50, parents: "", siblingsRoll: 50, siblings: "", extendedFamilyRoll: 50, extendedFamily: "",
     standingRoll: 50, familyTies: [], connectionsRoll: 50, connections: [], startingMoneyRoll: 14,
     equipment: "Tools; simple weapons; rented accommodation", purchases: [] },
   generation: "pointBuy", rollResults: null, rollAssignments: STATS.map((_, i) => i), home: true,
 });
-function normalize(value: Partial<Character>): Character {
+function normalize(value: Partial<Character> | null, home = true): Character {
   const fallback = blank();
-  const migrated = migrateCharacter(value);
-  const legacyCareer = value.career !== undefined && !Array.isArray(value.careerProfessional);
+  const migrated = migrateCharacter(value ?? fallback);
+  const legacyCareer = !!value && value.career !== undefined && !Array.isArray(value.careerProfessional);
   const cultureKind = cultures[migrated.culture ?? fallback.culture]?.kind;
-  const normalized: Character = {
+  const ageCategory = normalizeAgeCategory(migrated.ageCategory, fallback.ageCategory);
+  const normalized = {
     ...fallback,
     ...migrated,
     career: legacyCareer ? restoreLegacyCareerIndex(migrated.career ?? fallback.career) : migrated.career ?? fallback.career,
     cultureSelections: { ...fallback.cultureSelections, ...migrated.cultureSelections },
     step: migrateCharacterStep(migrated.step ?? fallback.step, !!migrated.background),
     ...migrateCultureTables(cultureKind, migrated.socialTable, migrated.moneyTable),
-    ageCategory: normalizeAgeCategory(migrated.ageCategory, fallback.ageCategory),
-    age: Number.isFinite(migrated.age) ? migrated.age! : fallback.age,
+    ageCategory,
+    age: normalizeAge(migrated.age, ageCategory),
     background: normalizeBackground(migrated.background, fallback.background),
     alloc: { ...fallback.alloc, ...(migrated.alloc ?? {}) },
-    extras: migrated.extras ?? [],
-    careerProfessional: migrated.careerProfessional ?? [],
-  };
+    extras: Array.isArray(migrated.extras) ? migrated.extras.filter(x => typeof x === "string") : [],
+    careerProfessional: Array.isArray(migrated.careerProfessional) ? migrated.careerProfessional : [],
+    hobbySkill: typeof migrated.hobbySkill === "string" ? migrated.hobbySkill : "",
+    home,
+  } as Character;
   restoreCareer(normalized, legacyCareer);
+  if (!Object.hasOwn(AGE_CATEGORIES, normalized.ageCategory)) normalized.ageCategory = "adult";
+  if (normalized.generation !== "roll") normalized.generation = "pointBuy";
+  if (!Array.isArray(normalized.rollResults) || normalized.rollResults.length !== STATS.length) normalized.rollResults = null;
+  if (!Array.isArray(normalized.rollAssignments) || normalized.rollAssignments.length !== STATS.length
+      || new Set(normalized.rollAssignments).size !== STATS.length
+      || normalized.rollAssignments.some(i => !Number.isInteger(i) || i < 0 || i >= STATS.length)) {
+    normalized.rollAssignments = STATS.map((_, i) => i);
+  }
+  const learned = new Set([
+    ...cultureSkills(selectedCulture(normalized.culture), normalized.cultureSelections.standard, normalized.cultureSelections.professional, normalized.cultureSelections.combatStyle),
+    ...selectedCareer(normalized.career).standard, ...normalized.careerProfessional,
+  ]);
+  let validHobby = false;
+  if (normalized.hobbySkill) {
+    try { validHobby = skillDef(normalized.hobbySkill, [normalized.cultureSelections.combatStyle, ...normalized.extras].filter(Boolean)).pro; }
+    catch { /* discard invalid legacy hobby skills */ }
+  }
+  if (learned.has(normalized.hobbySkill) || (normalized.hobbySkill && !validHobby)) normalized.hobbySkill = "";
+  normalized.alloc.bonus = Object.fromEntries(Object.entries(normalized.alloc.bonus ?? {}).filter(([name]) =>
+    learned.has(name) || normalized.extras.includes(name) || name === normalized.hobbySkill));
+  if (normalized.step === STEPS.length - 1 && sum(Object.values(normalized.alloc.bonus)) < bonusPool(normalized.ageCategory)) normalized.step = 4;
   return normalized;
 }
 function restoreCareer(character: Character, legacy = false) {
@@ -88,15 +112,17 @@ function restoreCareer(character: Character, legacy = false) {
   character.careerProfessional = restored.professional;
   character.alloc.career = restored.allocation;
 }
+
 function load(): Character {
-  try { return normalize(JSON.parse(localStorage.getItem(KEY) ?? "null") ?? {}); } catch { return blank(); }
+  try { return normalize(JSON.parse(localStorage.getItem(KEY) ?? "null")); } catch { return blank(); }
 }
 export const char: Character = $state(load());
 
 export function persist() { try { localStorage.setItem(KEY, JSON.stringify(char)); } catch { /* storage unavailable */ } }
 export const reset = (home = true) => Object.assign(char, blank(), { home });
-export const replace = (c: Partial<Character>) => Object.assign(char, normalize(c), { home: false });
+export const replace = (c: Partial<Character>) => Object.assign(char, normalize(c, false));
 export function setRollResults(results: number[]) {
+  if (results.length !== STATS.length) return;
   char.generation = "roll";
   char.rollResults = [...results];
   char.rollAssignments = STATS.map((_, i) => i);
@@ -118,6 +144,12 @@ export const hasProgress = () => !!char.name || char.step > 0 || used("culture")
 
 export const culture = () => selectedCulture(char.culture);
 export const career = () => selectedCareer(char.career);
+export const learnedSkills = () => [...new Set([
+  ...cultureSkills(culture(), char.cultureSelections.standard, char.cultureSelections.professional, char.cultureSelections.combatStyle),
+  ...career().standard, ...char.careerProfessional,
+])];
+export const poolFor = (kind: Kind) => kind === "bonus" ? bonusPool(char.ageCategory) : POOLS[kind];
+export const capFor = (kind: Kind) => kind === "bonus" ? bonusCap(char.ageCategory) : PER_SKILL_CAP;
 
 export const eventCount = () => BACKGROUND_EVENT_COUNTS[char.ageCategory];
 export const moneyMultiplier = () => CULTURE_MONEY_MULTIPLIERS[char.moneyTable];
@@ -134,7 +166,7 @@ export function cultureAllocationErrors(): string[] {
 }
 
 const combatStyles = () => [char.cultureSelections.combatStyle, ...(career().combatStyle ?? []), ...char.extras].filter(Boolean);
-// Older saves may contain arbitrary bonus skills, which previously used the Combat Style formula as a fallback.
+// Keep older saved specialisations renderable when their source skill is not registered.
 export const skillDefinition = (n: string) => skillDef(n, combatStyles());
 export const base = (n: string) => formulaVal(skillDefinition(n).f, char.chars);
 export const added = (n: string) => sum((Object.keys(POOLS) as Kind[]).map(k => char.alloc[k][n] ?? 0));
@@ -142,6 +174,7 @@ export const total = (n: string) => base(n) + added(n);
 export const used = (k: Kind) => sum(Object.values(char.alloc[k]));
 
 export function setAlloc(kind: Kind, name: string, v: number) {
+  if (kind === "bonus" && !bonusEligible().includes(name)) return;
   if (kind === "career" && !careerSkillOptions(career(), char.careerProfessional).includes(name)) return;
   if (kind === "culture" && !cultureSkills(culture(), char.cultureSelections.standard, char.cultureSelections.professional, char.cultureSelections.combatStyle).includes(name)) return;
   const a = char.alloc[kind];
@@ -151,7 +184,7 @@ export function setAlloc(kind: Kind, name: string, v: number) {
         const raw = Math.round(v) || 0;
         return raw <= 0 || room < 5 ? 0 : Math.max(5, Math.min(PER_SKILL_CAP, room, raw));
       })()
-    : allocationValue(v, POOLS[kind], used(kind), a[name] ?? 0);
+    : allocationValue(v, poolFor(kind), used(kind), a[name] ?? 0, capFor(kind));
   if (n) a[name] = n; else delete a[name];
 }
 export function toggleCareerProfessional(name: string) {
@@ -160,6 +193,7 @@ export function toggleCareerProfessional(name: string) {
   if (next !== selected) {
     char.careerProfessional = next;
     if (!next.includes(name) && !careerSkillOptions(career(), char.careerProfessional).includes(name)) delete char.alloc.career[name];
+    refreshBonusEligibility();
   }
 }
 export function addExtra(name: string): boolean {
@@ -169,7 +203,41 @@ export function addExtra(name: string): boolean {
   char.extras.push(v);
   return true;
 }
+export function setAgeCategory(ageCategory: AgeCategory) {
+  char.ageCategory = ageCategory;
+  char.age = rollAge(ageCategory);
+  char.alloc.bonus = {};
+  if (char.step > 4) char.step = 4;
+}
+export function rollCharacterAge() { char.age = rollAge(char.ageCategory); }
+export function setHobbySkill(name: string) {
+  const v = name.trim();
+  if (!v) {
+    if (char.hobbySkill) delete char.alloc.bonus[char.hobbySkill];
+    char.hobbySkill = "";
+    return;
+  }
+  let professional = false;
+  try { professional = skillDefinition(v).pro; } catch { return; }
+  if (professional && !learnedSkills().includes(v)) {
+    const previous = char.hobbySkill;
+    if (previous) delete char.alloc.bonus[previous];
+    char.hobbySkill = v;
+  }
+}
+export function refreshBonusEligibility() {
+  if (char.hobbySkill && learnedSkills().includes(char.hobbySkill)) {
+    delete char.alloc.bonus[char.hobbySkill];
+    char.hobbySkill = "";
+  }
+  const eligible = new Set(bonusEligible());
+  for (const name of Object.keys(char.alloc.bonus)) if (!eligible.has(name)) delete char.alloc.bonus[name];
+}
+export const canComplete = () => used("bonus") === bonusPool(char.ageCategory);
 
+export function bonusEligible(): string[] {
+  return [...new Set([...learnedSkills(), ...char.extras, ...(char.hobbySkill ? [char.hobbySkill] : [])])];
+}
 export function seedCulturePassions(prompts: string[] = culture().passions) {
   char.passions = prompts.map(prompt => {
     const type = prompt.startsWith("Loyalty") ? "Loyalty" : prompt.startsWith("Hate") ? "Hate" : "Love";
@@ -188,17 +256,14 @@ export function addPassion() {
 export function allSkills(): string[] {
   const c = culture(), k = career();
   const pickedCulture = cultureSkills(c, char.cultureSelections.standard, char.cultureSelections.professional, char.cultureSelections.combatStyle);
-  return [...new Set([
-    ...STANDARD.map(([name]) => name), ...pickedCulture,
-    ...k.standard, ...(k.combatStyle ?? []), ...char.careerProfessional,
-    ...char.extras, ...(Object.keys(POOLS) as Kind[]).flatMap(x => Object.keys(char.alloc[x])),
-  ])];
+  return [...new Set([...STANDARD.map(s => s[0]), ...MAGIC.map(s => s[0]), ...pickedCulture, ...k.standard,
+    ...(k.combatStyle ?? []), ...char.careerProfessional, ...bonusEligible(),
+    ...(Object.keys(char.alloc) as Kind[]).flatMap(x => Object.keys(char.alloc[x]))])];
 }
 export function stepSkills(kind: Kind): string[] {
-  const c = culture(), k = career();
-  if (kind === "culture") return cultureSkills(c, char.cultureSelections.standard, char.cultureSelections.professional, char.cultureSelections.combatStyle);
-  if (kind === "career") return skillsForStage(kind, c, k, [], [], char.careerProfessional);
-  return allSkills();
+  if (kind === "culture") return cultureSkills(culture(), char.cultureSelections.standard, char.cultureSelections.professional, char.cultureSelections.combatStyle);
+  if (kind === "career") return skillsForStage(kind, culture(), career(), [], [], char.careerProfessional);
+  return bonusEligible();
 }
 
 export { baseName };

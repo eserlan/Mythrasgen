@@ -1,6 +1,7 @@
 import type { CultureKind } from "./content";
+import { AGE_CATEGORIES, type AgeCategory } from "./rules";
 
-export type AgeCategory = "Young" | "Adult" | "Middle-Aged";
+export type { AgeCategory } from "./rules";
 
 export interface BackgroundData {
   events: { roll: number; text: string }[];
@@ -41,7 +42,9 @@ export function migrateCultureTables(
 }
 
 export function normalizeAgeCategory(value: unknown, fallback: AgeCategory): AgeCategory {
-  return value === "Young" || value === "Adult" || value === "Middle-Aged" ? value : fallback;
+  const legacy: Record<string, AgeCategory> = { Young: "young", Adult: "adult", "Middle-Aged": "middleAged" };
+  if (typeof value === "string" && Object.hasOwn(AGE_CATEGORIES, value)) return value as AgeCategory;
+  return typeof value === "string" ? legacy[value] ?? fallback : fallback;
 }
 
 /** Fill newly added background fields and discard malformed imported collection values. */

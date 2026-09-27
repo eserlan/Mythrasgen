@@ -1,4 +1,5 @@
 import type { CultureKind } from "./content";
+import { AGE_CATEGORIES, type AgeCategory } from "./rules";
 
 export interface SocialClass {
   name: string;
@@ -9,8 +10,9 @@ export interface SocialClass {
   possessions: string;
 }
 
-export type AgeCategory = "Young" | "Adult" | "Middle-Aged";
-export const BACKGROUND_EVENT_COUNTS: Record<AgeCategory, number> = { Young: 0, Adult: 1, "Middle-Aged": 2 };
+export const BACKGROUND_EVENT_COUNTS: Record<AgeCategory, number> = Object.fromEntries(
+  Object.entries(AGE_CATEGORIES).map(([category, details]) => [category, details.backgroundEvents]),
+) as Record<AgeCategory, number>;
 export const CULTURE_MONEY_MULTIPLIERS: Record<CultureKind, number> = { Barbarian: 50, Civilised: 75, Nomadic: 25, Primitive: 10 };
 
 const civilised: SocialClass[] = [

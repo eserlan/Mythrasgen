@@ -54,6 +54,12 @@ describe("imported background normalization", () => {
   });
 
   test("defaults unknown persisted age categories", () => {
-    expect(normalizeAgeCategory("unknown", "Adult")).toBe("Adult");
+    expect(normalizeAgeCategory("unknown", "adult")).toBe("adult");
+  });
+
+  test("maps legacy age categories to the current rules", () => {
+    expect(normalizeAgeCategory("Young", "adult")).toBe("young");
+    expect(normalizeAgeCategory("Adult", "young")).toBe("adult");
+    expect(normalizeAgeCategory("Middle-Aged", "adult")).toBe("middleAged");
   });
 });
