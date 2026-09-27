@@ -13,6 +13,51 @@ export interface SocialClass {
 export const BACKGROUND_EVENT_COUNTS: Record<AgeCategory, number> = Object.fromEntries(
   Object.entries(AGE_CATEGORIES).map(([category, details]) => [category, details.backgroundEvents]),
 ) as Record<AgeCategory, number>;
+
+export interface BackgroundEvent {
+  /** The percentile result on the official Mythras Background Events table; 0 means unresolved. */
+  roll: number;
+  /** Event text recorded by the player from their copy of the Core Rules. */
+  text: string;
+  source?: "rolled" | "chosen";
+}
+
+/** Keep exactly the age-derived number of active slots while retaining any displaced results. */
+export function reconcileBackgroundEvents(
+  events: BackgroundEvent[],
+  archived: BackgroundEvent[],
+  count: number,
+): { events: BackgroundEvent[]; archived: BackgroundEvent[] } {
+  const active = [...events];
+  const retained = archived.filter(event => isMeaningfulBackgroundEvent(event));
+  if (active.length > count) retained.unshift(...active.splice(count).filter(isMeaningfulBackgroundEvent));
+  while (active.length < count) active.push(retained.shift() ?? { roll: 0, text: "" });
+  return { events: active, archived: retained };
+}
+
+export function isResolvedBackgroundEvent(event: BackgroundEvent): boolean {
+  return Number.isInteger(event.roll) && event.roll >= 1 && event.roll <= 100;
+}
+
+export function resolvedBackgroundEvents(events: BackgroundEvent[]): { event: BackgroundEvent; index: number }[] {
+  return events.flatMap((event, index) => isResolvedBackgroundEvent(event) ? [{ event, index }] : []);
+}
+
+export function setBackgroundEventResult(
+  current: BackgroundEvent,
+  roll: number,
+  source: NonNullable<BackgroundEvent["source"]>,
+): BackgroundEvent {
+  return {
+    roll,
+    text: !isResolvedBackgroundEvent(current) || current.roll === roll ? current.text : "",
+    source,
+  };
+}
+
+function isMeaningfulBackgroundEvent(event: BackgroundEvent): boolean {
+  return isResolvedBackgroundEvent(event) || !!event.text.trim() || !!event.source;
+}
 export const CULTURE_MONEY_MULTIPLIERS: Record<CultureKind, number> = { Barbarian: 50, Civilised: 75, Nomadic: 25, Primitive: 10 };
 
 const civilised: SocialClass[] = [

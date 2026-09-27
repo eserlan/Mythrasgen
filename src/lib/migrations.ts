@@ -1,10 +1,12 @@
 import type { CultureKind } from "./content";
 import { AGE_CATEGORIES, type AgeCategory } from "./rules";
+import type { BackgroundEvent } from "./background-rules";
 
 export type { AgeCategory } from "./rules";
 
 export interface BackgroundData {
-  events: { roll: number; text: string }[];
+  events: BackgroundEvent[];
+  archivedEvents: BackgroundEvent[];
   socialClassRoll: number;
   socialClass: string;
   parentsRoll: number;
@@ -54,6 +56,11 @@ export function normalizeBackground(value: unknown, fallback: BackgroundData): B
     : {};
   const strings = (candidate: unknown, original: string[]) =>
     Array.isArray(candidate) ? candidate.filter((item): item is string => typeof item === "string") : original;
+  const events = (candidate: unknown, original: BackgroundEvent[]) => Array.isArray(candidate)
+    ? candidate.filter((event): event is BackgroundEvent => !!event && typeof event === "object"
+      && Number.isInteger(event.roll) && event.roll >= 0 && event.roll <= 100 && typeof event.text === "string")
+      .map(event => ({ roll: event.roll, text: event.text, ...(event.source === "rolled" || event.source === "chosen" ? { source: event.source } : {}) }))
+    : original;
   return {
     ...fallback,
     ...saved,
@@ -69,10 +76,8 @@ export function normalizeBackground(value: unknown, fallback: BackgroundData): B
     connectionsRoll: Number.isFinite(saved.connectionsRoll) ? saved.connectionsRoll! : fallback.connectionsRoll,
     startingMoneyRoll: Number.isFinite(saved.startingMoneyRoll) ? saved.startingMoneyRoll! : fallback.startingMoneyRoll,
     equipment: typeof saved.equipment === "string" ? saved.equipment : fallback.equipment,
-    events: Array.isArray(saved.events)
-      ? saved.events.filter((event): event is { roll: number; text: string } =>
-          !!event && typeof event === "object" && Number.isFinite(event.roll) && typeof event.text === "string")
-      : fallback.events,
+    events: events(saved.events, fallback.events),
+    archivedEvents: events(saved.archivedEvents, fallback.archivedEvents),
     familyTies: strings(saved.familyTies, fallback.familyTies),
     connections: strings(saved.connections, fallback.connections),
     purchases: Array.isArray(saved.purchases)

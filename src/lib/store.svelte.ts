@@ -1,5 +1,5 @@
 import { careerSkillOptions, careers, cultures, restoreCareerAllocation, restoreLegacyCareerIndex, selectCareerProfessional, type CultureKind } from "./content";
-import { BACKGROUND_EVENT_COUNTS, calculateStartingMoney, CULTURE_MONEY_MULTIPLIERS, classMoneyMultiplier } from "./background-rules";
+import { BACKGROUND_EVENT_COUNTS, calculateStartingMoney, CULTURE_MONEY_MULTIPLIERS, classMoneyMultiplier, reconcileBackgroundEvents, type BackgroundEvent } from "./background-rules";
 import { migrateCharacterStep, migrateCultureTables, normalizeAgeCategory, normalizeBackground } from "./migrations";
 import { baseName, formulaVal, nativeTongueName, normalizeAge, rollAge, skillDef, sum } from "./calc";
 import { culturePassions } from "./passions";
@@ -23,7 +23,7 @@ export interface Character {
   alloc: Record<Kind, Record<string, number>>; hobbySkill: string; extras: string[]; careerProfessional: string[]; step: number;
   passionsEnabled: boolean; passions: Passion[];
   background: {
-    events: { roll: number; text: string }[]; socialClassRoll: number; socialClass: string;
+    events: BackgroundEvent[]; archivedEvents: BackgroundEvent[]; socialClassRoll: number; socialClass: string;
     parentsRoll: number; parents: string; siblingsRoll: number; siblings: string; extendedFamilyRoll: number; extendedFamily: string;
     standingRoll: number; familyTies: string[]; connectionsRoll: number;
     connections: string[]; startingMoneyRoll: number; equipment: string;
@@ -55,7 +55,7 @@ const blank = (): Character => ({
   alloc: { culture: {}, career: {}, bonus: {} }, hobbySkill: "", extras: [], careerProfessional: [], step: 0,
   passionsEnabled: false, passions: [],
   socialTable: "Barbarian", moneyTable: "Barbarian",
-  background: { events: [{ roll: 0, text: "" }], socialClassRoll: 50, socialClass: "Freeman",
+  background: { events: [{ roll: 0, text: "" }], archivedEvents: [], socialClassRoll: 50, socialClass: "Freeman",
     parentsRoll: 50, parents: "", siblingsRoll: 50, siblings: "", extendedFamilyRoll: 50, extendedFamily: "",
     standingRoll: 50, familyTies: [], connectionsRoll: 50, connections: [], startingMoneyRoll: 14,
     equipment: "Tools; simple weapons; rented accommodation", purchases: [] },
@@ -84,6 +84,9 @@ function normalize(value: Partial<Character> | null, home = true): Character {
     nativeLanguage: typeof migrated.nativeLanguage === "string" ? migrated.nativeLanguage : "",
     home,
   } as Character;
+  const eventSlots = reconcileBackgroundEvents(normalized.background.events, normalized.background.archivedEvents, BACKGROUND_EVENT_COUNTS[ageCategory]);
+  normalized.background.events = eventSlots.events;
+  normalized.background.archivedEvents = eventSlots.archived;
   restoreCareer(normalized, legacyCareer);
   if (!Object.hasOwn(AGE_CATEGORIES, normalized.ageCategory)) normalized.ageCategory = "adult";
   if (normalized.generation !== "roll") normalized.generation = "pointBuy";
@@ -223,6 +226,9 @@ export function addExtra(name: string): boolean {
 export function setAgeCategory(ageCategory: AgeCategory) {
   char.ageCategory = ageCategory;
   char.age = rollAge(ageCategory);
+  const eventSlots = reconcileBackgroundEvents(char.background.events, char.background.archivedEvents, BACKGROUND_EVENT_COUNTS[ageCategory]);
+  char.background.events = eventSlots.events;
+  char.background.archivedEvents = eventSlots.archived;
   char.alloc.bonus = {};
   if (char.step > 4) char.step = 4;
 }

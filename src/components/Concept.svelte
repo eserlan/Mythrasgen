@@ -60,7 +60,6 @@
     {#if AGE_CATEGORIES[char.ageCategory].ageing}<div class="ageing">Ageing applies</div>{/if}
   </div>
 </section>
-
 <div class="two">
   <div class="card">
     <h3>Culture</h3>
