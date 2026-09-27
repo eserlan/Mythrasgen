@@ -13,13 +13,13 @@ export function skillsForStage(
   career: Career,
   extras: string[] = [],
   allocated: string[] = [],
+  careerProfessional: string[] = career.professional,
 ): string[] {
   const core = STANDARD.map(([name]) => name);
   const cultureChoices = [...culture.standard, ...culture.standardChoices.flatMap(group => group.options), ...culture.professional];
   if (kind === "culture") return [...new Set(cultureChoices)];
-  if (kind === "career") return [...new Set([...career.standard, ...career.professional])];
-  return [...new Set([...core, ...cultureChoices, ...career.professional,
-    ...extras, ...allocated])];
+  if (kind === "career") return [...new Set([...career.standard, ...(career.combatStyle ?? []), ...careerProfessional])];
+  return [...new Set([...core, ...cultureChoices, ...(career.combatStyle ?? []), ...careerProfessional, ...extras, ...allocated])];
 }
 
 export function selectedCulture(index: number) { return cultures[index] ?? cultures[0]; }

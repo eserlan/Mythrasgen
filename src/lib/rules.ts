@@ -48,9 +48,9 @@ export const STANDARD: Skill[] = [
   ["Willpower", [["POW", 2]]],
 ];
 export const PROFESSIONAL: Skill[] = [
-  ["Acrobatics", ["STR", "DEX"]], ["Acting", [["CHA", 2]]], ["Art", ["POW", "CHA"]],
-  ["Bureaucracy", [["INT", 2]]], ["Commerce", ["INT", "CHA"]], ["Courtesy", ["INT", "CHA"]],
-  ["Craft", ["DEX", "INT"]], ["Culture", [["INT", 2]]], ["Disguise", ["INT", "CHA"]],
+  ["Acrobatics", ["STR", "DEX"]], ["Acting", [["CHA", 2]]], ["Art", ["POW", "CHA"]], ["Bureaucracy", [["INT", 2]]],
+  ["Commerce", ["INT", "CHA"]], ["Courtesy", ["INT", "CHA"]], ["Craft", ["DEX", "INT"]],
+  ["Culture", [["INT", 2]]], ["Disguise", ["INT", "CHA"]],
   ["Engineering", [["INT", 2]]], ["Exhort", ["INT", "CHA"]], ["Gambling", ["INT", "POW"]],
   ["Healing", ["INT", "POW"]], ["Language", ["INT", "CHA"]], ["Literacy", [["INT", 2]]],
   ["Lockpicking", [["DEX", 2]]], ["Lore", [["INT", 2]]], ["Mechanisms", ["DEX", "INT"]],

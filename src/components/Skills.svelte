@@ -1,6 +1,6 @@
 <script lang="ts">
   import { type Kind } from "../lib/rules";
-  import { addExtra, base, capFor, career, char, culture, cultureAllocationErrors, poolFor, setAlloc, setHobbySkill, skillDefinition, stepSkills, total, used } from "../lib/store.svelte";
+  import { addExtra, base, capFor, career, char, culture, cultureAllocationErrors, poolFor, setAlloc, setHobbySkill, skillDefinition, stepSkills, toggleCareerProfessional, total, used } from "../lib/store.svelte";
   import StepHead from "./StepHead.svelte";
   import Stepper from "./Stepper.svelte";
   let { kind }: { kind: Kind } = $props();
@@ -19,6 +19,30 @@
   <div class="left"><b>{left}</b><span>points remain <em>of {pool} · max +{cap} per skill</em></span></div>
   <div class="meter"><i style:width="{(pool - left) / pool * 100}%"></i></div>
 </div>
+{#if kind === "career"}
+  <section class="card career-picks" aria-label="Career Professional Skill selection">
+    <h3>Choose up to three Professional Skills</h3>
+    <p class="mute">Only selected Professional Skills, listed Standard Skills, and career Combat Styles can receive career points.</p>
+    <div class="career-options">
+      {#each career().professional as s (s)}
+        <label><input type="checkbox" checked={char.careerProfessional.includes(s)} disabled={!char.careerProfessional.includes(s) && char.careerProfessional.length >= 3}
+          onchange={() => toggleCareerProfessional(s)}>{s}</label>
+      {/each}
+    </div>
+  </section>
+{/if}
+{#if kind === "career"}
+  <section class="card career-picks" aria-label="Career Professional Skill selection">
+    <h3>Choose up to three Professional Skills</h3>
+    <p class="mute">Only selected Professional Skills, listed Standard Skills, and career Combat Styles can receive career points.</p>
+    <div class="career-options">
+      {#each career().professional as s (s)}
+        <label><input type="checkbox" checked={char.careerProfessional.includes(s)} disabled={!char.careerProfessional.includes(s) && char.careerProfessional.length >= 3}
+          onchange={() => toggleCareerProfessional(s)}>{s}</label>
+      {/each}
+    </div>
+  </section>
+{/if}
 {#if kind === "culture" && cultureErrors.length}
   <div class="validation" role="status"><b>Culture allocation incomplete</b><ul>{#each cultureErrors as error}<li>{error}</li>{/each}</ul></div>
 {/if}
