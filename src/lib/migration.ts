@@ -3,7 +3,7 @@ type SavedCharacter = { culture?: number; cultureSelections?: CultureSelections;
 
 /** Upgrade character files saved before culture choices became explicit. */
 export function migrateCharacter<T extends SavedCharacter>(saved: T): Omit<T, "cultureSelections"> & { cultureSelections: CultureSelections; cultureMigration?: boolean } {
-  if (saved.cultureSelections) return saved as Omit<T, "cultureSelections"> & { cultureSelections: CultureSelections; cultureMigration?: boolean };
+  if (saved.cultureSelections || saved.culture === undefined) return saved as Omit<T, "cultureSelections"> & { cultureSelections: CultureSelections; cultureMigration?: boolean };
 
   // The previous picker order was Civilised, Barbarian, Nomad, Seafarer.
   // Seafarer has no current template, so keep those characters on the closest

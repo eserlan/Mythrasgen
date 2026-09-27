@@ -28,4 +28,9 @@ describe("character migration", () => {
     const current = { culture: 1, cultureSelections: { standard: [], professional: [], combatStyle: "" } };
     expect(migrateCharacter(current)).toBe(current);
   });
+
+  test("does not treat an empty character as a legacy save", () => {
+    const empty = {};
+    expect(migrateCharacter(empty)).toBe(empty);
+  });
 });
