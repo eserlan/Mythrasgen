@@ -16,11 +16,12 @@
 <section class="card passions">
   <div class="passion-top">
     <div><h3>Passions <span class="optional">Optional rule</span></h3>
-      <p class="mute">Culture prompts from {culture().name}. Starting values use the Workbook formulas (30% plus the listed characteristics).</p>
+      <p class="mute">Suggested prompts for {culture().name}; use any, edit them, or leave Passions disabled. Starting values use the Workbook formulas.</p>
     </div>
     <label class="toggle"><input type="checkbox" checked={char.passionsEnabled} onchange={e => toggle(e.currentTarget.checked)} /> Use Passions</label>
   </div>
   {#if char.passionsEnabled}
+    <div class="passion-prompts"><span>Culture suggestions</span> {culture().passions.join(" · ")}</div>
     <div class="passion-list">
       {#each char.passions as p, i (i)}
         {@const startingValue = value(p)}
@@ -50,6 +51,7 @@
     <button class="add-passion" onclick={addPassion}>Add Passion</button>
     <p class="passion-note">For a person in a romantic or familial context, enter their POW and CHA. For a platonic or adverse person, enter their CHA. Other categories use your characteristics.</p>
   {:else}
-    <p class="passion-note">Passions are disabled. Turn this rule on to use the culture prompts and calculate starting values.</p>
+    <div class="passion-prompts"><span>Culture suggestions</span> {culture().passions.join(" · ")}</div>
+    <p class="passion-note">Passions are optional. Turn them on to create and calculate starting values.</p>
   {/if}
 </section>

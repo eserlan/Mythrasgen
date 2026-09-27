@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { skillDef } from "../src/lib/calc";
+import { formulaVal, nativeTongueName, skillDef } from "../src/lib/calc";
 import { MAGIC, PROFESSIONAL, STANDARD } from "../src/lib/rules";
 
 const cases: [string, string][] = [
@@ -47,6 +47,15 @@ describe("skill definitions", () => {
       expect(skillDef(name).f).toEqual(skillDef(name.replace(/\s*\(.*\)$/, "")).f);
     },
   );
+
+  test("native language names use Native Tongue while additional languages use Language", () => {
+    const chars = { STR: 10, CON: 10, SIZ: 10, DEX: 10, INT: 10, POW: 10, CHA: 10 } as const;
+    expect(nativeTongueName("Elvish")).toBe("Native Tongue (Elvish)");
+    expect(skillDef(nativeTongueName("Elvish")).f).toEqual(skillDef("Native Tongue").f);
+    expect(formula(skillDef(nativeTongueName("Elvish")).f)).toBe("INT+CHA+40");
+    expect(skillDef("Language (Trade)").pro).toBe(true);
+    expect(formulaVal(skillDef(nativeTongueName("Elvish")).f, chars)).toBe(60);
+  });
 
   test("registered combat style names and Combat Style specialisations use STR+DEX", () => {
     expect(skillDef("Citizen Militia", ["Citizen Militia"]).f).toEqual(skillDef("Combat Style").f);
