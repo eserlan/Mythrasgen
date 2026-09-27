@@ -1,28 +1,30 @@
 <script lang="ts">
   import StepHead from "./StepHead.svelte";
-  import { char, availableMoney, eventCount, moneyMultiplier, roll4d6, rollDie, rollPercentile, startingMoney } from "../lib/store.svelte";
+  import { char, availableMoney, eventCount, moneyMultiplier, resolveSocialClass, roll4d6, rollDie, rollPercentile, socialClassReady, startingMoney } from "../lib/store.svelte";
   import { CONNECTIONS, CONNECTION_TYPES, EXTENDED_FAMILY, FAMILY_STANDING, PARENTS, SIBLINGS, SOCIAL_CLASSES, setBackgroundEventResult, socialClassForRoll, tableResult } from "../lib/background-rules";
-  import { cultures, type CultureKind } from "../lib/content";
+  import { cultures } from "../lib/content";
   import { AGE_CATEGORIES } from "../lib/rules";
 
   let purchaseName = $state("");
   let purchaseCost = $state(0);
   let chosenResults = $state<number[]>([]);
+  let classChoice = $state("");
   let background = $derived(char.background);
   let classes = $derived(SOCIAL_CLASSES[char.socialTable]);
-  let selectedClass = $derived(classes.find(row => row.name === background.socialClass) ?? classes[0]);
   let standing = $derived(tableResult(FAMILY_STANDING, background.standingRoll));
   let connectionBand = $derived(tableResult(CONNECTIONS, background.connectionsRoll));
 
   function setClass(roll: number) {
-    background.socialClassRoll = roll;
-    const row = socialClassForRoll(char.socialTable, roll);
-    background.socialClass = row.name;
-    background.equipment = `${row.equipment}. ${row.possessions}.`;
+    const normalized = Math.max(1, Math.min(100, Math.round(Number(roll) || 1)));
+    background.socialClassRoll = normalized;
+    resolveSocialClass(socialClassForRoll(char.socialTable, normalized), "rolled");
   }
-  function changeSocialTable(kind: CultureKind) {
-    char.socialTable = kind;
-    setClass(background.socialClassRoll);
+  function chooseClass() {
+    const row = classes.find(item => item.name === classChoice);
+    if (row) {
+      background.socialClassRoll = 0;
+      resolveSocialClass(row, "chosen");
+    }
   }
   function rollParents() {
     background.parentsRoll = rollPercentile();
@@ -108,24 +110,26 @@
 
 <section class="card">
   <h3>Social class</h3>
-  <label class="field"><span>Social-class table</span><select value={char.socialTable} onchange={e => changeSocialTable(e.currentTarget.value as CultureKind)}>
-    {#each ["Barbarian", "Civilised", "Nomadic", "Primitive"] as kind}<option value={kind}>{kind}</option>{/each}
-  </select></label>
-  <p class="mute">Use the community table that fits your campaign. Seafarer is custom, so choose its table here.</p>
+  <p class="mute">Culture table: <b>{cultures[char.culture]?.name ?? char.socialTable}</b>. Roll 1d100 on that culture’s Social Class table. The GM may allow choosing instead.</p>
+  {#if !socialClassReady()}
+    <div class="validation" role="status"><b>Social class needs reconciliation</b><p>The culture changed from {background.socialClassCulture}. The previous result ({background.socialClass || "unresolved"}) and its saved resources are preserved. Roll on the {char.socialTable} table or choose a class with GM approval.</p></div>
+  {/if}
   <div class="field-row">
     <label class="field"><span>1d100 result</span><input type="number" min="1" max="100" bind:value={background.socialClassRoll} /></label>
-    <button type="button" onclick={() => setClass(rollPercentile())}>Roll social class</button>
+    <button type="button" onclick={() => setClass(rollPercentile())}>Roll Social Class</button>
     <button type="button" onclick={() => setClass(background.socialClassRoll)}>Apply roll</button>
-    <label class="field"><span>Social class</span><select value={background.socialClass} onchange={e => {
-      background.socialClass = e.currentTarget.value;
-      const row = classes.find(item => item.name === background.socialClass);
-      if (row) background.equipment = `${row.equipment}. ${row.possessions}.`;
-    }}>
+  </div>
+  <div class="field-row">
+    <label class="field"><span>Choose class (GM option)</span><select bind:value={classChoice}>
+      <option value="">Select a class</option>
       {#each classes as row}<option value={row.name}>{row.name} (×{row.money})</option>{/each}
     </select></label>
+    <button type="button" class="ghost" disabled={!classChoice} onclick={chooseClass}>Choose class</button>
   </div>
-  <p class="label">Typical equipment</p><p>{selectedClass?.equipment}</p>
-  <p class="label">Background resources / possessions</p><p>{selectedClass?.possessions}</p>
+  <p><b>Resolved Social Class:</b> {socialClassReady() ? `${background.socialClass} (${background.socialClassMethod})` : "Reconciliation required"}</p>
+  <p><b>Money Modifier:</b> ×{socialClassReady() ? background.socialClassMoney : "—"}</p>
+  <p class="label">Typical equipment</p><p>{background.socialClassEquipment}</p>
+  <p class="label">Background Resources</p><p>{background.socialClassResources}</p>
 </section>
 
 <section class="card">
@@ -145,14 +149,12 @@
 
 <section class="card">
   <h3>Starting money &amp; equipment</h3>
-  <label class="field"><span>Culture money table</span><select bind:value={char.moneyTable}>
-    {#each ["Barbarian", "Civilised", "Nomadic", "Primitive"] as kind}<option value={kind}>{kind}</option>{/each}
-  </select></label>
+  <p class="mute">Starting money base follows {cultures[char.culture]?.name}: {moneyMultiplier()} sp per 4d6 result.</p>
   <div class="field-row">
     <label class="field"><span>4d6 roll · reroll any time</span><input type="number" min="4" max="24" bind:value={background.startingMoneyRoll} /></label>
     <button type="button" onclick={() => background.startingMoneyRoll = roll4d6()}>Roll 4d6</button>
   </div>
-  <p><b>{background.startingMoneyRoll} × {moneyMultiplier()} sp × {selectedClass?.money} social-class modifier = {startingMoney()} sp</b></p>
+  <p><b>{background.startingMoneyRoll} × {moneyMultiplier()} sp × {socialClassReady() ? background.socialClassMoney : "pending"} social-class modifier = {startingMoney()} sp</b></p>
   <p class="label">Starting equipment and possessions</p>
   <label class="field"><span>Edit or add campaign-specific details</span><textarea rows="3" bind:value={background.equipment}></textarea></label>
   <p class="mute">The class table gives broad starting resources. Add setting-specific choices here; this tool does not replace them with fixed weapons or gear.</p>
@@ -160,7 +162,7 @@
   <div class="field-row">
     <label class="field"><span>Item or service</span><input bind:value={purchaseName} placeholder="Name the item" /></label>
     <label class="field"><span>Cost (sp)</span><input type="number" min="0" bind:value={purchaseCost} /></label>
-    <button type="button" disabled={!purchaseName.trim() || purchaseCost > availableMoney()} onclick={addPurchase}>Add purchase</button>
+    <button type="button" disabled={!socialClassReady() || !purchaseName.trim() || purchaseCost > availableMoney()} onclick={addPurchase}>Add purchase</button>
   </div>
   {#if background.purchases.length}
     <ul class="leaders">{#each background.purchases as item, i}<li><span>{item.name}</span><i></i><b>{item.cost} sp</b><button type="button" class="ghost" aria-label="Remove {item.name}" onclick={() => background.purchases.splice(i, 1)}>Remove</button></li>{/each}</ul>

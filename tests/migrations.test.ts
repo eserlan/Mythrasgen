@@ -38,6 +38,8 @@ describe("legacy background table migration", () => {
 describe("imported background normalization", () => {
   const fallback = {
     events: [{ roll: 0, text: "" }], archivedEvents: [], socialClassRoll: 50, socialClass: "Freeman",
+    socialClassCulture: "Civilised" as const, socialClassMethod: "rolled" as const, socialClassMoney: 1,
+    socialClassEquipment: "Tools", socialClassResources: "Rented accommodation",
     parentsRoll: 50, parents: "", siblingsRoll: 50, siblings: "", extendedFamilyRoll: 50, extendedFamily: "",
     standingRoll: 50, familyTies: [], connectionsRoll: 50, connections: [], startingMoneyRoll: 14,
     equipment: "Tools", purchases: [],
@@ -61,6 +63,17 @@ describe("imported background normalization", () => {
     expect(value.events).toEqual([{ roll: 40, text: "Valid", source: "chosen" }]);
     expect(value.archivedEvents).toEqual([{ roll: 12, text: "Retained" }]);
     expect(value.purchases).toEqual([{ name: "Torch", cost: 2 }]);
+  });
+
+  test("preserves resolved social-class rules data in saved background records", () => {
+    const value = normalizeBackground({
+      socialClass: "Gentry", socialClassCulture: "Civilised", socialClassMethod: "chosen",
+      socialClassMoney: 3, socialClassEquipment: "Tools; weapons; armour; mount", socialClassResources: "Farmstead",
+    }, fallback);
+    expect(value).toMatchObject({
+      socialClass: "Gentry", socialClassCulture: "Civilised", socialClassMethod: "chosen",
+      socialClassMoney: 3, socialClassEquipment: "Tools; weapons; armour; mount", socialClassResources: "Farmstead",
+    });
   });
 
   test("defaults unknown persisted age categories", () => {
