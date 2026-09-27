@@ -40,14 +40,18 @@ describe("core culture templates", () => {
     expect(validateCultureAllocation(culture, selection, allocation)).toEqual([]);
   });
 
-  test("requires three professional skills, valid conditional choices, and the full pool", () => {
+  test("allows fewer than three professional skills but requires valid choices and the full pool", () => {
     const culture = cultures[0];
     const selection = { standard: [["Boating"]], professional: ["Healing", "Track"], combatStyle: "" };
     const errors = validateCultureAllocation(culture, selection, { Athletics: 15 });
-    expect(errors).toContain("Select exactly three Professional Skills.");
     expect(errors).toContain("Spend all 100 cultural points.");
+    const noProfessionals = { ...selection, professional: [] };
+    const allocation = Object.fromEntries(cultureSkills(culture, noProfessionals.standard, [], "").map((name, i) => [name, i === 6 ? 10 : 15]));
+    expect(validateCultureAllocation(culture, noProfessionals, allocation)).toEqual([]);
     expect(validateCultureAllocation(culture, { ...selection, standard: [["Swim"]], professional: ["Healing", "Track", "Survival"] }, {}))
       .toContain("Complete the culture's standard skill choices.");
+    expect(validateCultureAllocation(culture, { ...selection, professional: [...culture.professional.slice(0, 4)] }, {}))
+      .toContain("Select up to three valid Professional Skills.");
   });
 
   test("rejects allocations outside +5..+15 and unavailable skills", () => {

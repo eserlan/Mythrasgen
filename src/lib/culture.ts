@@ -10,8 +10,8 @@ export function validateCultureAllocation(culture: Culture, selection: { standar
       new Set(selection.standard[i] ?? []).size !== g.count || (selection.standard[i] ?? []).some(x => !g.options.includes(x)))) {
     errors.push("Complete the culture's standard skill choices.");
   }
-  if (selection.professional.length !== 3 || new Set(selection.professional).size !== 3 || selection.professional.some(x => !culture.professional.includes(x))) {
-    errors.push("Select exactly three Professional Skills.");
+  if (selection.professional.length > 3 || new Set(selection.professional).size !== selection.professional.length || selection.professional.some(x => !culture.professional.includes(x))) {
+    errors.push("Select up to three valid Professional Skills.");
   }
   const eligible = new Set(cultureSkills(culture, selection.standard, selection.professional, selection.combatStyle));
   if (Object.entries(allocation).some(([name, value]) => !eligible.has(name) || !Number.isInteger(value) || value < 5 || value > 15)) {

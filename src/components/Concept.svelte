@@ -44,7 +44,7 @@
         {/each}
       </div>
     {/each}
-    <p class="label">Select exactly three Professional Skills ({char.cultureSelections.professional.length}/3)</p>
+    <p class="label">Select up to three Professional Skills ({char.cultureSelections.professional.length}/3)</p>
     <div class="choice-list">
       {#each cu.professional as option}
         <label><input type="checkbox" checked={char.cultureSelections.professional.includes(option)}
