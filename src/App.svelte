@@ -8,7 +8,7 @@
   import Background from "./components/Background.svelte";
   import Characters from "./components/Characters.svelte";
   import { canFinishPointBuy } from "./lib/calc";
-  import { canVisitStep } from "./lib/navigation";
+  import { canVisitStep, isLandingView } from "./lib/navigation";
   import { canComplete, char, createCharacter, cultureAllocationErrors, persist, replace, ROMAN, STEPS } from "./lib/store.svelte";
 
   let open = $state(false);
@@ -40,8 +40,8 @@
   const newChar = () => { createCharacter(); char.home = false; showLibrary = false; };
 </script>
 
-{#if char.home}
-  <Landing onLibrary={() => { char.home = false; showLibrary = true; }} />
+{#if isLandingView(char.home, showLibrary)}
+  <Landing onLibrary={() => { showLibrary = true; }} />
 {:else}
 <header class="noprint" class:open>
   <div class="top">
