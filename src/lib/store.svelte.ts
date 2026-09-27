@@ -462,7 +462,6 @@ export function chooseCultureCombatStyle(definition: CombatStyleSelection | null
 export function chooseBonusCombatStyle(definition: CombatStyleSelection | null) {
   if (!definition) { setHobbySkill(""); return; }
   const alreadyKnown = learnedSkills().includes(definition.name);
-  if (alreadyKnown && char.hobbySkill) setHobbySkill("");
   char.combatStyles = attachCharacterStyle(char.combatStyles, definition, "bonus");
   if (!alreadyKnown) setHobbySkill(definition.name);
 }

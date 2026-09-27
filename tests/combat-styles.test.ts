@@ -2,6 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { attachCharacterStyle, CORE_COMBAT_STYLES, customCombatStyle, legacyCombatStyle, type CharacterCombatStyle } from "../src/lib/combat-styles";
 import { CHARACTER_LIBRARY_KEY, createCharacterRepository, type StorageLike } from "../src/lib/character-library";
 
+// Bun runs the store without Svelte's compiler, so provide the identity state helper.
+(globalThis as typeof globalThis & { $state: <T>(value: T) => T }).$state = value => value;
+const store = await import("../src/lib/store.svelte");
+
 describe("structured Combat Styles", () => {
   test("ships source-supported Core examples as searchable data with STR + DEX bases", () => {
     expect(CORE_COMBAT_STYLES.map(style => style.name)).toEqual(["Meerish Infantry", "Meerish Slinger"]);
@@ -70,5 +74,20 @@ describe("structured Combat Styles", () => {
       () => ({ combatStyles: [] }), undefined, () => "other");
     expect(values.has(CHARACTER_LIBRARY_KEY)).toBe(true);
     expect(restored.getCharacter("character")?.combatStyles).toEqual(styles);
+  });
+
+  test("choosing an already learned bonus Combat Style preserves an unrelated hobby and its points", () => {
+    const { char, replace, chooseBonusCombatStyle } = store;
+    replace({
+      ...char,
+      cultureSelections: { standard: [], professional: [], combatStyle: "Meerish Infantry" },
+      hobbySkill: "Craft (Carpentry)",
+      alloc: { culture: {}, career: {}, bonus: { "Craft (Carpentry)": 8 } },
+    });
+
+    chooseBonusCombatStyle(CORE_COMBAT_STYLES[0]);
+
+    expect(char.hobbySkill).toBe("Craft (Carpentry)");
+    expect(char.alloc.bonus["Craft (Carpentry)"]).toBe(8);
   });
 });
