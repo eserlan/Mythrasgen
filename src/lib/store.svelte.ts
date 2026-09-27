@@ -1,4 +1,4 @@
-import { careerSkillOptions, careers, cultures, restoreCareerAllocation, restoreLegacyCareerIndex, selectCareerProfessional, type CultureKind } from "./content";
+import { careers, cultures, restoreCareerAllocation, restoreLegacyCareerIndex, selectCareerProfessional, type CultureKind } from "./content";
 import { BACKGROUND_EVENT_COUNTS, calculateStartingMoney, CULTURE_MONEY_MULTIPLIERS, classMoneyMultiplier, isSocialClassResolvedForCulture, reconcileBackgroundEvents, SOCIAL_CLASSES, socialClassForRoll, type BackgroundEvent } from "./background-rules";
 import { migrateCharacterStep, migrateCultureTables, normalizeAgeCategory, normalizeBackground, normalizeIdentityFields, normalizeRace } from "./migrations";
 import { baseName, formulaVal, nativeTongueName, normalizeAge, rollAge, skillDef, sum } from "./calc";
@@ -390,7 +390,7 @@ export function setSkillSpecialisation(stage: "culture" | "career", template: st
   if (previous && previous !== next) {
     const stillEligible = stage === "culture"
       ? cultureSkills(culture(), char.cultureSelections.standard, resolvedProfessional("culture"), char.cultureSelections.combatStyle).includes(previous)
-      : resolveNativeTongue(careerSkillOptions(career(), resolvedProfessional("career"))).includes(previous);
+      : resolveNativeTongue([...career().standard, ...(career().combatStyle ?? []), ...char.careerCombatStyles, ...resolvedProfessional("career")]).includes(previous);
     if (!stillEligible) delete char.alloc[stage][previous];
   }
   refreshBonusEligibility();
@@ -416,7 +416,7 @@ export const used = (k: Kind) => sum(Object.values(char.alloc[k]));
 export function setAlloc(kind: Kind, name: string, v: number) {
   if (kind === "bonus" && !bonusEligible().includes(name)) return;
   if (kind === "career" && !resolveNativeTongue(careerSkills()).includes(name)) return;
-  if (kind === "culture" && !cultureSkills(culture(), char.cultureSelections.standard, char.cultureSelections.professional, char.cultureSelections.combatStyle).includes(name)) return;
+  if (kind === "culture" && !cultureSkills(culture(), char.cultureSelections.standard, resolvedProfessional("culture"), char.cultureSelections.combatStyle).includes(name)) return;
   const a = char.alloc[kind];
   const n = kind === "culture"
     ? (() => {
