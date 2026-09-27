@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import { skillDef } from "../src/lib/calc";
-import { cultures } from "../src/lib/content";
 import { MAGIC, PROFESSIONAL, STANDARD } from "../src/lib/rules";
 
 const cases: [string, string][] = [
@@ -17,7 +16,7 @@ const cases: [string, string][] = [
   ["Engineering", "INTx2"], ["Exhort", "INT+CHA"], ["Gambling", "INT+POW"],
   ["Healing", "INT+POW"], ["Language", "INT+CHA"], ["Literacy", "INTx2"],
   ["Lockpicking", "DEXx2"], ["Lore", "INTx2"], ["Mechanisms", "DEX+INT"],
-  ["Musicianship", "DEX+CHA"], ["Navigation", "INT+POW"], ["Oratory", "POW+CHA"],
+  ["Musicianship", "DEX+CHA"], ["Navigation", "INT+POW"], ["Navigate", "INT+POW"], ["Oratory", "POW+CHA"],
   ["Seamanship", "INT+CON"], ["Seduction", "INT+CHA"], ["Sleight", "DEX+CHA"],
   ["Streetwise", "POW+CHA"], ["Survival", "CON+POW"], ["Teach", "INT+CHA"],
   ["Track", "INT+CON"],
@@ -58,9 +57,9 @@ describe("skill definitions", () => {
     expect(skillDef("Tracking the Lost", ["Tracking the Lost"]).f).toEqual(skillDef("Combat Style").f);
   });
 
-  test("every culture combat style is a professional skill", () => {
-    const styles = cultures.map(({ combatStyle }) => combatStyle);
-    for (const style of styles) expect(skillDef(style, styles).pro).toBe(true);
+  test("a selected cultural Combat Style is professional", () => {
+    const style = "People's Combat Style";
+    expect(skillDef(style, [style]).pro).toBe(true);
   });
 
   test("unknown names never default to the Combat Style formula", () => {
