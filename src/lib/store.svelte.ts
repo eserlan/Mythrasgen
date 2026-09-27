@@ -1,12 +1,14 @@
 import { cultures } from "./content";
 import { allocationValue, selectedCareer, skillsForStage } from "./creation";
 import { cultureSkills, validateCultureAllocation } from "./culture";
+import { migrateCharacter } from "./migration";
 import { baseName, formulaVal, skillDef, sum } from "./calc";
 import { PER_SKILL_CAP, POOLS, STANDARD, STATS, type Chars, type Kind } from "./rules";
 
 export interface Character {
   name: string; chars: Chars; culture: number; career: number;
   cultureSelections: { standard: string[][]; professional: string[]; combatStyle: string };
+  cultureMigration?: boolean;
   alloc: Record<Kind, Record<string, number>>; extras: string[]; step: number;
   generation: "pointBuy" | "roll"; rollResults: number[] | null; rollAssignments: number[];
   /** True while the landing page is showing. */
@@ -34,15 +36,16 @@ const blank = (): Character => ({
 function load(): Character {
   try {
     const saved = JSON.parse(localStorage.getItem(KEY) ?? "null");
-    return { ...blank(), ...saved, cultureSelections: { ...blank().cultureSelections, ...saved?.cultureSelections },
-      alloc: { ...blank().alloc, ...saved?.alloc } };
+    const migrated = migrateCharacter(saved ?? {});
+    return { ...blank(), ...migrated, cultureSelections: { ...blank().cultureSelections, ...migrated.cultureSelections },
+      alloc: { ...blank().alloc, ...migrated.alloc } };
   } catch { return blank(); }
 }
 export const char: Character = $state(load());
 
 export function persist() { try { localStorage.setItem(KEY, JSON.stringify(char)); } catch { /* storage unavailable */ } }
 export const reset = (home = true) => Object.assign(char, blank(), { home });
-export const replace = (c: Partial<Character>) => Object.assign(char, blank(), c, { home: false });
+export const replace = (c: Partial<Character>) => Object.assign(char, blank(), migrateCharacter(c), { home: false });
 export function setRollResults(results: number[]) {
   char.generation = "roll";
   char.rollResults = [...results];
