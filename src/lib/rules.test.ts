@@ -41,10 +41,11 @@ describe("skill base formulas", () => {
     "Native Tongue": 66, Perception: 21, Ride: 16, Sing: 19, Stealth: 23, Swim: 24, Unarmed: 20, Willpower: 14,
   };
   const expectedProfessional: Record<string, number> = {
-    Acrobatics: 20, Acting: 26, Bureaucracy: 28, Commerce: 26, Courtesy: 26, Craft: 23, Disguise: 26,
-    Engineering: 28, Gambling: 21, Healing: 21, Language: 26, Lore: 28, Mechanisms: 23,
-    Musicianship: 21, Navigation: 21, Oratory: 19, Seduction: 26, Sleight: 21, Streetwise: 19,
-    Survival: 20, Teach: 26, Track: 27,
+    Acrobatics: 20, Acting: 24, Art: 19, Bureaucracy: 28, Commerce: 26, Courtesy: 26, Craft: 23,
+    Culture: 28, Disguise: 26, Engineering: 28, Exhort: 26, Gambling: 21, Healing: 21, Language: 26,
+    Literacy: 28, Lockpicking: 18, Lore: 28, Mechanisms: 23, Musicianship: 21, Navigation: 21,
+    Oratory: 19, Seamanship: 27, Seduction: 26, Sleight: 21, Streetwise: 19, Survival: 20,
+    Teach: 26, Track: 27,
   };
   test.each([["Standard", STANDARD, expectedStandard], ["Professional", PROFESSIONAL, expectedProfessional]] as const)(
     "%s skill table matches the core characteristic formulas", (_group, rows, expected) => {
