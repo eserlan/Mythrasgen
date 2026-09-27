@@ -9,7 +9,7 @@ export function reconcileCultureCombatStyle(previous: string, next: string, othe
   if (previous && previous !== next && !otherEligible.includes(previous)) delete allocation[previous];
 }
 
-export function validateCultureAllocation(culture: Culture, selection: { standard: string[][]; professional: string[]; combatStyle: string }, allocation: Record<string, number>, pool = 100): string[] {
+export function validateCultureAllocation(culture: Culture, selection: { standard: string[][]; professional: string[]; combatStyle: string }, allocation: Record<string, number>, pool = 100, resolvedProfessional = selection.professional): string[] {
   const errors: string[] = [];
   if (culture.standardChoices.some((g, i) => selection.standard[i]?.length !== g.count ||
       new Set(selection.standard[i] ?? []).size !== g.count || (selection.standard[i] ?? []).some(x => !g.options.includes(x)))) {
@@ -18,7 +18,7 @@ export function validateCultureAllocation(culture: Culture, selection: { standar
   if (selection.professional.length > 3 || new Set(selection.professional).size !== selection.professional.length || selection.professional.some(x => !culture.professional.includes(x))) {
     errors.push("Select up to three valid Professional Skills.");
   }
-  const eligible = new Set(cultureSkills(culture, selection.standard, selection.professional, selection.combatStyle));
+  const eligible = new Set(cultureSkills(culture, selection.standard, resolvedProfessional, selection.combatStyle));
   if (Object.entries(allocation).some(([name, value]) => !eligible.has(name) || !Number.isInteger(value) || value < 5 || value > 15)) {
     errors.push("Each cultural skill allocation must be +5 to +15 and use an available skill.");
   }
