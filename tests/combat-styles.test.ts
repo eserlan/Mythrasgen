@@ -75,7 +75,6 @@ describe("structured Combat Styles", () => {
     expect(values.has(CHARACTER_LIBRARY_KEY)).toBe(true);
     expect(restored.getCharacter("character")?.combatStyles).toEqual(styles);
   });
-
   test("choosing an already learned bonus Combat Style preserves an unrelated hobby and its points", () => {
     const { char, replace, chooseBonusCombatStyle } = store;
     replace({

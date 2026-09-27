@@ -1,9 +1,8 @@
 <script lang="ts">
   import { type Kind } from "../lib/rules";
-  import { addExtra, base, capFor, career, careerAllocationErrors, char, culture, cultureAllocationErrors, poolFor, reconcileCultureSelection, refreshBonusEligibility, setAlloc, setCultureCombatStyle, setHobbySkill, setSkillSpecialisation, skillDefinition, stepSkills, toggleCareerProfessional, total, used } from "../lib/store.svelte";
-  import { requiresSpecialisation } from "../lib/specialisations";
-  import { chooseBonusCombatStyle, chooseCareerCombatStyle, chooseCultureCombatStyle } from "../lib/store.svelte";
+  import { addExtra, base, capFor, career, careerAllocationErrors, char, chooseBonusCombatStyle, chooseCareerCombatStyle, chooseCultureCombatStyle, culture, cultureAllocationErrors, poolFor, reconcileCultureSelection, refreshBonusEligibility, setAlloc, setHobbySkill, setSkillSpecialisation, skillDefinition, stepSkills, toggleCareerProfessional, total, used } from "../lib/store.svelte";
   import CombatStyleChooser from "./CombatStyleChooser.svelte";
+  import { requiresSpecialisation } from "../lib/specialisations";
   import StepHead from "./StepHead.svelte";
   import Stepper from "./Stepper.svelte";
   let { kind }: { kind: Kind } = $props();

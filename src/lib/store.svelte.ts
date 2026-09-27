@@ -10,8 +10,8 @@ import { AGE_CATEGORIES, bonusCap, bonusPool, MAGIC, PER_SKILL_CAP, POOLS, STAND
 import { createCharacterRepository } from "./character-library";
 import { swapAssignedValues } from "./characteristics";
 import { availableFrames, bodyRanges, FRAMES, isInRange, reconcileMeasurements, type Frame } from "./body";
-import { hasMeaningfulSpecialisation, requiresSpecialisation, resolveSkillTemplate, specialisationStageErrors } from "./specialisations";
 import { attachCharacterStyle, CORE_COMBAT_STYLES, detachCharacterStyle, legacyCombatStyle, normalizeCombatStyles, type CharacterCombatStyle, type CombatStyleSelection } from "./combat-styles";
+import { hasMeaningfulSpecialisation, requiresSpecialisation, resolveSkillTemplate, specialisationStageErrors } from "./specialisations";
 
 export interface Passion {
   type: "Loyalty" | "Love" | "Hate";
@@ -27,8 +27,8 @@ export interface Character {
   /** Optional race/template restriction; omitted for human characters. */
   frameOptions?: Frame[];
   cultureSelections: { standard: string[][]; professional: string[]; combatStyle: string };
-  skillSpecialisations: { culture: Record<string, string>; career: Record<string, string> };
   combatStyles: CharacterCombatStyle[];
+  skillSpecialisations: { culture: Record<string, string>; career: Record<string, string> };
   cultureMigration?: boolean;
   alloc: Record<Kind, Record<string, number>>; hobbySkill: string; extras: string[]; careerProfessional: string[]; careerCombatStyles: string[]; step: number;
   passionsEnabled: boolean; passions: Passion[];
@@ -80,12 +80,12 @@ const blank = (): Character => ({
 });
 function resolveNativeTongue(skills: string[], language = char.nativeLanguage) { return skills.map(name => name === "Native Tongue" ? nativeTongueName(language) : name); }
 function normalize(value: Partial<Character> | null, home = true): Character {
-  const fallback = blank();
-  const migrated = migrateCharacter(value ?? fallback);
   const restoreSpecialisations = (values: unknown): Record<string, string> =>
     values && typeof values === "object" && !Array.isArray(values)
       ? Object.fromEntries(Object.entries(values).filter((entry): entry is [string, string] => typeof entry[1] === "string"))
       : {};
+  const fallback = blank();
+  const migrated = migrateCharacter(value ?? fallback);
   const legacyCareer = !!value && value.career !== undefined && !Array.isArray(value.careerProfessional);
   const cultureKind = cultures[migrated.culture ?? fallback.culture]?.kind;
   const ageCategory = normalizeAgeCategory(migrated.ageCategory, fallback.ageCategory);
@@ -95,6 +95,7 @@ function normalize(value: Partial<Character> | null, home = true): Character {
     id: typeof migrated.id === "string" && migrated.id ? migrated.id : fallback.id,
     career: legacyCareer ? restoreLegacyCareerIndex(migrated.career ?? fallback.career) : migrated.career ?? fallback.career,
     cultureSelections: { ...fallback.cultureSelections, ...migrated.cultureSelections },
+    combatStyles: normalizeCombatStyles(migrated.combatStyles),
     skillSpecialisations: {
       culture: restoreSpecialisations(migrated.skillSpecialisations?.culture),
       career: restoreSpecialisations(migrated.skillSpecialisations?.career),
@@ -199,7 +200,8 @@ function normalize(value: Partial<Character> | null, home = true): Character {
   ]);
   let validHobby = false;
   if (normalized.hobbySkill) {
-    try { validHobby = skillDef(normalized.hobbySkill, [normalized.cultureSelections.combatStyle, ...normalized.extras].filter(Boolean)).pro; }
+    try { validHobby = skillDef(normalized.hobbySkill, [normalized.cultureSelections.combatStyle, ...normalized.careerCombatStyles,
+      ...normalized.combatStyles.map(style => style.name), ...normalized.extras].filter(Boolean)).pro; }
     catch { /* discard invalid legacy hobby skills */ }
   }
   if (learned.has(normalized.hobbySkill) || (normalized.hobbySkill && !validHobby)) normalized.hobbySkill = "";
@@ -224,7 +226,6 @@ function restoreCareer(character: Character, legacy = false) {
   character.alloc.career = Object.fromEntries(Object.entries(restored.allocation).filter(([name]) => eligible.has(name)).map(([name, points]) =>
     [name === "Native Tongue" ? nativeTongueName(character.nativeLanguage) : name, points]));
 }
-
 let browserStorage: Storage | null = null;
 try { browserStorage = typeof localStorage === "undefined" ? null : localStorage; } catch { /* storage blocked */ }
 const repository = createCharacterRepository<Character>(
@@ -325,6 +326,7 @@ const careerSkills = () => [...new Set([...career().standard, ...char.careerComb
   ...char.careerProfessional.filter(template => requiresSpecialisation(template) && !resolveSkillTemplate(template, char.skillSpecialisations.career[template])),
   ...Object.keys(char.alloc.career).filter(name => /^Combat Style \(/.test(name))])];
 export const nativeTongue = () => nativeTongueName(char.nativeLanguage);
+
 export const learnedSkills = () => [...new Set([
   ...resolveNativeTongue(cultureSkills(culture(), char.cultureSelections.standard, resolvedProfessional("culture"), char.cultureSelections.combatStyle)),
   ...resolveNativeTongue(careerSkills()),
@@ -409,7 +411,7 @@ export function reconcileCultureSelection() {
 }
 
 const combatStyles = () => [char.cultureSelections.combatStyle, ...char.careerCombatStyles,
-  ...char.combatStyles.map(style => style.name), ...char.extras, char.hobbySkill].filter(Boolean);
+  ...char.combatStyles.map(style => style.name), ...(career().combatStyle ?? []), ...char.extras, char.hobbySkill].filter(Boolean);
 // Keep older saved specialisations renderable when their source skill is not registered.
 export const skillDefinition = (n: string) => skillDef(n, combatStyles());
 export const base = (n: string) => formulaVal(skillDefinition(n).f, char.chars);
