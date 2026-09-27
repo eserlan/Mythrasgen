@@ -7,6 +7,7 @@ export interface Character {
   name: string; chars: Chars; culture: number; career: number;
   cultureSelections: { standard: string[][]; professional: string[]; combatStyle: string };
   alloc: Record<Kind, Record<string, number>>; extras: string[]; step: number;
+  generation: "pointBuy" | "roll"; rollResults: number[] | null; rollAssignments: number[];
   /** True while the landing page is showing. */
   home: boolean;
 }
@@ -25,7 +26,9 @@ export const INTRO = [
 const blank = (): Character => ({
   name: "", chars: Object.fromEntries(STATS.map(k => [k, 10])) as Chars, culture: 0, career: 0,
   cultureSelections: { standard: [], professional: [], combatStyle: "" },
-  alloc: { culture: {}, career: {}, bonus: {} }, extras: [], step: 0, home: true,
+
+  alloc: { culture: {}, career: {}, bonus: {} }, extras: [], step: 0,
+  generation: "pointBuy", rollResults: null, rollAssignments: STATS.map((_, i) => i), home: true,
 });
 function load(): Character {
   try {
@@ -39,6 +42,23 @@ export const char: Character = $state(load());
 export function persist() { try { localStorage.setItem(KEY, JSON.stringify(char)); } catch { /* storage unavailable */ } }
 export const reset = (home = true) => Object.assign(char, blank(), { home });
 export const replace = (c: Partial<Character>) => Object.assign(char, blank(), c, { home: false });
+export function setRollResults(results: number[]) {
+  char.generation = "roll";
+  char.rollResults = [...results];
+  char.rollAssignments = STATS.map((_, i) => i);
+  STATS.forEach((k, i) => { char.chars[k] = results[i]; });
+}
+export function assignRoll(stat: (typeof STATS)[number], resultIndex: number) {
+  if (char.generation !== "roll" || !char.rollResults || resultIndex < 0 || resultIndex >= STATS.length) return;
+  const statIndex = STATS.indexOf(stat);
+  const current = char.rollAssignments[statIndex];
+  const otherStat = char.rollAssignments.indexOf(resultIndex);
+  if (otherStat < 0 || otherStat === statIndex) return;
+  char.rollAssignments[statIndex] = resultIndex;
+  char.rollAssignments[otherStat] = current;
+  char.chars[stat] = char.rollResults[resultIndex];
+  char.chars[STATS[otherStat]] = char.rollResults[current];
+}
 export const hasProgress = () => !!char.name || char.step > 0 || used("culture") + used("career") + used("bonus") > 0
   || STATS.some(k => char.chars[k] !== 10);
 

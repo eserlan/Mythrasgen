@@ -5,11 +5,13 @@
   import Concept from "./components/Concept.svelte";
   import Sheet from "./components/Sheet.svelte";
   import Skills from "./components/Skills.svelte";
+  import { canFinishPointBuy } from "./lib/calc";
   import { char, cultureAllocationErrors, persist, replace, reset, ROMAN, STEPS } from "./lib/store.svelte";
 
   let open = $state(false);
   const last = STEPS.length - 1;
-  const canVisit = (step: number) => step <= 2 || cultureAllocationErrors().length === 0;
+  const canContinue = $derived(char.generation === "roll" || canFinishPointBuy(char.chars));
+  const canVisit = (step: number) => step <= 1 || (canContinue && (step <= 2 || cultureAllocationErrors().length === 0));
 
   // Persist on any change and scroll to top when the step changes.
   $effect(() => { JSON.stringify(char); persist(); });
@@ -26,7 +28,10 @@
     try { replace(JSON.parse(await f.text())); } catch { alert("Invalid file"); }
     e.currentTarget.value = "";
   }
-  async function print() { char.step = last; await tick(); window.print(); }
+  async function print() {
+    if (!canContinue) return;
+    char.step = last; await tick(); window.print();
+  }
   const newChar = () => { if (confirm("Discard this character?")) reset(false); };
 </script>
 
