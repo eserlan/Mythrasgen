@@ -1,6 +1,7 @@
 import { careerSkillOptions, careers, cultures, restoreCareerAllocation, restoreLegacyCareerIndex, selectCareerProfessional } from "./content";
 import { baseName, formulaVal, skillDef, sum } from "./calc";
-import { PER_SKILL_CAP, POOLS, STANDARD, STATS, type Chars, type Kind } from "./rules";
+import { allocationValue, selectedCareer, selectedCulture, skillsForStage } from "./creation";
+import { POOLS, STANDARD, STATS, type Chars, type Kind } from "./rules";
 
 export interface Character {
   name: string; chars: Chars; culture: number; career: number;
@@ -72,8 +73,8 @@ export function assignRoll(stat: (typeof STATS)[number], resultIndex: number) {
 export const hasProgress = () => !!char.name || char.step > 0 || used("culture") + used("career") + used("bonus") > 0
   || STATS.some(k => char.chars[k] !== 10);
 
-export const culture = () => cultures[char.culture] ?? cultures[0];
-export const career = () => careers[char.career] ?? careers[0];
+export const culture = () => selectedCulture(char.culture);
+export const career = () => selectedCareer(char.career);
 
 const COMBAT_STYLES = cultures.map(c => c.combatStyle);
 // Older saves may contain arbitrary bonus skills, which previously used the
@@ -86,8 +87,8 @@ export const used = (k: Kind) => sum(Object.values(char.alloc[k]));
 
 export function setAlloc(kind: Kind, name: string, v: number) {
   if (kind === "career" && !careerSkillOptions(career(), char.careerProfessional).includes(name)) return;
-  const a = char.alloc[kind], room = POOLS[kind] - used(kind) + (a[name] ?? 0);
-  const n = Math.max(0, Math.min(PER_SKILL_CAP, room, Math.round(v) || 0));
+  const a = char.alloc[kind];
+  const n = allocationValue(v, POOLS[kind], used(kind), a[name] ?? 0);
   if (n) a[name] = n; else delete a[name];
 }
 export function toggleCareerProfessional(name: string) {
@@ -95,8 +96,8 @@ export function toggleCareerProfessional(name: string) {
   const next = selectCareerProfessional(career(), selected, name);
   if (next !== selected) {
     char.careerProfessional = next;
-    if (!next.includes(name)) {
-      if (!careerSkillOptions(career(), char.careerProfessional).includes(name)) delete char.alloc.career[name];
+    if (!next.includes(name) && !careerSkillOptions(career(), char.careerProfessional).includes(name)) {
+      delete char.alloc.career[name];
     }
   }
 }
@@ -110,13 +111,17 @@ export function addExtra(name: string): boolean {
 
 export function allSkills(): string[] {
   const c = culture(), k = career();
-  return [...new Set([...STANDARD.map(s => s[0]), c.combatStyle, ...c.professional, ...k.standard,
+  return [...new Set([
+    ...skillsForStage("bonus", c, k, char.extras,
+      (Object.keys(POOLS) as Kind[]).flatMap(x => Object.keys(char.alloc[x]))),
+    ...STANDARD.map(([name]) => name), c.combatStyle, ...c.professional, ...k.standard,
     ...(k.combatStyle ?? []), ...char.careerProfessional,
-    ...char.extras, ...(Object.keys(POOLS) as Kind[]).flatMap(x => Object.keys(char.alloc[x]))])];
+  ])];
 }
 export function stepSkills(kind: Kind): string[] {
   const c = culture(), k = career();
-  if (kind === "culture") return [...new Set([...c.standard, c.combatStyle, ...c.professional])];
+  if (kind === "culture") return skillsForStage(kind, c, k, char.extras,
+    (Object.keys(POOLS) as Kind[]).flatMap(x => Object.keys(char.alloc[x])));
   if (kind === "career") return careerSkillOptions(k, char.careerProfessional);
   return allSkills();
 }
