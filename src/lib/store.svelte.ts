@@ -1,4 +1,4 @@
-import { careers, cultures } from "./content";
+import { cultures } from "./content";
 import { allocationValue, selectedCareer, skillsForStage } from "./creation";
 import { cultureSkills, validateCultureAllocation } from "./culture";
 import { baseName, formulaVal, skillDef, sum } from "./calc";
