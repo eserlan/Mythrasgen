@@ -1,15 +1,15 @@
 <script lang="ts">
-  import { deriveStats, skillDef } from "../lib/calc";
+  import { deriveStats } from "../lib/calc";
   import { STATS, STAT_NAMES } from "../lib/rules";
-  import { allSkills, availableMoney, career, char, culture, startingMoney, total } from "../lib/store.svelte";
+  import { allSkills, availableMoney, career, char, culture, skillDefinition, startingMoney, total } from "../lib/store.svelte";
   import Derived from "./Derived.svelte";
   import HitLocations from "./HitLocations.svelte";
   import StepHead from "./StepHead.svelte";
   import { CONNECTIONS, FAMILY_STANDING, tableResult } from "../lib/background-rules";
   const loc = $derived(deriveStats(char.chars).loc);
   const skills = $derived(allSkills().sort());
-  const std = $derived(skills.filter(n => !skillDef(n).pro));
-  const pro = $derived(skills.filter(n => skillDef(n).pro));
+  const std = $derived(skills.filter(n => !skillDefinition(n).pro));
+  const pro = $derived(skills.filter(n => skillDefinition(n).pro));
   const standing = $derived(tableResult(FAMILY_STANDING, char.background.standingRoll));
   const connectionTier = $derived(tableResult(CONNECTIONS, char.background.connectionsRoll));
 </script>
