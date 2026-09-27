@@ -2,6 +2,7 @@ import { careerSkillOptions, careers, cultures, restoreCareerAllocation, restore
 import { BACKGROUND_EVENT_COUNTS, calculateStartingMoney, CULTURE_MONEY_MULTIPLIERS, classMoneyMultiplier } from "./background-rules";
 import { migrateCharacterStep, migrateCultureTables, normalizeAgeCategory, normalizeBackground } from "./migrations";
 import { baseName, formulaVal, nativeTongueName, normalizeAge, rollAge, skillDef, sum } from "./calc";
+import { culturePassions } from "./passions";
 import { allocationValue, selectedCareer, selectedCulture, skillsForStage } from "./creation";
 import { cultureSkills, validateCultureAllocation } from "./culture";
 import { migrateCharacter } from "./migration";
@@ -268,15 +269,7 @@ export function bonusEligible(): string[] {
   return [...new Set([...learnedSkills(), ...char.extras, ...(char.hobbySkill ? [char.hobbySkill] : [])])];
 }
 export function seedCulturePassions(prompts: string[] = culture().passions) {
-  char.passions = prompts.map(prompt => {
-    const type = prompt.startsWith("Loyalty") ? "Loyalty" : prompt.startsWith("Hate") ? "Hate" : "Love";
-    const subject = prompt.replace(/^Loyalty to\s*/i, "").replace(/^(?:Love|Hate)\s*\(/, "").replace(/\)$/, "");
-    return {
-      type, subject,
-      category: type === "Loyalty" ? "organisation/group" : type === "Hate" ? "adverse" : "platonic",
-      subjectPow: undefined, subjectCha: undefined,
-    };
-  });
+  char.passions = culturePassions(prompts);
 }
 export function addPassion() {
   char.passions.push({ type: "Love", subject: "", category: "platonic" });
