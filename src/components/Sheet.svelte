@@ -5,6 +5,7 @@
   import Derived from "./Derived.svelte";
   import HitLocations from "./HitLocations.svelte";
   import StepHead from "./StepHead.svelte";
+  import CombatStyles from "./CombatStyles.svelte";
   import { CONNECTIONS, FAMILY_STANDING, resolvedBackgroundEvents, tableResult } from "../lib/background-rules";
   const loc = $derived(deriveStats(char.chars).loc);
   const skills = $derived(allSkills().sort());
@@ -14,7 +15,7 @@
   const connectionTier = $derived(tableResult(CONNECTIONS, char.background.connectionsRoll));
 </script>
 
-<div class="noprint"><StepHead step={6} title="Character sheet" /></div>
+<div class="noprint"><StepHead step={7} title="Character sheet" /></div>
 <article class="sheet">
   <div class="banner">
     <div class="meander" aria-hidden="true"></div>
@@ -62,6 +63,7 @@
       <ul class="leaders">{#each pro as n}<li><span>{n}</span><i></i><b>{total(n)}%</b></li>{/each}</ul>
     </div>
   </div>
+  <div class="sheet-combat"><h2>Combat</h2><CombatStyles /></div>
   <div class="card">
     <h3>Standard skills</h3>
     <ul class="leaders cols">{#each std as n}<li><span>{n}</span><i></i><b>{total(n)}%</b></li>{/each}</ul>

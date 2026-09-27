@@ -10,13 +10,13 @@ describe("race normalization", () => {
 });
 
 describe("legacy character step migration", () => {
-  test("keeps old sheet saves on the sheet after inserting Background", () => {
-    expect(migrateCharacterStep(5, false)).toBe(6);
+  test("keeps old sheet saves on the sheet after inserting Combat", () => {
+    expect(migrateCharacterStep(5, false)).toBe(7);
   });
 
-  test("leaves current background and sheet steps unchanged", () => {
+  test("leaves the current Background step in place and shifts old Sheet saves", () => {
     expect(migrateCharacterStep(5, true)).toBe(5);
-    expect(migrateCharacterStep(6, true)).toBe(6);
+    expect(migrateCharacterStep(6, true)).toBe(7);
   });
 });
 

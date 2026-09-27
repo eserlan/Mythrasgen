@@ -110,7 +110,7 @@
 </div>
 {#if kind === "bonus"}
   {#if char.hobbySkill}
-    <div class="card bar"><span>Hobby skill: <b>{char.hobbySkill}</b></span><button type="button" onclick={() => { setHobbySkill(""); extra = ""; }}>Remove</button></div>
+    <div class="card bar"><span>Hobby / interest: <b>{char.hobbySkill}</b></span><button type="button" onclick={() => { setHobbySkill(""); extra = ""; }}>Remove</button></div>
   {:else}
     <section class="card">
       <form class="bar" onsubmit={e => { e.preventDefault(); setHobbySkill(extra); extra = ""; }}>

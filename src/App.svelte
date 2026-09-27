@@ -6,6 +6,7 @@
   import Sheet from "./components/Sheet.svelte";
   import Skills from "./components/Skills.svelte";
   import Background from "./components/Background.svelte";
+  import Combat from "./components/Combat.svelte";
   import Characters from "./components/Characters.svelte";
   import { canFinishPointBuy } from "./lib/calc";
   import { canVisitStep, isLandingView } from "./lib/navigation";
@@ -77,6 +78,7 @@
   {:else if char.step === 3}<Skills kind="career" />
   {:else if char.step === 4}<Skills kind="bonus" />
   {:else if char.step === 5}<Background />
+  {:else if char.step === 6}<Combat />
   {:else}<Sheet />{/if}
   </div>{/key}
 
