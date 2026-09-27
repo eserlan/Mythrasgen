@@ -113,7 +113,11 @@ main{padding:8px 16px 70px}
 .char small{font-family:var(--display);letter-spacing:.2em;color:var(--bronze);font-weight:900;font-size:.85rem}
 .char em{font-size:.78rem;color:var(--mute);margin-top:-4px}
 .char .stepper input{font-size:1.6rem;width:54px}
+.char .rolled{font-family:var(--display);font-size:1.6rem;line-height:1.2;color:var(--bronze)}
+.char select{max-width:100%;font-size:.7rem;padding:4px 2px}
 .char.spin .stepper input{animation:tumble .12s linear infinite;color:var(--bronze2)}
+.char.spin .rolled{animation:tumble .12s linear infinite;color:var(--bronze2)}
+@media (prefers-reduced-motion:reduce){.char.spin .rolled{animation:none}}
 @keyframes tumble{50%{transform:translateY(-3px) rotate(-6deg) scale(1.15)}}
 .derived{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:14px 0}
 .derived div{background:var(--card2);border:1px solid var(--line);border-top:2px solid var(--bronze);padding:6px 12px;display:flex;flex-direction:column}
