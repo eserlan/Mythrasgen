@@ -53,7 +53,7 @@
   </label>
   <div><b>Age {char.age}</b><div class="mute">{AGE_CATEGORIES[char.ageCategory].roll} years</div></div>
   <button type="button" onclick={rollCharacterAge}>Roll age</button>
-  <div><b>{AGE_CATEGORIES[char.ageCategory].backgroundEvents}</b><div class="mute">background-event rolls</div></div>
+  <div><b>Background Events: {AGE_CATEGORIES[char.ageCategory].backgroundEvents}</b></div>
   {#if AGE_CATEGORIES[char.ageCategory].ageing}<span class="pill">Ageing applies</span>{/if}
 </div>
 <div class="two">

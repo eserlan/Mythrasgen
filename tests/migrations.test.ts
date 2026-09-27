@@ -29,7 +29,7 @@ describe("legacy background table migration", () => {
 
 describe("imported background normalization", () => {
   const fallback = {
-    events: [{ roll: 0, text: "" }], socialClassRoll: 50, socialClass: "Freeman",
+    events: [{ roll: 0, text: "" }], archivedEvents: [], socialClassRoll: 50, socialClass: "Freeman",
     parentsRoll: 50, parents: "", siblingsRoll: 50, siblings: "", extendedFamilyRoll: 50, extendedFamily: "",
     standingRoll: 50, familyTies: [], connectionsRoll: 50, connections: [], startingMoneyRoll: 14,
     equipment: "Tools", purchases: [],
@@ -46,10 +46,12 @@ describe("imported background normalization", () => {
 
   test("filters malformed collection entries without losing valid ones", () => {
     const value = normalizeBackground({
-      events: [{ roll: 40, text: "Valid" }, null],
+      events: [{ roll: 40, text: "Valid", source: "chosen" }, null, { roll: 101, text: "Invalid" }],
+      archivedEvents: [{ roll: 12, text: "Retained" }, { roll: -1, text: "Invalid" }],
       purchases: [{ name: "Torch", cost: 2 }, { name: "Invalid", cost: -1 }],
     }, fallback);
-    expect(value.events).toEqual([{ roll: 40, text: "Valid" }]);
+    expect(value.events).toEqual([{ roll: 40, text: "Valid", source: "chosen" }]);
+    expect(value.archivedEvents).toEqual([{ roll: 12, text: "Retained" }]);
     expect(value.purchases).toEqual([{ name: "Torch", cost: 2 }]);
   });
 

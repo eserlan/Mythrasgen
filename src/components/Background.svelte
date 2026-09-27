@@ -7,18 +7,12 @@
 
   let purchaseName = $state("");
   let purchaseCost = $state(0);
+  let chosenResults = $state<number[]>([]);
   let background = $derived(char.background);
   let classes = $derived(SOCIAL_CLASSES[char.socialTable]);
   let selectedClass = $derived(classes.find(row => row.name === background.socialClass) ?? classes[0]);
   let standing = $derived(tableResult(FAMILY_STANDING, background.standingRoll));
   let connectionBand = $derived(tableResult(CONNECTIONS, background.connectionsRoll));
-
-  $effect(() => {
-    const count = eventCount();
-    if (background.events.length < count) {
-      while (background.events.length < count) background.events.push({ roll: 0, text: "" });
-    } else if (background.events.length > count) background.events.splice(count);
-  });
 
   function setClass(roll: number) {
     background.socialClassRoll = roll;
@@ -61,10 +55,23 @@
     const count = tableResult(CONNECTIONS, background.connectionsRoll)[3];
     background.connections = Array.from({ length: count }, () => CONNECTION_TYPES[rollDie(4) - 1]);
   }
-  function rollEvents() {
-    background.events = Array.from({ length: eventCount() }, (_, i) => ({
-      roll: rollPercentile(), text: background.events[i]?.text ?? "",
-    }));
+  function rollEvent(index: number) {
+    const result = rollPercentile();
+    chosenResults[index] = result;
+    background.events[index] = { roll: result, text: "", source: "rolled" };
+  }
+  function chooseEvent(index: number) {
+    const result = Math.max(1, Math.min(100, Math.round(chosenResults[index] || 1)));
+    const current = background.events[index];
+    background.events[index] = {
+      roll: result,
+      text: current.roll === result ? current.text : "",
+      source: "chosen",
+    };
+    chosenResults[index] = result;
+  }
+  function clearArchivedEvents() {
+    background.archivedEvents = [];
   }
   function addPurchase() {
     const name = purchaseName.trim();
@@ -78,15 +85,30 @@
 <StepHead step={5} title="Background &amp; possessions" />
 <section class="card">
   <h3>Background events</h3>
-  <p class="mute">Age {char.age} ({AGE_CATEGORIES[char.ageCategory].label}) calls for {eventCount()} background event roll{eventCount() === 1 ? "" : "s"}.</p>
+  <p class="mute">Age {char.age} ({AGE_CATEGORIES[char.ageCategory].label}) calls for {eventCount()} background event{eventCount() === 1 ? "" : "s"}. Roll a d100 result or choose one from the official Core Rules table (pp. 18–20), then record its event text below.</p>
+  {#if eventCount() === 0}
+    <p class="hint" role="status">No Background Events from age.</p>
+  {/if}
   {#each background.events as event, i}
     <div class="event-entry">
-      <label class="field"><span>Event {i + 1} · d100 result</span><input type="number" min="1" max="100" bind:value={event.roll} /></label>
-      <button type="button" onclick={() => event.roll = rollPercentile()}>Roll d100</button>
-      <label class="field event-text"><span>Core rules event text (Mythras pp. 18–20)</span><textarea rows="2" bind:value={event.text} placeholder="Look up the roll in your Core Rules and record the result"></textarea></label>
+      <div class="field-row">
+        <label class="field"><span>Event {i + 1} · official d100 result</span><input type="number" min="1" max="100" value={chosenResults[i] ?? (event.roll || 1)} oninput={e => chosenResults[i] = Number(e.currentTarget.value)} /></label>
+        <button type="button" onclick={() => rollEvent(i)}>{event.roll ? "Reroll event" : "Roll event"}</button>
+        <button type="button" class="ghost" onclick={() => chooseEvent(i)}>Choose event</button>
+      </div>
+      {#if event.roll >= 1 && event.roll <= 100}
+        <p class="mute" role="status">{event.source === "chosen" ? "Chosen" : event.source === "rolled" ? "Rolled" : "Recorded"}: Core Rules table result {event.roll}. Use this result to find the event in your copy of the official table.</p>
+      {:else}<p class="mute">Choose or roll a result to resolve this slot.</p>{/if}
+      <label class="field event-text"><span>Official event text</span><textarea rows="2" bind:value={event.text} placeholder="Record the event text from your Core Rules"></textarea></label>
     </div>
   {/each}
-  {#if eventCount() > 0}<button type="button" class="ghost" onclick={rollEvents}>Roll all events</button>{/if}
+  {#if background.archivedEvents.length}
+    <div class="hint" role="status">
+      <p>{background.archivedEvents.length} event{background.archivedEvents.length === 1 ? " was" : "s were"} preserved here after the age category reduced the active slot count.</p>
+      {#each background.archivedEvents as event, i}<p>Previously active event {i + 1}: {event.roll ? `Core Rules result ${event.roll}` : "unresolved"}{event.text ? ` — ${event.text}` : ""}</p>{/each}
+      <button type="button" class="ghost" onclick={clearArchivedEvents}>Discard preserved events</button>
+    </div>
+  {/if}
 </section>
 
 <section class="card">

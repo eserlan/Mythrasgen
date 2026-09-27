@@ -1,9 +1,25 @@
 import { describe, expect, test } from "bun:test";
-import { BACKGROUND_EVENT_COUNTS, calculateStartingMoney, SOCIAL_CLASSES, socialClassForRoll } from "../src/lib/background-rules";
+import { BACKGROUND_EVENT_COUNTS, calculateStartingMoney, reconcileBackgroundEvents, SOCIAL_CLASSES, socialClassForRoll } from "../src/lib/background-rules";
 
 describe("background event counts", () => {
   test("uses the age category event totals", () => {
     expect(BACKGROUND_EVENT_COUNTS).toEqual({ young: 0, adult: 1, middleAged: 2, senior: 3, old: 4 });
+  });
+
+  test("preserves displaced results and restores them when slots expand", () => {
+    const resolved = [{ roll: 18, text: "Recorded event", source: "rolled" as const }, { roll: 27, text: "Another event", source: "chosen" as const }];
+    const reduced = reconcileBackgroundEvents(resolved, [], 1);
+    expect(reduced.events).toEqual([resolved[0]]);
+    expect(reduced.archived).toEqual([resolved[1]]);
+    expect(reconcileBackgroundEvents(reduced.events, reduced.archived, 2)).toEqual({ events: resolved, archived: [] });
+  });
+
+  test("creates empty slots without rolling an event", () => {
+    expect(reconcileBackgroundEvents([], [], 2).events).toEqual([{ roll: 0, text: "" }, { roll: 0, text: "" }]);
+  });
+
+  test("does not retain unused blank slots when an age category has fewer events", () => {
+    expect(reconcileBackgroundEvents([{ roll: 0, text: "" }], [], 0)).toEqual({ events: [], archived: [] });
   });
 });
 
