@@ -1,7 +1,8 @@
 import { careerSkillOptions, careers, cultures, restoreCareerAllocation, restoreLegacyCareerIndex, selectCareerProfessional, type CultureKind } from "./content";
 import { BACKGROUND_EVENT_COUNTS, calculateStartingMoney, CULTURE_MONEY_MULTIPLIERS, classMoneyMultiplier, reconcileBackgroundEvents, type BackgroundEvent } from "./background-rules";
 import { migrateCharacterStep, migrateCultureTables, normalizeAgeCategory, normalizeBackground } from "./migrations";
-import { baseName, formulaVal, normalizeAge, rollAge, skillDef, sum } from "./calc";
+import { baseName, formulaVal, nativeTongueName, normalizeAge, rollAge, skillDef, sum } from "./calc";
+import { culturePassions } from "./passions";
 import { allocationValue, selectedCareer, selectedCulture, skillsForStage } from "./creation";
 import { cultureSkills, validateCultureAllocation } from "./culture";
 import { migrateCharacter } from "./migration";
@@ -16,7 +17,7 @@ export interface Passion {
 }
 
 export interface Character {
-  name: string; chars: Chars; ageCategory: AgeCategory; age: number; culture: number; career: number;
+  name: string; nativeLanguage: string; chars: Chars; ageCategory: AgeCategory; age: number; culture: number; career: number;
   cultureSelections: { standard: string[][]; professional: string[]; combatStyle: string };
   cultureMigration?: boolean;
   alloc: Record<Kind, Record<string, number>>; hobbySkill: string; extras: string[]; careerProfessional: string[]; step: number;
@@ -42,13 +43,13 @@ export const INTRO = [
   "The raw measure of body and mind. Roll the dice, or set each by hand.",
   "The customs and skills every child of your people learns.",
   "The trade or calling that shaped your adult years.",
-  "Personal passions and hard-won lessons. Spend these freely.",
+  "Use age-based bonus points to round out learned skills and one optional hobby skill.",
   "The people, events, and possessions your hero starts with.",
   "Your hero, ready for the table.",
 ];
 
 const blank = (): Character => ({
-  name: "", chars: Object.fromEntries(STATS.map(k => [k, 10])) as Chars,
+  name: "", nativeLanguage: "", chars: Object.fromEntries(STATS.map(k => [k, 10])) as Chars,
   ageCategory: "adult", age: rollAge("adult"), culture: 0, career: 0,
   cultureSelections: { standard: [], professional: [], combatStyle: "" },
   alloc: { culture: {}, career: {}, bonus: {} }, hobbySkill: "", extras: [], careerProfessional: [], step: 0,
@@ -80,6 +81,7 @@ function normalize(value: Partial<Character> | null, home = true): Character {
     extras: Array.isArray(migrated.extras) ? migrated.extras.filter(x => typeof x === "string") : [],
     careerProfessional: Array.isArray(migrated.careerProfessional) ? migrated.careerProfessional : [],
     hobbySkill: typeof migrated.hobbySkill === "string" ? migrated.hobbySkill : "",
+    nativeLanguage: typeof migrated.nativeLanguage === "string" ? migrated.nativeLanguage : "",
     home,
   } as Character;
   const eventSlots = reconcileBackgroundEvents(normalized.background.events, normalized.background.archivedEvents, BACKGROUND_EVENT_COUNTS[ageCategory]);
@@ -98,6 +100,16 @@ function normalize(value: Partial<Character> | null, home = true): Character {
     ...cultureSkills(selectedCulture(normalized.culture), normalized.cultureSelections.standard, normalized.cultureSelections.professional, normalized.cultureSelections.combatStyle),
     ...selectedCareer(normalized.career).standard, ...normalized.careerProfessional,
   ]);
+  if (normalized.nativeLanguage.trim()) {
+    if (learned.delete("Native Tongue")) learned.add(`Native Tongue (${normalized.nativeLanguage.trim()})`);
+    for (const kind of Object.keys(normalized.alloc) as Kind[]) {
+      const points = normalized.alloc[kind]["Native Tongue"];
+      if (points !== undefined) {
+        delete normalized.alloc[kind]["Native Tongue"];
+        normalized.alloc[kind][`Native Tongue (${normalized.nativeLanguage.trim()})`] = points;
+      }
+    }
+  }
   let validHobby = false;
   if (normalized.hobbySkill) {
     try { validHobby = skillDef(normalized.hobbySkill, [normalized.cultureSelections.combatStyle, ...normalized.extras].filter(Boolean)).pro; }
@@ -111,9 +123,12 @@ function normalize(value: Partial<Character> | null, home = true): Character {
 }
 function restoreCareer(character: Character, legacy = false) {
   const selected = careers[character.career] ?? careers[0];
-  const restored = restoreCareerAllocation(selected, legacy ? undefined : character.careerProfessional, character.alloc.career);
+  const allocation = Object.fromEntries(Object.entries(character.alloc.career).map(([name, points]) =>
+    [/^Native Tongue \(.+\)$/.test(name) ? "Native Tongue" : name, points]));
+  const restored = restoreCareerAllocation(selected, legacy ? undefined : character.careerProfessional, allocation);
   character.careerProfessional = restored.professional;
-  character.alloc.career = restored.allocation;
+  character.alloc.career = Object.fromEntries(Object.entries(restored.allocation).map(([name, points]) =>
+    [name === "Native Tongue" ? nativeTongueName(character.nativeLanguage) : name, points]));
 }
 
 function load(): Character {
@@ -147,9 +162,11 @@ export const hasProgress = () => !!char.name || char.step > 0 || used("culture")
 
 export const culture = () => selectedCulture(char.culture);
 export const career = () => selectedCareer(char.career);
+export const nativeTongue = () => nativeTongueName(char.nativeLanguage);
+const resolveNativeTongue = (skills: string[]) => skills.map(name => name === "Native Tongue" ? nativeTongue() : name);
 export const learnedSkills = () => [...new Set([
-  ...cultureSkills(culture(), char.cultureSelections.standard, char.cultureSelections.professional, char.cultureSelections.combatStyle),
-  ...career().standard, ...char.careerProfessional,
+  ...resolveNativeTongue(cultureSkills(culture(), char.cultureSelections.standard, char.cultureSelections.professional, char.cultureSelections.combatStyle)),
+  ...resolveNativeTongue([...career().standard, ...char.careerProfessional]),
 ])];
 export const poolFor = (kind: Kind) => kind === "bonus" ? bonusPool(char.ageCategory) : POOLS[kind];
 export const capFor = (kind: Kind) => kind === "bonus" ? bonusCap(char.ageCategory) : PER_SKILL_CAP;
@@ -178,7 +195,7 @@ export const used = (k: Kind) => sum(Object.values(char.alloc[k]));
 
 export function setAlloc(kind: Kind, name: string, v: number) {
   if (kind === "bonus" && !bonusEligible().includes(name)) return;
-  if (kind === "career" && !careerSkillOptions(career(), char.careerProfessional).includes(name)) return;
+  if (kind === "career" && !resolveNativeTongue(careerSkillOptions(career(), char.careerProfessional)).includes(name)) return;
   if (kind === "culture" && !cultureSkills(culture(), char.cultureSelections.standard, char.cultureSelections.professional, char.cultureSelections.combatStyle).includes(name)) return;
   const a = char.alloc[kind];
   const n = kind === "culture"
@@ -215,6 +232,19 @@ export function setAgeCategory(ageCategory: AgeCategory) {
   char.alloc.bonus = {};
   if (char.step > 4) char.step = 4;
 }
+export function setNativeLanguage(language: string) {
+  const previous = nativeTongue();
+  char.nativeLanguage = language;
+  const next = nativeTongue();
+  if (previous === next) return;
+  for (const kind of Object.keys(char.alloc) as Kind[]) {
+    const points = char.alloc[kind][previous];
+    if (points !== undefined) {
+      delete char.alloc[kind][previous];
+      char.alloc[kind][next] = (char.alloc[kind][next] ?? 0) + points;
+    }
+  }
+}
 export function rollCharacterAge() { char.age = rollAge(char.ageCategory); }
 export function setHobbySkill(name: string) {
   const v = name.trim();
@@ -245,15 +275,7 @@ export function bonusEligible(): string[] {
   return [...new Set([...learnedSkills(), ...char.extras, ...(char.hobbySkill ? [char.hobbySkill] : [])])];
 }
 export function seedCulturePassions(prompts: string[] = culture().passions) {
-  char.passions = prompts.map(prompt => {
-    const type = prompt.startsWith("Loyalty") ? "Loyalty" : prompt.startsWith("Hate") ? "Hate" : "Love";
-    const subject = prompt.replace(/^Loyalty to\s*/i, "").replace(/^(?:Love|Hate)\s*\(/, "").replace(/\)$/, "");
-    return {
-      type, subject,
-      category: type === "Loyalty" ? "organisation/group" : type === "Hate" ? "adverse" : "platonic",
-      subjectPow: undefined, subjectCha: undefined,
-    };
-  });
+  char.passions = culturePassions(prompts);
 }
 export function addPassion() {
   char.passions.push({ type: "Love", subject: "", category: "platonic" });
@@ -262,13 +284,13 @@ export function addPassion() {
 export function allSkills(): string[] {
   const c = culture(), k = career();
   const pickedCulture = cultureSkills(c, char.cultureSelections.standard, char.cultureSelections.professional, char.cultureSelections.combatStyle);
-  return [...new Set([...STANDARD.map(s => s[0]), ...MAGIC.map(s => s[0]), ...pickedCulture, ...k.standard,
+  return [...new Set(resolveNativeTongue([...STANDARD.map(s => s[0]), ...MAGIC.map(s => s[0]), ...pickedCulture, ...k.standard,
     ...(k.combatStyle ?? []), ...char.careerProfessional, ...bonusEligible(),
-    ...(Object.keys(char.alloc) as Kind[]).flatMap(x => Object.keys(char.alloc[x]))])];
+    ...(Object.keys(char.alloc) as Kind[]).flatMap(x => Object.keys(char.alloc[x]))]))];
 }
 export function stepSkills(kind: Kind): string[] {
-  if (kind === "culture") return cultureSkills(culture(), char.cultureSelections.standard, char.cultureSelections.professional, char.cultureSelections.combatStyle);
-  if (kind === "career") return skillsForStage(kind, culture(), career(), [], [], char.careerProfessional);
+  if (kind === "culture") return resolveNativeTongue(cultureSkills(culture(), char.cultureSelections.standard, char.cultureSelections.professional, char.cultureSelections.combatStyle));
+  if (kind === "career") return resolveNativeTongue(skillsForStage(kind, culture(), career(), [], [], char.careerProfessional));
   return bonusEligible();
 }
 

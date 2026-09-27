@@ -19,6 +19,7 @@ export const canFinishPointBuy = (chars: Chars) => pointBuyTotal(chars) === POIN
   && STATS.every(k => Number.isInteger(chars[k]) && chars[k] >= pointBuyMin(k) && chars[k] <= POINT_BUY.max);
 
 export const baseName = (n: string) => n.trim().replace(/\s*\(.*\)$/, "").trim();
+export const nativeTongueName = (language: string) => language.trim() ? `Native Tongue (${language.trim()})` : "Native Tongue";
 
 export function formulaVal(f: Term[], c: Chars): number {
   return sum(f.map(t => typeof t === "number" ? t : Array.isArray(t) ? c[t[0]] * t[1] : c[t]));

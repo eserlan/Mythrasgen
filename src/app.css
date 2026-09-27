@@ -93,6 +93,13 @@ main{padding:8px 16px 70px}
 .card::before{content:"";position:absolute;inset:4px;border:1px solid var(--line);border-radius:1px;pointer-events:none}
 .card>*{position:relative}
 .two{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:0 16px}
+.concept-identity{display:grid;grid-template-columns:1fr 1fr;gap:10px 18px;align-items:end}
+.concept-identity .hint{grid-column:1/-1;margin:0}
+.age-card{display:grid;grid-template-columns:minmax(190px,1.1fr) minmax(110px,.55fr) auto minmax(280px,1.7fr);gap:16px;align-items:center}
+.age-category select{min-width:0}
+.age-current{display:flex;flex-direction:column;gap:2px}.age-current .label{margin:0}.age-current b{font:700 1.65rem var(--display);color:var(--bronze)}.age-current small{color:var(--mute)}
+.age-derived{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;border-left:1px solid var(--line);padding-left:16px}
+.age-derived div{display:flex;flex-direction:column;gap:3px}.age-derived span{color:var(--mute);font-size:.78rem}.age-derived b{font:700 1.15rem var(--display)}.age-derived .ageing{grid-column:1/-1;color:var(--acc);font-size:.82rem}
 .field-row{display:flex;align-items:end;gap:12px;flex-wrap:wrap}.field-row>.field{flex:1;min-width:150px}
 .event-entry{display:grid;grid-template-columns:minmax(135px,1fr) auto;gap:8px 14px;align-items:end;border-top:1px dotted var(--line);padding:8px 0}
 .event-text{grid-column:1/-1}
@@ -155,6 +162,7 @@ main{padding:8px 16px 70px}
 .passion-row{display:grid;grid-template-columns:minmax(95px,.7fr) minmax(130px,1.2fr) minmax(170px,1.1fr) repeat(2,minmax(84px,.5fr)) auto auto;gap:10px;align-items:end;padding:12px 0;border-bottom:1px dotted var(--line2)}
 .passion-row .field input,.passion-row .field select{width:100%;font-size:.92rem;padding:7px 8px}.subject-stat input{text-align:center}.passion-value{display:flex;flex-direction:column;align-items:center;white-space:nowrap;padding-bottom:6px}.passion-value small{color:var(--mute);font-size:.72rem}.passion-value b{font:700 1.2rem var(--display);color:var(--bronze)}
 .remove-passion{font-size:.58rem;padding:4px 6px}.add-passion{margin-top:12px;font-size:.65rem}.passion-note{margin:10px 0 0;color:var(--mute);font-size:.88rem;font-style:italic}
+.passion-prompts{margin-top:12px;padding:9px 12px;background:var(--card2);border-left:2px solid var(--bronze);font-size:.9rem;color:var(--mute)}.passion-prompts span{font-family:var(--display);font-size:.66rem;text-transform:uppercase;letter-spacing:.1em;color:var(--fg);margin-right:7px}
 .pager{display:flex;justify-content:space-between;margin-top:26px}.pager button{padding:11px 24px}
 
 /* the sheet */
@@ -175,7 +183,13 @@ svg.body text{text-anchor:middle;fill:var(--fg)}svg.body .hp{font:700 15px var(-
 .foot{text-align:center;color:var(--mute);font-size:.8rem;font-style:italic}
 
 /* phones */
+@media(max-width:800px){
+  .age-card{grid-template-columns:minmax(180px,1fr) auto auto}.age-derived{grid-column:1/-1;border-left:0;border-top:1px solid var(--line);padding:12px 0 0}
+  .passion-row{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.passion-row .passion-value{align-items:flex-start}.remove-passion{justify-self:start}
+}
 @media(max-width:640px){
+  .concept-identity{grid-template-columns:1fr}
+  .age-card{grid-template-columns:1fr auto;gap:12px}.age-derived{grid-column:1/-1;grid-template-columns:repeat(2,1fr);border-left:0;border-top:1px solid var(--line);padding:12px 0 0}
   .derived{grid-template-columns:repeat(2,1fr)}
   .brand em{display:none}.burger{display:block}
   button.brand{flex:1;text-align:left}
