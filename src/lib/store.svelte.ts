@@ -141,6 +141,6 @@ export function stepSkills(kind: Kind): string[] {
   const c = culture(), k = career();
   if (kind === "culture") return cultureSkills(c, char.cultureSelections.standard, char.cultureSelections.professional, char.cultureSelections.combatStyle);
   if (kind === "career") return skillsForStage(kind, c, k, [], [], char.careerProfessional);
-  return skillsForStage("bonus", c, k, char.extras, (Object.keys(POOLS) as Kind[]).flatMap(x => Object.keys(char.alloc[x])), char.careerProfessional);
+  return allSkills();
 }
 export { baseName };
