@@ -58,10 +58,13 @@ describe("skill base formulas", () => {
 
 describe("derived attribute boundaries", () => {
   test.each([
-    [6, "-1d8"], [7, "-1d6"], [8, "-1d6"], [9, "-1d4"], [10, "-1d4"], [11, "-1d2"], [12, "-1d2"],
-    [13, "+0"], [16, "+0"], [17, "+1d2"], [20, "+1d2"], [21, "+1d4"], [25, "+1d4"], [26, "+1d6"],
-    [30, "+1d6"], [31, "+1d8"], [35, "+1d8"], [36, "+1d10"], [40, "+1d10"], [41, "+1d12"],
-    [45, "+1d12"], [46, "+2d6"], [50, "+2d6"], [51, "+3d6"],
+    [5, "-1d8"], [6, "-1d6"], [10, "-1d6"], [11, "-1d4"], [15, "-1d4"], [16, "-1d2"],
+    [20, "-1d2"], [21, "+0"], [25, "+0"], [26, "+1d2"], [30, "+1d2"], [31, "+1d4"],
+    [35, "+1d4"], [36, "+1d6"], [40, "+1d6"], [41, "+1d8"], [45, "+1d8"],
+    [46, "+1d10"], [50, "+1d10"], [51, "+1d12"], [60, "+1d12"], [61, "+2d6"],
+    [70, "+2d6"], [71, "+1d8+1d6"], [80, "+1d8+1d6"], [81, "+2d8"], [90, "+2d8"],
+    [91, "+1d10+1d8"], [100, "+1d10+1d8"], [101, "+2d10"], [110, "+2d10"],
+    [111, "+2d10+1d2"], [120, "+2d10+1d2"], [121, "+2d10+1d4"],
   ])("damage modifier at STR+SIZ %i", (sum, result) => expect(dmgMod(sum)).toBe(result));
 
   test.each([
@@ -83,8 +86,8 @@ describe("derived attribute boundaries", () => {
   test("all derived attributes and hit locations have stable fixture values", () => {
     const d = deriveStats(c);
     expect(d.stats).toEqual([
-      ["Action Points", 2], ["Damage Modifier", "+1d6"], ["Experience Mod", 0], ["Healing Rate", 3],
-      ["Initiative", 12], ["Luck Points", 2], ["Magic Points", 7], ["Movement", "8m"],
+      ["Action Points", 2], ["Damage Modifier", "+1d2"], ["Experience Mod", 0], ["Healing Rate", 3],
+      ["Initiative", 12], ["Luck Points", 2], ["Magic Points", 7], ["Movement", "6m"],
     ]);
     expect(d.loc.map(({ hp }) => hp)).toEqual([6, 6, 7, 8, 5, 5, 6]);
   });
