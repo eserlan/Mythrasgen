@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
 import { canFinishPointBuy, roll, rollStat } from "./calc";
 import { CHAR_ROLL, POINT_BUY, STATS, pointBuyMin } from "./rules";
 
@@ -33,5 +34,10 @@ describe("human characteristics", () => {
     const rolls = [0, 0.5, 0.999];
     expect(rollStat("STR", () => rolls.shift())).toBe(11);
     expect(rollStat("INT", () => 0.5)).toBe(14);
+  });
+
+  test("characteristic roll animation respects reduced-motion preference", () => {
+    const css = readFileSync(new URL("../app.css", import.meta.url), "utf8");
+    expect(css).toMatch(/@media\s*\(prefers-reduced-motion:\s*reduce\)[\s\S]*?\.char\.spin \.rolled\s*\{\s*animation:\s*none\s*\}/);
   });
 });
