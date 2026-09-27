@@ -31,16 +31,25 @@ export const STANDARD: Skill[] = [
   ["Willpower", [["POW", 2]]],
 ];
 export const PROFESSIONAL: Skill[] = [
-  ["Acrobatics", ["STR", "DEX"]], ["Acting", ["CHA", "INT"]], ["Art", ["CHA", "POW"]], ["Bureaucracy", [["INT", 2]]],
-  ["Commerce", ["INT", "CHA"]], ["Courtesy", ["INT", "CHA"]], ["Craft", ["INT", "DEX"]],
-  ["Binding", ["CHA", "POW"]], ["Culture", [["INT", 2]]], ["Disguise", ["INT", "CHA"]], ["Devotion", ["CHA", "POW"]],
-  ["Engineering", [["INT", 2]]], ["Exhort", ["INT", "CHA"]], ["Folk Magic", ["CHA", "POW"]], ["Gambling", ["INT", "POW"]],
-  ["Healing", ["INT", "POW"]], ["Invocation", [["INT", 2]]], ["Language", ["INT", "CHA"]], ["Literacy", [["INT", 2]]],
-  ["Lockpicking", [["DEX", 2]]], ["Lore", [["INT", 2]]],
+  ["Acrobatics", ["STR", "DEX"]], ["Acting", [["CHA", 2]]], ["Art", ["POW", "CHA"]], ["Bureaucracy", [["INT", 2]]],
+  ["Commerce", ["INT", "CHA"]], ["Courtesy", ["INT", "CHA"]], ["Craft", ["DEX", "INT"]],
+  ["Culture", [["INT", 2]]], ["Disguise", ["INT", "CHA"]],
+  ["Binding", ["CHA", "POW"]], ["Devotion", ["CHA", "POW"]],
+  ["Engineering", [["INT", 2]]], ["Exhort", ["INT", "CHA"]], ["Gambling", ["INT", "POW"]],
+  ["Folk Magic", ["CHA", "POW"]],
+  ["Healing", ["INT", "POW"]], ["Language", ["INT", "CHA"]], ["Literacy", [["INT", 2]]],
+  ["Invocation", [["INT", 2]]], ["Lockpicking", [["DEX", 2]]], ["Lore", [["INT", 2]]],
   ["Mechanisms", ["DEX", "INT"]], ["Musicianship", ["DEX", "CHA"]], ["Navigation", ["INT", "POW"]],
   ["Meditation", ["INT", "CON"]], ["Mysticism", ["POW", "CON"]], ["Oratory", ["POW", "CHA"]],
-  ["Seduction", ["INT", "CHA"]], ["Shaping", ["INT", "POW"]], ["Sleight", ["DEX", "CHA"]],
+  ["Seamanship", ["INT", "CON"]], ["Seduction", ["INT", "CHA"]], ["Shaping", ["INT", "POW"]], ["Sleight", ["DEX", "CHA"]],
   ["Streetwise", ["POW", "CHA"]], ["Survival", ["CON", "POW"]], ["Teach", ["INT", "CHA"]],
-  ["Track", ["INT", "CON"]], ["Trance", ["POW", "CON"]], ["Seamanship", ["INT", "CON"]],
+  ["Track", ["INT", "CON"]], ["Trance", ["POW", "CON"]],
+];
+/** Professional skills used by the core magic traditions and character creation. */
+export const MAGIC: Skill[] = [
+  ["Binding", ["POW", "CHA"]], ["Devotion", ["POW", "CHA"]], ["Folk Magic", ["POW", "CHA"]],
+  ["Invocation", [["INT", 2]]], ["Meditation", ["INT", "CON"]], ["Mysticism", ["POW", "CON"]],
+  ["Shaping", ["INT", "POW"]], ["Trance", ["POW", "CON"]],
 ];
 export const COMBAT_STYLE_FORMULA: Term[] = ["STR", "DEX"];
+export const COMBAT_STYLE: Skill = ["Combat Style", COMBAT_STYLE_FORMULA];
