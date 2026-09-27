@@ -59,6 +59,26 @@ export function normalizeRace(value: unknown): string {
   return typeof value === "string" ? value : "";
 }
 
+export interface IdentityFields {
+  gender: string;
+  homeland: string;
+  handedness: string;
+  description: string;
+}
+
+/** Legacy character saves may not contain optional descriptive identity fields. */
+export function normalizeIdentityFields(value: unknown): IdentityFields {
+  const saved = value && typeof value === "object" && !Array.isArray(value)
+    ? value as Partial<IdentityFields>
+    : {};
+  return {
+    gender: typeof saved.gender === "string" ? saved.gender : "",
+    homeland: typeof saved.homeland === "string" ? saved.homeland : "",
+    handedness: typeof saved.handedness === "string" ? saved.handedness : "",
+    description: typeof saved.description === "string" ? saved.description : "",
+  };
+}
+
 /** Fill newly added background fields and discard malformed imported collection values. */
 export function normalizeBackground(value: unknown, fallback: BackgroundData): BackgroundData {
   const saved = value && typeof value === "object" && !Array.isArray(value)

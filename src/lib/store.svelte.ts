@@ -1,6 +1,6 @@
 import { careerSkillOptions, careers, cultures, restoreCareerAllocation, restoreLegacyCareerIndex, selectCareerProfessional, type CultureKind } from "./content";
 import { BACKGROUND_EVENT_COUNTS, calculateStartingMoney, CULTURE_MONEY_MULTIPLIERS, classMoneyMultiplier, isSocialClassResolvedForCulture, reconcileBackgroundEvents, SOCIAL_CLASSES, socialClassForRoll, type BackgroundEvent } from "./background-rules";
-import { migrateCharacterStep, migrateCultureTables, normalizeAgeCategory, normalizeBackground, normalizeRace } from "./migrations";
+import { migrateCharacterStep, migrateCultureTables, normalizeAgeCategory, normalizeBackground, normalizeIdentityFields, normalizeRace } from "./migrations";
 import { baseName, formulaVal, nativeTongueName, normalizeAge, rollAge, skillDef, sum } from "./calc";
 import { culturePassions } from "./passions";
 import { allocationValue, selectedCareer, selectedCulture, skillsForStage } from "./creation";
@@ -19,7 +19,7 @@ export interface Passion {
 }
 
 export interface Character {
-  id: string; name: string; race: string; nativeLanguage: string; chars: Chars; ageCategory: AgeCategory; age: number; culture: number; career: number;
+  id: string; name: string; race: string; gender: string; homeland: string; handedness: string; description: string; nativeLanguage: string; chars: Chars; ageCategory: AgeCategory; age: number; culture: number; career: number;
   frame: Frame; height: number | null; weight: number | null;
   /** Optional race/template restriction; omitted for human characters. */
   frameOptions?: Frame[];
@@ -55,7 +55,7 @@ export const INTRO = [
 ];
 
 const blank = (): Character => ({
-  id: "", name: "", race: "", nativeLanguage: "", chars: Object.fromEntries(STATS.map(k => [k, 10])) as Chars,
+  id: "", name: "", race: "", ...normalizeIdentityFields(null), nativeLanguage: "", chars: Object.fromEntries(STATS.map(k => [k, 10])) as Chars,
   frame: "Medium", height: null, weight: null,
   ageCategory: "adult", age: rollAge("adult"), culture: 0, career: 0,
   cultureSelections: { standard: [], professional: [], combatStyle: "" },
@@ -92,6 +92,7 @@ function normalize(value: Partial<Character> | null, home = true): Character {
     careerProfessional: Array.isArray(migrated.careerProfessional) ? migrated.careerProfessional : [],
     hobbySkill: typeof migrated.hobbySkill === "string" ? migrated.hobbySkill : "",
     race: normalizeRace(migrated.race),
+    ...normalizeIdentityFields(migrated),
     nativeLanguage: typeof migrated.nativeLanguage === "string" ? migrated.nativeLanguage : "",
     home,
   } as Character;

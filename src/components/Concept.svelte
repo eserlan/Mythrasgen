@@ -31,6 +31,15 @@
   <label class="field"><span>Name</span><input bind:value={char.name} placeholder="Name your character"></label>
   <label class="field"><span>Race</span><input bind:value={char.race} placeholder="Human" autocomplete="off"></label>
 </div>
+<details class="card concept-details">
+  <summary>Identity details <span>Optional</span></summary>
+  <div class="concept-details-grid">
+    <label class="field"><span>Gender</span><input bind:value={char.gender} placeholder="Describe as appropriate" autocomplete="off"></label>
+    <label class="field"><span>Homeland</span><input bind:value={char.homeland} placeholder="Place of origin" autocomplete="off"></label>
+    <label class="field"><span>Handedness</span><input bind:value={char.handedness} placeholder="Left, right, ambidextrous…" autocomplete="off"></label>
+    <label class="field concept-description"><span>Description</span><textarea bind:value={char.description} rows="3" placeholder="Appearance, manner, or other identifying details"></textarea></label>
+  </div>
+</details>
 
 <section class="card age-card" aria-label="Age">
   <label class="field age-category"><span>Age Category</span>
