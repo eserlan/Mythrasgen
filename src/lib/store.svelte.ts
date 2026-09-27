@@ -57,7 +57,11 @@ export const hasProgress = () => !!char.name || char.step > 0 || used("culture")
 export const culture = () => cultures[char.culture] ?? cultures[0];
 export const career = () => careers[char.career] ?? careers[0];
 
-export const base = (n: string) => formulaVal(skillDef(n).f, char.chars);
+const COMBAT_STYLES = cultures.map(c => c.combatStyle);
+// Older saves may contain arbitrary bonus skills, which previously used the
+// Combat Style formula as a fallback. Keep those entries renderable.
+export const skillDefinition = (n: string) => skillDef(n, [...COMBAT_STYLES, ...char.extras]);
+export const base = (n: string) => formulaVal(skillDefinition(n).f, char.chars);
 export const added = (n: string) => sum((Object.keys(POOLS) as Kind[]).map(k => char.alloc[k][n] ?? 0));
 export const total = (n: string) => base(n) + added(n);
 export const used = (k: Kind) => sum(Object.values(char.alloc[k]));
@@ -67,8 +71,12 @@ export function setAlloc(kind: Kind, name: string, v: number) {
   const n = Math.max(0, Math.min(PER_SKILL_CAP, room, Math.round(v) || 0));
   if (n) a[name] = n; else delete a[name];
 }
-export function addExtra(name: string) {
-  const v = name.trim(); if (v && !char.extras.includes(v)) char.extras.push(v);
+export function addExtra(name: string): boolean {
+  const v = name.trim();
+  if (!v || char.extras.includes(v)) return false;
+  try { skillDef(v, COMBAT_STYLES); } catch { return false; }
+  char.extras.push(v);
+  return true;
 }
 
 export function allSkills(): string[] {
