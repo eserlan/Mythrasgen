@@ -1,4 +1,5 @@
 import { careers, cultures } from "./content";
+import { allocationValue, selectedCareer, skillsForStage } from "./creation";
 import { cultureSkills, validateCultureAllocation } from "./culture";
 import { baseName, formulaVal, skillDef, sum } from "./calc";
 import { PER_SKILL_CAP, POOLS, STANDARD, STATS, type Chars, type Kind } from "./rules";
@@ -63,7 +64,7 @@ export const hasProgress = () => !!char.name || char.step > 0 || used("culture")
   || STATS.some(k => char.chars[k] !== 10);
 
 export const culture = () => cultures[char.culture] ?? cultures[0];
-export const career = () => careers[char.career] ?? careers[0];
+export const career = () => selectedCareer(char.career);
 
 export function cultureAllocationErrors(): string[] {
   return validateCultureAllocation(culture(), char.cultureSelections, char.alloc.culture, POOLS.culture);
@@ -79,11 +80,14 @@ export const total = (n: string) => base(n) + added(n);
 export const used = (k: Kind) => sum(Object.values(char.alloc[k]));
 
 export function setAlloc(kind: Kind, name: string, v: number) {
-  const a = char.alloc[kind], room = POOLS[kind] - used(kind) + (a[name] ?? 0);
-  const raw = Math.round(v) || 0;
+  const a = char.alloc[kind];
   const n = kind === "culture"
-    ? raw <= 0 || room < 5 ? 0 : Math.max(5, Math.min(PER_SKILL_CAP, room, raw))
-    : Math.max(0, Math.min(PER_SKILL_CAP, room, raw));
+    ? (() => {
+        const room = POOLS.culture - used(kind) + (a[name] ?? 0);
+        const raw = Math.round(v) || 0;
+        return raw <= 0 || room < 5 ? 0 : Math.max(5, Math.min(PER_SKILL_CAP, room, raw));
+      })()
+    : allocationValue(v, POOLS[kind], used(kind), a[name] ?? 0);
   if (n) a[name] = n; else delete a[name];
 }
 export function addExtra(name: string): boolean {
@@ -103,7 +107,6 @@ export function allSkills(): string[] {
 export function stepSkills(kind: Kind): string[] {
   const c = culture(), k = career();
   if (kind === "culture") return cultureSkills(c, char.cultureSelections.standard, char.cultureSelections.professional, char.cultureSelections.combatStyle);
-  if (kind === "career") return [...new Set([...k.standard, ...k.professional])];
+  if (kind === "career") return skillsForStage(kind, c, k);
   return allSkills();
 }
-export { baseName };
