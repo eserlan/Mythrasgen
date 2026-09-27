@@ -14,6 +14,11 @@ export const CHAR_ROLL: Record<Stat, string> = {
   STR: "3d6", CON: "3d6", SIZ: "2d6+6", DEX: "3d6", INT: "2d6+6", POW: "3d6", CHA: "3d6",
 };
 export const POINT_BUY = { budget: 80, min: 3, max: 18 };
+// Detailed characteristic rules and the Workbook require INT and SIZ to start at 8.
+// A later core summary appears to print 6; core point-buy follows the detailed rule.
+export const POINT_BUY_MIN: Record<Stat, number> = {
+  STR: 3, CON: 3, SIZ: 8, DEX: 3, INT: 8, POW: 3, CHA: 3,
+};
 export const POOLS = { culture: 100, career: 100, bonus: 150 } as const;
 export type Kind = keyof typeof POOLS;
 /** Max points added to a single skill in each step. */

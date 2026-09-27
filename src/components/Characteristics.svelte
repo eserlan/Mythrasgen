@@ -1,6 +1,6 @@
 <script lang="ts">
   import { rollStat } from "../lib/calc";
-  import { CHAR_ROLL, POINT_BUY, STATS, STAT_NAMES, type Stat } from "../lib/rules";
+  import { CHAR_ROLL, POINT_BUY, POINT_BUY_MIN, STATS, STAT_NAMES, type Stat } from "../lib/rules";
   import { char } from "../lib/store.svelte";
   import Derived from "./Derived.svelte";
   import StepHead from "./StepHead.svelte";
@@ -33,7 +33,7 @@
   {#each STATS as k}
     <div class="char" class:spin={spinning.includes(k)}>
       <small>{k}</small><em>{STAT_NAMES[k]}</em>
-      <Stepper label={k} value={char.chars[k]} min={1} max={30} onchange={v => (char.chars[k] = v)} />
+      <Stepper label={k} value={char.chars[k]} min={POINT_BUY_MIN[k]} max={POINT_BUY.max} onchange={v => (char.chars[k] = v)} />
       <button class="ghost" title="Reroll {STAT_NAMES[k]} ({CHAR_ROLL[k]})" aria-label="Reroll {STAT_NAMES[k]}" onclick={() => tumble([k])}>↻ {CHAR_ROLL[k]}</button>
     </div>
   {/each}
