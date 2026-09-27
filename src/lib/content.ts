@@ -1,22 +1,38 @@
-// Editable game content. Add your own cultures and careers here.
+// Editable game content. Culture skill options follow the Mythras core culture summary.
 // Specialised skills are written "Lore (Anything)"; the base name must exist in rules.ts.
-export interface Culture { name: string; combatStyle: string; standard: string[]; professional: string[] }
+export interface ChoiceGroup { label: string; count: number; options: string[] }
+export interface Culture {
+  name: string;
+  standard: string[];
+  standardChoices: ChoiceGroup[];
+  professional: string[];
+  passions: string[];
+}
 export interface Career { name: string; standard: string[]; professional: string[]; combatStyle?: string[] }
 
 export const cultures: Culture[] = [
-  { name: "Civilised", combatStyle: "Citizen Militia",
-    standard: ["Customs", "Influence", "Locale", "Native Tongue", "Perception", "Willpower"],
-    professional: ["Bureaucracy", "Commerce", "Courtesy", "Streetwise"] },
-  { name: "Barbarian", combatStyle: "Tribal Warrior",
-    standard: ["Athletics", "Brawn", "Endurance", "Evade", "Native Tongue", "Stealth", "Swim"],
-    professional: ["Survival", "Track", "Lore (Tribal Lore)"] },
-  { name: "Nomad", combatStyle: "Horse Archer",
-    standard: ["Athletics", "Endurance", "Native Tongue", "Perception", "Ride"],
-    professional: ["Navigation", "Survival", "Track", "Craft (Leatherwork)"] },
-  { name: "Seafarer", combatStyle: "Boarding Party",
-    standard: ["Athletics", "Boating", "Brawn", "Endurance", "Native Tongue", "Swim"],
-    professional: ["Navigation", "Craft (Seamanship)", "Survival"] },
+  { name: "Barbarian",
+    standard: ["Athletics", "Brawn", "Endurance", "First Aid", "Locale", "Perception"],
+    standardChoices: [{ label: "Choose one", count: 1, options: ["Boating", "Ride"] }],
+    professional: ["Craft (any)", "Healing", "Lore (any)", "Musicianship", "Navigate", "Seamanship", "Survival", "Track"],
+    passions: ["Loyalty to Clan Chieftain", "Love (friend, sibling or romantic lover)", "Hate (creature, rival or clan)"] },
+  { name: "Civilised",
+    standard: ["Conceal", "Deceit", "Drive", "Influence", "Insight", "Locale", "Willpower"],
+    standardChoices: [],
+    professional: ["Art (any)", "Commerce", "Craft (any)", "Courtesy", "Language (any)", "Lore (any)", "Musicianship", "Streetwise"],
+    passions: ["Loyalty to Town/City", "Love (friend, sibling or romantic lover)", "Hate (rival, gang, district or city)"] },
+  { name: "Nomadic",
+    standard: ["Endurance", "First Aid", "Locale", "Perception", "Stealth"],
+    standardChoices: [{ label: "Choose two based on your primary mode of travel", count: 2, options: ["Athletics", "Boating", "Swim", "Drive", "Ride"] }],
+    professional: ["Craft (any)", "Culture (any)", "Language (any)", "Lore (any)", "Musicianship", "Navigate", "Survival", "Track"],
+    passions: ["Loyalty to Tribal Chieftain/Khan", "Love (friend, sibling or romantic lover)", "Hate (creature, rival or tribe)"] },
+  { name: "Primitive",
+    standard: ["Brawn", "Endurance", "Evade", "Locale", "Perception", "Stealth"],
+    standardChoices: [{ label: "Choose one", count: 1, options: ["Athletics", "Boating", "Swim"] }],
+    professional: ["Craft (any)", "Healing", "Lore (any)", "Musicianship", "Navigate", "Survival", "Track"],
+    passions: ["Loyalty to Chief/Headman", "Love (friend, sibling or romantic lover)", "Hate (something that scares or intimidates you)"] },
 ];
+
 
 // Core Mythras careers, transcribed from the official Character Creation Workbook.
 // Parenthetical text retains the career's specialisation or combat style choice.
@@ -70,7 +86,6 @@ export const careers: Career[] = [
   { name: "Warrior", standard: ["Athletics", "Brawn", "Endurance", "Evade", "Unarmed"],
     professional: ["Craft (any)", "Engineering", "Gambling", "Lore (Military History)", "Lore (Strategy and Tactics)", "Oratory", "Survival"], combatStyle: ["Combat Style (Cultural Style)", "Combat Style (Speciality Style)"] },
 ];
-
 /** Standard skills, career styles and up to three selected Professional Skills are eligible for career points. */
 export function careerSkillOptions(career: Career, selectedProfessional: string[]): string[] {
   return [...new Set([...career.standard, ...(career.combatStyle ?? []), ...selectedProfessional])];

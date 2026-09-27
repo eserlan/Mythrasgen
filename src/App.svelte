@@ -6,11 +6,13 @@
   import Sheet from "./components/Sheet.svelte";
   import Skills from "./components/Skills.svelte";
   import { canFinishPointBuy } from "./lib/calc";
-  import { char, persist, replace, reset, ROMAN, STEPS } from "./lib/store.svelte";
+  import { canVisitStep } from "./lib/navigation";
+  import { char, cultureAllocationErrors, persist, replace, reset, ROMAN, STEPS } from "./lib/store.svelte";
 
   let open = $state(false);
   const last = STEPS.length - 1;
   const canContinue = $derived(char.generation === "roll" || canFinishPointBuy(char.chars));
+  const canVisit = (step: number) => canVisitStep(step, canContinue, cultureAllocationErrors().length === 0);
 
   // Persist on any change and scroll to top when the step changes.
   $effect(() => { JSON.stringify(char); persist(); });
@@ -28,7 +30,7 @@
     e.currentTarget.value = "";
   }
   async function print() {
-    if (!canContinue) return;
+    if (!canVisit(last)) return;
     char.step = last; await tick(); window.print();
   }
   const newChar = () => { if (confirm("Discard this character?")) reset(false); };
@@ -50,7 +52,7 @@
   </div>
   <nav>
     {#each STEPS as s, i}
-      <button class="step" class:on={i === char.step} class:done={i < char.step} disabled={i > 1 && !canContinue} onclick={() => (char.step = i)}>
+      <button class="step" class:on={i === char.step} class:done={i < char.step} disabled={!canVisit(i)} onclick={() => (char.step = i)}>
         <i>{i < char.step ? "✓" : ROMAN[i]}</i><span>{s}</span>
       </button>
     {/each}
@@ -69,7 +71,7 @@
 
   <div class="pager noprint">
     {#if char.step > 0}<button onclick={() => char.step--}>← {STEPS[char.step - 1]}</button>{:else}<span></span>{/if}
-    {#if char.step < last}<button class="primary" disabled={char.step === 1 && !canContinue} onclick={() => char.step++}>{STEPS[char.step + 1]} →</button>{/if}
+    {#if char.step < last}<button class="primary" disabled={!canVisit(char.step + 1)} onclick={() => char.step++}>{STEPS[char.step + 1]} →</button>{/if}
   </div>
 </main>
 {/if}

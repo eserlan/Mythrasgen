@@ -1,10 +1,14 @@
 import { careerSkillOptions, careers, cultures, restoreCareerAllocation, restoreLegacyCareerIndex, selectCareerProfessional } from "./content";
+import { allocationValue, selectedCareer, skillsForStage } from "./creation";
+import { cultureSkills, validateCultureAllocation } from "./culture";
+import { migrateCharacter } from "./migration";
 import { baseName, formulaVal, skillDef, sum } from "./calc";
-import { allocationValue, selectedCareer, selectedCulture, skillsForStage } from "./creation";
-import { POOLS, STANDARD, STATS, type Chars, type Kind } from "./rules";
+import { PER_SKILL_CAP, POOLS, STANDARD, STATS, type Chars, type Kind } from "./rules";
 
 export interface Character {
   name: string; chars: Chars; culture: number; career: number;
+  cultureSelections: { standard: string[][]; professional: string[]; combatStyle: string };
+  cultureMigration?: boolean;
   alloc: Record<Kind, Record<string, number>>; extras: string[]; careerProfessional: string[]; step: number;
   generation: "pointBuy" | "roll"; rollResults: number[] | null; rollAssignments: number[];
   /** True while the landing page is showing. */
@@ -24,34 +28,41 @@ export const INTRO = [
 
 const blank = (): Character => ({
   name: "", chars: Object.fromEntries(STATS.map(k => [k, 10])) as Chars, culture: 0, career: 0,
+  cultureSelections: { standard: [], professional: [], combatStyle: "" },
   alloc: { culture: {}, career: {}, bonus: {} }, extras: [], careerProfessional: [], step: 0,
   generation: "pointBuy", rollResults: null, rollAssignments: STATS.map((_, i) => i), home: true,
 });
-function load(): Character {
-  try {
-    const stored = JSON.parse(localStorage.getItem(KEY) ?? "null") as Partial<Character> | null;
-    const legacy = stored?.career !== undefined && !Array.isArray(stored.careerProfessional);
-    const saved = { ...blank(), ...stored } as Character;
-    if (legacy) saved.career = restoreLegacyCareerIndex(saved.career);
-    restoreCareer(saved, legacy);
-    return saved;
-  } catch { return blank(); }
-}
 function restoreCareer(character: Character, legacy = false) {
   const selectedCareer = careers[character.career] ?? careers[0];
   const restored = restoreCareerAllocation(selectedCareer, legacy ? undefined : character.careerProfessional, character.alloc.career);
   character.careerProfessional = restored.professional;
   character.alloc.career = restored.allocation;
 }
+function load(): Character {
+  try {
+    const stored = JSON.parse(localStorage.getItem(KEY) ?? "null") as Partial<Character> | null;
+    const legacyCareer = !!stored && stored.career !== undefined && !Array.isArray(stored.careerProfessional);
+    const migrated = migrateCharacter(stored ?? {});
+    const saved = { ...blank(), ...migrated, cultureSelections: { ...blank().cultureSelections, ...migrated.cultureSelections },
+      alloc: { ...blank().alloc, ...migrated.alloc }, extras: migrated.extras ?? [] } as Character;
+    if (legacyCareer) saved.career = restoreLegacyCareerIndex(saved.career);
+    restoreCareer(saved, legacyCareer);
+    return saved;
+  } catch { return blank(); }
+}
 export const char: Character = $state(load());
 
 export function persist() { try { localStorage.setItem(KEY, JSON.stringify(char)); } catch { /* storage unavailable */ } }
 export const reset = (home = true) => Object.assign(char, blank(), { home });
 export const replace = (c: Partial<Character>) => {
-  const legacy = c.career !== undefined && !Array.isArray(c.careerProfessional);
-  Object.assign(char, blank(), c, { home: false });
-  if (legacy) char.career = restoreLegacyCareerIndex(char.career);
-  restoreCareer(char, legacy);
+  const legacyCareer = c.career !== undefined && !Array.isArray(c.careerProfessional);
+  const migrated = migrateCharacter(c);
+  Object.assign(char, blank(), migrated, { home: false });
+  char.cultureSelections = { ...blank().cultureSelections, ...migrated.cultureSelections };
+  char.alloc = { ...blank().alloc, ...migrated.alloc };
+  char.extras ??= [];
+  if (legacyCareer) char.career = restoreLegacyCareerIndex(char.career);
+  restoreCareer(char, legacyCareer);
 };
 export function setRollResults(results: number[]) {
   char.generation = "roll";
@@ -73,13 +84,16 @@ export function assignRoll(stat: (typeof STATS)[number], resultIndex: number) {
 export const hasProgress = () => !!char.name || char.step > 0 || used("culture") + used("career") + used("bonus") > 0
   || STATS.some(k => char.chars[k] !== 10);
 
-export const culture = () => selectedCulture(char.culture);
+export const culture = () => cultures[char.culture] ?? cultures[0];
 export const career = () => selectedCareer(char.career);
 
-const COMBAT_STYLES = cultures.map(c => c.combatStyle);
-// Older saves may contain arbitrary bonus skills, which previously used the
-// Combat Style formula as a fallback. Keep those entries renderable.
-export const skillDefinition = (n: string) => skillDef(n, [...COMBAT_STYLES, ...char.extras]);
+export function cultureAllocationErrors(): string[] {
+  return validateCultureAllocation(culture(), char.cultureSelections, char.alloc.culture, POOLS.culture);
+}
+
+const combatStyles = () => [char.cultureSelections.combatStyle, ...(career().combatStyle ?? []), ...char.extras].filter(Boolean);
+// Older saves may contain arbitrary bonus skills, which previously used the Combat Style formula as a fallback.
+export const skillDefinition = (n: string) => skillDef(n, combatStyles());
 export const base = (n: string) => formulaVal(skillDefinition(n).f, char.chars);
 export const added = (n: string) => sum((Object.keys(POOLS) as Kind[]).map(k => char.alloc[k][n] ?? 0));
 export const total = (n: string) => base(n) + added(n);
@@ -87,8 +101,15 @@ export const used = (k: Kind) => sum(Object.values(char.alloc[k]));
 
 export function setAlloc(kind: Kind, name: string, v: number) {
   if (kind === "career" && !careerSkillOptions(career(), char.careerProfessional).includes(name)) return;
+  if (kind === "culture" && !cultureSkills(culture(), char.cultureSelections.standard, char.cultureSelections.professional, char.cultureSelections.combatStyle).includes(name)) return;
   const a = char.alloc[kind];
-  const n = allocationValue(v, POOLS[kind], used(kind), a[name] ?? 0);
+  const n = kind === "culture"
+    ? (() => {
+        const room = POOLS.culture - used(kind) + (a[name] ?? 0);
+        const raw = Math.round(v) || 0;
+        return raw <= 0 || room < 5 ? 0 : Math.max(5, Math.min(PER_SKILL_CAP, room, raw));
+      })()
+    : allocationValue(v, POOLS[kind], used(kind), a[name] ?? 0);
   if (n) a[name] = n; else delete a[name];
 }
 export function toggleCareerProfessional(name: string) {
@@ -96,33 +117,30 @@ export function toggleCareerProfessional(name: string) {
   const next = selectCareerProfessional(career(), selected, name);
   if (next !== selected) {
     char.careerProfessional = next;
-    if (!next.includes(name) && !careerSkillOptions(career(), char.careerProfessional).includes(name)) {
-      delete char.alloc.career[name];
-    }
+    if (!next.includes(name) && !careerSkillOptions(career(), char.careerProfessional).includes(name)) delete char.alloc.career[name];
   }
 }
 export function addExtra(name: string): boolean {
   const v = name.trim();
   if (!v || char.extras.includes(v)) return false;
-  try { skillDef(v, [...COMBAT_STYLES, ...char.extras]); } catch { return false; }
+  try { skillDef(v, combatStyles()); } catch { return false; }
   char.extras.push(v);
   return true;
 }
 
 export function allSkills(): string[] {
   const c = culture(), k = career();
+  const pickedCulture = cultureSkills(c, char.cultureSelections.standard, char.cultureSelections.professional, char.cultureSelections.combatStyle);
   return [...new Set([
-    ...skillsForStage("bonus", c, k, char.extras,
-      (Object.keys(POOLS) as Kind[]).flatMap(x => Object.keys(char.alloc[x])), char.careerProfessional),
-    ...STANDARD.map(([name]) => name), c.combatStyle, ...c.professional, ...k.standard,
-    ...(k.combatStyle ?? []), ...char.careerProfessional,
+    ...STANDARD.map(([name]) => name), ...pickedCulture,
+    ...k.standard, ...(k.combatStyle ?? []), ...char.careerProfessional,
+    ...char.extras, ...(Object.keys(POOLS) as Kind[]).flatMap(x => Object.keys(char.alloc[x])),
   ])];
 }
 export function stepSkills(kind: Kind): string[] {
   const c = culture(), k = career();
-  if (kind === "culture") return skillsForStage(kind, c, k, char.extras,
-    (Object.keys(POOLS) as Kind[]).flatMap(x => Object.keys(char.alloc[x])));
-  if (kind === "career") return careerSkillOptions(k, char.careerProfessional);
-  return allSkills();
+  if (kind === "culture") return cultureSkills(c, char.cultureSelections.standard, char.cultureSelections.professional, char.cultureSelections.combatStyle);
+  if (kind === "career") return skillsForStage(kind, c, k, [], [], char.careerProfessional);
+  return skillsForStage("bonus", c, k, char.extras, (Object.keys(POOLS) as Kind[]).flatMap(x => Object.keys(char.alloc[x])), char.careerProfessional);
 }
 export { baseName };

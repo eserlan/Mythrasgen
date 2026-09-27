@@ -44,7 +44,7 @@ describe("skill base formulas", () => {
     Acrobatics: 20, Acting: 24, Art: 19, Bureaucracy: 28, Commerce: 26, Courtesy: 26, Craft: 23,
     Culture: 28, Disguise: 26, Engineering: 28, Exhort: 26, Gambling: 21, Healing: 21, Language: 26,
     Literacy: 28, Lockpicking: 18, Lore: 28, Mechanisms: 23, Musicianship: 21, Navigation: 21,
-    Oratory: 19, Seamanship: 27, Seduction: 26, Sleight: 21, Streetwise: 19, Survival: 20,
+    Navigate: 21, Oratory: 19, Seamanship: 27, Seduction: 26, Sleight: 21, Streetwise: 19, Survival: 20,
     Teach: 26, Track: 27,
   };
   test.each([["Standard", STANDARD, expectedStandard], ["Professional", PROFESSIONAL, expectedProfessional]] as const)(
@@ -104,22 +104,19 @@ describe("derived attribute boundaries", () => {
 });
 
 describe("core culture and career packages", () => {
-  // These fixtures lock the bundled core choices. Culture and career skills
-  // are stage-eligible exactly where listed; a combat style enters at culture.
-  test.each([
-    ["Civilised", "Citizen Militia", ["Customs", "Influence", "Locale", "Native Tongue", "Perception", "Willpower"], ["Bureaucracy", "Commerce", "Courtesy", "Streetwise"]],
-    ["Barbarian", "Tribal Warrior", ["Athletics", "Brawn", "Endurance", "Evade", "Native Tongue", "Stealth", "Swim"], ["Survival", "Track", "Lore (Tribal Lore)"]],
-    ["Nomad", "Horse Archer", ["Athletics", "Endurance", "Native Tongue", "Perception", "Ride"], ["Navigation", "Survival", "Track", "Craft (Leatherwork)"]],
-    ["Seafarer", "Boarding Party", ["Athletics", "Boating", "Brawn", "Endurance", "Native Tongue", "Swim"], ["Navigation", "Craft (Seamanship)", "Survival"]],
-  ] as const)("culture fixture %s", (name, style, standard, professional) => {
-    const culture = cultures.find(x => x.name === name)!;
-    expect(culture).toEqual({ name, combatStyle: style, standard: [...standard], professional: [...professional] });
-    expect(skillsForStage("culture", culture, careers[0])).toEqual([...new Set([...standard, style, ...professional])]);
+  // Bundled cultures expose selectable core skills; choices and custom combat
+  // styles are selected by the character rather than fixed in the template.
+  test.each(cultures)("culture fixture $name", culture => {
+    const cultureSkills = skillsForStage("culture", culture, careers[0]);
+    expect(cultureSkills).toEqual([...new Set([
+      ...culture.standard, ...culture.standardChoices.flatMap(group => group.options), ...culture.professional,
+    ])]);
+    expect(cultureSkills.length).toBeGreaterThan(culture.standard.length);
   });
   test("every official career package appears at the career stage", () => {
     for (const career of careers) {
       expect(skillsForStage("career", cultures[0], career)).toEqual(
-        [...new Set([...career.standard, ...career.professional])],
+        [...new Set([...career.standard, ...(career.combatStyle ?? []), ...career.professional])],
       );
     }
   });
@@ -137,12 +134,13 @@ describe("core culture and career packages", () => {
     const warrior = careers.find(career => career.name === "Warrior")!;
     const cultureSkills = skillsForStage("culture", cultures[0], warrior);
     const careerSkills = skillsForStage("career", cultures[0], warrior);
-    const bonusSkills = skillsForStage("bonus", cultures[0], warrior, ["Passion (Family)"], ["Lore (Tactics)"]);
-    expect(cultureSkills).toContain("Bureaucracy");
-    expect(cultureSkills).toContain("Citizen Militia");
+    const bonusSkills = skillsForStage("bonus", cultures[0], warrior, ["Passion (Family)", "People's Combat Style"], ["Lore (Tactics)"], warrior.professional.slice(0, 3));
+    expect(cultureSkills).toContain("Healing");
+    expect(cultureSkills).toContain("Boating");
     expect(careerSkills).toContain("Lore (Strategy and Tactics)");
-    expect(careerSkills).not.toContain("Citizen Militia");
-    expect(bonusSkills).toContain("Citizen Militia");
+    expect(careerSkills).toContain("Combat Style (Cultural Style)");
+    expect(careerSkills).not.toContain("Boating");
+    expect(bonusSkills).toContain("People's Combat Style");
     expect(bonusSkills).toContain("Passion (Family)");
     expect(bonusSkills).toContain("Lore (Tactics)");
   });

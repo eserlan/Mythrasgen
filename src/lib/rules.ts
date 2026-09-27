@@ -36,9 +36,9 @@ export const PROFESSIONAL: Skill[] = [
   ["Culture", [["INT", 2]]], ["Disguise", ["INT", "CHA"]],
   ["Engineering", [["INT", 2]]], ["Exhort", ["INT", "CHA"]], ["Gambling", ["INT", "POW"]],
   ["Healing", ["INT", "POW"]], ["Language", ["INT", "CHA"]], ["Literacy", [["INT", 2]]],
-  ["Lockpicking", [["DEX", 2]]], ["Lore", [["INT", 2]]],
-  ["Mechanisms", ["DEX", "INT"]], ["Musicianship", ["DEX", "CHA"]], ["Navigation", ["INT", "POW"]],
-  ["Oratory", ["POW", "CHA"]], ["Seamanship", ["INT", "CON"]], ["Seduction", ["INT", "CHA"]], ["Sleight", ["DEX", "CHA"]],
+  ["Lockpicking", [["DEX", 2]]], ["Lore", [["INT", 2]]], ["Mechanisms", ["DEX", "INT"]],
+  ["Musicianship", ["DEX", "CHA"]], ["Navigation", ["INT", "POW"]], ["Navigate", ["INT", "POW"]], ["Oratory", ["POW", "CHA"]],
+  ["Seamanship", ["INT", "CON"]], ["Seduction", ["INT", "CHA"]], ["Sleight", ["DEX", "CHA"]],
   ["Streetwise", ["POW", "CHA"]], ["Survival", ["CON", "POW"]], ["Teach", ["INT", "CHA"]],
   ["Track", ["INT", "CON"]],
 ];
