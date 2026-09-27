@@ -20,11 +20,11 @@ export function formulaVal(f: Term[], c: Chars): number {
 }
 
 /** Workbook p.4 starting Passion value, including the subject's stats when needed. */
-export function passionStartingValue(category: PassionCategory, chars: Chars, subject: { pow?: number; cha?: number } = {}): number {
+export function passionStartingValue(category: PassionCategory, chars: Chars, subject: { pow?: number; cha?: number } = {}): number | null {
   const { POW, INT } = chars;
   switch (category) {
-    case "romantic/familial": return 30 + (subject.pow ?? 0) + (subject.cha ?? 0);
-    case "platonic": case "adverse": return 30 + POW + (subject.cha ?? 0);
+    case "romantic/familial": return subject.pow == null || subject.cha == null ? null : 30 + subject.pow + subject.cha;
+    case "platonic": case "adverse": return subject.cha == null ? null : 30 + POW + subject.cha;
     case "organisation/group": case "place/concept/ideal": return 30 + POW + INT;
     case "race/species": case "object/substance": return 30 + POW * 2;
   }

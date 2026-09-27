@@ -23,6 +23,7 @@
   {#if char.passionsEnabled}
     <div class="passion-list">
       {#each char.passions as p, i (i)}
+        {@const startingValue = value(p)}
         <div class="passion-row">
           <label class="field"><span>Passion</span>
             <select bind:value={p.type}>
@@ -41,7 +42,7 @@
           {#if p.category === "romantic/familial"}
             <label class="field subject-stat"><span>Subject POW</span><input type="number" min="1" max="30" bind:value={p.subjectPow} /></label>
           {/if}
-          <div class="passion-value"><small>Starting value</small><b>{value(p)}%</b></div>
+          <div class="passion-value"><small>Starting value</small><b>{startingValue ?? "—"}{#if startingValue !== null}%{/if}</b></div>
           <button class="ghost remove-passion" aria-label={passionRemovalLabel(p.type, p.subject, i)} onclick={() => char.passions.splice(i, 1)}>Remove</button>
         </div>
       {/each}

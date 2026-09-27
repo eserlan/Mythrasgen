@@ -9,8 +9,8 @@ export interface Passion {
   type: "Loyalty" | "Love" | "Hate";
   subject: string;
   category: PassionCategory;
-  subjectPow: number;
-  subjectCha: number;
+  subjectPow?: number;
+  subjectCha?: number;
 }
 
 export interface Character {
@@ -118,12 +118,12 @@ export function seedCulturePassions(prompts: string[] = culture().passions) {
     return {
       type, subject,
       category: type === "Loyalty" ? "organisation/group" : type === "Hate" ? "adverse" : "platonic",
-      subjectPow: char.chars.POW, subjectCha: char.chars.CHA,
+      subjectPow: undefined, subjectCha: undefined,
     };
   });
 }
 export function addPassion() {
-  char.passions.push({ type: "Love", subject: "", category: "platonic", subjectPow: char.chars.POW, subjectCha: char.chars.CHA });
+  char.passions.push({ type: "Love", subject: "", category: "platonic" });
 }
 
 export function allSkills(): string[] {

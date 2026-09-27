@@ -19,6 +19,13 @@ describe("Mythras Workbook starting Passion formulas", () => {
   test.each(cases)("%s", (category, subject, expected) => {
     expect(passionStartingValue(category, chars, subject)).toBe(expected);
   });
+
+  test("does not claim a value until required subject characteristics are entered", () => {
+    expect(passionStartingValue("romantic/familial", chars)).toBeNull();
+    expect(passionStartingValue("romantic/familial", chars, { pow: 12 })).toBeNull();
+    expect(passionStartingValue("platonic", chars)).toBeNull();
+    expect(passionStartingValue("adverse", chars)).toBeNull();
+  });
 });
 
 const defaultChars = (overrides: Partial<Chars> = {}): Chars => ({
