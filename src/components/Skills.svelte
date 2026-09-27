@@ -4,6 +4,7 @@
   import { toggleCareerProfessional } from "../lib/store.svelte";
   import StepHead from "./StepHead.svelte";
   import Stepper from "./Stepper.svelte";
+  import Passions from "./Passions.svelte";
   let { kind }: { kind: Kind } = $props();
   const pool = $derived(POOLS[kind]);
   const names = $derived(stepSkills(kind));
@@ -45,6 +46,7 @@
   {/each}
 </div>
 {#if kind === "bonus"}
+  <Passions />
   <form class="card bar" onsubmit={e => {
     e.preventDefault();
     if (addExtra(extra)) { extra = ""; extraError = ""; }

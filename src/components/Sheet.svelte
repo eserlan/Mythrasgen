@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { deriveStats } from "../lib/calc";
+  import { deriveStats, passionStartingValue } from "../lib/calc";
   import { STATS, STAT_NAMES } from "../lib/rules";
   import { allSkills, career, char, culture, skillDefinition, total } from "../lib/store.svelte";
   import Derived from "./Derived.svelte";
@@ -33,5 +33,14 @@
     <h3>Standard skills</h3>
     <ul class="leaders cols">{#each std as n}<li><span>{n}</span><i></i><b>{total(n)}%</b></li>{/each}</ul>
   </div>
+  {#if char.passionsEnabled && char.passions.length}
+    <div class="card sheet-passions">
+      <h3>Passions</h3>
+      <ul class="leaders cols">{#each char.passions as p}
+        {@const startingValue = passionStartingValue(p.category, char.chars, { pow: p.subjectPow, cha: p.subjectCha })}
+        <li><span>{p.type} ({p.subject || "unnamed"})</span><i></i><b>{startingValue ?? "—"}{#if startingValue !== null}%{/if}</b></li>
+      {/each}</ul>
+    </div>
+  {/if}
   <p class="foot">Forged at eserlan.github.io/Mythrasgen</p>
 </article>
