@@ -6,12 +6,13 @@
   import Sheet from "./components/Sheet.svelte";
   import Skills from "./components/Skills.svelte";
   import { canFinishPointBuy } from "./lib/calc";
+  import { canVisitStep } from "./lib/navigation";
   import { char, cultureAllocationErrors, persist, replace, reset, ROMAN, STEPS } from "./lib/store.svelte";
 
   let open = $state(false);
   const last = STEPS.length - 1;
   const canContinue = $derived(char.generation === "roll" || canFinishPointBuy(char.chars));
-  const canVisit = (step: number) => step <= 1 || (canContinue && (step <= 2 || cultureAllocationErrors().length === 0));
+  const canVisit = (step: number) => canVisitStep(step, canContinue, cultureAllocationErrors().length === 0);
 
   // Persist on any change and scroll to top when the step changes.
   $effect(() => { JSON.stringify(char); persist(); });
@@ -29,7 +30,7 @@
     e.currentTarget.value = "";
   }
   async function print() {
-    if (!canContinue) return;
+    if (!canVisit(last)) return;
     char.step = last; await tick(); window.print();
   }
   const newChar = () => { if (confirm("Discard this character?")) reset(false); };
