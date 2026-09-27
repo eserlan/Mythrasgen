@@ -1,5 +1,6 @@
 <script lang="ts">
   import { passionStartingValue } from "../lib/calc";
+  import { passionRemovalLabel } from "../lib/passions";
   import { PASSION_CATEGORIES } from "../lib/rules";
   import { addPassion, char, culture, seedCulturePassions } from "../lib/store.svelte";
 
@@ -41,7 +42,7 @@
             <label class="field subject-stat"><span>Subject POW</span><input type="number" min="1" max="30" bind:value={p.subjectPow} /></label>
           {/if}
           <div class="passion-value"><small>Starting value</small><b>{value(p)}%</b></div>
-          <button class="ghost remove-passion" aria-label="Remove passion" onclick={() => char.passions.splice(i, 1)}>Remove</button>
+          <button class="ghost remove-passion" aria-label={passionRemovalLabel(p.type, p.subject, i)} onclick={() => char.passions.splice(i, 1)}>Remove</button>
         </div>
       {/each}
     </div>
