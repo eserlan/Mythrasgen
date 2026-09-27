@@ -1,13 +1,15 @@
 <script lang="ts">
-  import { STEPS, ROMAN, char, hasProgress, replace, reset } from "../lib/store.svelte";
+  import { STEPS, ROMAN, char, createCharacter, hasProgress, replace } from "../lib/store.svelte";
 
+  let { onLibrary }: { onLibrary: () => void } = $props();
   const progress = $derived(hasProgress());
   const ticks = Array.from({ length: 24 }, (_, i) => i * 15);
 
   const begin = () => (char.home = false);
   function anew() {
-    if (progress && !confirm("Discard your current hero and start over?")) return;
-    reset(false);
+    if (progress && !confirm("Keep this hero and start another?")) return;
+    createCharacter();
+    begin();
   }
   async function loadFile(e: Event & { currentTarget: HTMLInputElement }) {
     const f = e.currentTarget.files?.[0]; if (!f) return;
@@ -37,6 +39,7 @@
         <button class="primary big" onclick={begin}>Begin the forging</button>
       {/if}
       <label class="btn big">Load a saved hero<input type="file" accept=".json" hidden onchange={loadFile}></label>
+      <button class="big" onclick={onLibrary}>Characters</button>
     </div>
 
     <ol class="path">
