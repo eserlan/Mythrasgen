@@ -1,42 +1,74 @@
-import { careers, cultures } from "./content";
+import { careers, cultures, type CultureKind } from "./content";
+import { BACKGROUND_EVENT_COUNTS, calculateStartingMoney, CULTURE_MONEY_MULTIPLIERS, classMoneyMultiplier } from "./background-rules";
 import { baseName, formulaVal, skillDef, sum } from "./calc";
 import { PER_SKILL_CAP, POOLS, STANDARD, STATS, type Chars, type Kind } from "./rules";
 
 export interface Character {
   name: string; chars: Chars; culture: number; career: number;
   alloc: Record<Kind, Record<string, number>>; extras: string[]; step: number;
+  ageCategory: "Young" | "Adult" | "Middle-Aged"; age: number;
+  background: {
+    events: { roll: number; text: string }[]; socialClassRoll: number; socialClass: string;
+    parentsRoll: number; parents: string; siblingsRoll: number; siblings: string; extendedFamilyRoll: number; extendedFamily: string;
+    standingRoll: number; familyTies: string[]; connectionsRoll: number;
+    connections: string[]; startingMoneyRoll: number; equipment: string;
+    purchases: { name: string; cost: number }[];
+  };
+  socialTable: CultureKind;
+  moneyTable: CultureKind;
   /** True while the landing page is showing. */
   home: boolean;
 }
 const KEY = "mythresgen.v1";
-export const STEPS = ["Concept", "Characteristics", "Culture", "Career", "Bonus Skills", "Sheet"];
-export const ROMAN = ["I", "II", "III", "IV", "V", "VI"];
+export const STEPS = ["Concept", "Characteristics", "Culture", "Career", "Bonus Skills", "Background", "Sheet"];
+export const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII"];
 export const INTRO = [
-  "Name your hero and choose the people who raised them.",
+  "Name your hero and choose their culture and career.",
   "The raw measure of body and mind. Roll the dice, or set each by hand.",
   "The customs and skills every child of your people learns.",
   "The trade or calling that shaped your adult years.",
   "Personal passions and hard-won lessons. Spend these freely.",
+  "The people, events, and possessions your hero starts with.",
   "Your hero, ready for the table.",
 ];
 
 const blank = (): Character => ({
   name: "", chars: Object.fromEntries(STATS.map(k => [k, 10])) as Chars, culture: 0, career: 0,
   alloc: { culture: {}, career: {}, bonus: {} }, extras: [], step: 0, home: true,
+  ageCategory: "Adult", age: 22, socialTable: "Civilised", moneyTable: "Civilised",
+  background: { events: [{ roll: 0, text: "" }], socialClassRoll: 50, socialClass: "Freeman",
+    parentsRoll: 50, parents: "", siblingsRoll: 50, siblings: "", extendedFamilyRoll: 50, extendedFamily: "",
+    standingRoll: 50, familyTies: [], connectionsRoll: 50, connections: [], startingMoneyRoll: 14,
+    equipment: "Tools; simple weapons; rented accommodation", purchases: [] },
 });
+function normalize(value: Partial<Character>): Character {
+  const fallback = blank();
+  return { ...fallback, ...value, background: { ...fallback.background, ...(value.background ?? {}) },
+    alloc: { ...fallback.alloc, ...(value.alloc ?? {}) } };
+}
 function load(): Character {
-  try { return { ...blank(), ...JSON.parse(localStorage.getItem(KEY) ?? "null") }; } catch { return blank(); }
+  try { return normalize(JSON.parse(localStorage.getItem(KEY) ?? "null") ?? {}); } catch { return blank(); }
 }
 export const char: Character = $state(load());
 
 export function persist() { try { localStorage.setItem(KEY, JSON.stringify(char)); } catch { /* storage unavailable */ } }
 export const reset = (home = true) => Object.assign(char, blank(), { home });
-export const replace = (c: Partial<Character>) => Object.assign(char, blank(), c, { home: false });
+export const replace = (c: Partial<Character>) => Object.assign(char, normalize(c), { home: false });
 export const hasProgress = () => !!char.name || char.step > 0 || used("culture") + used("career") + used("bonus") > 0
   || STATS.some(k => char.chars[k] !== 10);
 
 export const culture = () => cultures[char.culture] ?? cultures[0];
 export const career = () => careers[char.career] ?? careers[0];
+
+export const eventCount = () => BACKGROUND_EVENT_COUNTS[char.ageCategory];
+export const moneyMultiplier = () => CULTURE_MONEY_MULTIPLIERS[char.moneyTable];
+export const startingMoney = () => calculateStartingMoney(char.background.startingMoneyRoll, char.moneyTable, char.socialTable, char.background.socialClass);
+export const socialClassMoney = (kind: CultureKind, rank: string) => classMoneyMultiplier(kind, rank);
+export const spentMoney = () => char.background.purchases.reduce((total, item) => total + Math.max(0, item.cost), 0);
+export const availableMoney = () => startingMoney() - spentMoney();
+export const rollDie = (sides: number) => Math.floor(Math.random() * sides) + 1;
+export const rollPercentile = () => rollDie(100);
+export const roll4d6 = () => rollDie(6) + rollDie(6) + rollDie(6) + rollDie(6);
 
 export const base = (n: string) => formulaVal(skillDef(n).f, char.chars);
 export const added = (n: string) => sum((Object.keys(POOLS) as Kind[]).map(k => char.alloc[k][n] ?? 0));

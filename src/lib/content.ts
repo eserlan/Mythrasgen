@@ -1,19 +1,21 @@
 // Editable game content. Add your own cultures and careers here.
 // Specialised skills are written "Lore (Anything)"; the base name must exist in rules.ts.
-export interface Culture { name: string; combatStyle: string; standard: string[]; professional: string[] }
+export type CultureKind = "Civilised" | "Barbarian" | "Nomadic" | "Primitive";
+export interface Culture { name: string; kind: CultureKind | null; combatStyle: string; standard: string[]; professional: string[] }
 export interface Career { name: string; standard: string[]; professional: string[] }
 
 export const cultures: Culture[] = [
-  { name: "Civilised", combatStyle: "Citizen Militia",
+  { name: "Civilised", kind: "Civilised", combatStyle: "Citizen Militia",
     standard: ["Customs", "Influence", "Locale", "Native Tongue", "Perception", "Willpower"],
     professional: ["Bureaucracy", "Commerce", "Courtesy", "Streetwise"] },
-  { name: "Barbarian", combatStyle: "Tribal Warrior",
+  { name: "Barbarian", kind: "Barbarian", combatStyle: "Tribal Warrior",
     standard: ["Athletics", "Brawn", "Endurance", "Evade", "Native Tongue", "Stealth", "Swim"],
     professional: ["Survival", "Track", "Lore (Tribal Lore)"] },
-  { name: "Nomad", combatStyle: "Horse Archer",
+  { name: "Nomad", kind: "Nomadic", combatStyle: "Horse Archer",
     standard: ["Athletics", "Endurance", "Native Tongue", "Perception", "Ride"],
     professional: ["Navigation", "Survival", "Track", "Craft (Leatherwork)"] },
-  { name: "Seafarer", combatStyle: "Boarding Party",
+  // This custom culture needs its campaign's money and social-class tables selected.
+  { name: "Seafarer", kind: null, combatStyle: "Boarding Party",
     standard: ["Athletics", "Boating", "Brawn", "Endurance", "Native Tongue", "Swim"],
     professional: ["Navigation", "Craft (Seamanship)", "Survival"] },
 ];

@@ -1,10 +1,20 @@
 <script lang="ts">
   import StepHead from "./StepHead.svelte";
   import { careers, cultures } from "../lib/content";
+  import { socialClassForRoll } from "../lib/background-rules";
   import { char, culture, career } from "../lib/store.svelte";
   const cu = $derived(culture()), ca = $derived(career());
   // Changing culture/career invalidates the points spent on it.
-  const pick = (kind: "culture" | "career", i: number) => { char[kind] = i; char.alloc[kind] = {}; };
+  const pick = (kind: "culture" | "career", i: number) => {
+    char[kind] = i; char.alloc[kind] = {};
+    if (kind === "culture" && cultures[i]?.kind) {
+      char.socialTable = cultures[i].kind!;
+      char.moneyTable = cultures[i].kind!;
+      const rank = socialClassForRoll(char.socialTable, char.background.socialClassRoll);
+      char.background.socialClass = rank.name;
+      char.background.equipment = `${rank.equipment}. ${rank.possessions}.`;
+    }
+  };
 </script>
 
 <StepHead step={0} title="Who are you?" />

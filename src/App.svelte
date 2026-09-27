@@ -5,6 +5,7 @@
   import Concept from "./components/Concept.svelte";
   import Sheet from "./components/Sheet.svelte";
   import Skills from "./components/Skills.svelte";
+  import Background from "./components/Background.svelte";
   import { char, persist, replace, reset, ROMAN, STEPS } from "./lib/store.svelte";
 
   let open = $state(false);
@@ -59,6 +60,7 @@
   {:else if char.step === 2}<Skills kind="culture" />
   {:else if char.step === 3}<Skills kind="career" />
   {:else if char.step === 4}<Skills kind="bonus" />
+  {:else if char.step === 5}<Background />
   {:else}<Sheet />{/if}
   </div>{/key}
 
