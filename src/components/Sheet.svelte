@@ -25,6 +25,10 @@
   <div class="chars sheet-stats">
     {#each STATS as k}<div class="char"><small>{k}</small><b>{char.chars[k]}</b><em>{STAT_NAMES[k]}</em></div>{/each}
   </div>
+  <div class="card sheet-body-measurements">
+    <h3>Body</h3>
+    <p><b>Frame:</b> {char.frame} · <b>Height:</b> {char.height === null ? "—" : `${char.height} cm`} · <b>Weight:</b> {char.weight === null ? "—" : `${char.weight} kg`}</p>
+  </div>
   <Derived />
   <div class="card">
     <h3>Background &amp; possessions</h3>
