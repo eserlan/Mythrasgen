@@ -100,7 +100,6 @@ function normalize(value: Partial<Character> | null, home = true): Character {
       culture: restoreSpecialisations(migrated.skillSpecialisations?.culture),
       career: restoreSpecialisations(migrated.skillSpecialisations?.career),
     },
-    combatStyles: normalizeCombatStyles(migrated.combatStyles),
     step: migrateCharacterStep(migrated.step ?? fallback.step, !!migrated.background),
     ...migrateCultureTables(cultureKind, migrated.socialTable, migrated.moneyTable),
     ageCategory,
