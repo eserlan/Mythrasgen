@@ -21,6 +21,19 @@
     <h1>{char.name || "Unnamed hero"}</h1>
     <p>{#if char.race.trim()}{char.race.trim()} <span>◆</span> {/if}{culture().name} <span>◆</span> {career().name} <span>◆</span> {AGE_CATEGORIES[char.ageCategory].label}, age {char.age}</p>
   </div>
+  {#if char.gender.trim() || char.homeland.trim() || char.handedness.trim() || char.description.trim()}
+    <div class="card sheet-identity">
+      <h3>Identity</h3>
+      {#if char.gender.trim() || char.homeland.trim() || char.handedness.trim()}
+        <dl class="identity-values">
+          {#if char.gender.trim()}<div><dt>Gender</dt><dd>{char.gender.trim()}</dd></div>{/if}
+          {#if char.homeland.trim()}<div><dt>Homeland</dt><dd>{char.homeland.trim()}</dd></div>{/if}
+          {#if char.handedness.trim()}<div><dt>Handedness</dt><dd>{char.handedness.trim()}</dd></div>{/if}
+        </dl>
+      {/if}
+      {#if char.description.trim()}<p class="identity-description"><b>Description:</b> {char.description.trim()}</p>{/if}
+    </div>
+  {/if}
   <p class="mute">Background Events: {AGE_CATEGORIES[char.ageCategory].backgroundEvents}{#if AGE_CATEGORIES[char.ageCategory].ageing} · Ageing rules apply{/if}</p>
   <div class="chars sheet-stats">
     {#each STATS as k}<div class="char"><small>{k}</small><b>{char.chars[k]}</b><em>{STAT_NAMES[k]}</em></div>{/each}
