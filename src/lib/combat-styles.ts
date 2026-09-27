@@ -167,6 +167,18 @@ export function detachCharacterStyle(styles: CharacterCombatStyle[], name: strin
 export function legacyCombatStyle(name: string, origin: CombatStyleOrigin = "legacy"): CharacterCombatStyle {
   const preset = CORE_COMBAT_STYLES.find(style => normalizedStyleName(style.name) === normalizedStyleName(name));
   if (preset) return characterStyleFromDefinition(preset, origin);
+  // Preserve the original built-in data for saves that stored only this name.
+  if (normalizedStyleName(name) === "meerish infantry") {
+    return characterStyleFromDefinition({
+      id: "mythras-core:meerish-infantry",
+      name: "Meerish Infantry",
+      baseFormula: ["STR", "DEX"],
+      weapons: weapons("Spear", "Hoplite Shield", "Javelin"),
+      traits: [coreTrait("Formation Fighting")],
+      source: { ...core, reference: "Mythras Core Rules: Meerish character example" },
+      status: "preset",
+    }, origin);
+  }
   const safeName = name.trim();
   return {
     id: `legacy:${encodeURIComponent(normalizedStyleName(safeName))}`,

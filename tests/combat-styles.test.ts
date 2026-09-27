@@ -94,6 +94,11 @@ describe("structured Combat Styles", () => {
     expect(known.id).toBe("mythras-core:meerish-slinger");
     expect(known.weapons.map(weapon => weapon.name)).toEqual(["Shortsword", "Shield", "Sling"]);
     expect(known.traits).toEqual([]);
+    expect(legacyCombatStyle("Meerish Infantry")).toMatchObject({
+      id: "mythras-core:meerish-infantry", name: "Meerish Infantry", origin: "legacy",
+      weapons: [{ name: "Spear" }, { name: "Hoplite Shield" }, { name: "Javelin" }],
+      traits: [{ name: "Formation Fighting" }],
+    });
     expect(legacyCombatStyle("My Campaign Style")).toMatchObject({
       name: "My Campaign Style", status: "custom", weapons: [], traits: [],
       source: { libraryId: "custom-campaign" }, origin: "legacy",
