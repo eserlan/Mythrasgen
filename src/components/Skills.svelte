@@ -1,6 +1,7 @@
 <script lang="ts">
   import { type Kind } from "../lib/rules";
-  import { addExtra, base, capFor, career, careerAllocationErrors, char, culture, cultureAllocationErrors, poolFor, reconcileCultureSelection, refreshBonusEligibility, setAlloc, setCultureCombatStyle, setHobbySkill, setSkillSpecialisation, skillDefinition, stepSkills, toggleCareerProfessional, total, used } from "../lib/store.svelte";
+  import { addExtra, base, capFor, career, careerAllocationErrors, char, chooseBonusCombatStyle, chooseCareerCombatStyle, chooseCultureCombatStyle, culture, cultureAllocationErrors, poolFor, reconcileCultureSelection, refreshBonusEligibility, setAlloc, setHobbySkill, setSkillSpecialisation, skillDefinition, stepSkills, toggleCareerProfessional, total, used } from "../lib/store.svelte";
+  import CombatStyleChooser from "./CombatStyleChooser.svelte";
   import { requiresSpecialisation } from "../lib/specialisations";
   import StepHead from "./StepHead.svelte";
   import Stepper from "./Stepper.svelte";
@@ -53,6 +54,9 @@
         </div>
       {/each}
     </div>
+    {#each career().combatStyle ?? [] as _slot, i (i)}
+      <CombatStyleChooser selectedName={char.careerCombatStyles[i] ?? ""} styles={char.combatStyles} onchoose={style => chooseCareerCombatStyle(i, style)} />
+    {/each}
   </section>
   {#if careerErrors.length}<div class="validation" role="status"><b>Career selection incomplete</b><ul>{#each careerErrors as error}<li>{error}</li>{/each}</ul></div>{/if}
 {/if}
@@ -89,11 +93,8 @@
       {/each}
     </div>
     <div class="culture-combat-style">
-      <label class="field"><span>Cultural Combat Style (optional)</span>
-        <input class="wide" value={char.cultureSelections.combatStyle} placeholder="Enter one cultural Combat Style, if desired"
-          onchange={e => setCultureCombatStyle(e.currentTarget.value)}>
-      </label>
-      <p class="hint">This style is eligible for Culture points and uses its STR + DEX base.</p>
+      <CombatStyleChooser selectedName={char.cultureSelections.combatStyle} styles={char.combatStyles} onchoose={chooseCultureCombatStyle} />
+      <p class="hint">Optional. This style is eligible for Culture points and uses its STR + DEX base.</p>
     </div>
   </section>
 {/if}
@@ -111,9 +112,12 @@
   {#if char.hobbySkill}
     <div class="card bar"><span>Hobby skill: <b>{char.hobbySkill}</b></span><button type="button" onclick={() => { setHobbySkill(""); extra = ""; }}>Remove</button></div>
   {:else}
-    <form class="card bar" onsubmit={e => { e.preventDefault(); setHobbySkill(extra); extra = ""; }}>
-      <input bind:value={extra} aria-label="New professional hobby skill or combat style" placeholder="One new professional skill or combat style"><button disabled={!extra.trim()}>Add hobby skill</button>
-    </form>
+    <section class="card">
+      <form class="bar" onsubmit={e => { e.preventDefault(); setHobbySkill(extra); extra = ""; }}>
+        <input bind:value={extra} aria-label="New professional hobby skill or combat style" placeholder="One new professional hobby skill"><button disabled={!extra.trim()}>Add hobby skill</button>
+      </form>
+      <CombatStyleChooser styles={char.combatStyles} onchoose={chooseBonusCombatStyle} />
+    </section>
   {/if}
   <form class="card bar" onsubmit={e => {
     e.preventDefault();
