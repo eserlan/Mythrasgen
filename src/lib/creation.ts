@@ -1,6 +1,18 @@
 import { careers, cultures, type Career, type Culture } from "./content";
 import { PER_SKILL_CAP, POOLS, STANDARD, type Kind } from "./rules";
 
+export function characteristicsActionLabel(hasRolledSet: boolean): string {
+  return hasRolledSet ? "REROLL CHARACTERISTICS" : "ROLL CHARACTERISTICS";
+}
+
+export function characteristicsRerollConfirmationMessage(): string {
+  return "Reroll all Characteristics? This will replace all current characteristic values, including point-buy values, and reset their roll assignments.";
+}
+
+export function confirmCharacteristicsRoll(hasRolledSet: boolean, confirmReroll: () => boolean): boolean {
+  return !hasRolledSet || confirmReroll();
+}
+
 /** Points allocated to one skill at one creation stage, bounded by both limits. */
 export function allocationValue(value: number, pool: number, used: number, previous: number, cap = PER_SKILL_CAP): number {
   const room = pool - used + previous;
