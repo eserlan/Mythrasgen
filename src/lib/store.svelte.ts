@@ -1,15 +1,16 @@
-import { careerSkillOptions, careers, cultures, restoreCareerAllocation, restoreLegacyCareerIndex, selectCareerProfessional, type CultureKind } from "./content";
+import { careers, cultures, restoreCareerAllocation, restoreLegacyCareerIndex, selectCareerProfessional, type CultureKind } from "./content";
 import { BACKGROUND_EVENT_COUNTS, calculateStartingMoney, CULTURE_MONEY_MULTIPLIERS, classMoneyMultiplier, isSocialClassResolvedForCulture, reconcileBackgroundEvents, SOCIAL_CLASSES, socialClassForRoll, type BackgroundEvent } from "./background-rules";
 import { migrateCharacterStep, migrateCultureTables, normalizeAgeCategory, normalizeBackground, normalizeIdentityFields, normalizeRace } from "./migrations";
 import { baseName, formulaVal, nativeTongueName, normalizeAge, rollAge, skillDef, sum } from "./calc";
 import { culturePassions } from "./passions";
-import { allocationValue, selectedCareer, selectedCulture, skillsForStage } from "./creation";
+import { allocationValue, selectedCareer, selectedCulture } from "./creation";
 import { cultureSkills, reconcileCultureCombatStyle, validateCultureAllocation } from "./culture";
 import { migrateCharacter } from "./migration";
 import { AGE_CATEGORIES, bonusCap, bonusPool, MAGIC, PER_SKILL_CAP, POOLS, STANDARD, STATS, type AgeCategory, type Chars, type Kind, type PassionCategory } from "./rules";
 import { createCharacterRepository } from "./character-library";
 import { swapAssignedValues } from "./characteristics";
 import { availableFrames, bodyRanges, FRAMES, isInRange, reconcileMeasurements, type Frame } from "./body";
+import { attachCharacterStyle, CORE_COMBAT_STYLES, detachCharacterStyle, legacyCombatStyle, normalizeCombatStyles, type CharacterCombatStyle, type CombatStyleSelection } from "./combat-styles";
 
 export interface Passion {
   type: "Loyalty" | "Love" | "Hate";
@@ -25,8 +26,9 @@ export interface Character {
   /** Optional race/template restriction; omitted for human characters. */
   frameOptions?: Frame[];
   cultureSelections: { standard: string[][]; professional: string[]; combatStyle: string };
+  combatStyles: CharacterCombatStyle[];
   cultureMigration?: boolean;
-  alloc: Record<Kind, Record<string, number>>; hobbySkill: string; extras: string[]; careerProfessional: string[]; step: number;
+  alloc: Record<Kind, Record<string, number>>; hobbySkill: string; extras: string[]; careerProfessional: string[]; careerCombatStyles: string[]; step: number;
   passionsEnabled: boolean; passions: Passion[];
   background: {
     events: BackgroundEvent[]; archivedEvents: BackgroundEvent[]; socialClassRoll: number; socialClass: string;
@@ -59,8 +61,9 @@ const blank = (): Character => ({
   id: "", name: "", race: "", ...normalizeIdentityFields(null), nativeLanguage: "", chars: Object.fromEntries(STATS.map(k => [k, 10])) as Chars,
   frame: "Medium", height: null, weight: null,
   ageCategory: "adult", age: rollAge("adult"), culture: 0, career: 0,
+  combatStyles: [],
   cultureSelections: { standard: [], professional: [], combatStyle: "" },
-  alloc: { culture: {}, career: {}, bonus: {} }, hobbySkill: "", extras: [], careerProfessional: [], step: 0,
+  alloc: { culture: {}, career: {}, bonus: {} }, hobbySkill: "", extras: [], careerProfessional: [], careerCombatStyles: [], step: 0,
   passionsEnabled: false, passions: [],
   socialTable: "Barbarian", moneyTable: "Barbarian",
   background: { events: [{ roll: 0, text: "" }], archivedEvents: [], socialClassRoll: 50, socialClass: "Freeman",
@@ -83,6 +86,7 @@ function normalize(value: Partial<Character> | null, home = true): Character {
     id: typeof migrated.id === "string" && migrated.id ? migrated.id : fallback.id,
     career: legacyCareer ? restoreLegacyCareerIndex(migrated.career ?? fallback.career) : migrated.career ?? fallback.career,
     cultureSelections: { ...fallback.cultureSelections, ...migrated.cultureSelections },
+    combatStyles: normalizeCombatStyles(migrated.combatStyles),
     step: migrateCharacterStep(migrated.step ?? fallback.step, !!migrated.background),
     ...migrateCultureTables(cultureKind, migrated.socialTable, migrated.moneyTable),
     ageCategory,
@@ -91,12 +95,23 @@ function normalize(value: Partial<Character> | null, home = true): Character {
     alloc: { ...fallback.alloc, ...(migrated.alloc ?? {}) },
     extras: Array.isArray(migrated.extras) ? migrated.extras.filter(x => typeof x === "string") : [],
     careerProfessional: Array.isArray(migrated.careerProfessional) ? migrated.careerProfessional : [],
+    careerCombatStyles: Array.isArray(migrated.careerCombatStyles) ? migrated.careerCombatStyles.filter(name => typeof name === "string") : [],
     hobbySkill: typeof migrated.hobbySkill === "string" ? migrated.hobbySkill : "",
     race: normalizeRace(migrated.race),
     ...normalizeIdentityFields(migrated),
     nativeLanguage: typeof migrated.nativeLanguage === "string" ? migrated.nativeLanguage : "",
     home,
   } as Character;
+  const legacyNames = [
+    ...(normalized.cultureSelections.combatStyle ? [[normalized.cultureSelections.combatStyle, "culture"] as const] : []),
+    ...(normalized.hobbySkill && (/^Combat Style \(/.test(normalized.hobbySkill)
+      || CORE_COMBAT_STYLES.some(style => style.name === normalized.hobbySkill)) ? [[normalized.hobbySkill, "bonus"] as const] : []),
+    ...(["culture", "career", "bonus"] as const).flatMap(origin => Object.keys(normalized.alloc[origin] ?? {})
+      .filter(name => /^Combat Style \(.+\)$/.test(name)).map(name => [name, origin] as const)),
+  ];
+  for (const [name, origin] of legacyNames) {
+    normalized.combatStyles = attachCharacterStyle(normalized.combatStyles, legacyCombatStyle(name, origin), origin);
+  }
   const resolvedCulture = (migrated.background as Partial<Character["background"]> | undefined)?.socialClassCulture
     ?? migrated.socialTable ?? cultureKind ?? "Civilised";
   normalized.socialTable = cultureKind ?? "Civilised";
@@ -122,6 +137,11 @@ function normalize(value: Partial<Character> | null, home = true): Character {
   normalized.background.events = eventSlots.events;
   normalized.background.archivedEvents = eventSlots.archived;
   restoreCareer(normalized, legacyCareer);
+  normalized.combatStyles = normalized.combatStyles.map(style => ({
+    ...style,
+    allocations: Object.fromEntries((Object.keys(POOLS) as Kind[]).flatMap(kind =>
+      normalized.alloc[kind][style.name] === undefined ? [] : [[kind, normalized.alloc[kind][style.name]]])),
+  }));
   if (!Object.hasOwn(AGE_CATEGORIES, normalized.ageCategory)) normalized.ageCategory = "adult";
   if (normalized.generation !== "roll") normalized.generation = "pointBuy";
   if (!Array.isArray(normalized.rollResults) || normalized.rollResults.length !== STATS.length) normalized.rollResults = null;
@@ -159,9 +179,13 @@ function restoreCareer(character: Character, legacy = false) {
   const selected = careers[character.career] ?? careers[0];
   const allocation = Object.fromEntries(Object.entries(character.alloc.career).map(([name, points]) =>
     [/^Native Tongue \(.+\)$/.test(name) ? "Native Tongue" : name, points]));
-  const restored = restoreCareerAllocation(selected, legacy ? undefined : character.careerProfessional, allocation);
+  const picks = legacy ? undefined : character.careerProfessional;
+  const restored = restoreCareerAllocation(selected, picks, allocation);
   character.careerProfessional = restored.professional;
-  character.alloc.career = Object.fromEntries(Object.entries(restored.allocation).map(([name, points]) =>
+  const eligible = new Set([...selected.standard, ...character.careerCombatStyles, ...restored.professional]);
+  // Keep pre-structured career style names intact when loading old saves.
+  for (const name of Object.keys(allocation)) if (/^Combat Style \(/.test(name)) eligible.add(name);
+  character.alloc.career = Object.fromEntries(Object.entries(allocation).filter(([name]) => eligible.has(name)).map(([name, points]) =>
     [name === "Native Tongue" ? nativeTongueName(character.nativeLanguage) : name, points]));
 }
 
@@ -261,11 +285,13 @@ export const hasProgress = () => !!char.name || char.step > 0 || used("culture")
 
 export const culture = () => selectedCulture(char.culture);
 export const career = () => selectedCareer(char.career);
+const careerSkills = () => [...new Set([...career().standard, ...char.careerCombatStyles.filter(Boolean), ...char.careerProfessional,
+  ...Object.keys(char.alloc.career).filter(name => /^Combat Style \(/.test(name))])];
 export const nativeTongue = () => nativeTongueName(char.nativeLanguage);
 const resolveNativeTongue = (skills: string[]) => skills.map(name => name === "Native Tongue" ? nativeTongue() : name);
 export const learnedSkills = () => [...new Set([
   ...resolveNativeTongue(cultureSkills(culture(), char.cultureSelections.standard, char.cultureSelections.professional, char.cultureSelections.combatStyle)),
-  ...resolveNativeTongue([...career().standard, ...char.careerProfessional]),
+  ...resolveNativeTongue(careerSkills()),
 ])];
 export const poolFor = (kind: Kind) => kind === "bonus" ? bonusPool(char.ageCategory) : POOLS[kind];
 export const capFor = (kind: Kind) => kind === "bonus" ? bonusCap(char.ageCategory) : PER_SKILL_CAP;
@@ -303,17 +329,22 @@ export function cultureAllocationErrors(): string[] {
   return validateCultureAllocation(culture(), char.cultureSelections, char.alloc.culture, POOLS.culture);
 }
 
-const combatStyles = () => [char.cultureSelections.combatStyle, ...(career().combatStyle ?? []), ...char.extras].filter(Boolean);
+const combatStyles = () => [char.cultureSelections.combatStyle, ...char.careerCombatStyles,
+  ...char.combatStyles.map(style => style.name), ...(career().combatStyle ?? []), ...char.extras, char.hobbySkill].filter(Boolean);
 // Keep older saved specialisations renderable when their source skill is not registered.
 export const skillDefinition = (n: string) => skillDef(n, combatStyles());
 export const base = (n: string) => formulaVal(skillDefinition(n).f, char.chars);
 export const added = (n: string) => sum((Object.keys(POOLS) as Kind[]).map(k => char.alloc[k][n] ?? 0));
 export const total = (n: string) => base(n) + added(n);
+export const combatStyleSummary = () => char.combatStyles.map(style => ({
+  ...style,
+  percentage: formulaVal(style.baseFormula, char.chars) + added(style.name),
+}));
 export const used = (k: Kind) => sum(Object.values(char.alloc[k]));
 
 export function setAlloc(kind: Kind, name: string, v: number) {
   if (kind === "bonus" && !bonusEligible().includes(name)) return;
-  if (kind === "career" && !resolveNativeTongue(careerSkillOptions(career(), char.careerProfessional)).includes(name)) return;
+  if (kind === "career" && !resolveNativeTongue(careerSkills()).includes(name)) return;
   if (kind === "culture" && !cultureSkills(culture(), char.cultureSelections.standard, char.cultureSelections.professional, char.cultureSelections.combatStyle).includes(name)) return;
   const a = char.alloc[kind];
   const n = kind === "culture"
@@ -324,15 +355,47 @@ export function setAlloc(kind: Kind, name: string, v: number) {
       })()
     : allocationValue(v, poolFor(kind), used(kind), a[name] ?? 0, capFor(kind));
   if (n) a[name] = n; else delete a[name];
+  const style = char.combatStyles.find(item => item.name === name);
+  if (style) {
+    if (n) style.allocations[kind] = n;
+    else delete style.allocations[kind];
+  }
 }
-export function setCultureCombatStyle(value: string) {
+export function setCultureCombatStyle(value: string, definition?: CombatStyleSelection) {
   const style = value.trim();
   const previous = char.cultureSelections.combatStyle;
-  if (style === previous) return;
+  if (style === previous) {
+    if (definition) char.combatStyles = attachCharacterStyle(char.combatStyles, definition, "culture");
+    return;
+  }
   reconcileCultureCombatStyle(previous, style,
     cultureSkills(culture(), char.cultureSelections.standard, char.cultureSelections.professional, ""), char.alloc.culture);
+  if (previous) char.combatStyles = detachCharacterStyle(char.combatStyles, previous, "culture");
   char.cultureSelections.combatStyle = style;
+  if (style) char.combatStyles = attachCharacterStyle(char.combatStyles, definition ?? legacyCombatStyle(style, "culture"), "culture");
   char.cultureMigration = false;
+  refreshBonusEligibility();
+}
+export function chooseCultureCombatStyle(definition: CombatStyleSelection | null) {
+  const name = definition?.name ?? "";
+  setCultureCombatStyle(name, definition ?? undefined);
+}
+export function chooseBonusCombatStyle(definition: CombatStyleSelection | null) {
+  if (!definition) { setHobbySkill(""); return; }
+  const alreadyKnown = learnedSkills().includes(definition.name);
+  if (alreadyKnown && char.hobbySkill) setHobbySkill("");
+  char.combatStyles = attachCharacterStyle(char.combatStyles, definition, "bonus");
+  if (!alreadyKnown) setHobbySkill(definition.name);
+}
+export function chooseCareerCombatStyle(slot: number, definition: CombatStyleSelection | null) {
+  if (slot < 0 || slot >= (career().combatStyle?.length ?? 0)) return;
+  const previous = char.careerCombatStyles[slot] ?? "";
+  if (definition) {
+    char.combatStyles = attachCharacterStyle(char.combatStyles, definition, "career");
+    char.careerCombatStyles[slot] = definition.name;
+  } else char.careerCombatStyles[slot] = "";
+  if (previous && !char.careerCombatStyles.includes(previous)) char.combatStyles = detachCharacterStyle(char.combatStyles, previous, "career");
+  if (previous && !careerSkills().includes(previous)) delete char.alloc.career[previous];
   refreshBonusEligibility();
 }
 export function toggleCareerProfessional(name: string) {
@@ -340,7 +403,7 @@ export function toggleCareerProfessional(name: string) {
   const next = selectCareerProfessional(career(), selected, name);
   if (next !== selected) {
     char.careerProfessional = next;
-    if (!next.includes(name) && !careerSkillOptions(career(), char.careerProfessional).includes(name)) delete char.alloc.career[name];
+    if (!next.includes(name) && !careerSkills().includes(name)) delete char.alloc.career[name];
     refreshBonusEligibility();
   }
 }
@@ -377,15 +440,22 @@ export function rollCharacterAge() { char.age = rollAge(char.ageCategory); }
 export function setHobbySkill(name: string) {
   const v = name.trim();
   if (!v) {
-    if (char.hobbySkill) delete char.alloc.bonus[char.hobbySkill];
+    if (char.hobbySkill) {
+      delete char.alloc.bonus[char.hobbySkill];
+      char.combatStyles = detachCharacterStyle(char.combatStyles, char.hobbySkill, "bonus");
+    }
     char.hobbySkill = "";
     return;
   }
+  if (v === char.hobbySkill) return;
   let professional = false;
   try { professional = skillDefinition(v).pro; } catch { return; }
   if (professional && !learnedSkills().includes(v)) {
     const previous = char.hobbySkill;
-    if (previous) delete char.alloc.bonus[previous];
+    if (previous) {
+      delete char.alloc.bonus[previous];
+      char.combatStyles = detachCharacterStyle(char.combatStyles, previous, "bonus");
+    }
     char.hobbySkill = v;
   }
 }
@@ -413,12 +483,12 @@ export function allSkills(): string[] {
   const c = culture(), k = career();
   const pickedCulture = cultureSkills(c, char.cultureSelections.standard, char.cultureSelections.professional, char.cultureSelections.combatStyle);
   return [...new Set(resolveNativeTongue([...STANDARD.map(s => s[0]), ...MAGIC.map(s => s[0]), ...pickedCulture, ...k.standard,
-    ...(k.combatStyle ?? []), ...char.careerProfessional, ...bonusEligible(),
+    ...careerSkills(), ...bonusEligible(),
     ...(Object.keys(char.alloc) as Kind[]).flatMap(x => Object.keys(char.alloc[x]))]))];
 }
 export function stepSkills(kind: Kind): string[] {
   if (kind === "culture") return resolveNativeTongue(cultureSkills(culture(), char.cultureSelections.standard, char.cultureSelections.professional, char.cultureSelections.combatStyle));
-  if (kind === "career") return resolveNativeTongue(skillsForStage(kind, culture(), career(), [], [], char.careerProfessional));
+  if (kind === "career") return resolveNativeTongue(careerSkills());
   return bonusEligible();
 }
 
