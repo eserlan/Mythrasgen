@@ -5,6 +5,10 @@ export function characteristicsActionLabel(hasRolledSet: boolean): string {
   return hasRolledSet ? "REROLL CHARACTERISTICS" : "ROLL CHARACTERISTICS";
 }
 
+export function characteristicsRerollConfirmationMessage(): string {
+  return "Reroll all Characteristics? This will replace all current characteristic values, including point-buy values, and reset their roll assignments.";
+}
+
 export function confirmCharacteristicsRoll(hasRolledSet: boolean, confirmReroll: () => boolean): boolean {
   return !hasRolledSet || confirmReroll();
 }

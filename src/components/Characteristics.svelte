@@ -2,7 +2,7 @@
   import { canFinishPointBuy, pointBuyTotal, rollStat } from "../lib/calc";
   import { CHAR_ROLL, POINT_BUY, STATS, STAT_NAMES, pointBuyMin, type Stat } from "../lib/rules";
   import { availableFrames, bodyRanges, isInRange, type Frame } from "../lib/body";
-  import { characteristicsActionLabel, confirmCharacteristicsRoll } from "../lib/creation";
+  import { characteristicsActionLabel, characteristicsRerollConfirmationMessage, confirmCharacteristicsRoll } from "../lib/creation";
   import { assignRoll, char, setCharacteristic, setFrame, setHeight, setRollResults, setWeight } from "../lib/store.svelte";
   import Derived from "./Derived.svelte";
   import StepHead from "./StepHead.svelte";
@@ -31,7 +31,7 @@
     else { setWeight(value); weightError = ""; }
   }
   function rollAll() {
-    if (!confirmCharacteristicsRoll(!!char.rollResults, () => confirm("Reroll all Characteristics? This will replace the current rolled values and their assignment."))) return;
+    if (!confirmCharacteristicsRoll(!!char.rollResults, () => confirm(characteristicsRerollConfirmationMessage()))) return;
     spinning = [...STATS];
     bodyNotice = setRollResults(STATS.map(k => rollStat(k)));
     setTimeout(() => { spinning = []; }, 420);
