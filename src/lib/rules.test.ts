@@ -113,17 +113,12 @@ describe("core culture and career packages", () => {
     ])]);
     expect(cultureSkills.length).toBeGreaterThan(culture.standard.length);
   });
-  test.each([
-    ["Warrior", ["Athletics", "Brawn", "Endurance", "Evade", "Unarmed"], ["Lore (Tactics)", "Survival", "Streetwise"]],
-    ["Merchant", ["Influence", "Insight", "Deceit", "Perception"], ["Commerce", "Courtesy", "Language (Trade)", "Navigation"]],
-    ["Scholar", ["Insight", "Perception", "Willpower"], ["Lore (Any)", "Teach", "Language (Ancient)", "Engineering"]],
-    ["Thief", ["Conceal", "Stealth", "Evade", "Deceit", "Perception"], ["Mechanisms", "Sleight", "Streetwise", "Acrobatics"]],
-    ["Healer", ["First Aid", "Insight", "Perception", "Willpower"], ["Healing", "Lore (Herbs)", "Teach"]],
-    ["Hunter", ["Athletics", "Endurance", "Perception", "Stealth"], ["Survival", "Track", "Craft (Bowyer)"]],
-  ] as const)("career fixture %s", (name, standard, professional) => {
-    const career = careers.find(x => x.name === name)!;
-    expect(career).toEqual({ name, standard: [...standard], professional: [...professional] });
-    expect(skillsForStage("career", cultures[0], career)).toEqual([...new Set([...standard, ...professional])]);
+  test("every official career package appears at the career stage", () => {
+    for (const career of careers) {
+      expect(skillsForStage("career", cultures[0], career)).toEqual(
+        [...new Set([...career.standard, ...(career.combatStyle ?? []), ...career.professional])],
+      );
+    }
   });
 
   test("culture/career/bonus pools and each per-skill increase are bounded", () => {
@@ -136,16 +131,26 @@ describe("core culture and career packages", () => {
     }
   });
   test("professional skills and combat styles appear in the allowed stages", () => {
-    const cultureSkills = skillsForStage("culture", cultures[0], careers[0]);
-    const careerSkills = skillsForStage("career", cultures[0], careers[0]);
-    const bonusSkills = skillsForStage("bonus", cultures[0], careers[0], ["Passion (Family)"], ["Lore (Tactics)", "People's Combat Style"]);
+    const warrior = careers.find(career => career.name === "Warrior")!;
+    const cultureSkills = skillsForStage("culture", cultures[0], warrior);
+    const careerSkills = skillsForStage("career", cultures[0], warrior);
+    const bonusSkills = skillsForStage("bonus", cultures[0], warrior, ["Passion (Family)", "People's Combat Style"], ["Lore (Tactics)"], warrior.professional.slice(0, 3));
     expect(cultureSkills).toContain("Healing");
     expect(cultureSkills).toContain("Boating");
-    expect(careerSkills).toContain("Lore (Tactics)");
+    expect(careerSkills).toContain("Lore (Strategy and Tactics)");
+    expect(careerSkills).toContain("Combat Style (Cultural Style)");
     expect(careerSkills).not.toContain("Boating");
     expect(bonusSkills).toContain("People's Combat Style");
     expect(bonusSkills).toContain("Passion (Family)");
     expect(bonusSkills).toContain("Lore (Tactics)");
+  });
+
+  test("bonus sheet includes selected career Professional Skills only", () => {
+    const warrior = careers.find(career => career.name === "Warrior")!;
+    const selected = warrior.professional.slice(0, 3);
+    const bonusSkills = skillsForStage("bonus", cultures[0], warrior, [], [], selected);
+    expect(selected.every(skill => bonusSkills.includes(skill))).toBe(true);
+    expect(bonusSkills).not.toContain(warrior.professional[3]);
   });
 
   test("specialized extra allocations stay specialized in the bonus skill list", () => {
