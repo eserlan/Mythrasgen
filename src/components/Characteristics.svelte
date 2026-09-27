@@ -3,6 +3,7 @@
   import { swapCancellationAnnouncement } from "../lib/characteristics";
   import { CHAR_ROLL, POINT_BUY, STATS, STAT_NAMES, pointBuyMin, type Stat } from "../lib/rules";
   import { availableFrames, bodyRanges, isInRange, type Frame } from "../lib/body";
+  import { characteristicsActionLabel, characteristicsRerollConfirmationMessage, confirmCharacteristicsRoll } from "../lib/creation";
   import { char, setCharacteristic, setFrame, setHeight, setRollResults, setWeight, swapCharacteristics } from "../lib/store.svelte";
   import Derived from "./Derived.svelte";
   import StepHead from "./StepHead.svelte";
@@ -33,8 +34,10 @@
     else { setWeight(value); weightError = ""; }
   }
   function rollAll() {
+    if (!confirmCharacteristicsRoll(!!char.rollResults, () => confirm(characteristicsRerollConfirmationMessage()))) return;
+    const hadSelection = selectedStat !== null;
     selectedStat = null;
-    swapMessage = "";
+    swapMessage = swapCancellationAnnouncement(hadSelection);
     spinning = [...STATS];
     bodyNotice = setRollResults(STATS.map(k => rollStat(k)));
     setTimeout(() => { spinning = []; }, 420);
@@ -71,7 +74,7 @@
 
 <StepHead step={1} title="Characteristics" />
 <div class="card bar">
-  <button class:primary={char.generation === "roll"} onclick={rollAll}>Roll characteristics</button>
+  <button class:primary={char.generation === "roll"} onclick={rollAll}>{characteristicsActionLabel(!!char.rollResults)}</button>
   <button class:primary={char.generation === "pointBuy"} onclick={() => { char.generation = "pointBuy"; selectedStat = null; swapMessage = ""; }}>Point-buy</button>
   {#if char.generation === "pointBuy"}
     <div class="point-buy-guidance">
