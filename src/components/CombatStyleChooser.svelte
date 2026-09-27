@@ -45,7 +45,7 @@
   }
 
   function chooseExisting(style: CharacterCombatStyle) {
-    const { searchable: _searchable, weaponChoices: _weaponChoices, traitChoices: _traitChoices, ...selection } = style;
+    const { weaponChoices: _weaponChoices, traitChoices: _traitChoices, ...selection } = style;
     choose(selection);
   }
 
