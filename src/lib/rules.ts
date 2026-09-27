@@ -13,7 +13,8 @@ export type Skill = [name: string, formula: Term[]];
 export const CHAR_ROLL: Record<Stat, string> = {
   STR: "3d6", CON: "3d6", SIZ: "2d6+6", DEX: "3d6", INT: "2d6+6", POW: "3d6", CHA: "3d6",
 };
-export const POINT_BUY = { budget: 80, min: 3, max: 18 };
+export const POINT_BUY = { budget: 75, min: 3, max: 18, specialMin: { INT: 8, SIZ: 8 } } as const;
+export const pointBuyMin = (stat: Stat) => stat === "INT" || stat === "SIZ" ? POINT_BUY.specialMin[stat] : POINT_BUY.min;
 export const POOLS = { culture: 100, career: 100, bonus: 150 } as const;
 export type Kind = keyof typeof POOLS;
 /** Max points added to a single skill in each step. */

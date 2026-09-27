@@ -1,13 +1,17 @@
-import { CHAR_ROLL, COMBAT_STYLE, MAGIC, PROFESSIONAL, STANDARD, type Chars, type Stat, type Term } from "./rules";
+import { CHAR_ROLL, COMBAT_STYLE, MAGIC, POINT_BUY, PROFESSIONAL, STANDARD, STATS, pointBuyMin, type Chars, type Stat, type Term } from "./rules";
 
 export const sum = (a: number[]) => a.reduce((x, y) => x + y, 0);
-const d = (n: number) => 1 + Math.floor(Math.random() * n);
+const d = (n: number, random: () => number) => 1 + Math.floor(random() * n);
 
-export function roll(expr: string): number {
+export function roll(expr: string, random: () => number = Math.random): number {
   const m = /^(\d+)d(\d+)(?:\+(\d+))?$/.exec(expr)!;
-  return sum(Array.from({ length: +m[1] }, () => d(+m[2]))) + (+m[3] || 0);
+  return sum(Array.from({ length: +m[1] }, () => d(+m[2], random))) + (+m[3] || 0);
 }
-export const rollStat = (k: Stat) => roll(CHAR_ROLL[k]);
+export const rollStat = (k: Stat, random: () => number = Math.random) => roll(CHAR_ROLL[k], random);
+
+export const pointBuyTotal = (chars: Chars) => sum(STATS.map(k => chars[k]));
+export const canFinishPointBuy = (chars: Chars) => pointBuyTotal(chars) === POINT_BUY.budget
+  && STATS.every(k => Number.isInteger(chars[k]) && chars[k] >= pointBuyMin(k) && chars[k] <= POINT_BUY.max);
 
 export const baseName = (n: string) => n.trim().replace(/\s*\(.*\)$/, "").trim();
 
