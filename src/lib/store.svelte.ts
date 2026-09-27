@@ -1,10 +1,19 @@
-import { careers, cultures } from "./content";
+import { careers, cultures, type PassionPrompt } from "./content";
 import { baseName, formulaVal, skillDef, sum } from "./calc";
-import { PER_SKILL_CAP, POOLS, STANDARD, STATS, type Chars, type Kind } from "./rules";
+import { PER_SKILL_CAP, POOLS, STANDARD, STATS, type Chars, type Kind, type PassionCategory } from "./rules";
+
+export interface Passion {
+  type: PassionPrompt["type"];
+  subject: string;
+  category: PassionCategory;
+  subjectPow: number;
+  subjectCha: number;
+}
 
 export interface Character {
   name: string; chars: Chars; culture: number; career: number;
   alloc: Record<Kind, Record<string, number>>; extras: string[]; step: number;
+  passionsEnabled: boolean; passions: Passion[];
   /** True while the landing page is showing. */
   home: boolean;
 }
@@ -22,7 +31,8 @@ export const INTRO = [
 
 const blank = (): Character => ({
   name: "", chars: Object.fromEntries(STATS.map(k => [k, 10])) as Chars, culture: 0, career: 0,
-  alloc: { culture: {}, career: {}, bonus: {} }, extras: [], step: 0, home: true,
+  alloc: { culture: {}, career: {}, bonus: {} }, extras: [], step: 0,
+  passionsEnabled: false, passions: [], home: true,
 });
 function load(): Character {
   try { return { ...blank(), ...JSON.parse(localStorage.getItem(KEY) ?? "null") }; } catch { return blank(); }
@@ -50,6 +60,17 @@ export function setAlloc(kind: Kind, name: string, v: number) {
 }
 export function addExtra(name: string) {
   const v = name.trim(); if (v && !char.extras.includes(v)) char.extras.push(v);
+}
+
+export function seedCulturePassions(prompts: PassionPrompt[] = culture().passions) {
+  char.passions = prompts.map(({ type, subject }) => ({
+    type, subject,
+    category: type === "Loyalty" ? "organisation/group" : type === "Hate" ? "adverse" : "platonic",
+    subjectPow: char.chars.POW, subjectCha: char.chars.CHA,
+  }));
+}
+export function addPassion() {
+  char.passions.push({ type: "Love", subject: "", category: "platonic", subjectPow: char.chars.POW, subjectCha: char.chars.CHA });
 }
 
 export function allSkills(): string[] {

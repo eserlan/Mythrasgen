@@ -6,6 +6,11 @@ export const STAT_NAMES: Record<Stat, string> = {
   STR: "Strength", CON: "Constitution", SIZ: "Size", DEX: "Dexterity", INT: "Intelligence", POW: "Power", CHA: "Charisma",
 };
 export type Chars = Record<Stat, number>;
+export const PASSION_CATEGORIES = [
+  "romantic/familial", "platonic", "adverse", "organisation/group", "race/species",
+  "place/concept/ideal", "object/substance",
+] as const;
+export type PassionCategory = (typeof PASSION_CATEGORIES)[number];
 /** A stat, a constant, or [stat, multiplier]. A formula is the sum of its terms. */
 export type Term = Stat | number | [Stat, number];
 export type Skill = [name: string, formula: Term[]];

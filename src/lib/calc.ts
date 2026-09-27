@@ -1,4 +1,4 @@
-import { CHAR_ROLL, COMBAT_STYLE_FORMULA, PROFESSIONAL, STANDARD, type Chars, type Stat, type Term } from "./rules";
+import { CHAR_ROLL, COMBAT_STYLE_FORMULA, PROFESSIONAL, STANDARD, type Chars, type PassionCategory, type Stat, type Term } from "./rules";
 
 export const sum = (a: number[]) => a.reduce((x, y) => x + y, 0);
 const d = (n: number) => 1 + Math.floor(Math.random() * n);
@@ -13,6 +13,17 @@ export const baseName = (n: string) => n.replace(/\s*\(.*\)$/, "");
 
 export function formulaVal(f: Term[], c: Chars): number {
   return sum(f.map(t => typeof t === "number" ? t : Array.isArray(t) ? c[t[0]] * t[1] : c[t]));
+}
+
+/** Workbook p.4 starting Passion value, including the subject's stats when needed. */
+export function passionStartingValue(category: PassionCategory, chars: Chars, subject: { pow?: number; cha?: number } = {}): number {
+  const { POW, INT } = chars;
+  switch (category) {
+    case "romantic/familial": return 30 + (subject.pow ?? 0) + (subject.cha ?? 0);
+    case "platonic": case "adverse": return 30 + POW + (subject.cha ?? 0);
+    case "organisation/group": case "place/concept/ideal": return 30 + POW + INT;
+    case "race/species": case "object/substance": return 30 + POW * 2;
+  }
 }
 
 export function skillDef(name: string): { f: Term[]; pro: boolean } {
