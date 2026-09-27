@@ -1,4 +1,4 @@
-import { careers, cultures, type CultureKind } from "./content";
+import { careerSkillOptions, careers, cultures, restoreCareerAllocation, restoreLegacyCareerIndex, selectCareerProfessional, type CultureKind } from "./content";
 import { BACKGROUND_EVENT_COUNTS, calculateStartingMoney, CULTURE_MONEY_MULTIPLIERS, classMoneyMultiplier } from "./background-rules";
 import { migrateCharacterStep, migrateCultureTables, normalizeAgeCategory, normalizeBackground } from "./migrations";
 import { baseName, formulaVal, skillDef, sum } from "./calc";
@@ -11,7 +11,7 @@ export interface Character {
   name: string; chars: Chars; culture: number; career: number;
   cultureSelections: { standard: string[][]; professional: string[]; combatStyle: string };
   cultureMigration?: boolean;
-  alloc: Record<Kind, Record<string, number>>; extras: string[]; step: number;
+  alloc: Record<Kind, Record<string, number>>; extras: string[]; careerProfessional: string[]; step: number;
   ageCategory: "Young" | "Adult" | "Middle-Aged"; age: number;
   background: {
     events: { roll: number; text: string }[]; socialClassRoll: number; socialClass: string;
@@ -42,8 +42,7 @@ export const INTRO = [
 const blank = (): Character => ({
   name: "", chars: Object.fromEntries(STATS.map(k => [k, 10])) as Chars, culture: 0, career: 0,
   cultureSelections: { standard: [], professional: [], combatStyle: "" },
-
-  alloc: { culture: {}, career: {}, bonus: {} }, extras: [], step: 0,
+  alloc: { culture: {}, career: {}, bonus: {} }, extras: [], careerProfessional: [], step: 0,
   ageCategory: "Adult", age: 22, socialTable: "Barbarian", moneyTable: "Barbarian",
   background: { events: [{ roll: 0, text: "" }], socialClassRoll: 50, socialClass: "Freeman",
     parentsRoll: 50, parents: "", siblingsRoll: 50, siblings: "", extendedFamilyRoll: 50, extendedFamily: "",
@@ -54,10 +53,12 @@ const blank = (): Character => ({
 function normalize(value: Partial<Character>): Character {
   const fallback = blank();
   const migrated = migrateCharacter(value);
+  const legacyCareer = value.career !== undefined && !Array.isArray(value.careerProfessional);
   const cultureKind = cultures[migrated.culture ?? fallback.culture]?.kind;
-  return {
+  const normalized: Character = {
     ...fallback,
     ...migrated,
+    career: legacyCareer ? restoreLegacyCareerIndex(migrated.career) : migrated.career ?? fallback.career,
     cultureSelections: { ...fallback.cultureSelections, ...migrated.cultureSelections },
     step: migrateCharacterStep(migrated.step ?? fallback.step, !!migrated.background),
     ...migrateCultureTables(cultureKind, migrated.socialTable, migrated.moneyTable),
@@ -65,7 +66,17 @@ function normalize(value: Partial<Character>): Character {
     age: Number.isFinite(migrated.age) ? migrated.age! : fallback.age,
     background: normalizeBackground(migrated.background, fallback.background),
     alloc: { ...fallback.alloc, ...(migrated.alloc ?? {}) },
+    extras: migrated.extras ?? [],
+    careerProfessional: migrated.careerProfessional ?? [],
   };
+  restoreCareer(normalized, legacyCareer);
+  return normalized;
+}
+function restoreCareer(character: Character, legacy = false) {
+  const selected = careers[character.career] ?? careers[0];
+  const restored = restoreCareerAllocation(selected, legacy ? undefined : character.careerProfessional, character.alloc.career);
+  character.careerProfessional = restored.professional;
+  character.alloc.career = restored.allocation;
 }
 function load(): Character {
   try { return normalize(JSON.parse(localStorage.getItem(KEY) ?? "null") ?? {}); } catch { return blank(); }
@@ -112,9 +123,8 @@ export function cultureAllocationErrors(): string[] {
   return validateCultureAllocation(culture(), char.cultureSelections, char.alloc.culture, POOLS.culture);
 }
 
-const combatStyles = () => [char.cultureSelections.combatStyle, ...char.extras].filter(Boolean);
-// Older saves may contain arbitrary bonus skills, which previously used the
-// Combat Style formula as a fallback. Keep those entries renderable.
+const combatStyles = () => [char.cultureSelections.combatStyle, ...(career().combatStyle ?? []), ...char.extras].filter(Boolean);
+// Older saves may contain arbitrary bonus skills, which previously used the Combat Style formula as a fallback.
 export const skillDefinition = (n: string) => skillDef(n, combatStyles());
 export const base = (n: string) => formulaVal(skillDefinition(n).f, char.chars);
 export const added = (n: string) => sum((Object.keys(POOLS) as Kind[]).map(k => char.alloc[k][n] ?? 0));
@@ -122,6 +132,8 @@ export const total = (n: string) => base(n) + added(n);
 export const used = (k: Kind) => sum(Object.values(char.alloc[k]));
 
 export function setAlloc(kind: Kind, name: string, v: number) {
+  if (kind === "career" && !careerSkillOptions(career(), char.careerProfessional).includes(name)) return;
+  if (kind === "culture" && !cultureSkills(culture(), char.cultureSelections.standard, char.cultureSelections.professional, char.cultureSelections.combatStyle).includes(name)) return;
   const a = char.alloc[kind];
   const n = kind === "culture"
     ? (() => {
@@ -131,6 +143,14 @@ export function setAlloc(kind: Kind, name: string, v: number) {
       })()
     : allocationValue(v, POOLS[kind], used(kind), a[name] ?? 0);
   if (n) a[name] = n; else delete a[name];
+}
+export function toggleCareerProfessional(name: string) {
+  const selected = char.careerProfessional;
+  const next = selectCareerProfessional(career(), selected, name);
+  if (next !== selected) {
+    char.careerProfessional = next;
+    if (!next.includes(name) && !careerSkillOptions(career(), char.careerProfessional).includes(name)) delete char.alloc.career[name];
+  }
 }
 export function addExtra(name: string): boolean {
   const v = name.trim();
@@ -142,13 +162,17 @@ export function addExtra(name: string): boolean {
 
 export function allSkills(): string[] {
   const c = culture(), k = career();
-  return [...new Set([...STANDARD.map(s => s[0]),
-    ...cultureSkills(c, char.cultureSelections.standard, char.cultureSelections.professional, char.cultureSelections.combatStyle), ...k.professional,
-    ...char.extras, ...(Object.keys(POOLS) as Kind[]).flatMap(x => Object.keys(char.alloc[x]))])];
+  const pickedCulture = cultureSkills(c, char.cultureSelections.standard, char.cultureSelections.professional, char.cultureSelections.combatStyle);
+  return [...new Set([
+    ...STANDARD.map(([name]) => name), ...pickedCulture,
+    ...k.standard, ...(k.combatStyle ?? []), ...char.careerProfessional,
+    ...char.extras, ...(Object.keys(POOLS) as Kind[]).flatMap(x => Object.keys(char.alloc[x])),
+  ])];
 }
 export function stepSkills(kind: Kind): string[] {
   const c = culture(), k = career();
   if (kind === "culture") return cultureSkills(c, char.cultureSelections.standard, char.cultureSelections.professional, char.cultureSelections.combatStyle);
-  if (kind === "career") return skillsForStage(kind, c, k);
+  if (kind === "career") return skillsForStage(kind, c, k, [], [], char.careerProfessional);
   return allSkills();
 }
+export { baseName };
