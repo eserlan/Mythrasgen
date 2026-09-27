@@ -1,6 +1,6 @@
 <script lang="ts">
   import { type Kind } from "../lib/rules";
-  import { addExtra, base, capFor, career, char, culture, cultureAllocationErrors, poolFor, setAlloc, setHobbySkill, skillDefinition, stepSkills, toggleCareerProfessional, total, used } from "../lib/store.svelte";
+  import { addExtra, base, capFor, career, char, culture, cultureAllocationErrors, poolFor, setAlloc, setCultureCombatStyle, setHobbySkill, skillDefinition, stepSkills, toggleCareerProfessional, total, used } from "../lib/store.svelte";
   import StepHead from "./StepHead.svelte";
   import Stepper from "./Stepper.svelte";
   import Passions from "./Passions.svelte";
@@ -34,6 +34,15 @@
 {/if}
 {#if kind === "culture" && cultureErrors.length}
   <div class="validation" role="status"><b>Culture allocation incomplete</b><ul>{#each cultureErrors as error}<li>{error}</li>{/each}</ul></div>
+{/if}
+{#if kind === "culture"}
+  <section class="card" aria-label="Cultural Combat Style selection">
+    <label class="field"><span>Cultural Combat Style (optional)</span>
+      <input class="wide" value={char.cultureSelections.combatStyle} placeholder="Enter one cultural Combat Style, if desired"
+        onchange={e => setCultureCombatStyle(e.currentTarget.value)}>
+    </label>
+    <p class="hint">This style is eligible for Culture points and uses its STR + DEX base.</p>
+  </section>
 {/if}
 <div class="card skills">
   {#each names as n (n)}

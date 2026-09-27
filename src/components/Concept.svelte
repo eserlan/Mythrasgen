@@ -85,10 +85,6 @@
           onchange={e => toggleProfessional(option, e.currentTarget.checked)}>{option}</label>
       {/each}
     </div>
-    <label class="field"><span>Cultural Combat Style (optional)</span>
-      <input class="wide" value={char.cultureSelections.combatStyle} placeholder="Enter one cultural Combat Style, if desired"
-        onchange={e => { char.cultureSelections.combatStyle = e.currentTarget.value.trim(); char.alloc.culture = {}; char.cultureMigration = false; refreshBonusEligibility(); }}>
-    </label>
     <p class="hint">Choose specialisations that suit this culture.</p>
     <p class="label">Cultural Passions</p>
     <ul>{#each cu.passions as passion}<li>{passion}</li>{/each}</ul>
