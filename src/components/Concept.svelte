@@ -1,34 +1,52 @@
 <script lang="ts">
   import StepHead from "./StepHead.svelte";
   import { careers, cultures } from "../lib/content";
-  import { char, culture, career } from "../lib/store.svelte";
+  import { AGE_CATEGORIES, type AgeCategory } from "../lib/rules";
+  import { char, culture, career, refreshBonusEligibility, setAgeCategory, rollCharacterAge } from "../lib/store.svelte";
   const cu = $derived(culture()), ca = $derived(career());
-  // Changing culture/career invalidates the points spent on it.
+  // Changing a culture or career invalidates allocations based on its skills.
   const pick = (kind: "culture" | "career", i: number) => {
-    char[kind] = i; char.alloc[kind] = {};
+    char[kind] = i;
+    char.alloc[kind] = {};
     if (kind === "career") char.careerProfessional = [];
     if (kind === "culture") {
       char.cultureSelections = { standard: [], professional: [], combatStyle: "" };
       char.cultureMigration = false;
     }
+    refreshBonusEligibility();
   };
   function toggleStandard(group: number, option: string, checked: boolean) {
     const selected = [...(char.cultureSelections.standard[group] ?? [])];
     char.cultureSelections.standard[group] = checked ? [...selected, option] : selected.filter(x => x !== option);
     char.alloc.culture = {};
     char.cultureMigration = false;
+    refreshBonusEligibility();
   }
   function toggleProfessional(option: string, checked: boolean) {
     const selected = char.cultureSelections.professional;
     char.cultureSelections.professional = checked ? [...selected, option] : selected.filter(x => x !== option);
     char.alloc.culture = {};
     char.cultureMigration = false;
+    refreshBonusEligibility();
   }
 </script>
 
 <StepHead step={0} title="Who are you?" />
 <div class="card">
   <label class="field"><span>Name</span><input bind:value={char.name} placeholder="Name your character"></label>
+</div>
+<div class="card bar">
+  <label class="field"><span>Age category</span>
+    <select value={char.ageCategory} onchange={e => setAgeCategory(e.currentTarget.value as AgeCategory)}>
+      {#each Object.entries(AGE_CATEGORIES) as [key, category]}
+        <option value={key}>{category.label} · {category.bonus} bonus points</option>
+      {/each}
+    </select>
+  </label>
+  <div><b>Age {char.age}</b><div class="mute">{AGE_CATEGORIES[char.ageCategory].roll} years</div></div>
+  <button type="button" onclick={rollCharacterAge}>Roll age</button>
+  <div><b>{AGE_CATEGORIES[char.ageCategory].backgroundEvents}</b><div class="mute">background-event rolls</div></div>
+  {#if AGE_CATEGORIES[char.ageCategory].ageing}<span class="pill">Ageing applies</span>{/if}
 </div>
 <div class="two">
   <div class="card">
@@ -61,7 +79,7 @@
     </div>
     <label class="field"><span>Cultural Combat Style (optional)</span>
       <input class="wide" value={char.cultureSelections.combatStyle} placeholder="Enter one cultural Combat Style, if desired"
-        onchange={e => { char.cultureSelections.combatStyle = e.currentTarget.value.trim(); char.alloc.culture = {}; char.cultureMigration = false; }}>
+        onchange={e => { char.cultureSelections.combatStyle = e.currentTarget.value.trim(); char.alloc.culture = {}; char.cultureMigration = false; refreshBonusEligibility(); }}>
     </label>
     <p class="hint">Choose specialisations that suit this culture.</p>
     <p class="label">Cultural Passions</p>
