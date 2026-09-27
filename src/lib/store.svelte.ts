@@ -1,6 +1,6 @@
 import { careers, cultures, type CultureKind } from "./content";
 import { BACKGROUND_EVENT_COUNTS, calculateStartingMoney, CULTURE_MONEY_MULTIPLIERS, classMoneyMultiplier } from "./background-rules";
-import { migrateCharacterStep } from "./migrations";
+import { migrateCharacterStep, migrateCultureTables } from "./migrations";
 import { baseName, formulaVal, skillDef, sum } from "./calc";
 import { allocationValue, selectedCareer, selectedCulture, skillsForStage } from "./creation";
 import { POOLS, STATS, type Chars, type Kind } from "./rules";
@@ -47,10 +47,12 @@ const blank = (): Character => ({
 });
 function normalize(value: Partial<Character>): Character {
   const fallback = blank();
+  const cultureKind = cultures[value.culture ?? fallback.culture]?.kind;
   return {
     ...fallback,
     ...value,
     step: migrateCharacterStep(value.step ?? fallback.step, !!value.background),
+    ...migrateCultureTables(cultureKind, value.socialTable, value.moneyTable),
     background: { ...fallback.background, ...(value.background ?? {}) },
     alloc: { ...fallback.alloc, ...(value.alloc ?? {}) },
   };
