@@ -1,6 +1,6 @@
 import { careers, cultures } from "./content";
 import { baseName, formulaVal, normalizeAge, rollAge, skillDef, sum } from "./calc";
-import { AGE_CATEGORIES, bonusCap, bonusPool, PER_SKILL_CAP, POOLS, STANDARD, STATS, type AgeCategory, type Chars, type Kind } from "./rules";
+import { AGE_CATEGORIES, bonusCap, bonusPool, MAGIC, PER_SKILL_CAP, POOLS, STANDARD, STATS, type AgeCategory, type Chars, type Kind } from "./rules";
 
 export interface Character {
   name: string; chars: Chars; ageCategory: AgeCategory; age: number; culture: number; career: number;
@@ -27,6 +27,7 @@ const blank = (): Character => ({
   alloc: { culture: {}, career: {}, bonus: {} }, hobbySkill: "", extras: [], step: 0,
   generation: "pointBuy", rollResults: null, rollAssignments: STATS.map((_, i) => i), home: true,
 });
+const COMBAT_STYLES = cultures.map(c => c.combatStyle);
 function load(): Character {
   try { return normalize(JSON.parse(localStorage.getItem(KEY) ?? "null")); } catch { return blank(); }
 }
@@ -50,7 +51,11 @@ function normalize(saved: Partial<Character> | null, home = true): Character {
   }
   const cu = cultures[c.culture] ?? cultures[0], ca = careers[c.career] ?? careers[0];
   const learned = new Set([...cu.standard, cu.combatStyle, ...cu.professional, ...ca.standard, ...ca.professional]);
-  if (learned.has(c.hobbySkill) || (c.hobbySkill && !skillDef(c.hobbySkill).pro)) c.hobbySkill = "";
+  let validHobby = false;
+  if (c.hobbySkill) {
+    try { validHobby = skillDef(c.hobbySkill, [...COMBAT_STYLES, ...c.extras]).pro; } catch { /* discard invalid legacy hobby skills */ }
+  }
+  if (learned.has(c.hobbySkill) || (c.hobbySkill && !validHobby)) c.hobbySkill = "";
   c.alloc.bonus = Object.fromEntries(Object.entries(c.alloc.bonus ?? {}).filter(([name]) => bonusEligibleFor(c, learned, name)));
   if (c.step === STEPS.length - 1 && sum(Object.values(c.alloc.bonus)) < bonusPool(c.ageCategory)) c.step = 4;
   return c;
@@ -93,8 +98,11 @@ export const learnedSkills = () => {
 export const poolFor = (kind: Kind) => kind === "bonus" ? bonusPool(char.ageCategory) : POOLS[kind];
 export const capFor = (kind: Kind) => kind === "bonus" ? bonusCap(char.ageCategory) : PER_SKILL_CAP;
 
-export const base = (n: string) => formulaVal(skillDef(n).f, char.chars);
-export const added = (n: string) => sum((Object.keys(char.alloc) as Kind[]).map(k => char.alloc[k][n] ?? 0));
+// Older saves may contain arbitrary bonus skills, which previously used the
+// Combat Style formula as a fallback. Keep those entries renderable.
+export const skillDefinition = (n: string) => skillDef(n, [...COMBAT_STYLES, ...char.extras]);
+export const base = (n: string) => formulaVal(skillDefinition(n).f, char.chars);
+export const added = (n: string) => sum((Object.keys(POOLS) as Kind[]).map(k => char.alloc[k][n] ?? 0));
 export const total = (n: string) => base(n) + added(n);
 export const used = (k: Kind) => sum(Object.values(char.alloc[k]));
 
@@ -104,9 +112,12 @@ export function setAlloc(kind: Kind, name: string, v: number) {
   const n = Math.max(0, Math.min(capFor(kind), room, Math.round(v) || 0));
   if (n) a[name] = n; else delete a[name];
 }
-export function addExtra(name: string) {
+export function addExtra(name: string): boolean {
   const v = name.trim();
-  if (v && !char.extras.includes(v)) char.extras.push(v);
+  if (!v || char.extras.includes(v)) return false;
+  try { skillDef(v, COMBAT_STYLES); } catch { return false; }
+  char.extras.push(v);
+  return true;
 }
 export function setAgeCategory(ageCategory: AgeCategory) {
   char.ageCategory = ageCategory;
@@ -122,7 +133,9 @@ export function setHobbySkill(name: string) {
     char.hobbySkill = "";
     return;
   }
-  if (skillDef(v).pro && !learnedSkills().includes(v)) {
+  let professional = false;
+  try { professional = skillDefinition(v).pro; } catch { return; }
+  if (professional && !learnedSkills().includes(v)) {
     const previous = char.hobbySkill;
     if (previous) delete char.alloc.bonus[previous];
     char.hobbySkill = v;
@@ -140,7 +153,7 @@ export const canComplete = () => used("bonus") === bonusPool(char.ageCategory);
 
 export function allSkills(): string[] {
   const c = culture(), k = career();
-  return [...new Set([...STANDARD.map(s => s[0]), c.combatStyle, ...c.standard, ...c.professional, ...k.standard, ...k.professional,
+  return [...new Set([...STANDARD.map(s => s[0]), ...MAGIC.map(s => s[0]), c.combatStyle, ...c.standard, ...c.professional, ...k.standard, ...k.professional,
     ...char.extras, ...(char.hobbySkill ? [char.hobbySkill] : []),
     ...(Object.keys(char.alloc) as Kind[]).flatMap(x => Object.keys(char.alloc[x]))])];
 }
