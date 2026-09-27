@@ -3,10 +3,14 @@ import { BACKGROUND_EVENT_COUNTS, calculateStartingMoney, CULTURE_MONEY_MULTIPLI
 import { migrateCharacterStep, migrateCultureTables } from "./migrations";
 import { baseName, formulaVal, skillDef, sum } from "./calc";
 import { allocationValue, selectedCareer, selectedCulture, skillsForStage } from "./creation";
-import { POOLS, STATS, type Chars, type Kind } from "./rules";
+import { cultureSkills, validateCultureAllocation } from "./culture";
+import { migrateCharacter } from "./migration";
+import { PER_SKILL_CAP, POOLS, STANDARD, STATS, type Chars, type Kind } from "./rules";
 
 export interface Character {
   name: string; chars: Chars; culture: number; career: number;
+  cultureSelections: { standard: string[][]; professional: string[]; combatStyle: string };
+  cultureMigration?: boolean;
   alloc: Record<Kind, Record<string, number>>; extras: string[]; step: number;
   ageCategory: "Young" | "Adult" | "Middle-Aged"; age: number;
   background: {
@@ -37,6 +41,8 @@ export const INTRO = [
 
 const blank = (): Character => ({
   name: "", chars: Object.fromEntries(STATS.map(k => [k, 10])) as Chars, culture: 0, career: 0,
+  cultureSelections: { standard: [], professional: [], combatStyle: "" },
+
   alloc: { culture: {}, career: {}, bonus: {} }, extras: [], step: 0,
   ageCategory: "Adult", age: 22, socialTable: "Civilised", moneyTable: "Civilised",
   background: { events: [{ roll: 0, text: "" }], socialClassRoll: 50, socialClass: "Freeman",
@@ -47,14 +53,16 @@ const blank = (): Character => ({
 });
 function normalize(value: Partial<Character>): Character {
   const fallback = blank();
-  const cultureKind = cultures[value.culture ?? fallback.culture]?.kind;
+  const migrated = migrateCharacter(value);
+  const cultureKind = cultures[migrated.culture ?? fallback.culture]?.kind;
   return {
     ...fallback,
-    ...value,
-    step: migrateCharacterStep(value.step ?? fallback.step, !!value.background),
-    ...migrateCultureTables(cultureKind, value.socialTable, value.moneyTable),
-    background: { ...fallback.background, ...(value.background ?? {}) },
-    alloc: { ...fallback.alloc, ...(value.alloc ?? {}) },
+    ...migrated,
+    cultureSelections: { ...fallback.cultureSelections, ...migrated.cultureSelections },
+    step: migrateCharacterStep(migrated.step ?? fallback.step, !!migrated.background),
+    ...migrateCultureTables(cultureKind, migrated.socialTable, migrated.moneyTable),
+    background: { ...fallback.background, ...(migrated.background ?? {}) },
+    alloc: { ...fallback.alloc, ...(migrated.alloc ?? {}) },
   };
 }
 function load(): Character {
@@ -98,10 +106,14 @@ export const rollDie = (sides: number) => Math.floor(Math.random() * sides) + 1;
 export const rollPercentile = () => rollDie(100);
 export const roll4d6 = () => rollDie(6) + rollDie(6) + rollDie(6) + rollDie(6);
 
-const COMBAT_STYLES = cultures.map(c => c.combatStyle);
+export function cultureAllocationErrors(): string[] {
+  return validateCultureAllocation(culture(), char.cultureSelections, char.alloc.culture, POOLS.culture);
+}
+
+const combatStyles = () => [char.cultureSelections.combatStyle, ...char.extras].filter(Boolean);
 // Older saves may contain arbitrary bonus skills, which previously used the
 // Combat Style formula as a fallback. Keep those entries renderable.
-export const skillDefinition = (n: string) => skillDef(n, [...COMBAT_STYLES, ...char.extras]);
+export const skillDefinition = (n: string) => skillDef(n, combatStyles());
 export const base = (n: string) => formulaVal(skillDefinition(n).f, char.chars);
 export const added = (n: string) => sum((Object.keys(POOLS) as Kind[]).map(k => char.alloc[k][n] ?? 0));
 export const total = (n: string) => base(n) + added(n);
@@ -109,23 +121,32 @@ export const used = (k: Kind) => sum(Object.values(char.alloc[k]));
 
 export function setAlloc(kind: Kind, name: string, v: number) {
   const a = char.alloc[kind];
-  const n = allocationValue(v, POOLS[kind], used(kind), a[name] ?? 0);
+  const n = kind === "culture"
+    ? (() => {
+        const room = POOLS.culture - used(kind) + (a[name] ?? 0);
+        const raw = Math.round(v) || 0;
+        return raw <= 0 || room < 5 ? 0 : Math.max(5, Math.min(PER_SKILL_CAP, room, raw));
+      })()
+    : allocationValue(v, POOLS[kind], used(kind), a[name] ?? 0);
   if (n) a[name] = n; else delete a[name];
 }
 export function addExtra(name: string): boolean {
   const v = name.trim();
   if (!v || char.extras.includes(v)) return false;
-  try { skillDef(v, COMBAT_STYLES); } catch { return false; }
+  try { skillDef(v, combatStyles()); } catch { return false; }
   char.extras.push(v);
   return true;
 }
 
 export function allSkills(): string[] {
   const c = culture(), k = career();
-  return skillsForStage("bonus", c, k, char.extras,
-    (Object.keys(POOLS) as Kind[]).flatMap(x => Object.keys(char.alloc[x])));
+  return [...new Set([...STANDARD.map(s => s[0]),
+    ...cultureSkills(c, char.cultureSelections.standard, char.cultureSelections.professional, char.cultureSelections.combatStyle), ...k.professional,
+    ...char.extras, ...(Object.keys(POOLS) as Kind[]).flatMap(x => Object.keys(char.alloc[x]))])];
 }
 export function stepSkills(kind: Kind): string[] {
-  return skillsForStage(kind, culture(), career(), char.extras,
-    (Object.keys(POOLS) as Kind[]).flatMap(x => Object.keys(char.alloc[x])));
+  const c = culture(), k = career();
+  if (kind === "culture") return cultureSkills(c, char.cultureSelections.standard, char.cultureSelections.professional, char.cultureSelections.combatStyle);
+  if (kind === "career") return skillsForStage(kind, c, k);
+  return allSkills();
 }

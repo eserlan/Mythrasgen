@@ -101,6 +101,10 @@ main{padding:8px 16px 70px}
 .field{display:flex;flex-direction:column;gap:5px}
 .field span,.label{font-family:var(--display);font-size:.66rem;text-transform:uppercase;letter-spacing:.16em;color:var(--mute);margin:12px 0 4px}
 .field span{margin:0}.field select,.field input{font-size:1.15rem}
+.wide{width:100%}.hint{color:var(--mute);font-size:.92rem;font-style:italic;margin:6px 0}
+.choice-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:5px 12px}
+.choice-list label{display:flex;align-items:center;gap:8px;font-size:.98rem}
+.choice-list input{accent-color:var(--bronze);width:18px;height:18px}
 .chip{display:inline-block;background:var(--bg2);border:1px solid var(--line);border-radius:2px;padding:0 9px;margin:2px 3px 2px 0;font-size:.95rem}
 .chip.acc{background:var(--acc);border-color:var(--acc);color:#fff}
 .bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.bar input{flex:1;min-width:180px}
@@ -132,6 +136,8 @@ main{padding:8px 16px 70px}
 
 /* skills */
 .poolbar{position:sticky;top:96px;z-index:5;background:var(--card);border:1px solid var(--line2);padding:8px 16px;box-shadow:var(--shadow)}
+.validation{background:color-mix(in srgb,var(--acc) 10%,var(--card));border:1px solid var(--acc);padding:10px 16px;margin:12px 0;color:var(--acc)}
+.validation ul{margin:4px 0 0;padding-left:22px}
 .left{display:flex;align-items:baseline;gap:12px}.left b{font-family:var(--display);font-size:2rem;color:var(--bronze);line-height:1}
 .left span{font-family:var(--display);font-size:.7rem;text-transform:uppercase;letter-spacing:.12em}.left em{font-family:var(--body);text-transform:none;letter-spacing:0;font-size:.95rem;color:var(--mute)}
 .meter{height:5px;background:var(--bg2);margin-top:6px;overflow:hidden}.meter i{display:block;height:100%;background:linear-gradient(90deg,var(--bronze),var(--bronze2));transition:width .25s}
