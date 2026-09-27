@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { careerSkillOptions, careers, restoreCareerAllocation, restoreLegacyCareerIndex, selectCareerProfessional } from "./content";
-import { PROFESSIONAL, STANDARD } from "./rules";
+import { MAGIC, PROFESSIONAL, STANDARD } from "./rules";
 import { baseName } from "./calc";
 
 const coreCareerNames = [
@@ -21,7 +21,7 @@ describe("core careers", () => {
 
   test("all career templates have unique, defined skill entries", () => {
     const standard = new Set(STANDARD.map(([name]) => name));
-    const professional = new Set(PROFESSIONAL.map(([name]) => name));
+    const professional = new Set([...PROFESSIONAL, ...MAGIC].map(([name]) => name));
     for (const career of careers) {
       expect(career.standard.length).toBeGreaterThan(0);
       expect(career.professional.length).toBeGreaterThanOrEqual(3);
