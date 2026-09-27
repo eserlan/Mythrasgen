@@ -104,6 +104,7 @@ describe("derived attribute boundaries", () => {
 });
 
 describe("core culture and career packages", () => {
+
   // Bundled cultures expose selectable core skills; choices and custom combat
   // styles are selected by the character rather than fixed in the template.
   test.each(cultures)("culture fixture $name", culture => {
@@ -112,6 +113,7 @@ describe("core culture and career packages", () => {
       ...culture.standard, ...culture.standardChoices.flatMap(group => group.options), ...culture.professional,
     ])]);
     expect(cultureSkills.length).toBeGreaterThan(culture.standard.length);
+
   });
   test("every official career package appears at the career stage", () => {
     for (const career of careers) {

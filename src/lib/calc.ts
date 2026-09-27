@@ -1,4 +1,4 @@
-import { AGE_CATEGORIES, ageRollBounds, CHAR_ROLL, COMBAT_STYLE, MAGIC, POINT_BUY, PROFESSIONAL, STANDARD, STATS, pointBuyMin, type AgeCategory, type Chars, type Stat, type Term } from "./rules";
+import { AGE_CATEGORIES, ageRollBounds, CHAR_ROLL, COMBAT_STYLE, MAGIC, POINT_BUY, PROFESSIONAL, STANDARD, STATS, pointBuyMin, type AgeCategory, type Chars, type PassionCategory, type Stat, type Term } from "./rules";
 
 export const sum = (a: number[]) => a.reduce((x, y) => x + y, 0);
 const d = (n: number, random: () => number) => 1 + Math.floor(random() * n);
@@ -22,6 +22,17 @@ export const baseName = (n: string) => n.trim().replace(/\s*\(.*\)$/, "").trim()
 
 export function formulaVal(f: Term[], c: Chars): number {
   return sum(f.map(t => typeof t === "number" ? t : Array.isArray(t) ? c[t[0]] * t[1] : c[t]));
+}
+
+/** Workbook p.4 starting Passion value, including the subject's stats when needed. */
+export function passionStartingValue(category: PassionCategory, chars: Chars, subject: { pow?: number; cha?: number } = {}): number | null {
+  const { POW, INT } = chars;
+  switch (category) {
+    case "romantic/familial": return subject.pow == null || subject.cha == null ? null : 30 + subject.pow + subject.cha;
+    case "platonic": case "adverse": return subject.cha == null ? null : 30 + POW + subject.cha;
+    case "organisation/group": case "place/concept/ideal": return 30 + POW + INT;
+    case "race/species": case "object/substance": return 30 + POW * 2;
+  }
 }
 
 export function skillDef(name: string, combatStyles: readonly string[] = []): { f: Term[]; pro: boolean } {

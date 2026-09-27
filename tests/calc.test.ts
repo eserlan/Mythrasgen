@@ -1,8 +1,34 @@
 import { describe, expect, test } from "bun:test";
+import { passionStartingValue } from "../src/lib/calc";
 import { deriveStats, dmgMod } from "../src/lib/calc";
-import type { Chars } from "../src/lib/rules";
+import type { Chars, PassionCategory } from "../src/lib/rules";
 
-const chars = (overrides: Partial<Chars> = {}): Chars => ({
+const chars: Chars = { STR: 10, CON: 11, SIZ: 12, DEX: 13, INT: 14, POW: 15, CHA: 16 };
+
+describe("Mythras Workbook starting Passion formulas", () => {
+  const cases: [PassionCategory, { pow?: number; cha?: number }, number][] = [
+    ["romantic/familial", { pow: 12, cha: 13 }, 55], // 30 + loved one's POW + CHA
+    ["platonic", { cha: 13 }, 58], // 30 + character POW + subject CHA
+    ["adverse", { cha: 13 }, 58], // 30 + character POW + subject CHA
+    ["organisation/group", {}, 59], // 30 + character POW + INT
+    ["race/species", {}, 60], // 30 + character POW x 2
+    ["place/concept/ideal", {}, 59], // 30 + character POW + INT
+    ["object/substance", {}, 60], // 30 + character POW x 2
+  ];
+
+  test.each(cases)("%s", (category, subject, expected) => {
+    expect(passionStartingValue(category, chars, subject)).toBe(expected);
+  });
+
+  test("does not claim a value until required subject characteristics are entered", () => {
+    expect(passionStartingValue("romantic/familial", chars)).toBeNull();
+    expect(passionStartingValue("romantic/familial", chars, { pow: 12 })).toBeNull();
+    expect(passionStartingValue("platonic", chars)).toBeNull();
+    expect(passionStartingValue("adverse", chars)).toBeNull();
+  });
+});
+
+const defaultChars = (overrides: Partial<Chars> = {}): Chars => ({
   STR: 10, CON: 10, SIZ: 10, DEX: 10, INT: 10, POW: 10, CHA: 10, ...overrides,
 });
 const stat = (name: string, c: Chars) => deriveStats(c).stats.find(([key]) => key === name)![1];
@@ -23,25 +49,25 @@ describe("derived characteristic tables", () => {
   test.each([
     [12, 1], [13, 2], [24, 2], [25, 3], [36, 3], [37, 4], [48, 4], [49, 5],
   ])("action points at INT+DEX %i", (total, expected) => {
-    expect(stat("Action Points", chars({ INT: total - 10, DEX: 10 }))).toBe(expected);
+    expect(stat("Action Points", defaultChars({ INT: total - 10, DEX: 10 }))).toBe(expected);
   });
 
   test.each([
     [6, -1], [7, 0], [12, 0], [13, 1], [18, 1], [19, 2], [24, 2], [25, 3],
   ])("experience modifier at CHA %i", (cha, expected) => {
-    expect(stat("Experience Mod", chars({ CHA: cha }))).toBe(expected);
+    expect(stat("Experience Mod", defaultChars({ CHA: cha }))).toBe(expected);
   });
 
   test.each([
     [3, 1], [6, 1], [7, 2], [12, 2], [13, 3], [18, 3], [19, 4], [24, 4],
   ])("healing rate at CON %i", (con, expected) => {
-    expect(stat("Healing Rate", chars({ CON: con }))).toBe(expected);
+    expect(stat("Healing Rate", defaultChars({ CON: con }))).toBe(expected);
   });
 
   test.each([
     [3, 1], [6, 1], [7, 2], [12, 2], [13, 3], [18, 3], [19, 4], [24, 4],
   ])("luck points at POW %i", (pow, expected) => {
-    expect(stat("Luck Points", chars({ POW: pow }))).toBe(expected);
+    expect(stat("Luck Points", defaultChars({ POW: pow }))).toBe(expected);
   });
 
   test.each([
@@ -53,12 +79,12 @@ describe("derived characteristic tables", () => {
     [41, [9, 10, 11, 8, 9]], [45, [9, 10, 11, 8, 9]],
     [46, [10, 11, 12, 9, 10]], [50, [10, 11, 12, 9, 10]],
   ])("location HP at CON+SIZ %i", (total, expected) => {
-    const locations = deriveStats(chars({ CON: total - 10, SIZ: 10 })).loc;
+    const locations = deriveStats(defaultChars({ CON: total - 10, SIZ: 10 })).loc;
     expect([locations[0].hp, locations[2].hp, locations[3].hp, locations[4].hp, locations[6].hp]).toEqual(expected);
   });
 
   test("uses 6m movement and rounds an odd INT+DEX average up for initiative", () => {
-    const c = chars({ INT: 13, DEX: 12 });
+    const c = defaultChars({ INT: 13, DEX: 12 });
     expect(stat("Movement", c)).toBe("6m");
     expect(stat("Initiative", c)).toBe(13);
   });

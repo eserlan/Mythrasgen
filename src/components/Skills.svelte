@@ -3,6 +3,7 @@
   import { addExtra, base, capFor, career, char, culture, cultureAllocationErrors, poolFor, setAlloc, setHobbySkill, skillDefinition, stepSkills, toggleCareerProfessional, total, used } from "../lib/store.svelte";
   import StepHead from "./StepHead.svelte";
   import Stepper from "./Stepper.svelte";
+  import Passions from "./Passions.svelte";
   let { kind }: { kind: Kind } = $props();
   const pool = $derived(poolFor(kind));
   const cap = $derived(capFor(kind));
@@ -31,18 +32,6 @@
     </div>
   </section>
 {/if}
-{#if kind === "career"}
-  <section class="card career-picks" aria-label="Career Professional Skill selection">
-    <h3>Choose up to three Professional Skills</h3>
-    <p class="mute">Only selected Professional Skills, listed Standard Skills, and career Combat Styles can receive career points.</p>
-    <div class="career-options">
-      {#each career().professional as s (s)}
-        <label><input type="checkbox" checked={char.careerProfessional.includes(s)} disabled={!char.careerProfessional.includes(s) && char.careerProfessional.length >= 3}
-          onchange={() => toggleCareerProfessional(s)}>{s}</label>
-      {/each}
-    </div>
-  </section>
-{/if}
 {#if kind === "culture" && cultureErrors.length}
   <div class="validation" role="status"><b>Culture allocation incomplete</b><ul>{#each cultureErrors as error}<li>{error}</li>{/each}</ul></div>
 {/if}
@@ -57,13 +46,7 @@
   {/each}
 </div>
 {#if kind === "bonus"}
-  {#if char.hobbySkill}
-    <div class="card bar"><span>Hobby skill: <b>{char.hobbySkill}</b></span><button type="button" onclick={() => { setHobbySkill(""); extra = ""; }}>Remove</button></div>
-  {:else}
-    <form class="card bar" onsubmit={e => { e.preventDefault(); setHobbySkill(extra); extra = ""; }}>
-      <input bind:value={extra} aria-label="New professional hobby skill or combat style" placeholder="One new professional skill or combat style"><button disabled={!extra.trim()}>Add hobby skill</button>
-    </form>
-  {/if}
+  <Passions />
   <form class="card bar" onsubmit={e => {
     e.preventDefault();
     if (addExtra(extra)) { extra = ""; extraError = ""; }
