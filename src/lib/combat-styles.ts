@@ -26,6 +26,12 @@ export interface CombatStyleDefinition {
   baseFormula: Term[];
   weapons: CombatWeaponReference[];
   traits: CombatStyleTrait[];
+  /** Alternative weapon groups in the source preset; each group must be resolved when selected. */
+  weaponChoices?: readonly (readonly CombatWeaponReference[])[];
+  /** Alternative trait groups in the source preset; each group must be resolved when selected. */
+  traitChoices?: readonly (readonly CombatStyleTrait[])[];
+  /** Alternate names printed for the same style in the source. */
+  aliases?: readonly string[];
   source: CombatStyleSource;
   notes?: string;
   status: "preset" | "custom";
@@ -39,7 +45,7 @@ export interface CharacterCombatStyle extends Omit<CombatStyleDefinition, "searc
   origins: CombatStyleOrigin[];
   allocations: Partial<Record<Kind, number>>;
 }
-export type CombatStyleSelection = Omit<CombatStyleDefinition, "searchable">;
+export type CombatStyleSelection = Omit<CombatStyleDefinition, "searchable" | "weaponChoices" | "traitChoices">;
 type StyleInput = CombatStyleSelection;
 
 const core = { libraryId: "mythras-core", libraryName: "Mythras Core" };
@@ -49,30 +55,75 @@ const coreTrait = (name: string): CombatStyleTrait => ({
   displayName: name,
   source: core,
 });
+const cloneValue = <T>(value: T): T => Array.isArray(value)
+  ? value.map(cloneValue) as T
+  : value && typeof value === "object"
+    ? Object.fromEntries(Object.entries(value).map(([key, item]) => [key, cloneValue(item)])) as T
+    : value;
+const cloneDefinition = <T extends object>(definition: T): T => cloneValue(definition);
 
-/** A small set copied from the core book's Meerish character example. */
-export const CORE_COMBAT_STYLES: CombatStyleDefinition[] = [
-  {
-    id: "mythras-core:meerish-infantry",
-    name: "Meerish Infantry",
-    baseFormula: ["STR", "DEX"],
-    weapons: ["Spear", "Hoplite Shield", "Javelin"].map(name => ({ name })),
-    traits: [coreTrait("Formation Fighting")],
-    source: { ...core, reference: "Mythras Core Rules: Meerish character example" },
-    status: "preset",
-    searchable: ["Meeros", "Infantry", "spear", "shield", "javelin", "Formation Fighting"],
-  },
-  {
-    id: "mythras-core:meerish-slinger",
-    name: "Meerish Slinger",
-    baseFormula: ["STR", "DEX"],
-    weapons: ["Shortsword", "Peltast Shield", "Sling"].map(name => ({ name })),
-    traits: [coreTrait("Skirmishing")],
-    source: { ...core, reference: "Mythras Core Rules: Meerish character example" },
-    status: "preset",
-    searchable: ["Meeros", "slinger", "shortsword", "shield", "sling", "Skirmishing"],
-  },
-];
+const weapons = (...names: string[]): CombatWeaponReference[] => names.map(name => ({ name }));
+const searchable = (...terms: string[]) => terms;
+const sampleStyle = (id: string, name: string, fixedWeapons: string[], traits: string[], search: string[], options: {
+  aliases?: string[]; weaponChoices?: string[][]; traitChoices?: string[][];
+} = {}): CombatStyleDefinition => ({
+  id: `mythras-core:${id}`,
+  name,
+  ...(options.aliases ? { aliases: options.aliases } : {}),
+  baseFormula: ["STR", "DEX"],
+  weapons: weapons(...fixedWeapons),
+  traits: traits.map(coreTrait),
+  ...(options.weaponChoices ? { weaponChoices: options.weaponChoices.map(group => weapons(...group)) } : {}),
+  ...(options.traitChoices ? { traitChoices: options.traitChoices.map(group => group.map(coreTrait)) } : {}),
+  source: { ...core, reference: "Mythras Core Rules, 3rd edition: Sample Combat Styles (Characters, p. 12)" },
+  status: "preset",
+  searchable: searchable(...search),
+});
+
+const freezePreset = <T>(value: T): T => {
+  if (value && typeof value === "object" && !Object.isFrozen(value)) {
+    Object.freeze(value);
+    Object.values(value).forEach(freezePreset);
+  }
+  return value;
+};
+
+/** Mythras Core 3rd edition, Characters p. 12. Additional combat-chapter examples are separate. */
+export const CORE_COMBAT_STYLES: readonly CombatStyleDefinition[] = Object.freeze([
+  sampleStyle("street-brawler", "Street Brawler", ["Fists", "Feet", "Knife", "Club"], [], ["street", "brawler", "batter aside", "unarmed prowess"], { traitChoices: [["Batter Aside", "Unarmed Prowess"]] }),
+  sampleStyle("assassin", "Assassin", ["Dagger", "Shortsword"], [], ["assassin", "bow", "crossbow", "assassination", "ranged marksman"], { weaponChoices: [["Bow", "Crossbow"]], traitChoices: [["Assassination", "Ranged Marksman"]] }),
+  sampleStyle("barbarian-warrior", "Barbarian Warrior", ["Greatsword", "Broadsword", "Battleaxe", "Shield"], [], ["barbarian", "warrior", "do or die", "intimidating scream"], { traitChoices: [["Do or Die", "Intimidating Scream"]] }),
+  sampleStyle("cavalry-mounted-knight", "Cavalry", ["Sword", "Long Spear/Lance", "Shield"], [], ["cavalry", "mounted knight", "beast-back lancer", "mounted combat"], { aliases: ["Mounted Knight"], traitChoices: [["Beast-back Lancer", "Mounted Combat"]] }),
+  sampleStyle("city-watch-hoplite", "City Watch", ["Spear", "Shield", "Shortsword"], [], ["city watch", "hoplite", "cautious fighter", "formation fighting"], { aliases: ["Hoplite"], traitChoices: [["Cautious Fighter", "Formation Fighting"]] }),
+  sampleStyle("gladiator", "Gladiator", ["Shortsword", "Buckler", "Net", "Trident"], [], ["gladiator", "daredevil", "mancatcher"], { traitChoices: [["Daredevil", "Mancatcher"]] }),
+  sampleStyle("marine-pirate", "Marine", ["Club", "Main Gauche"], [], ["marine", "pirate", "falchion", "rapier", "excellent footwork", "swashbuckler"], { aliases: ["Pirate"], weaponChoices: [["Falchion", "Rapier"]], traitChoices: [["Excellent Footwork", "Swashbuckler"]] }),
+  sampleStyle("master-archer", "Master Archer", ["Dagger", "Shortsword", "Long Bow"], [], ["master archer", "ranged marksman", "skirmishing"], { traitChoices: [["Ranged Marksman", "Skirmishing"]] }),
+  sampleStyle("meerish-slinger", "Meerish Slinger", ["Shortsword", "Shield", "Sling"], [], ["meeros", "slinger", "shortsword", "shield", "sling", "knockout blow", "shield wall"], { traitChoices: [["Knockout Blow", "Shield Wall"]] }),
+  sampleStyle("noble-warrior", "Noble Warrior", ["Longsword", "Shield", "Main Gauche", "Bow"], ["Defensive Minded"], ["noble warrior", "defensive minded"]),
+].map(freezePreset));
+
+/** Resolve every source alternative explicitly before a preset becomes character-owned data. */
+export function resolveCoreCombatStyle(
+  definition: CombatStyleDefinition,
+  weaponChoiceIndexes: readonly number[] = [],
+  traitChoiceIndexes: readonly number[] = [],
+): CombatStyleSelection | null {
+  if ((definition.weaponChoices?.length ?? 0) !== weaponChoiceIndexes.length || (definition.traitChoices?.length ?? 0) !== traitChoiceIndexes.length) return null;
+  const resolve = <T>(groups: readonly (readonly T[])[] | undefined, indexes: readonly number[]): T[] | null => {
+    const selected: T[] = [];
+    for (const [index, group] of (groups ?? []).entries()) {
+      const choice = group[indexes[index]];
+      if (choice === undefined) return null;
+      selected.push(cloneValue(choice));
+    }
+    return selected;
+  };
+  const selectedWeapons = resolve(definition.weaponChoices, weaponChoiceIndexes);
+  const selectedTraits = resolve(definition.traitChoices, traitChoiceIndexes);
+  if (!selectedWeapons || !selectedTraits) return null;
+  const { weaponChoices: _weaponChoices, traitChoices: _traitChoices, ...selection } = cloneDefinition(definition);
+  return { ...selection, weapons: [...selection.weapons, ...selectedWeapons], traits: [...selection.traits, ...selectedTraits] };
+}
 
 export function normalizedStyleName(name: string): string {
   return name.trim().replace(/\s+/g, " ").toLocaleLowerCase();
@@ -83,7 +134,7 @@ export function characterStyleFromDefinition(
   origin: CombatStyleOrigin,
 ): CharacterCombatStyle {
   return {
-    ...structuredClone(definition),
+    ...cloneDefinition(definition),
     origin,
     origins: [origin],
     allocations: {},
@@ -116,6 +167,18 @@ export function detachCharacterStyle(styles: CharacterCombatStyle[], name: strin
 export function legacyCombatStyle(name: string, origin: CombatStyleOrigin = "legacy"): CharacterCombatStyle {
   const preset = CORE_COMBAT_STYLES.find(style => normalizedStyleName(style.name) === normalizedStyleName(name));
   if (preset) return characterStyleFromDefinition(preset, origin);
+  // Preserve the original built-in data for saves that stored only this name.
+  if (normalizedStyleName(name) === "meerish infantry") {
+    return characterStyleFromDefinition({
+      id: "mythras-core:meerish-infantry",
+      name: "Meerish Infantry",
+      baseFormula: ["STR", "DEX"],
+      weapons: weapons("Spear", "Hoplite Shield", "Javelin"),
+      traits: [coreTrait("Formation Fighting")],
+      source: { ...core, reference: "Mythras Core Rules: Meerish character example" },
+      status: "preset",
+    }, origin);
+  }
   const safeName = name.trim();
   return {
     id: `legacy:${encodeURIComponent(normalizedStyleName(safeName))}`,

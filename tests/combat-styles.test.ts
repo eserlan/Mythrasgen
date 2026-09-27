@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { attachCharacterStyle, CORE_COMBAT_STYLES, customCombatStyle, legacyCombatStyle, type CharacterCombatStyle } from "../src/lib/combat-styles";
+import { attachCharacterStyle, CORE_COMBAT_STYLES, customCombatStyle, legacyCombatStyle, resolveCoreCombatStyle, type CharacterCombatStyle } from "../src/lib/combat-styles";
 import { CHARACTER_LIBRARY_KEY, createCharacterRepository, type StorageLike } from "../src/lib/character-library";
 
 // Bun runs the store without Svelte's compiler, so provide the identity state helper.
@@ -7,16 +7,55 @@ import { CHARACTER_LIBRARY_KEY, createCharacterRepository, type StorageLike } fr
 const store = await import("../src/lib/store.svelte");
 
 describe("structured Combat Styles", () => {
-  test("ships source-supported Core examples as searchable data with STR + DEX bases", () => {
-    expect(CORE_COMBAT_STYLES.map(style => style.name)).toEqual(["Meerish Infantry", "Meerish Slinger"]);
-    expect(CORE_COMBAT_STYLES[0]).toMatchObject({
-      baseFormula: ["STR", "DEX"],
-      weapons: [{ name: "Spear" }, { name: "Hoplite Shield" }, { name: "Javelin" }],
-      traits: [{ name: "Formation Fighting" }],
-      source: { libraryId: "mythras-core" },
+  test("ships exactly the ten Sample Combat Styles with core weapons, traits, and STR + DEX bases", () => {
+    expect(CORE_COMBAT_STYLES.map(style => style.name)).toEqual([
+      "Street Brawler", "Assassin", "Barbarian Warrior", "Cavalry", "City Watch", "Gladiator", "Marine", "Master Archer", "Meerish Slinger", "Noble Warrior",
+    ]);
+    expect(CORE_COMBAT_STYLES.every(style => style.baseFormula.join("+") === "STR+DEX" && style.source.libraryId === "mythras-core"
+      && style.source.reference?.includes("Characters, p. 12"))).toBe(true);
+    expect(CORE_COMBAT_STYLES.map(style => style.weapons.map(weapon => weapon.name))).toEqual([
+      ["Fists", "Feet", "Knife", "Club"], ["Dagger", "Shortsword"], ["Greatsword", "Broadsword", "Battleaxe", "Shield"],
+      ["Sword", "Long Spear/Lance", "Shield"], ["Spear", "Shield", "Shortsword"], ["Shortsword", "Buckler", "Net", "Trident"],
+      ["Club", "Main Gauche"], ["Dagger", "Shortsword", "Long Bow"], ["Shortsword", "Shield", "Sling"], ["Longsword", "Shield", "Main Gauche", "Bow"],
+    ]);
+    expect(CORE_COMBAT_STYLES[7].traits).toEqual([]);
+    expect(CORE_COMBAT_STYLES[9].traits.map(trait => trait.name)).toEqual(["Defensive Minded"]);
+    expect(CORE_COMBAT_STYLES.some(style => style.name === "Meerish Infantry")).toBe(false);
+    expect(Object.isFrozen(CORE_COMBAT_STYLES)).toBe(true);
+    expect(Object.isFrozen(CORE_COMBAT_STYLES[0].traitChoices?.[0])).toBe(true);
+    expect(CORE_COMBAT_STYLES.map(style => (style.traitChoices ?? []).map(group => group.map(trait => trait.name)))).toEqual([
+      [["Batter Aside", "Unarmed Prowess"]], [["Assassination", "Ranged Marksman"]], [["Do or Die", "Intimidating Scream"]],
+      [["Beast-back Lancer", "Mounted Combat"]], [["Cautious Fighter", "Formation Fighting"]], [["Daredevil", "Mancatcher"]],
+      [["Excellent Footwork", "Swashbuckler"]], [["Ranged Marksman", "Skirmishing"]], [["Knockout Blow", "Shield Wall"]], [],
+    ]);
+    expect(CORE_COMBAT_STYLES.map(style => (style.weaponChoices ?? []).map(group => group.map(weapon => weapon.name)))).toEqual([
+      [], [["Bow", "Crossbow"]], [], [], [], [], [["Falchion", "Rapier"]], [], [], [],
+    ]);
+    for (const style of CORE_COMBAT_STYLES) {
+      for (const trait of [...style.traits, ...(style.traitChoices ?? []).flat()]) {
+        expect(typeof trait.id).toBe("string");
+        expect(trait.displayName).toBe(trait.name);
+        expect(trait.source.libraryId).toBe("mythras-core");
+      }
+    }
+  });
+
+  test("preserves OR alternatives and resolves every choice explicitly before selection", () => {
+    const streetBrawler = CORE_COMBAT_STYLES[0];
+    expect(streetBrawler.traitChoices?.[0].map(trait => trait.name)).toEqual(["Batter Aside", "Unarmed Prowess"]);
+    expect(resolveCoreCombatStyle(streetBrawler)).toBeNull();
+    expect(resolveCoreCombatStyle(streetBrawler, [], [1])?.traits.map(trait => trait.name)).toEqual(["Unarmed Prowess"]);
+
+    const assassin = CORE_COMBAT_STYLES[1];
+    expect(resolveCoreCombatStyle(assassin, [], [0])).toBeNull();
+    expect(resolveCoreCombatStyle(assassin, [1], [0])).toMatchObject({
+      weapons: [{ name: "Dagger" }, { name: "Shortsword" }, { name: "Crossbow" }],
+      traits: [{ name: "Assassination" }],
     });
-    expect(CORE_COMBAT_STYLES[1].weapons.map(weapon => weapon.name)).toEqual(["Shortsword", "Peltast Shield", "Sling"]);
-    expect(CORE_COMBAT_STYLES[1].traits[0].name).toBe("Skirmishing");
+    expect(CORE_COMBAT_STYLES[3].aliases).toEqual(["Mounted Knight"]);
+    expect(CORE_COMBAT_STYLES[4].aliases).toEqual(["Hoplite"]);
+    expect(CORE_COMBAT_STYLES[6].aliases).toEqual(["Pirate"]);
+    expect(CORE_COMBAT_STYLES[6].weaponChoices?.[0].map(weapon => weapon.name)).toEqual(["Falchion", "Rapier"]);
   });
 
   test("creates custom styles with structured weapons, traits, notes and campaign source", () => {
@@ -33,7 +72,7 @@ describe("structured Combat Styles", () => {
   });
 
   test("attaches a preset once across stages and keeps distinct custom definitions separate", () => {
-    const style = CORE_COMBAT_STYLES[0];
+    const style = resolveCoreCombatStyle(CORE_COMBAT_STYLES[0], [], [0])!;
     let character: CharacterCombatStyle[] = attachCharacterStyle([], style, "culture");
     character[0].allocations.culture = 10;
     character[0].weapons.push({ name: "Campaign axe" });
@@ -43,7 +82,7 @@ describe("structured Combat Styles", () => {
     expect(character[0].origins).toEqual(["culture", "career"]);
     expect(character[0].allocations.culture).toBe(10);
     expect(character[0].weapons.at(-1)?.name).toBe("Campaign axe");
-    expect(style.weapons.map(weapon => weapon.name)).toEqual(["Spear", "Hoplite Shield", "Javelin"]);
+    expect(style.weapons.map(weapon => weapon.name)).toEqual(["Fists", "Feet", "Knife", "Club"]);
 
     const first = customCombatStyle("Guard", ["Spear"], []);
     const second = customCombatStyle("Guard", ["Bow"], []);
@@ -53,8 +92,13 @@ describe("structured Combat Styles", () => {
   test("migrates legacy names without guessing weapons or traits", () => {
     const known = legacyCombatStyle("Meerish Slinger");
     expect(known.id).toBe("mythras-core:meerish-slinger");
-    expect(known.weapons.map(weapon => weapon.name)).toEqual(["Shortsword", "Peltast Shield", "Sling"]);
-    expect(known.traits.map(trait => trait.name)).toEqual(["Skirmishing"]);
+    expect(known.weapons.map(weapon => weapon.name)).toEqual(["Shortsword", "Shield", "Sling"]);
+    expect(known.traits).toEqual([]);
+    expect(legacyCombatStyle("Meerish Infantry")).toMatchObject({
+      id: "mythras-core:meerish-infantry", name: "Meerish Infantry", origin: "legacy",
+      weapons: [{ name: "Spear" }, { name: "Hoplite Shield" }, { name: "Javelin" }],
+      traits: [{ name: "Formation Fighting" }],
+    });
     expect(legacyCombatStyle("My Campaign Style")).toMatchObject({
       name: "My Campaign Style", status: "custom", weapons: [], traits: [],
       source: { libraryId: "custom-campaign" }, origin: "legacy",
@@ -79,12 +123,12 @@ describe("structured Combat Styles", () => {
     const { char, replace, chooseBonusCombatStyle } = store;
     replace({
       ...char,
-      cultureSelections: { standard: [], professional: [], combatStyle: "Meerish Infantry" },
+      cultureSelections: { standard: [], professional: [], combatStyle: "Street Brawler" },
       hobbySkill: "Craft (Carpentry)",
       alloc: { culture: {}, career: {}, bonus: { "Craft (Carpentry)": 8 } },
     });
 
-    chooseBonusCombatStyle(CORE_COMBAT_STYLES[0]);
+    chooseBonusCombatStyle(resolveCoreCombatStyle(CORE_COMBAT_STYLES[0], [], [0])!);
 
     expect(char.hobbySkill).toBe("Craft (Carpentry)");
     expect(char.alloc.bonus["Craft (Carpentry)"]).toBe(8);
