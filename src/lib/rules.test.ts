@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { deriveStats, dmgMod, formulaVal } from "./calc";
 import { careers, cultures } from "./content";
 import { allocationValue, skillsForStage } from "./creation";
-import { CHAR_ROLL, POINT_BUY, POINT_BUY_MIN, POOLS, PROFESSIONAL, STANDARD, type Chars } from "./rules";
+import { CHAR_ROLL, POINT_BUY, pointBuyMin, POOLS, PROFESSIONAL, STANDARD, STATS, type Chars } from "./rules";
 
 // Authority policy: detailed Mythras 3rd-printing rules control core mode;
 // the official Character Creation Workbook is a checklist. The issue notes
@@ -24,13 +24,13 @@ describe("human characteristics", () => {
     const extra = +(bonus ?? "0");
     expect(+count + extra).toBe(min);
     expect(+count * +sides + extra).toBe(max);
-    expect(POINT_BUY_MIN[stat]).toBe(min);
+    expect(pointBuyMin(stat)).toBe(min);
     expect(POINT_BUY.max).toBe(max);
   });
   test("point-buy budget and human bounds keep INT/SIZ at 8 minimum", () => {
-    expect(POINT_BUY).toEqual({ budget: 80, min: 3, max: 18 });
-    expect(POINT_BUY_MIN).toEqual({ STR: 3, CON: 3, SIZ: 8, DEX: 3, INT: 8, POW: 3, CHA: 3 });
-    expect(Object.values(POINT_BUY_MIN).reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(POINT_BUY.budget);
+    expect(POINT_BUY.budget).toBe(75);
+    expect(STATS.map(pointBuyMin)).toEqual([3, 3, 8, 3, 8, 3, 3]);
+    expect(STATS.map(pointBuyMin).reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(POINT_BUY.budget);
   });
 });
 
