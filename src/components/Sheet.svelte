@@ -1,14 +1,14 @@
 <script lang="ts">
-  import { deriveStats, passionStartingValue, skillDef } from "../lib/calc";
+  import { deriveStats, passionStartingValue } from "../lib/calc";
   import { STATS, STAT_NAMES } from "../lib/rules";
-  import { allSkills, career, char, culture, total } from "../lib/store.svelte";
+  import { allSkills, career, char, culture, skillDefinition, total } from "../lib/store.svelte";
   import Derived from "./Derived.svelte";
   import HitLocations from "./HitLocations.svelte";
   import StepHead from "./StepHead.svelte";
   const loc = $derived(deriveStats(char.chars).loc);
   const skills = $derived(allSkills().sort());
-  const std = $derived(skills.filter(n => !skillDef(n).pro));
-  const pro = $derived(skills.filter(n => skillDef(n).pro));
+  const std = $derived(skills.filter(n => !skillDefinition(n).pro));
+  const pro = $derived(skills.filter(n => skillDefinition(n).pro));
 </script>
 
 <div class="noprint"><StepHead step={5} title="Character sheet" /></div>

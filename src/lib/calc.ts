@@ -1,5 +1,4 @@
-import { CHAR_ROLL, COMBAT_STYLE_FORMULA, POINT_BUY, PROFESSIONAL, STANDARD, STATS, pointBuyMin, type Chars, type Stat, type Term } from "./rules";
-import type { PassionCategory } from "./rules";
+import { CHAR_ROLL, COMBAT_STYLE, MAGIC, POINT_BUY, PROFESSIONAL, STANDARD, STATS, pointBuyMin, type Chars, type PassionCategory, type Stat, type Term } from "./rules";
 
 export const sum = (a: number[]) => a.reduce((x, y) => x + y, 0);
 const d = (n: number, random: () => number) => 1 + Math.floor(random() * n);
@@ -14,7 +13,7 @@ export const pointBuyTotal = (chars: Chars) => sum(STATS.map(k => chars[k]));
 export const canFinishPointBuy = (chars: Chars) => pointBuyTotal(chars) === POINT_BUY.budget
   && STATS.every(k => Number.isInteger(chars[k]) && chars[k] >= pointBuyMin(k) && chars[k] <= POINT_BUY.max);
 
-export const baseName = (n: string) => n.replace(/\s*\(.*\)$/, "");
+export const baseName = (n: string) => n.trim().replace(/\s*\(.*\)$/, "").trim();
 
 export function formulaVal(f: Term[], c: Chars): number {
   return sum(f.map(t => typeof t === "number" ? t : Array.isArray(t) ? c[t[0]] * t[1] : c[t]));
@@ -31,10 +30,13 @@ export function passionStartingValue(category: PassionCategory, chars: Chars, su
   }
 }
 
-export function skillDef(name: string): { f: Term[]; pro: boolean } {
+export function skillDef(name: string, combatStyles: readonly string[] = []): { f: Term[]; pro: boolean } {
   const b = baseName(name);
-  const s = STANDARD.find(x => x[0] === b), p = PROFESSIONAL.find(x => x[0] === b);
-  return s ? { f: s[1], pro: false } : p ? { f: p[1], pro: true } : { f: COMBAT_STYLE_FORMULA, pro: true };
+  const s = STANDARD.find(x => x[0] === b), p = PROFESSIONAL.find(x => x[0] === b), m = MAGIC.find(x => x[0] === b);
+  if (s) return { f: s[1], pro: false };
+  if (p || m) return { f: (p ?? m)![1], pro: true };
+  if (b === COMBAT_STYLE[0] || combatStyles.includes(name.trim())) return { f: COMBAT_STYLE[1], pro: true };
+  throw new Error(`Unknown skill "${name}". Use a registered skill or a specialisation of one.`);
 }
 
 export function dmgMod(v: number): string {
