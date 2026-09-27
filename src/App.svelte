@@ -5,7 +5,7 @@
   import Concept from "./components/Concept.svelte";
   import Sheet from "./components/Sheet.svelte";
   import Skills from "./components/Skills.svelte";
-  import { char, persist, replace, reset, ROMAN, STEPS } from "./lib/store.svelte";
+  import { canComplete, char, persist, replace, reset, ROMAN, STEPS } from "./lib/store.svelte";
 
   let open = $state(false);
   const last = STEPS.length - 1;
@@ -25,7 +25,8 @@
     try { replace(JSON.parse(await f.text())); } catch { alert("Invalid file"); }
     e.currentTarget.value = "";
   }
-  async function print() { char.step = last; await tick(); window.print(); }
+  async function print() { if (!canComplete()) return; char.step = last; await tick(); window.print(); }
+  function goToStep(i: number) { if (i !== last || canComplete()) char.step = i; }
   const newChar = () => { if (confirm("Discard this character?")) reset(false); };
 </script>
 
@@ -39,13 +40,13 @@
     <div class="tools" role="presentation" onclick={() => (open = false)}>
       <button onclick={save}>Save</button>
       <label class="btn">Load<input type="file" accept=".json" hidden onchange={loadFile}></label>
-      <button onclick={print}>Print</button>
+      <button onclick={print} disabled={!canComplete()}>Print</button>
       <button onclick={newChar}>New</button>
     </div>
   </div>
   <nav>
     {#each STEPS as s, i}
-      <button class="step" class:on={i === char.step} class:done={i < char.step} onclick={() => (char.step = i)}>
+      <button class="step" class:on={i === char.step} class:done={i < char.step} disabled={i === last && !canComplete()} onclick={() => goToStep(i)}>
         <i>{i < char.step ? "✓" : ROMAN[i]}</i><span>{s}</span>
       </button>
     {/each}
@@ -64,7 +65,7 @@
 
   <div class="pager noprint">
     {#if char.step > 0}<button onclick={() => char.step--}>← {STEPS[char.step - 1]}</button>{:else}<span></span>{/if}
-    {#if char.step < last}<button class="primary" onclick={() => char.step++}>{STEPS[char.step + 1]} →</button>{/if}
+    {#if char.step < last}<button class="primary" disabled={char.step === 4 && !canComplete()} onclick={() => goToStep(char.step + 1)}>{char.step === 4 && !canComplete() ? "Spend all bonus points" : `${STEPS[char.step + 1]} →`}</button>{/if}
   </div>
 </main>
 {/if}

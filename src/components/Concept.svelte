@@ -1,15 +1,33 @@
 <script lang="ts">
   import StepHead from "./StepHead.svelte";
   import { careers, cultures } from "../lib/content";
-  import { char, culture, career } from "../lib/store.svelte";
+  import { AGE_CATEGORIES, type AgeCategory } from "../lib/rules";
+  import { char, culture, career, refreshBonusEligibility, setAgeCategory, rollCharacterAge } from "../lib/store.svelte";
   const cu = $derived(culture()), ca = $derived(career());
   // Changing culture/career invalidates the points spent on it.
-  const pick = (kind: "culture" | "career", i: number) => { char[kind] = i; char.alloc[kind] = {}; };
+  const pick = (kind: "culture" | "career", i: number) => {
+    char[kind] = i;
+    char.alloc[kind] = {};
+    refreshBonusEligibility();
+  };
 </script>
 
 <StepHead step={0} title="Who are you?" />
 <div class="card">
   <label class="field"><span>Name</span><input bind:value={char.name} placeholder="Name your character"></label>
+</div>
+<div class="card bar">
+  <label class="field"><span>Age category</span>
+    <select value={char.ageCategory} onchange={e => setAgeCategory(e.currentTarget.value as AgeCategory)}>
+      {#each Object.entries(AGE_CATEGORIES) as [key, category]}
+        <option value={key}>{category.label} · {category.bonus} bonus points</option>
+      {/each}
+    </select>
+  </label>
+  <div><b>Age {char.age}</b><div class="mute">{AGE_CATEGORIES[char.ageCategory].roll} years</div></div>
+  <button type="button" onclick={rollCharacterAge}>Roll age</button>
+  <div><b>{AGE_CATEGORIES[char.ageCategory].backgroundEvents}</b><div class="mute">background-event rolls</div></div>
+  {#if AGE_CATEGORIES[char.ageCategory].ageing}<span class="pill">Ageing applies</span>{/if}
 </div>
 <div class="two">
   <div class="card">

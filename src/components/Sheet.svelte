@@ -1,6 +1,6 @@
 <script lang="ts">
   import { deriveStats, skillDef } from "../lib/calc";
-  import { STATS, STAT_NAMES } from "../lib/rules";
+  import { AGE_CATEGORIES, STATS, STAT_NAMES } from "../lib/rules";
   import { allSkills, career, char, culture, total } from "../lib/store.svelte";
   import Derived from "./Derived.svelte";
   import HitLocations from "./HitLocations.svelte";
@@ -16,8 +16,9 @@
   <div class="banner">
     <div class="meander" aria-hidden="true"></div>
     <h1>{char.name || "Unnamed hero"}</h1>
-    <p>{culture().name} <span>◆</span> {career().name}</p>
+    <p>{culture().name} <span>◆</span> {career().name} <span>◆</span> {AGE_CATEGORIES[char.ageCategory].label}, age {char.age}</p>
   </div>
+  <p class="mute">{AGE_CATEGORIES[char.ageCategory].backgroundEvents} background-event rolls{#if AGE_CATEGORIES[char.ageCategory].ageing} · Ageing rules apply{/if}</p>
   <div class="chars sheet-stats">
     {#each STATS as k}<div class="char"><small>{k}</small><b>{char.chars[k]}</b><em>{STAT_NAMES[k]}</em></div>{/each}
   </div>

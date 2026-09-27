@@ -1,11 +1,12 @@
 <script lang="ts">
   import { skillDef } from "../lib/calc";
-  import { PER_SKILL_CAP, POOLS, type Kind } from "../lib/rules";
-  import { addExtra, base, career, char, culture, setAlloc, stepSkills, total, used } from "../lib/store.svelte";
+  import { type Kind } from "../lib/rules";
+  import { base, capFor, career, char, culture, poolFor, setAlloc, setHobbySkill, stepSkills, total, used } from "../lib/store.svelte";
   import StepHead from "./StepHead.svelte";
   import Stepper from "./Stepper.svelte";
   let { kind }: { kind: Kind } = $props();
-  const pool = $derived(POOLS[kind]);
+  const pool = $derived(poolFor(kind));
+  const cap = $derived(capFor(kind));
   const names = $derived(stepSkills(kind));
   const left = $derived(pool - used(kind));
   const title = $derived({ culture: `Culture · ${culture().name}`, career: `Career · ${career().name}`, bonus: "Bonus skills" }[kind]);
@@ -14,7 +15,7 @@
 
 <StepHead step={{ culture: 2, career: 3, bonus: 4 }[kind]} {title} />
 <div class="poolbar">
-  <div class="left"><b>{left}</b><span>points remain <em>of {pool} · max +{PER_SKILL_CAP} per skill</em></span></div>
+  <div class="left"><b>{left}</b><span>points remain <em>of {pool} · max +{cap} per skill</em></span></div>
   <div class="meter"><i style:width="{(pool - left) / pool * 100}%"></i></div>
 </div>
 <div class="card skills">
@@ -22,13 +23,18 @@
     {@const v = char.alloc[kind][n] ?? 0}
     <div class="skill" class:has={v > 0}>
       <div class="nm"><span>{n}{#if skillDef(n).pro}<em>pro</em>{/if}</span><small>base {base(n)}%</small></div>
-      <Stepper label={n} value={v} max={PER_SKILL_CAP} canInc={left > 0} onchange={x => setAlloc(kind, n, x)} />
+      <Stepper label={n} value={v} max={cap} canInc={left > 0} onchange={x => setAlloc(kind, n, x)} />
       <div class="tot">{total(n)}%</div>
     </div>
   {/each}
 </div>
 {#if kind === "bonus"}
-  <form class="card bar" onsubmit={e => { e.preventDefault(); addExtra(extra); extra = ""; }}>
-    <input bind:value={extra} placeholder="Add a skill, e.g. Lore (Astronomy)"><button>Add</button>
-  </form>
+  {#if char.hobbySkill}
+    <div class="card bar"><span>Hobby skill: <b>{char.hobbySkill}</b></span><button type="button" onclick={() => { setHobbySkill(""); extra = ""; }}>Remove</button></div>
+  {:else}
+    <form class="card bar" onsubmit={e => { e.preventDefault(); setHobbySkill(extra); extra = ""; }}>
+      <input bind:value={extra} placeholder="One new professional skill or combat style"><button disabled={!extra.trim()}>Add hobby skill</button>
+    </form>
+  {/if}
+  <p class="mute">Bonus points improve skills learned through culture or career, plus this one optional hobby skill.</p>
 {/if}

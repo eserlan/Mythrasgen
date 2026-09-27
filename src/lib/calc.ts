@@ -1,4 +1,4 @@
-import { CHAR_ROLL, COMBAT_STYLE_FORMULA, PROFESSIONAL, STANDARD, type Chars, type Stat, type Term } from "./rules";
+import { AGE_CATEGORIES, CHAR_ROLL, COMBAT_STYLE_FORMULA, PROFESSIONAL, STANDARD, type AgeCategory, type Chars, type Stat, type Term } from "./rules";
 
 export const sum = (a: number[]) => a.reduce((x, y) => x + y, 0);
 const d = (n: number) => 1 + Math.floor(Math.random() * n);
@@ -8,6 +8,7 @@ export function roll(expr: string): number {
   return sum(Array.from({ length: +m[1] }, () => d(+m[2]))) + (+m[3] || 0);
 }
 export const rollStat = (k: Stat) => roll(CHAR_ROLL[k]);
+export const rollAge = (category: AgeCategory) => roll(AGE_CATEGORIES[category].roll);
 
 export const baseName = (n: string) => n.replace(/\s*\(.*\)$/, "");
 
