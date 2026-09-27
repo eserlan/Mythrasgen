@@ -47,8 +47,8 @@ export interface Character {
   /** True while the landing page is showing. */
   home: boolean;
 }
-export const STEPS = ["Concept", "Characteristics", "Culture", "Career", "Bonus Skills", "Background", "Sheet"];
-export const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII"];
+export const STEPS = ["Concept", "Characteristics", "Culture", "Career", "Bonus Skills", "Background", "Combat", "Sheet"];
+export const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII"];
 export const INTRO = [
   "Name your hero and choose their culture and career.",
   "The raw measure of body and mind. Roll the dice, or set each by hand.",
@@ -56,6 +56,7 @@ export const INTRO = [
   "The trade or calling that shaped your adult years.",
   "Use age-based bonus points to round out learned skills and one optional hobby skill.",
   "The people, events, and possessions your hero starts with.",
+  "Combat Styles, their weapons, and the training that governs them.",
   "Your hero, ready for the table.",
 ];
 
@@ -116,13 +117,19 @@ function normalize(value: Partial<Character> | null, home = true): Character {
   } as Character;
   const legacyNames = [
     ...(normalized.cultureSelections.combatStyle ? [[normalized.cultureSelections.combatStyle, "culture"] as const] : []),
+    ...normalized.careerCombatStyles.filter(Boolean).map(name => [name, "career"] as const),
     ...(normalized.hobbySkill && (/^Combat Style \(/.test(normalized.hobbySkill)
       || CORE_COMBAT_STYLES.some(style => style.name === normalized.hobbySkill)) ? [[normalized.hobbySkill, "bonus"] as const] : []),
     ...(["culture", "career", "bonus"] as const).flatMap(origin => Object.keys(normalized.alloc[origin] ?? {})
       .filter(name => /^Combat Style \(.+\)$/.test(name)).map(name => [name, origin] as const)),
   ];
   for (const [name, origin] of legacyNames) {
-    normalized.combatStyles = attachCharacterStyle(normalized.combatStyles, legacyCombatStyle(name, origin), origin);
+    const existing = normalized.combatStyles.find(style => style.name === name);
+    if (existing) {
+      if (!existing.origins.includes(origin)) existing.origins.push(origin);
+    } else {
+      normalized.combatStyles = attachCharacterStyle(normalized.combatStyles, legacyCombatStyle(name, origin), origin);
+    }
   }
   const resolvedCulture = (migrated.background as Partial<Character["background"]> | undefined)?.socialClassCulture
     ?? migrated.socialTable ?? cultureKind ?? "Civilised";
@@ -167,7 +174,8 @@ function normalize(value: Partial<Character> | null, home = true): Character {
   const learned = new Set([
     ...cultureSkills(selectedCulture(normalized.culture), normalized.cultureSelections.standard,
       resolve(normalized.cultureSelections.professional, normalized.skillSpecialisations.culture), normalized.cultureSelections.combatStyle),
-    ...selectedCareer(normalized.career).standard, ...resolve(normalized.careerProfessional, normalized.skillSpecialisations.career),
+    ...selectedCareer(normalized.career).standard, ...normalized.careerCombatStyles,
+    ...resolve(normalized.careerProfessional, normalized.skillSpecialisations.career),
   ]);
   const unresolvedCultureTemplates = normalized.cultureSelections.professional.filter(template =>
     requiresSpecialisation(template) && !resolveSkillTemplate(template, normalized.skillSpecialisations.culture[template]));
@@ -210,7 +218,7 @@ function restoreCareer(character: Character, legacy = false) {
     [/^Native Tongue \(.+\)$/.test(name) ? "Native Tongue" : name, points]));
   const restored = restoreCareerAllocation({ ...selected, professional: legacy ? selected.professional : restoreOptions }, legacy ? undefined : restoreOptions, allocation);
   if (legacy) character.careerProfessional = restored.professional.filter(name => selected.professional.includes(name));
-  const eligible = new Set([...selected.standard, ...character.careerCombatStyles, ...professional]);
+  const eligible = new Set([...selected.standard, ...character.careerCombatStyles, ...restoreOptions]);
   // Keep pre-structured career style names intact when loading old saves.
   for (const name of Object.keys(allocation)) if (/^Combat Style \(/.test(name)) eligible.add(name);
   character.alloc.career = Object.fromEntries(Object.entries(restored.allocation).filter(([name]) => eligible.has(name)).map(([name, points]) =>
@@ -314,6 +322,7 @@ export const hasProgress = () => !!char.name || char.step > 0 || used("culture")
 export const culture = () => selectedCulture(char.culture);
 export const career = () => selectedCareer(char.career);
 const careerSkills = () => [...new Set([...career().standard, ...char.careerCombatStyles.filter(Boolean), ...resolvedProfessional("career"),
+  ...char.careerProfessional.filter(template => requiresSpecialisation(template) && !resolveSkillTemplate(template, char.skillSpecialisations.career[template])),
   ...Object.keys(char.alloc.career).filter(name => /^Combat Style \(/.test(name))])];
 export const nativeTongue = () => nativeTongueName(char.nativeLanguage);
 export const learnedSkills = () => [...new Set([
@@ -369,7 +378,7 @@ function resolvedProfessional(stage: "culture" | "career"): string[] {
 function reconcileStageAllocation(kind: "culture" | "career") {
   const eligible = kind === "culture"
     ? cultureSkills(culture(), char.cultureSelections.standard, resolvedProfessional("culture"), char.cultureSelections.combatStyle)
-    : resolveNativeTongue(careerSkillOptions(career(), resolvedProfessional("career")));
+    : resolveNativeTongue(careerSkills());
   for (const name of Object.keys(char.alloc[kind])) if (!eligible.includes(name)) delete char.alloc[kind][name];
 }
 
@@ -389,7 +398,7 @@ export function setSkillSpecialisation(stage: "culture" | "career", template: st
   if (previous && previous !== next) {
     const stillEligible = stage === "culture"
       ? cultureSkills(culture(), char.cultureSelections.standard, resolvedProfessional("culture"), char.cultureSelections.combatStyle).includes(previous)
-      : resolveNativeTongue(careerSkillOptions(career(), resolvedProfessional("career"))).includes(previous);
+      : resolveNativeTongue(careerSkills()).includes(previous);
     if (!stillEligible) delete char.alloc[stage][previous];
   }
   refreshBonusEligibility();
@@ -400,7 +409,7 @@ export function reconcileCultureSelection() {
 }
 
 const combatStyles = () => [char.cultureSelections.combatStyle, ...char.careerCombatStyles,
-  ...char.combatStyles.map(style => style.name), ...(career().combatStyle ?? []), ...char.extras, char.hobbySkill].filter(Boolean);
+  ...char.combatStyles.map(style => style.name), ...char.extras, char.hobbySkill].filter(Boolean);
 // Keep older saved specialisations renderable when their source skill is not registered.
 export const skillDefinition = (n: string) => skillDef(n, combatStyles());
 export const base = (n: string) => formulaVal(skillDefinition(n).f, char.chars);
@@ -439,7 +448,7 @@ export function setCultureCombatStyle(value: string, definition?: CombatStyleSel
     return;
   }
   reconcileCultureCombatStyle(previous, style,
-    cultureSkills(culture(), char.cultureSelections.standard, char.cultureSelections.professional, ""), char.alloc.culture);
+    cultureSkills(culture(), char.cultureSelections.standard, resolvedProfessional("culture"), ""), char.alloc.culture);
   if (previous) char.combatStyles = detachCharacterStyle(char.combatStyles, previous, "culture");
   char.cultureSelections.combatStyle = style;
   if (style) char.combatStyles = attachCharacterStyle(char.combatStyles, definition ?? legacyCombatStyle(style, "culture"), "culture");
@@ -554,7 +563,7 @@ export function allSkills(): string[] {
   const c = culture(), k = career();
   const pickedCulture = cultureSkills(c, char.cultureSelections.standard, resolvedProfessional("culture"), char.cultureSelections.combatStyle);
   return [...new Set(resolveNativeTongue([...STANDARD.map(s => s[0]), ...MAGIC.map(s => s[0]), ...pickedCulture, ...k.standard,
-    ...careerSkills(), ...(k.combatStyle ?? []), ...bonusEligible(),
+    ...careerSkills(), ...bonusEligible(),
     ...(Object.keys(char.alloc) as Kind[]).flatMap(x => Object.keys(char.alloc[x]))]))];
 }
 export function stepSkills(kind: Kind): string[] {

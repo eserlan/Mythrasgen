@@ -32,11 +32,14 @@ describe("structured Combat Styles", () => {
     const style = CORE_COMBAT_STYLES[0];
     let character: CharacterCombatStyle[] = attachCharacterStyle([], style, "culture");
     character[0].allocations.culture = 10;
+    character[0].weapons.push({ name: "Campaign axe" });
     character = attachCharacterStyle(character, style, "career");
     expect(character).toHaveLength(1);
     expect(character[0].origin).toBe("culture");
     expect(character[0].origins).toEqual(["culture", "career"]);
     expect(character[0].allocations.culture).toBe(10);
+    expect(character[0].weapons.at(-1)?.name).toBe("Campaign axe");
+    expect(style.weapons.map(weapon => weapon.name)).toEqual(["Spear", "Hoplite Shield", "Javelin"]);
 
     const first = customCombatStyle("Guard", ["Spear"], []);
     const second = customCombatStyle("Guard", ["Bow"], []);

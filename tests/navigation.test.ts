@@ -3,11 +3,11 @@ import { canVisitStep, isLandingView } from "../src/lib/navigation";
 
 describe("step navigation", () => {
   test("cannot reach the sheet while culture allocation is incomplete", () => {
-    expect(canVisitStep(5, true, false)).toBe(false);
+    expect(canVisitStep(7, true, false)).toBe(false);
   });
 
   test("can reach the sheet after characteristics and culture are complete", () => {
-    expect(canVisitStep(5, true, true)).toBe(true);
+    expect(canVisitStep(7, true, true)).toBe(true);
   });
 });
 

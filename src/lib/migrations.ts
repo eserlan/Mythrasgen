@@ -29,9 +29,10 @@ export interface BackgroundData {
   purchases: { name: string; cost: number }[];
 }
 
-/** Keep legacy saves on the same logical screen after Background was inserted before Sheet. */
+/** Keep existing saves on the same logical screen when Combat is inserted before Sheet. */
 export function migrateCharacterStep(step: number, hasBackground: boolean): number {
-  return !hasBackground && step === 5 ? 6 : step;
+  if (!hasBackground && step === 5) return 7;
+  return step === 6 ? 7 : step;
 }
 
 /** Infer the new table selections from a saved culture while preserving explicit custom choices. */
