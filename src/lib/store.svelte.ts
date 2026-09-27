@@ -10,7 +10,7 @@ import { AGE_CATEGORIES, bonusCap, bonusPool, MAGIC, PER_SKILL_CAP, POOLS, STAND
 import { createCharacterRepository } from "./character-library";
 import { swapAssignedValues } from "./characteristics";
 import { availableFrames, bodyRanges, FRAMES, isInRange, reconcileMeasurements, type Frame } from "./body";
-import { hasMeaningfulSpecialisation, resolveSkillTemplate, specialisationStageErrors } from "./specialisations";
+import { hasMeaningfulSpecialisation, requiresSpecialisation, resolveSkillTemplate, specialisationStageErrors } from "./specialisations";
 
 export interface Passion {
   type: "Loyalty" | "Love" | "Hate";
@@ -74,6 +74,7 @@ const blank = (): Character => ({
     equipment: "Tools; simple weapons; rented accommodation", purchases: [] },
   generation: "pointBuy", rollResults: null, rollAssignments: STATS.map((_, i) => i), home: true,
 });
+function resolveNativeTongue(skills: string[], language = char.nativeLanguage) { return skills.map(name => name === "Native Tongue" ? nativeTongueName(language) : name); }
 function normalize(value: Partial<Character> | null, home = true): Character {
   const fallback = blank();
   const migrated = migrateCharacter(value ?? fallback);
@@ -148,8 +149,10 @@ function normalize(value: Partial<Character> | null, home = true): Character {
       resolve(normalized.cultureSelections.professional, normalized.skillSpecialisations.culture), normalized.cultureSelections.combatStyle),
     ...selectedCareer(normalized.career).standard, ...resolve(normalized.careerProfessional, normalized.skillSpecialisations.career),
   ]);
+  const unresolvedCultureTemplates = normalized.cultureSelections.professional.filter(template =>
+    requiresSpecialisation(template) && !resolveSkillTemplate(template, normalized.skillSpecialisations.culture[template]));
   const cultureEligible = new Set(resolveNativeTongue(cultureSkills(selectedCulture(normalized.culture), normalized.cultureSelections.standard,
-    resolve(normalized.cultureSelections.professional, normalized.skillSpecialisations.culture), normalized.cultureSelections.combatStyle)));
+    [...resolve(normalized.cultureSelections.professional, normalized.skillSpecialisations.culture), ...unresolvedCultureTemplates], normalized.cultureSelections.combatStyle), normalized.nativeLanguage));
   normalized.alloc.culture = Object.fromEntries(Object.entries(normalized.alloc.culture ?? {}).filter(([name]) => cultureEligible.has(name)));
   if (normalized.nativeLanguage.trim()) {
     if (learned.delete("Native Tongue")) learned.add(`Native Tongue (${normalized.nativeLanguage.trim()})`);
@@ -161,6 +164,11 @@ function normalize(value: Partial<Character> | null, home = true): Character {
       }
     }
   }
+  const unresolvedProfessionalTemplates = new Set([
+    ...unresolvedCultureTemplates,
+    ...normalized.careerProfessional.filter(template => requiresSpecialisation(template)
+      && !resolveSkillTemplate(template, normalized.skillSpecialisations.career[template])),
+  ]);
   let validHobby = false;
   if (normalized.hobbySkill) {
     try { validHobby = skillDef(normalized.hobbySkill, [normalized.cultureSelections.combatStyle, ...normalized.extras].filter(Boolean)).pro; }
@@ -168,16 +176,19 @@ function normalize(value: Partial<Character> | null, home = true): Character {
   }
   if (learned.has(normalized.hobbySkill) || (normalized.hobbySkill && !validHobby)) normalized.hobbySkill = "";
   normalized.alloc.bonus = Object.fromEntries(Object.entries(normalized.alloc.bonus ?? {}).filter(([name]) =>
-    learned.has(name) || normalized.extras.includes(name) || name === normalized.hobbySkill));
+    learned.has(name) || unresolvedProfessionalTemplates.has(name) || normalized.extras.includes(name) || name === normalized.hobbySkill));
   if (normalized.step === STEPS.length - 1 && sum(Object.values(normalized.alloc.bonus)) < bonusPool(normalized.ageCategory)) normalized.step = 4;
   return normalized;
 }
 function restoreCareer(character: Character, legacy = false) {
   const selected = careers[character.career] ?? careers[0];
   const professional = character.careerProfessional.map(template => resolveSkillTemplate(template, character.skillSpecialisations.career[template])).filter((name): name is string => !!name);
+  const unresolvedTemplates = character.careerProfessional.filter(template =>
+    requiresSpecialisation(template) && !resolveSkillTemplate(template, character.skillSpecialisations.career[template]));
+  const restoreOptions = [...professional, ...unresolvedTemplates];
   const allocation = Object.fromEntries(Object.entries(character.alloc.career).map(([name, points]) =>
     [/^Native Tongue \(.+\)$/.test(name) ? "Native Tongue" : name, points]));
-  const restored = restoreCareerAllocation({ ...selected, professional }, legacy ? undefined : professional, allocation);
+  const restored = restoreCareerAllocation({ ...selected, professional: legacy ? selected.professional : restoreOptions }, legacy ? undefined : restoreOptions, allocation);
   if (legacy) character.careerProfessional = restored.professional.filter(name => selected.professional.includes(name));
   character.alloc.career = Object.fromEntries(Object.entries(restored.allocation).map(([name, points]) =>
     [name === "Native Tongue" ? nativeTongueName(character.nativeLanguage) : name, points]));
@@ -280,7 +291,6 @@ export const hasProgress = () => !!char.name || char.step > 0 || used("culture")
 export const culture = () => selectedCulture(char.culture);
 export const career = () => selectedCareer(char.career);
 export const nativeTongue = () => nativeTongueName(char.nativeLanguage);
-const resolveNativeTongue = (skills: string[]) => skills.map(name => name === "Native Tongue" ? nativeTongue() : name);
 export const learnedSkills = () => [...new Set([
   ...resolveNativeTongue(cultureSkills(culture(), char.cultureSelections.standard, resolvedProfessional("culture"), char.cultureSelections.combatStyle)),
   ...resolveNativeTongue([...career().standard, ...resolvedProfessional("career")]),
@@ -344,7 +354,13 @@ export function setSkillSpecialisation(stage: "culture" | "career", template: st
   const nextValue = value.trim();
   if (hasMeaningfulSpecialisation(nextValue)) values[template] = nextValue; else delete values[template];
   const next = resolveSkillTemplate(template, values[template]);
+  const pendingAllocation = next ? char.alloc[stage][template] ?? 0 : 0;
+  const pendingBonus = next ? char.alloc.bonus[template] ?? 0 : 0;
+  if (pendingAllocation) delete char.alloc[stage][template];
+  if (pendingBonus) delete char.alloc.bonus[template];
   reconcileStageAllocation(stage);
+  if (pendingAllocation && next) char.alloc[stage][next] = (char.alloc[stage][next] ?? 0) + pendingAllocation;
+  if (pendingBonus && next) char.alloc.bonus[next] = (char.alloc.bonus[next] ?? 0) + pendingBonus;
   if (previous && previous !== next) {
     const stillEligible = stage === "culture"
       ? cultureSkills(culture(), char.cultureSelections.standard, resolvedProfessional("culture"), char.cultureSelections.combatStyle).includes(previous)
@@ -368,8 +384,8 @@ export const used = (k: Kind) => sum(Object.values(char.alloc[k]));
 
 export function setAlloc(kind: Kind, name: string, v: number) {
   if (kind === "bonus" && !bonusEligible().includes(name)) return;
-  if (kind === "career" && !resolveNativeTongue(careerSkillOptions(career(), char.careerProfessional)).includes(name)) return;
-  if (kind === "culture" && !cultureSkills(culture(), char.cultureSelections.standard, char.cultureSelections.professional, char.cultureSelections.combatStyle).includes(name)) return;
+  if (kind === "career" && !resolveNativeTongue(careerSkillOptions(career(), resolvedProfessional("career"))).includes(name)) return;
+  if (kind === "culture" && !cultureSkills(culture(), char.cultureSelections.standard, resolvedProfessional("culture"), char.cultureSelections.combatStyle).includes(name)) return;
   const a = char.alloc[kind];
   const n = kind === "culture"
     ? (() => {
