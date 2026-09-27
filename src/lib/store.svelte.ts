@@ -2,6 +2,7 @@ import { careerSkillOptions, careers, cultures, restoreCareerAllocation, restore
 import { allocationValue, selectedCareer, skillsForStage } from "./creation";
 import { cultureSkills, validateCultureAllocation } from "./culture";
 import { migrateCharacter } from "./migration";
+import { clearCopiedSubjectStats } from "./passions";
 import { baseName, formulaVal, skillDef, sum } from "./calc";
 import { PER_SKILL_CAP, POOLS, STANDARD, STATS, type Chars, type Kind, type PassionCategory } from "./rules";
 
@@ -18,7 +19,7 @@ export interface Character {
   cultureSelections: { standard: string[][]; professional: string[]; combatStyle: string };
   cultureMigration?: boolean;
   alloc: Record<Kind, Record<string, number>>; extras: string[]; careerProfessional: string[]; step: number;
-  passionsEnabled: boolean; passions: Passion[];
+  passionsEnabled: boolean; passions: Passion[]; passionStatsVersion: number;
   generation: "pointBuy" | "roll"; rollResults: number[] | null; rollAssignments: number[];
   /** True while the landing page is showing. */
   home: boolean;
@@ -39,7 +40,7 @@ const blank = (): Character => ({
   name: "", chars: Object.fromEntries(STATS.map(k => [k, 10])) as Chars, culture: 0, career: 0,
   cultureSelections: { standard: [], professional: [], combatStyle: "" },
   alloc: { culture: {}, career: {}, bonus: {} }, extras: [], careerProfessional: [], step: 0,
-  passionsEnabled: false, passions: [],
+  passionsEnabled: false, passions: [], passionStatsVersion: 1,
   generation: "pointBuy", rollResults: null, rollAssignments: STATS.map((_, i) => i), home: true,
 });
 function restoreCareer(character: Character, legacy = false) {
@@ -52,9 +53,12 @@ function load(): Character {
   try {
     const stored = JSON.parse(localStorage.getItem(KEY) ?? "null") as Partial<Character> | null;
     const legacyCareer = !!stored && stored.career !== undefined && !Array.isArray(stored.careerProfessional);
+    const legacyPassionStats = !!stored && stored.passionStatsVersion !== 1;
     const migrated = migrateCharacter(stored ?? {});
     const saved = { ...blank(), ...migrated, cultureSelections: { ...blank().cultureSelections, ...migrated.cultureSelections },
       alloc: { ...blank().alloc, ...migrated.alloc }, extras: migrated.extras ?? [] } as Character;
+    if (legacyPassionStats) saved.passions = clearCopiedSubjectStats(saved.passions ?? [], saved.chars);
+    saved.passionStatsVersion = 1;
     if (legacyCareer) saved.career = restoreLegacyCareerIndex(saved.career);
     restoreCareer(saved, legacyCareer);
     return saved;
@@ -66,11 +70,14 @@ export function persist() { try { localStorage.setItem(KEY, JSON.stringify(char)
 export const reset = (home = true) => Object.assign(char, blank(), { home });
 export const replace = (c: Partial<Character>) => {
   const legacyCareer = c.career !== undefined && !Array.isArray(c.careerProfessional);
+  const legacyPassionStats = c.passionStatsVersion !== 1;
   const migrated = migrateCharacter(c);
   Object.assign(char, blank(), migrated, { home: false });
   char.cultureSelections = { ...blank().cultureSelections, ...migrated.cultureSelections };
   char.alloc = { ...blank().alloc, ...migrated.alloc };
   char.extras ??= [];
+  if (legacyPassionStats) char.passions = clearCopiedSubjectStats(char.passions ?? [], char.chars);
+  char.passionStatsVersion = 1;
   if (legacyCareer) char.career = restoreLegacyCareerIndex(char.career);
   restoreCareer(char, legacyCareer);
 };
