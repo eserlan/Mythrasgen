@@ -5,6 +5,7 @@
   import Concept from "./components/Concept.svelte";
   import Sheet from "./components/Sheet.svelte";
   import Skills from "./components/Skills.svelte";
+  import Background from "./components/Background.svelte";
   import { canFinishPointBuy } from "./lib/calc";
   import { canVisitStep } from "./lib/navigation";
   import { canComplete, char, cultureAllocationErrors, persist, replace, reset, ROMAN, STEPS } from "./lib/store.svelte";
@@ -67,6 +68,7 @@
   {:else if char.step === 2}<Skills kind="culture" />
   {:else if char.step === 3}<Skills kind="career" />
   {:else if char.step === 4}<Skills kind="bonus" />
+  {:else if char.step === 5}<Background />
   {:else}<Sheet />{/if}
   </div>{/key}
 
