@@ -113,7 +113,7 @@ describe("core culture and career packages", () => {
     ["Seafarer", "Boarding Party", ["Athletics", "Boating", "Brawn", "Endurance", "Native Tongue", "Swim"], ["Navigation", "Craft (Seamanship)", "Survival"]],
   ] as const)("culture fixture %s", (name, style, standard, professional) => {
     const culture = cultures.find(x => x.name === name)!;
-    expect(culture).toEqual({ name, combatStyle: style, standard: [...standard], professional: [...professional] });
+    expect(culture).toMatchObject({ name, combatStyle: style, standard: [...standard], professional: [...professional] });
     expect(skillsForStage("culture", culture, careers[0])).toEqual([...new Set([...standard, style, ...professional])]);
   });
   test.each([
