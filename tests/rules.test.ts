@@ -54,6 +54,10 @@ describe("skill definitions", () => {
     expect(skillDef("Combat Style (Citizen Militia)").f).toEqual(skillDef("Combat Style").f);
   });
 
+  test("legacy custom bonus skills can retain their previous combat-style formula", () => {
+    expect(skillDef("Tracking the Lost", ["Tracking the Lost"]).f).toEqual(skillDef("Combat Style").f);
+  });
+
   test("every culture combat style is a professional skill", () => {
     const styles = cultures.map(({ combatStyle }) => combatStyle);
     for (const style of styles) expect(skillDef(style, styles).pro).toBe(true);
