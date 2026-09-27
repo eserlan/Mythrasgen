@@ -157,7 +157,12 @@ main{padding:8px 16px 70px}
 .char em{font-size:.78rem;color:var(--mute);margin-top:-4px}
 .char .stepper input{font-size:1.6rem;width:54px}
 .char .rolled{font-family:var(--display);font-size:1.6rem;line-height:1.2;color:var(--bronze)}
-.char select{max-width:100%;font-size:.7rem;padding:4px 2px}
+.char-roll{min-width:0;display:flex;flex-direction:column;align-items:center;gap:2px}
+button.char.swap-card{width:100%;min-height:104px;color:var(--fg);cursor:pointer;text-transform:none;letter-spacing:normal}
+button.char.swap-card:hover:not(:disabled){border-color:var(--bronze2);transform:translateY(-1px)}
+button.char.swap-card.selected{border:2px solid var(--bronze2);box-shadow:0 0 0 3px color-mix(in srgb,var(--bronze2) 28%,transparent),var(--shadow)}
+.swap-state,.swap-prompt{font-family:var(--display);font-size:.65rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--bronze2)}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 .char.spin .stepper input{animation:tumble .12s linear infinite;color:var(--bronze2)}
 .char.spin .rolled{animation:tumble .12s linear infinite;color:var(--bronze2)}
 @media (prefers-reduced-motion:reduce){.char.spin .rolled{animation:none}}

@@ -8,6 +8,7 @@ import { cultureSkills, reconcileCultureCombatStyle, validateCultureAllocation }
 import { migrateCharacter } from "./migration";
 import { AGE_CATEGORIES, bonusCap, bonusPool, MAGIC, PER_SKILL_CAP, POOLS, STANDARD, STATS, type AgeCategory, type Chars, type Kind, type PassionCategory } from "./rules";
 import { createCharacterRepository } from "./character-library";
+import { swapAssignedValues } from "./characteristics";
 import { availableFrames, bodyRanges, FRAMES, isInRange, reconcileMeasurements, type Frame } from "./body";
 
 export interface Passion {
@@ -222,17 +223,9 @@ export function setRollResults(results: number[]) {
   STATS.forEach((k, i) => { char.chars[k] = results[i]; });
   return reconcileBodyMeasurements();
 }
-export function assignRoll(stat: (typeof STATS)[number], resultIndex: number) {
-  if (char.generation !== "roll" || !char.rollResults || resultIndex < 0 || resultIndex >= STATS.length) return "";
-  const statIndex = STATS.indexOf(stat);
-  const current = char.rollAssignments[statIndex];
-  const otherStat = char.rollAssignments.indexOf(resultIndex);
-  if (otherStat < 0 || otherStat === statIndex) return "";
-  char.rollAssignments[statIndex] = resultIndex;
-  char.rollAssignments[otherStat] = current;
-  char.chars[stat] = char.rollResults[resultIndex];
-  char.chars[STATS[otherStat]] = char.rollResults[current];
-  return stat === "SIZ" || STATS[otherStat] === "SIZ" ? reconcileBodyMeasurements() : "";
+export function swapCharacteristics(first: (typeof STATS)[number], second: (typeof STATS)[number]) {
+  if (char.generation !== "roll" || !char.rollResults || !swapAssignedValues(char.chars, char.rollAssignments, first, second)) return "";
+  return first === "SIZ" || second === "SIZ" ? reconcileBodyMeasurements() : "";
 }
 function reconcileBodyMeasurements(): string {
   const reconciled = reconcileMeasurements(char.height, char.weight, bodyRanges(char.chars.SIZ, char.frame));
