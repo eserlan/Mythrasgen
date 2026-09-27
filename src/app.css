@@ -115,6 +115,7 @@ main{padding:8px 16px 70px}
 .family-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px 18px}
 .family-grid>div{padding:8px 0;border-bottom:1px dotted var(--line)}
 .field{display:flex;flex-direction:column;gap:5px}
+.native-language{margin-top:14px}
 .field span,.label{font-family:var(--display);font-size:.66rem;text-transform:uppercase;letter-spacing:.16em;color:var(--mute);margin:12px 0 4px}
 .field span{margin:0}.field select,.field input{font-size:1.15rem}
 .wide{width:100%}.hint{color:var(--mute);font-size:.92rem;font-style:italic;margin:6px 0}
