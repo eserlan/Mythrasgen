@@ -29,3 +29,26 @@ describe("career Combat Style selection", () => {
     expect(stepSkills("career")).not.toContain(style.name);
   });
 });
+
+describe("Culture Combat Style selection", () => {
+  test("the selected style is eligible for cultural points and removing it clears its allocation", () => {
+    const { char, replace, chooseCultureCombatStyle, setAlloc, stepSkills } = store;
+    replace({
+      ...char,
+      culture: 0,
+      cultureSelections: { standard: [["Boating"]], professional: [], combatStyle: "" },
+      combatStyles: [],
+      alloc: { culture: {}, career: {}, bonus: {} },
+    });
+
+    const style = CORE_COMBAT_STYLES[0];
+    chooseCultureCombatStyle(style);
+    expect(stepSkills("culture")).toContain(style.name);
+    setAlloc("culture", style.name, 10);
+    expect(char.alloc.culture[style.name]).toBe(10);
+
+    chooseCultureCombatStyle(null);
+    expect(char.alloc.culture[style.name]).toBeUndefined();
+    expect(stepSkills("culture")).not.toContain(style.name);
+  });
+});
