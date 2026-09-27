@@ -1,10 +1,11 @@
 import { careers, cultures } from "./content";
 import { baseName, formulaVal, rollAge, skillDef, sum } from "./calc";
-import { AGE_CATEGORIES, bonusCap, bonusPool, PER_SKILL_CAP, POOLS, STATS, type AgeCategory, type Chars, type Kind } from "./rules";
+import { AGE_CATEGORIES, bonusCap, bonusPool, PER_SKILL_CAP, POOLS, STANDARD, STATS, type AgeCategory, type Chars, type Kind } from "./rules";
 
 export interface Character {
   name: string; chars: Chars; ageCategory: AgeCategory; age: number; culture: number; career: number;
-  alloc: Record<Kind, Record<string, number>>; hobbySkill: string; step: number;
+  alloc: Record<Kind, Record<string, number>>; hobbySkill: string; extras: string[]; step: number;
+  generation: "pointBuy" | "roll"; rollResults: number[] | null; rollAssignments: number[];
   /** True while the landing page is showing. */
   home: boolean;
 }
@@ -23,32 +24,63 @@ export const INTRO = [
 const blank = (): Character => ({
   name: "", chars: Object.fromEntries(STATS.map(k => [k, 10])) as Chars,
   ageCategory: "adult", age: rollAge("adult"), culture: 0, career: 0,
-  alloc: { culture: {}, career: {}, bonus: {} }, hobbySkill: "", step: 0, home: true,
+  alloc: { culture: {}, career: {}, bonus: {} }, hobbySkill: "", extras: [], step: 0,
+  generation: "pointBuy", rollResults: null, rollAssignments: STATS.map((_, i) => i), home: true,
 });
 function load(): Character {
-  try {
-    const saved = JSON.parse(localStorage.getItem(KEY) ?? "null");
-    return normalize(saved);
-  } catch { return blank(); }
+  try { return normalize(JSON.parse(localStorage.getItem(KEY) ?? "null")); } catch { return blank(); }
 }
 function normalize(saved: Partial<Character> | null, home = true): Character {
   const fallback = blank();
-  const c = { ...fallback, ...saved, alloc: { ...fallback.alloc, ...saved?.alloc }, home } as Character;
+  const c = {
+    ...fallback, ...saved,
+    alloc: { ...fallback.alloc, ...saved?.alloc },
+    extras: Array.isArray(saved?.extras) ? saved.extras.filter(x => typeof x === "string") : [],
+    home,
+  } as Character;
   if (!Object.hasOwn(AGE_CATEGORIES, c.ageCategory)) c.ageCategory = "adult";
   if (!Number.isFinite(c.age)) c.age = rollAge(c.ageCategory);
   if (typeof c.hobbySkill !== "string") c.hobbySkill = "";
+  if (c.generation !== "roll") c.generation = "pointBuy";
+  if (!Array.isArray(c.rollResults) || c.rollResults.length !== STATS.length) c.rollResults = null;
+  if (!Array.isArray(c.rollAssignments) || c.rollAssignments.length !== STATS.length
+      || new Set(c.rollAssignments).size !== STATS.length
+      || c.rollAssignments.some(i => !Number.isInteger(i) || i < 0 || i >= STATS.length)) {
+    c.rollAssignments = STATS.map((_, i) => i);
+  }
   const cu = cultures[c.culture] ?? cultures[0], ca = careers[c.career] ?? careers[0];
   const learned = new Set([...cu.standard, cu.combatStyle, ...cu.professional, ...ca.standard, ...ca.professional]);
   if (learned.has(c.hobbySkill) || (c.hobbySkill && !skillDef(c.hobbySkill).pro)) c.hobbySkill = "";
-  c.alloc.bonus = Object.fromEntries(Object.entries(c.alloc.bonus ?? {}).filter(([name]) => learned.has(name) || name === c.hobbySkill));
+  c.alloc.bonus = Object.fromEntries(Object.entries(c.alloc.bonus ?? {}).filter(([name]) => bonusEligibleFor(c, learned, name)));
   if (c.step === STEPS.length - 1 && sum(Object.values(c.alloc.bonus)) < bonusPool(c.ageCategory)) c.step = 4;
   return c;
+}
+function bonusEligibleFor(c: Character, learned: Set<string>, name: string) {
+  return learned.has(name) || c.extras.includes(name) || name === c.hobbySkill;
 }
 export const char: Character = $state(load());
 
 export function persist() { try { localStorage.setItem(KEY, JSON.stringify(char)); } catch { /* storage unavailable */ } }
 export const reset = (home = true) => Object.assign(char, blank(), { home });
 export const replace = (c: Partial<Character>) => Object.assign(char, normalize(c, false));
+export function setRollResults(results: number[]) {
+  if (results.length !== STATS.length) return;
+  char.generation = "roll";
+  char.rollResults = [...results];
+  char.rollAssignments = STATS.map((_, i) => i);
+  STATS.forEach((k, i) => { char.chars[k] = results[i]; });
+}
+export function assignRoll(stat: (typeof STATS)[number], resultIndex: number) {
+  if (char.generation !== "roll" || !char.rollResults || resultIndex < 0 || resultIndex >= STATS.length) return;
+  const statIndex = STATS.indexOf(stat);
+  const current = char.rollAssignments[statIndex];
+  const otherStat = char.rollAssignments.indexOf(resultIndex);
+  if (otherStat < 0 || otherStat === statIndex) return;
+  char.rollAssignments[statIndex] = resultIndex;
+  char.rollAssignments[otherStat] = current;
+  char.chars[stat] = char.rollResults[resultIndex];
+  char.chars[STATS[otherStat]] = char.rollResults[current];
+}
 export const hasProgress = () => !!char.name || char.step > 0 || used("culture") + used("career") + used("bonus") > 0
   || STATS.some(k => char.chars[k] !== 10);
 
@@ -86,7 +118,7 @@ export function setHobbySkill(name: string) {
     char.hobbySkill = "";
     return;
   }
-  if (v && skillDef(v).pro && !learnedSkills().includes(v)) {
+  if (skillDef(v).pro && !learnedSkills().includes(v)) {
     const previous = char.hobbySkill;
     if (previous) delete char.alloc.bonus[previous];
     char.hobbySkill = v;
@@ -103,11 +135,13 @@ export function refreshBonusEligibility() {
 export const canComplete = () => used("bonus") === bonusPool(char.ageCategory);
 
 export function allSkills(): string[] {
-  return [...new Set([...learnedSkills(), ...(char.hobbySkill ? [char.hobbySkill] : []),
+  const c = culture(), k = career();
+  return [...new Set([...STANDARD.map(s => s[0]), c.combatStyle, ...c.standard, ...c.professional, ...k.standard, ...k.professional,
+    ...char.extras, ...(char.hobbySkill ? [char.hobbySkill] : []),
     ...(Object.keys(char.alloc) as Kind[]).flatMap(x => Object.keys(char.alloc[x]))])];
 }
 export function bonusEligible(): string[] {
-  return [...new Set([...learnedSkills(), ...(char.hobbySkill ? [char.hobbySkill] : [])])];
+  return [...new Set([...learnedSkills(), ...char.extras, ...(char.hobbySkill ? [char.hobbySkill] : [])])];
 }
 export function stepSkills(kind: Kind): string[] {
   const c = culture(), k = career();
