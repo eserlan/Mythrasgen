@@ -5,13 +5,22 @@ import { baseName, formulaVal, skillDef, sum } from "./calc";
 import { allocationValue, selectedCareer, selectedCulture, skillsForStage } from "./creation";
 import { cultureSkills, validateCultureAllocation } from "./culture";
 import { migrateCharacter } from "./migration";
-import { PER_SKILL_CAP, POOLS, STANDARD, STATS, type Chars, type Kind } from "./rules";
+import { PER_SKILL_CAP, POOLS, STANDARD, STATS, type Chars, type Kind, type PassionCategory } from "./rules";
+
+export interface Passion {
+  type: "Loyalty" | "Love" | "Hate";
+  subject: string;
+  category: PassionCategory;
+  subjectPow?: number;
+  subjectCha?: number;
+}
 
 export interface Character {
   name: string; chars: Chars; culture: number; career: number;
   cultureSelections: { standard: string[][]; professional: string[]; combatStyle: string };
   cultureMigration?: boolean;
   alloc: Record<Kind, Record<string, number>>; extras: string[]; careerProfessional: string[]; step: number;
+  passionsEnabled: boolean; passions: Passion[];
   ageCategory: "Young" | "Adult" | "Middle-Aged"; age: number;
   background: {
     events: { roll: number; text: string }[]; socialClassRoll: number; socialClass: string;
@@ -43,6 +52,7 @@ const blank = (): Character => ({
   name: "", chars: Object.fromEntries(STATS.map(k => [k, 10])) as Chars, culture: 0, career: 0,
   cultureSelections: { standard: [], professional: [], combatStyle: "" },
   alloc: { culture: {}, career: {}, bonus: {} }, extras: [], careerProfessional: [], step: 0,
+  passionsEnabled: false, passions: [],
   ageCategory: "Adult", age: 22, socialTable: "Barbarian", moneyTable: "Barbarian",
   background: { events: [{ roll: 0, text: "" }], socialClassRoll: 50, socialClass: "Freeman",
     parentsRoll: 50, parents: "", siblingsRoll: 50, siblings: "", extendedFamilyRoll: 50, extendedFamily: "",
@@ -160,6 +170,21 @@ export function addExtra(name: string): boolean {
   return true;
 }
 
+export function seedCulturePassions(prompts: string[] = culture().passions) {
+  char.passions = prompts.map(prompt => {
+    const type = prompt.startsWith("Loyalty") ? "Loyalty" : prompt.startsWith("Hate") ? "Hate" : "Love";
+    const subject = prompt.replace(/^Loyalty to\s*/i, "").replace(/^(?:Love|Hate)\s*\(/, "").replace(/\)$/, "");
+    return {
+      type, subject,
+      category: type === "Loyalty" ? "organisation/group" : type === "Hate" ? "adverse" : "platonic",
+      subjectPow: undefined, subjectCha: undefined,
+    };
+  });
+}
+export function addPassion() {
+  char.passions.push({ type: "Love", subject: "", category: "platonic" });
+}
+
 export function allSkills(): string[] {
   const c = culture(), k = career();
   const pickedCulture = cultureSkills(c, char.cultureSelections.standard, char.cultureSelections.professional, char.cultureSelections.combatStyle);
@@ -175,4 +200,5 @@ export function stepSkills(kind: Kind): string[] {
   if (kind === "career") return skillsForStage(kind, c, k, [], [], char.careerProfessional);
   return allSkills();
 }
+
 export { baseName };
