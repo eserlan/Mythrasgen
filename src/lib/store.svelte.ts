@@ -1,9 +1,11 @@
 import { careers, cultures } from "./content";
+import { cultureSkills, validateCultureAllocation } from "./culture";
 import { baseName, formulaVal, skillDef, sum } from "./calc";
 import { PER_SKILL_CAP, POOLS, STANDARD, STATS, type Chars, type Kind } from "./rules";
 
 export interface Character {
   name: string; chars: Chars; culture: number; career: number;
+  cultureSelections: { standard: string[][]; professional: string[]; combatStyle: string };
   alloc: Record<Kind, Record<string, number>>; extras: string[]; step: number;
   /** True while the landing page is showing. */
   home: boolean;
@@ -22,10 +24,15 @@ export const INTRO = [
 
 const blank = (): Character => ({
   name: "", chars: Object.fromEntries(STATS.map(k => [k, 10])) as Chars, culture: 0, career: 0,
+  cultureSelections: { standard: [], professional: [], combatStyle: "" },
   alloc: { culture: {}, career: {}, bonus: {} }, extras: [], step: 0, home: true,
 });
 function load(): Character {
-  try { return { ...blank(), ...JSON.parse(localStorage.getItem(KEY) ?? "null") }; } catch { return blank(); }
+  try {
+    const saved = JSON.parse(localStorage.getItem(KEY) ?? "null");
+    return { ...blank(), ...saved, cultureSelections: { ...blank().cultureSelections, ...saved?.cultureSelections },
+      alloc: { ...blank().alloc, ...saved?.alloc } };
+  } catch { return blank(); }
 }
 export const char: Character = $state(load());
 
@@ -38,6 +45,10 @@ export const hasProgress = () => !!char.name || char.step > 0 || used("culture")
 export const culture = () => cultures[char.culture] ?? cultures[0];
 export const career = () => careers[char.career] ?? careers[0];
 
+export function cultureAllocationErrors(): string[] {
+  return validateCultureAllocation(culture(), char.cultureSelections, char.alloc.culture, POOLS.culture);
+}
+
 export const base = (n: string) => formulaVal(skillDef(n).f, char.chars);
 export const added = (n: string) => sum((Object.keys(POOLS) as Kind[]).map(k => char.alloc[k][n] ?? 0));
 export const total = (n: string) => base(n) + added(n);
@@ -45,7 +56,10 @@ export const used = (k: Kind) => sum(Object.values(char.alloc[k]));
 
 export function setAlloc(kind: Kind, name: string, v: number) {
   const a = char.alloc[kind], room = POOLS[kind] - used(kind) + (a[name] ?? 0);
-  const n = Math.max(0, Math.min(PER_SKILL_CAP, room, Math.round(v) || 0));
+  const raw = Math.round(v) || 0;
+  const n = kind === "culture"
+    ? raw <= 0 || room < 5 ? 0 : Math.max(5, Math.min(PER_SKILL_CAP, room, raw))
+    : Math.max(0, Math.min(PER_SKILL_CAP, room, raw));
   if (n) a[name] = n; else delete a[name];
 }
 export function addExtra(name: string) {
@@ -54,12 +68,13 @@ export function addExtra(name: string) {
 
 export function allSkills(): string[] {
   const c = culture(), k = career();
-  return [...new Set([...STANDARD.map(s => s[0]), c.combatStyle, ...c.professional, ...k.professional,
+  return [...new Set([...STANDARD.map(s => s[0]),
+    ...cultureSkills(c, char.cultureSelections.standard, char.cultureSelections.professional, char.cultureSelections.combatStyle), ...k.professional,
     ...char.extras, ...(Object.keys(POOLS) as Kind[]).flatMap(x => Object.keys(char.alloc[x]))])];
 }
 export function stepSkills(kind: Kind): string[] {
   const c = culture(), k = career();
-  if (kind === "culture") return [...new Set([...c.standard, c.combatStyle, ...c.professional])];
+  if (kind === "culture") return cultureSkills(c, char.cultureSelections.standard, char.cultureSelections.professional, char.cultureSelections.combatStyle);
   if (kind === "career") return [...new Set([...k.standard, ...k.professional])];
   return allSkills();
 }

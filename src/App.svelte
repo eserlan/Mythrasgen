@@ -5,10 +5,11 @@
   import Concept from "./components/Concept.svelte";
   import Sheet from "./components/Sheet.svelte";
   import Skills from "./components/Skills.svelte";
-  import { char, persist, replace, reset, ROMAN, STEPS } from "./lib/store.svelte";
+  import { char, cultureAllocationErrors, persist, replace, reset, ROMAN, STEPS } from "./lib/store.svelte";
 
   let open = $state(false);
   const last = STEPS.length - 1;
+  const canVisit = (step: number) => step <= 2 || cultureAllocationErrors().length === 0;
 
   // Persist on any change and scroll to top when the step changes.
   $effect(() => { JSON.stringify(char); persist(); });
@@ -45,7 +46,7 @@
   </div>
   <nav>
     {#each STEPS as s, i}
-      <button class="step" class:on={i === char.step} class:done={i < char.step} onclick={() => (char.step = i)}>
+      <button class="step" class:on={i === char.step} class:done={i < char.step} disabled={!canVisit(i)} onclick={() => (char.step = i)}>
         <i>{i < char.step ? "✓" : ROMAN[i]}</i><span>{s}</span>
       </button>
     {/each}
@@ -64,7 +65,7 @@
 
   <div class="pager noprint">
     {#if char.step > 0}<button onclick={() => char.step--}>← {STEPS[char.step - 1]}</button>{:else}<span></span>{/if}
-    {#if char.step < last}<button class="primary" onclick={() => char.step++}>{STEPS[char.step + 1]} →</button>{/if}
+    {#if char.step < last}<button class="primary" disabled={!canVisit(char.step + 1)} onclick={() => char.step++}>{STEPS[char.step + 1]} →</button>{/if}
   </div>
 </main>
 {/if}

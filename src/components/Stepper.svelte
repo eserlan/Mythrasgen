@@ -1,6 +1,6 @@
 <script lang="ts">
-  let { value, min = 0, max = 99, canInc = true, label = "", onchange }: {
-    value: number; min?: number; max?: number; canInc?: boolean; label?: string; onchange: (v: number) => void;
+  let { value, min = 0, max = 99, canInc = true, jumpFromZero = false, label = "", onchange }: {
+    value: number; min?: number; max?: number; canInc?: boolean; jumpFromZero?: boolean; label?: string; onchange: (v: number) => void;
   } = $props();
   const clamp = (v: number) => Math.max(min, Math.min(max, Math.round(v) || min));
   const HOLD_DELAY = 380, REPEAT = 85;
@@ -10,7 +10,9 @@
   /** Take one step; returns false when the limit is reached. */
   function step(dir: 1 | -1): boolean {
     if (dir === 1 && !canInc) return false;
-    const v = clamp(value + dir);
+    const next = jumpFromZero && dir === 1 && value === 0 ? 5
+      : jumpFromZero && dir === -1 && value <= 5 ? 0 : value + dir;
+    const v = clamp(next);
     if (v === value) return false;
     onchange(v);
     return true;
