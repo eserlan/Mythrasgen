@@ -1,5 +1,6 @@
 import { careers, cultures, type CultureKind } from "./content";
 import { BACKGROUND_EVENT_COUNTS, calculateStartingMoney, CULTURE_MONEY_MULTIPLIERS, classMoneyMultiplier } from "./background-rules";
+import { migrateCharacterStep } from "./migrations";
 import { baseName, formulaVal, skillDef, sum } from "./calc";
 import { PER_SKILL_CAP, POOLS, STANDARD, STATS, type Chars, type Kind } from "./rules";
 
@@ -43,8 +44,13 @@ const blank = (): Character => ({
 });
 function normalize(value: Partial<Character>): Character {
   const fallback = blank();
-  return { ...fallback, ...value, background: { ...fallback.background, ...(value.background ?? {}) },
-    alloc: { ...fallback.alloc, ...(value.alloc ?? {}) } };
+  return {
+    ...fallback,
+    ...value,
+    step: migrateCharacterStep(value.step ?? fallback.step, !!value.background),
+    background: { ...fallback.background, ...(value.background ?? {}) },
+    alloc: { ...fallback.alloc, ...(value.alloc ?? {}) },
+  };
 }
 function load(): Character {
   try { return normalize(JSON.parse(localStorage.getItem(KEY) ?? "null") ?? {}); } catch { return blank(); }
