@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { careerSkillOptions, careers, selectCareerProfessional } from "./content";
+import { careerSkillOptions, careers, restoreCareerAllocation, restoreLegacyCareerIndex, selectCareerProfessional } from "./content";
 import { PROFESSIONAL, STANDARD } from "./rules";
 import { baseName } from "./calc";
 
@@ -49,5 +49,27 @@ describe("core careers", () => {
     const scholar = getCareer("Scholar");
     const lore = scholar.professional.find(skill => skill === "Lore (Primary)");
     expect(selectCareerProfessional(scholar, [], lore)).toEqual(["Lore (Primary)"]);
+  });
+
+  test("restores legacy allocations as picks and releases allocations outside the three-skill limit", () => {
+    const merchant = getCareer("Merchant");
+    const [first, second, third, fourth] = merchant.professional;
+    const restored = restoreCareerAllocation(merchant, undefined, {
+      [first]: 10, [second]: 5, [third]: 3, [fourth]: 2,
+      [merchant.standard[0]]: 7,
+    });
+    expect(restored.professional).toEqual([first, second, third]);
+    expect(restored.allocation).toEqual({
+      [first]: 10, [second]: 5, [third]: 3, [merchant.standard[0]]: 7,
+    });
+  });
+
+  test("restores legacy career indices after the career list was reordered", () => {
+    expect(careers[restoreLegacyCareerIndex(0)].name).toBe("Warrior");
+    expect(careers[restoreLegacyCareerIndex(1)].name).toBe("Merchant");
+    expect(careers[restoreLegacyCareerIndex(2)].name).toBe("Scholar");
+    expect(careers[restoreLegacyCareerIndex(3)].name).toBe("Thief");
+    expect(careers[restoreLegacyCareerIndex(4)].name).toBe("Physician");
+    expect(careers[restoreLegacyCareerIndex(5)].name).toBe("Hunter");
   });
 });

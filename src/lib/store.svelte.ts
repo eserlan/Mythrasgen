@@ -1,4 +1,4 @@
-import { careerSkillOptions, careers, cultures, selectCareerProfessional } from "./content";
+import { careerSkillOptions, careers, cultures, restoreCareerAllocation, restoreLegacyCareerIndex, selectCareerProfessional } from "./content";
 import { baseName, formulaVal, skillDef, sum } from "./calc";
 import { PER_SKILL_CAP, POOLS, STANDARD, STATS, type Chars, type Kind } from "./rules";
 
@@ -25,13 +25,31 @@ const blank = (): Character => ({
   alloc: { culture: {}, career: {}, bonus: {} }, extras: [], careerProfessional: [], step: 0, home: true,
 });
 function load(): Character {
-  try { return { ...blank(), ...JSON.parse(localStorage.getItem(KEY) ?? "null") }; } catch { return blank(); }
+  try {
+    const stored = JSON.parse(localStorage.getItem(KEY) ?? "null") as Partial<Character> | null;
+    const legacy = stored?.career !== undefined && !Array.isArray(stored.careerProfessional);
+    const saved = { ...blank(), ...stored } as Character;
+    if (legacy) saved.career = restoreLegacyCareerIndex(saved.career);
+    restoreCareer(saved, legacy);
+    return saved;
+  } catch { return blank(); }
+}
+function restoreCareer(character: Character, legacy = false) {
+  const selectedCareer = careers[character.career] ?? careers[0];
+  const restored = restoreCareerAllocation(selectedCareer, legacy ? undefined : character.careerProfessional, character.alloc.career);
+  character.careerProfessional = restored.professional;
+  character.alloc.career = restored.allocation;
 }
 export const char: Character = $state(load());
 
 export function persist() { try { localStorage.setItem(KEY, JSON.stringify(char)); } catch { /* storage unavailable */ } }
 export const reset = (home = true) => Object.assign(char, blank(), { home });
-export const replace = (c: Partial<Character>) => Object.assign(char, blank(), c, { home: false });
+export const replace = (c: Partial<Character>) => {
+  const legacy = c.career !== undefined && !Array.isArray(c.careerProfessional);
+  Object.assign(char, blank(), c, { home: false });
+  if (legacy) char.career = restoreLegacyCareerIndex(char.career);
+  restoreCareer(char, legacy);
+};
 export const hasProgress = () => !!char.name || char.step > 0 || used("culture") + used("career") + used("bonus") > 0
   || STATS.some(k => char.chars[k] !== 10);
 

@@ -81,3 +81,29 @@ export function selectCareerProfessional(career: Career, selected: string[], nam
   if (selected.includes(name)) return selected.filter(skill => skill !== name);
   return selected.length < 3 ? [...selected, name] : selected;
 }
+
+/** Career indices used by saves before the core career list was introduced. */
+export function restoreLegacyCareerIndex(index: number): number {
+  const legacyNames = ["Warrior", "Merchant", "Scholar", "Thief", "Healer", "Hunter"];
+  const legacyName = legacyNames[index];
+  const currentName = legacyName === "Healer" ? "Physician" : legacyName;
+  const restoredIndex = careers.findIndex(career => career.name === currentName);
+  return restoredIndex < 0 ? 0 : restoredIndex;
+}
+
+/** Restore saved career picks and discard allocations that the current career cannot use. */
+export function restoreCareerAllocation(
+  career: Career,
+  selected: string[] | undefined,
+  allocation: Record<string, number>,
+): { professional: string[]; allocation: Record<string, number> } {
+  const picks = Array.isArray(selected)
+    ? selected.filter(name => career.professional.includes(name))
+    : Object.keys(allocation).filter(name => career.professional.includes(name));
+  const professional = [...new Set(picks)].slice(0, 3);
+  const eligible = new Set(careerSkillOptions(career, professional));
+  return {
+    professional,
+    allocation: Object.fromEntries(Object.entries(allocation).filter(([name]) => eligible.has(name))),
+  };
+}
