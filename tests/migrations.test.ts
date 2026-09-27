@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { migrateCharacterStep, migrateCultureTables } from "../src/lib/migrations";
+import { migrateCharacterStep, migrateCultureTables, normalizeAgeCategory, normalizeBackground } from "../src/lib/migrations";
 
 describe("legacy character step migration", () => {
   test("keeps old sheet saves on the sheet after inserting Background", () => {
@@ -24,5 +24,36 @@ describe("legacy background table migration", () => {
   test("keeps explicit table choices and defaults custom cultures to Civilised", () => {
     expect(migrateCultureTables(null, "Nomadic", "Primitive")).toEqual({ socialTable: "Nomadic", moneyTable: "Primitive" });
     expect(migrateCultureTables(null)).toEqual({ socialTable: "Civilised", moneyTable: "Civilised" });
+  });
+});
+
+describe("imported background normalization", () => {
+  const fallback = {
+    events: [{ roll: 0, text: "" }], socialClassRoll: 50, socialClass: "Freeman",
+    parentsRoll: 50, parents: "", siblingsRoll: 50, siblings: "", extendedFamilyRoll: 50, extendedFamily: "",
+    standingRoll: 50, familyTies: [], connectionsRoll: 50, connections: [], startingMoneyRoll: 14,
+    equipment: "Tools", purchases: [],
+  };
+
+  test("replaces malformed imported collections and fields with safe defaults", () => {
+    const value = normalizeBackground({ events: null, familyTies: null, connections: null, purchases: null, parents: 7 }, fallback);
+    expect(value.events).toEqual(fallback.events);
+    expect(value.familyTies).toEqual([]);
+    expect(value.connections).toEqual([]);
+    expect(value.purchases).toEqual([]);
+    expect(value.parents).toBe("");
+  });
+
+  test("filters malformed collection entries without losing valid ones", () => {
+    const value = normalizeBackground({
+      events: [{ roll: 40, text: "Valid" }, null],
+      purchases: [{ name: "Torch", cost: 2 }, { name: "Invalid", cost: -1 }],
+    }, fallback);
+    expect(value.events).toEqual([{ roll: 40, text: "Valid" }]);
+    expect(value.purchases).toEqual([{ name: "Torch", cost: 2 }]);
+  });
+
+  test("defaults unknown persisted age categories", () => {
+    expect(normalizeAgeCategory("unknown", "Adult")).toBe("Adult");
   });
 });

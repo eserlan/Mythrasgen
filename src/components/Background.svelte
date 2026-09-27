@@ -91,11 +91,11 @@
   {#each background.events as event, i}
     <div class="event-entry">
       <label class="field"><span>Event {i + 1} · d100 result</span><input type="number" min="1" max="100" bind:value={event.roll} /></label>
-      <button onclick={() => event.roll = rollPercentile()}>Roll d100</button>
+      <button type="button" onclick={() => event.roll = rollPercentile()}>Roll d100</button>
       <label class="field event-text"><span>Core rules event text (Mythras pp. 18–20)</span><textarea rows="2" bind:value={event.text} placeholder="Look up the roll in your Core Rules and record the result"></textarea></label>
     </div>
   {/each}
-  {#if eventCount() > 0}<button class="ghost" onclick={rollEvents}>Roll all events</button>{/if}
+  {#if eventCount() > 0}<button type="button" class="ghost" onclick={rollEvents}>Roll all events</button>{/if}
 </section>
 
 <section class="card">
@@ -106,8 +106,8 @@
   <p class="mute">Use the community table that fits your campaign. Seafarer is custom, so choose its table here.</p>
   <div class="field-row">
     <label class="field"><span>1d100 result</span><input type="number" min="1" max="100" bind:value={background.socialClassRoll} /></label>
-    <button onclick={() => setClass(rollPercentile())}>Roll social class</button>
-    <button onclick={() => setClass(background.socialClassRoll)}>Apply roll</button>
+    <button type="button" onclick={() => setClass(rollPercentile())}>Roll social class</button>
+    <button type="button" onclick={() => setClass(background.socialClassRoll)}>Apply roll</button>
     <label class="field"><span>Social class</span><select value={background.socialClass} onchange={e => {
       background.socialClass = e.currentTarget.value;
       const row = classes.find(item => item.name === background.socialClass);
@@ -123,13 +123,13 @@
 <section class="card">
   <h3>Parents, family &amp; connections</h3>
   <div class="family-grid">
-    <div><p class="label">Parents · d100</p><button onclick={rollParents}>Roll parents</button> <b>{background.parentsRoll}</b><input aria-label="Parents" bind:value={background.parents} placeholder="Choose or record parents" /></div>
-    <div><p class="label">Siblings · d100</p><button onclick={rollSiblings}>Roll siblings</button> <b>{background.siblingsRoll}</b><input aria-label="Siblings" bind:value={background.siblings} placeholder="Choose or record siblings" /></div>
-    <div><p class="label">Extended family · d100</p><button onclick={rollExtendedFamily}>Roll extended family</button> <b>{background.extendedFamilyRoll}</b><input aria-label="Extended family" bind:value={background.extendedFamily} placeholder="Choose or record extended family" /></div>
-    <div><p class="label">Family standing · d100</p><div class="field-row"><input aria-label="Family standing roll" type="number" min="1" max="100" bind:value={background.standingRoll} /><button onclick={() => rollStanding()}>Roll</button><button onclick={() => rollStanding(background.standingRoll)}>Apply</button></div><p>{standing[2]}</p>
+    <div><p class="label">Parents · d100</p><button type="button" onclick={rollParents}>Roll parents</button> <b>{background.parentsRoll}</b><input aria-label="Parents" bind:value={background.parents} placeholder="Choose or record parents" /></div>
+    <div><p class="label">Siblings · d100</p><button type="button" onclick={rollSiblings}>Roll siblings</button> <b>{background.siblingsRoll}</b><input aria-label="Siblings" bind:value={background.siblings} placeholder="Choose or record siblings" /></div>
+    <div><p class="label">Extended family · d100</p><button type="button" onclick={rollExtendedFamily}>Roll extended family</button> <b>{background.extendedFamilyRoll}</b><input aria-label="Extended family" bind:value={background.extendedFamily} placeholder="Choose or record extended family" /></div>
+    <div><p class="label">Family standing · d100</p><div class="field-row"><input aria-label="Family standing roll" type="number" min="1" max="100" bind:value={background.standingRoll} /><button type="button" onclick={() => rollStanding()}>Roll</button><button type="button" onclick={() => rollStanding(background.standingRoll)}>Apply</button></div><p>{standing[2]}</p>
       {#each background.familyTies as tie, i}<label class="field"><span>Family tie {i + 1}</span><select bind:value={background.familyTies[i]}>{#each tie === "Enemy" || tie === "Rival" ? ["Enemy", "Rival"] : ["Contact", "Ally"] as type}<option>{type}</option>{/each}</select></label>{/each}
     </div>
-    <div><p class="label">Connections · d100</p><div class="field-row"><input aria-label="Connections roll" type="number" min="1" max="100" bind:value={background.connectionsRoll} /><button onclick={() => rollConnections()}>Roll</button><button onclick={() => rollConnections(background.connectionsRoll)}>Apply</button></div><p>{connectionBand[2]}</p>
+    <div><p class="label">Connections · d100</p><div class="field-row"><input aria-label="Connections roll" type="number" min="1" max="100" bind:value={background.connectionsRoll} /><button type="button" onclick={() => rollConnections()}>Roll</button><button type="button" onclick={() => rollConnections(background.connectionsRoll)}>Apply</button></div><p>{connectionBand[2]}</p>
       {#each background.connections as relation, i}<label class="field"><span>Connection {i + 1}</span><select bind:value={background.connections[i]}>{#each CONNECTION_TYPES as type}<option>{type}</option>{/each}</select></label>{/each}
     </div>
   </div>
@@ -142,7 +142,7 @@
   </select></label>
   <div class="field-row">
     <label class="field"><span>4d6 roll · reroll any time</span><input type="number" min="4" max="24" bind:value={background.startingMoneyRoll} /></label>
-    <button onclick={() => background.startingMoneyRoll = roll4d6()}>Roll 4d6</button>
+    <button type="button" onclick={() => background.startingMoneyRoll = roll4d6()}>Roll 4d6</button>
   </div>
   <p><b>{background.startingMoneyRoll} × {moneyMultiplier()} sp × {selectedClass?.money} social-class modifier = {startingMoney()} sp</b></p>
   <p class="label">Starting equipment and possessions</p>
@@ -152,9 +152,9 @@
   <div class="field-row">
     <label class="field"><span>Item or service</span><input bind:value={purchaseName} placeholder="Name the item" /></label>
     <label class="field"><span>Cost (sp)</span><input type="number" min="0" bind:value={purchaseCost} /></label>
-    <button disabled={!purchaseName.trim() || purchaseCost > availableMoney()} onclick={addPurchase}>Add purchase</button>
+    <button type="button" disabled={!purchaseName.trim() || purchaseCost > availableMoney()} onclick={addPurchase}>Add purchase</button>
   </div>
   {#if background.purchases.length}
-    <ul class="leaders">{#each background.purchases as item, i}<li><span>{item.name}</span><i></i><b>{item.cost} sp</b><button class="ghost" aria-label="Remove {item.name}" onclick={() => background.purchases.splice(i, 1)}>Remove</button></li>{/each}</ul>
+    <ul class="leaders">{#each background.purchases as item, i}<li><span>{item.name}</span><i></i><b>{item.cost} sp</b><button type="button" class="ghost" aria-label="Remove {item.name}" onclick={() => background.purchases.splice(i, 1)}>Remove</button></li>{/each}</ul>
   {:else}<p class="mute">No additional purchases.</p>{/if}
 </section>

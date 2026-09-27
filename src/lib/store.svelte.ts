@@ -1,6 +1,6 @@
 import { careers, cultures, type CultureKind } from "./content";
 import { BACKGROUND_EVENT_COUNTS, calculateStartingMoney, CULTURE_MONEY_MULTIPLIERS, classMoneyMultiplier } from "./background-rules";
-import { migrateCharacterStep, migrateCultureTables } from "./migrations";
+import { migrateCharacterStep, migrateCultureTables, normalizeAgeCategory, normalizeBackground } from "./migrations";
 import { baseName, formulaVal, skillDef, sum } from "./calc";
 import { allocationValue, selectedCareer, selectedCulture, skillsForStage } from "./creation";
 import { cultureSkills, validateCultureAllocation } from "./culture";
@@ -44,7 +44,7 @@ const blank = (): Character => ({
   cultureSelections: { standard: [], professional: [], combatStyle: "" },
 
   alloc: { culture: {}, career: {}, bonus: {} }, extras: [], step: 0,
-  ageCategory: "Adult", age: 22, socialTable: "Civilised", moneyTable: "Civilised",
+  ageCategory: "Adult", age: 22, socialTable: "Barbarian", moneyTable: "Barbarian",
   background: { events: [{ roll: 0, text: "" }], socialClassRoll: 50, socialClass: "Freeman",
     parentsRoll: 50, parents: "", siblingsRoll: 50, siblings: "", extendedFamilyRoll: 50, extendedFamily: "",
     standingRoll: 50, familyTies: [], connectionsRoll: 50, connections: [], startingMoneyRoll: 14,
@@ -61,7 +61,9 @@ function normalize(value: Partial<Character>): Character {
     cultureSelections: { ...fallback.cultureSelections, ...migrated.cultureSelections },
     step: migrateCharacterStep(migrated.step ?? fallback.step, !!migrated.background),
     ...migrateCultureTables(cultureKind, migrated.socialTable, migrated.moneyTable),
-    background: { ...fallback.background, ...(migrated.background ?? {}) },
+    ageCategory: normalizeAgeCategory(migrated.ageCategory, fallback.ageCategory),
+    age: Number.isFinite(migrated.age) ? migrated.age! : fallback.age,
+    background: normalizeBackground(migrated.background, fallback.background),
     alloc: { ...fallback.alloc, ...(migrated.alloc ?? {}) },
   };
 }
