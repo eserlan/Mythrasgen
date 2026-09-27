@@ -26,7 +26,7 @@
 <StepHead step={1} title="Characteristics" />
 <div class="card bar">
   <button class="primary" onclick={() => tumble(STATS)}>Roll all the dice</button>
-  <span class="mute">Or adjust by hand. Point-buy budget ({POINT_BUY.budget}, {POINT_BUY.min}–{POINT_BUY.max} each):</span>
+  <span class="mute">Or adjust by hand. Point-buy budget ({POINT_BUY.budget}, {POINT_BUY.min}–{POINT_BUY.max} each; INT/SIZ {POINT_BUY_MIN.INT}–{POINT_BUY.max}):</span>
   <span class="pill" class:over={left < 0} class:ok={left === 0}>{left} left</span>
 </div>
 <div class="chars">

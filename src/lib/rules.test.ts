@@ -146,4 +146,10 @@ describe("core culture and career packages", () => {
     expect(bonusSkills).toContain("Passion (Family)");
     expect(bonusSkills).toContain("Lore (Tactics)");
   });
+
+  test("specialized extra allocations stay specialized in the bonus skill list", () => {
+    const bonusSkills = skillsForStage("bonus", cultures[0], careers[0], ["Passion (Family)"], ["Passion (Family)"]);
+    expect(bonusSkills).toContain("Passion (Family)");
+    expect(bonusSkills).not.toContain("Passion");
+  });
 });

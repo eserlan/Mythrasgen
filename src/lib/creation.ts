@@ -1,5 +1,4 @@
 import { careers, cultures, type Career, type Culture } from "./content";
-import { baseName } from "./calc";
 import { PER_SKILL_CAP, POOLS, STANDARD, type Kind } from "./rules";
 
 /** Points allocated to one skill at one creation stage, bounded by both limits. */
@@ -19,7 +18,7 @@ export function skillsForStage(
   if (kind === "culture") return [...new Set([...culture.standard, culture.combatStyle, ...culture.professional])];
   if (kind === "career") return [...new Set([...career.standard, ...career.professional])];
   return [...new Set([...core, culture.combatStyle, ...culture.professional, ...career.professional,
-    ...extras, ...allocated.map(baseName)])];
+    ...extras, ...allocated])];
 }
 
 export function selectedCulture(index: number) { return cultures[index] ?? cultures[0]; }
