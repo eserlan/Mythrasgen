@@ -147,6 +147,14 @@ describe("core culture and career packages", () => {
     expect(bonusSkills).toContain("Lore (Tactics)");
   });
 
+  test("bonus sheet includes selected career Professional Skills only", () => {
+    const warrior = careers.find(career => career.name === "Warrior")!;
+    const selected = warrior.professional.slice(0, 3);
+    const bonusSkills = skillsForStage("bonus", cultures[0], warrior, [], [], selected);
+    expect(selected.every(skill => bonusSkills.includes(skill))).toBe(true);
+    expect(bonusSkills).not.toContain(warrior.professional[3]);
+  });
+
   test("specialized extra allocations stay specialized in the bonus skill list", () => {
     const bonusSkills = skillsForStage("bonus", cultures[0], careers[0], ["Passion (Family)"], ["Passion (Family)"]);
     expect(bonusSkills).toContain("Passion (Family)");

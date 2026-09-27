@@ -13,11 +13,12 @@ export function skillsForStage(
   career: Career,
   extras: string[] = [],
   allocated: string[] = [],
+  careerProfessional: string[] = career.professional,
 ): string[] {
   const core = STANDARD.map(([name]) => name);
   if (kind === "culture") return [...new Set([...culture.standard, culture.combatStyle, ...culture.professional])];
   if (kind === "career") return [...new Set([...career.standard, ...career.professional])];
-  return [...new Set([...core, culture.combatStyle, ...culture.professional, ...career.professional,
+  return [...new Set([...core, culture.combatStyle, ...culture.professional, ...careerProfessional,
     ...extras, ...allocated])];
 }
 

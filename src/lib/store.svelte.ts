@@ -113,7 +113,7 @@ export function allSkills(): string[] {
   const c = culture(), k = career();
   return [...new Set([
     ...skillsForStage("bonus", c, k, char.extras,
-      (Object.keys(POOLS) as Kind[]).flatMap(x => Object.keys(char.alloc[x]))),
+      (Object.keys(POOLS) as Kind[]).flatMap(x => Object.keys(char.alloc[x])), char.careerProfessional),
     ...STANDARD.map(([name]) => name), c.combatStyle, ...c.professional, ...k.standard,
     ...(k.combatStyle ?? []), ...char.careerProfessional,
   ])];
