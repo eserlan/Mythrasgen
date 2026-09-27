@@ -17,6 +17,7 @@ export interface Character {
   };
   socialTable: CultureKind;
   moneyTable: CultureKind;
+  generation: "pointBuy" | "roll"; rollResults: number[] | null; rollAssignments: number[];
   /** True while the landing page is showing. */
   home: boolean;
 }
@@ -41,6 +42,7 @@ const blank = (): Character => ({
     parentsRoll: 50, parents: "", siblingsRoll: 50, siblings: "", extendedFamilyRoll: 50, extendedFamily: "",
     standingRoll: 50, familyTies: [], connectionsRoll: 50, connections: [], startingMoneyRoll: 14,
     equipment: "Tools; simple weapons; rented accommodation", purchases: [] },
+  generation: "pointBuy", rollResults: null, rollAssignments: STATS.map((_, i) => i), home: true,
 });
 function normalize(value: Partial<Character>): Character {
   const fallback = blank();
@@ -60,6 +62,23 @@ export const char: Character = $state(load());
 export function persist() { try { localStorage.setItem(KEY, JSON.stringify(char)); } catch { /* storage unavailable */ } }
 export const reset = (home = true) => Object.assign(char, blank(), { home });
 export const replace = (c: Partial<Character>) => Object.assign(char, normalize(c), { home: false });
+export function setRollResults(results: number[]) {
+  char.generation = "roll";
+  char.rollResults = [...results];
+  char.rollAssignments = STATS.map((_, i) => i);
+  STATS.forEach((k, i) => { char.chars[k] = results[i]; });
+}
+export function assignRoll(stat: (typeof STATS)[number], resultIndex: number) {
+  if (char.generation !== "roll" || !char.rollResults || resultIndex < 0 || resultIndex >= STATS.length) return;
+  const statIndex = STATS.indexOf(stat);
+  const current = char.rollAssignments[statIndex];
+  const otherStat = char.rollAssignments.indexOf(resultIndex);
+  if (otherStat < 0 || otherStat === statIndex) return;
+  char.rollAssignments[statIndex] = resultIndex;
+  char.rollAssignments[otherStat] = current;
+  char.chars[stat] = char.rollResults[resultIndex];
+  char.chars[STATS[otherStat]] = char.rollResults[current];
+}
 export const hasProgress = () => !!char.name || char.step > 0 || used("culture") + used("career") + used("bonus") > 0
   || STATS.some(k => char.chars[k] !== 10);
 
