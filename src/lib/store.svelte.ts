@@ -1,6 +1,6 @@
 import { careerSkillOptions, careers, cultures, restoreCareerAllocation, restoreLegacyCareerIndex, selectCareerProfessional, type CultureKind } from "./content";
 import { BACKGROUND_EVENT_COUNTS, calculateStartingMoney, CULTURE_MONEY_MULTIPLIERS, classMoneyMultiplier, reconcileBackgroundEvents, type BackgroundEvent } from "./background-rules";
-import { migrateCharacterStep, migrateCultureTables, normalizeAgeCategory, normalizeBackground } from "./migrations";
+import { migrateCharacterStep, migrateCultureTables, normalizeAgeCategory, normalizeBackground, normalizeRace } from "./migrations";
 import { baseName, formulaVal, nativeTongueName, normalizeAge, rollAge, skillDef, sum } from "./calc";
 import { culturePassions } from "./passions";
 import { allocationValue, selectedCareer, selectedCulture, skillsForStage } from "./creation";
@@ -18,7 +18,7 @@ export interface Passion {
 }
 
 export interface Character {
-  id: string; name: string; nativeLanguage: string; chars: Chars; ageCategory: AgeCategory; age: number; culture: number; career: number;
+  id: string; name: string; race: string; nativeLanguage: string; chars: Chars; ageCategory: AgeCategory; age: number; culture: number; career: number;
   cultureSelections: { standard: string[][]; professional: string[]; combatStyle: string };
   cultureMigration?: boolean;
   alloc: Record<Kind, Record<string, number>>; hobbySkill: string; extras: string[]; careerProfessional: string[]; step: number;
@@ -49,7 +49,7 @@ export const INTRO = [
 ];
 
 const blank = (): Character => ({
-  id: "", name: "", nativeLanguage: "", chars: Object.fromEntries(STATS.map(k => [k, 10])) as Chars,
+  id: "", name: "", race: "", nativeLanguage: "", chars: Object.fromEntries(STATS.map(k => [k, 10])) as Chars,
   ageCategory: "adult", age: rollAge("adult"), culture: 0, career: 0,
   cultureSelections: { standard: [], professional: [], combatStyle: "" },
   alloc: { culture: {}, career: {}, bonus: {} }, hobbySkill: "", extras: [], careerProfessional: [], step: 0,
@@ -82,6 +82,7 @@ function normalize(value: Partial<Character> | null, home = true): Character {
     extras: Array.isArray(migrated.extras) ? migrated.extras.filter(x => typeof x === "string") : [],
     careerProfessional: Array.isArray(migrated.careerProfessional) ? migrated.careerProfessional : [],
     hobbySkill: typeof migrated.hobbySkill === "string" ? migrated.hobbySkill : "",
+    race: normalizeRace(migrated.race),
     nativeLanguage: typeof migrated.nativeLanguage === "string" ? migrated.nativeLanguage : "",
     home,
   } as Character;

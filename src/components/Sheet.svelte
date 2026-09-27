@@ -19,7 +19,7 @@
   <div class="banner">
     <div class="meander" aria-hidden="true"></div>
     <h1>{char.name || "Unnamed hero"}</h1>
-    <p>{culture().name} <span>◆</span> {career().name} <span>◆</span> {AGE_CATEGORIES[char.ageCategory].label}, age {char.age}</p>
+    <p>{#if char.race.trim()}{char.race.trim()} <span>◆</span> {/if}{culture().name} <span>◆</span> {career().name} <span>◆</span> {AGE_CATEGORIES[char.ageCategory].label}, age {char.age}</p>
   </div>
   <p class="mute">Background Events: {AGE_CATEGORIES[char.ageCategory].backgroundEvents}{#if AGE_CATEGORIES[char.ageCategory].ageing} · Ageing rules apply{/if}</p>
   <div class="chars sheet-stats">

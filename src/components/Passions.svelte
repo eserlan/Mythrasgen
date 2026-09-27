@@ -4,8 +4,8 @@
   import { PASSION_CATEGORIES } from "../lib/rules";
   import { addPassion, char, culture, seedCulturePassions } from "../lib/store.svelte";
 
-  const needsSubjectCha = (category: string) => category === "platonic" || category === "adverse";
-  const needsSubjectStats = (category: string) => category === "romantic/familial" || needsSubjectCha(category);
+  const needsSubjectCha = (category: string) => category === "romantic/familial" || category === "platonic" || category === "adverse";
+  const needsSubjectPow = (category: string) => category === "romantic/familial";
   const value = (p: typeof char.passions[number]) => passionStartingValue(p.category, char.chars, { pow: p.subjectPow, cha: p.subjectCha });
   function toggle(enabled: boolean) {
     char.passionsEnabled = enabled;
@@ -37,13 +37,13 @@
               {#each PASSION_CATEGORIES as category}<option value={category}>{category}</option>{/each}
             </select>
           </label>
-          {#if needsSubjectStats(p.category)}
-            <label class="field subject-stat"><span>Subject CHA</span><input type="number" min="1" max="30" bind:value={p.subjectCha} /></label>
-          {/if}
-          {#if p.category === "romantic/familial"}
-            <label class="field subject-stat"><span>Subject POW</span><input type="number" min="1" max="30" bind:value={p.subjectPow} /></label>
-          {/if}
-          <div class="passion-value"><small>Starting value</small><b>{startingValue ?? "—"}{#if startingValue !== null}%{/if}</b></div>
+          <label class="field subject-stat"><span>Subject CHA</span>
+            {#if needsSubjectCha(p.category)}<input type="number" min="1" max="30" bind:value={p.subjectCha} />{:else}<span class="not-applicable">—</span>{/if}
+          </label>
+          <label class="field subject-stat"><span>Subject POW</span>
+            {#if needsSubjectPow(p.category)}<input type="number" min="1" max="30" bind:value={p.subjectPow} />{:else}<span class="not-applicable">—</span>{/if}
+          </label>
+          <div class="passion-value" aria-label="Calculated starting value"><small>Starting value</small><b>{startingValue ?? "—"}{#if startingValue !== null}%{/if}</b></div>
           <button class="ghost remove-passion" aria-label={passionRemovalLabel(p.type, p.subject, i)} onclick={() => char.passions.splice(i, 1)}>Remove</button>
         </div>
       {/each}
