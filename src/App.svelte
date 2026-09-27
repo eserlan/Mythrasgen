@@ -6,11 +6,14 @@
   import Sheet from "./components/Sheet.svelte";
   import Skills from "./components/Skills.svelte";
   import { canFinishPointBuy } from "./lib/calc";
-  import { canComplete, char, persist, replace, reset, ROMAN, STEPS } from "./lib/store.svelte";
+  import { canVisitStep } from "./lib/navigation";
+  import { canComplete, char, cultureAllocationErrors, persist, replace, reset, ROMAN, STEPS } from "./lib/store.svelte";
 
   let open = $state(false);
   const last = STEPS.length - 1;
   const canContinue = $derived(char.generation === "roll" || canFinishPointBuy(char.chars));
+  const canVisit = (step: number) => canVisitStep(step, canContinue, cultureAllocationErrors().length === 0)
+    && (step !== last || canComplete());
 
   // Persist on any change and scroll to top when the step changes.
   $effect(() => { JSON.stringify(char); persist(); });
@@ -27,8 +30,10 @@
     try { replace(JSON.parse(await f.text())); } catch { alert("Invalid file"); }
     e.currentTarget.value = "";
   }
-  async function print() { if (!canContinue || !canComplete()) return; char.step = last; await tick(); window.print(); }
-  function goToStep(i: number) { if (i <= 1 || (canContinue && (i !== last || canComplete()))) char.step = i; }
+  async function print() {
+    if (!canVisit(last)) return;
+    char.step = last; await tick(); window.print();
+  }
   const newChar = () => { if (confirm("Discard this character?")) reset(false); };
 </script>
 
@@ -42,13 +47,13 @@
     <div class="tools" role="presentation" onclick={() => (open = false)}>
       <button onclick={save}>Save</button>
       <label class="btn">Load<input type="file" accept=".json" hidden onchange={loadFile}></label>
-      <button onclick={print} disabled={!canComplete()}>Print</button>
+      <button onclick={print} disabled={!canVisit(last)}>Print</button>
       <button onclick={newChar}>New</button>
     </div>
   </div>
   <nav>
     {#each STEPS as s, i}
-      <button class="step" class:on={i === char.step} class:done={i < char.step} disabled={(i > 1 && !canContinue) || (i === last && !canComplete())} onclick={() => goToStep(i)}>
+      <button class="step" class:on={i === char.step} class:done={i < char.step} disabled={!canVisit(i)} onclick={() => (char.step = i)}>
         <i>{i < char.step ? "✓" : ROMAN[i]}</i><span>{s}</span>
       </button>
     {/each}
@@ -67,7 +72,7 @@
 
   <div class="pager noprint">
     {#if char.step > 0}<button onclick={() => char.step--}>← {STEPS[char.step - 1]}</button>{:else}<span></span>{/if}
-    {#if char.step < last}<button class="primary" disabled={(char.step === 1 && !canContinue) || (char.step === 4 && !canComplete())} onclick={() => goToStep(char.step + 1)}>{char.step === 1 && !canContinue ? "Finish characteristics" : char.step === 4 && !canComplete() ? "Spend all bonus points" : `${STEPS[char.step + 1]} →`}</button>{/if}
+    {#if char.step < last}<button class="primary" disabled={!canVisit(char.step + 1)} onclick={() => (char.step += 1)}>{char.step === 1 && !canContinue ? "Finish characteristics" : char.step === 4 && !canComplete() ? "Spend all bonus points" : `${STEPS[char.step + 1]} →`}</button>{/if}
   </div>
 </main>
 {/if}

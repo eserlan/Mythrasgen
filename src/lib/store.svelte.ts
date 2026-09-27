@@ -1,10 +1,14 @@
-import { careers, cultures } from "./content";
+import { careers } from "./content";
+import { cultureSkills, validateCultureAllocation } from "./culture";
+import { migrateCharacter } from "./migration";
 import { baseName, formulaVal, normalizeAge, rollAge, skillDef, sum } from "./calc";
 import { allocationValue, selectedCareer, selectedCulture, skillsForStage } from "./creation";
 import { AGE_CATEGORIES, bonusCap, bonusPool, MAGIC, PER_SKILL_CAP, POOLS, STANDARD, STATS, type AgeCategory, type Chars, type Kind } from "./rules";
 
 export interface Character {
   name: string; chars: Chars; ageCategory: AgeCategory; age: number; culture: number; career: number;
+  cultureSelections: { standard: string[][]; professional: string[]; combatStyle: string };
+  cultureMigration?: boolean;
   alloc: Record<Kind, Record<string, number>>; hobbySkill: string; extras: string[]; step: number;
   generation: "pointBuy" | "roll"; rollResults: number[] | null; rollAssignments: number[];
   /** True while the landing page is showing. */
@@ -25,19 +29,19 @@ export const INTRO = [
 const blank = (): Character => ({
   name: "", chars: Object.fromEntries(STATS.map(k => [k, 10])) as Chars,
   ageCategory: "adult", age: rollAge("adult"), culture: 0, career: 0,
+  cultureSelections: { standard: [], professional: [], combatStyle: "" },
   alloc: { culture: {}, career: {}, bonus: {} }, hobbySkill: "", extras: [], step: 0,
   generation: "pointBuy", rollResults: null, rollAssignments: STATS.map((_, i) => i), home: true,
 });
-const COMBAT_STYLES = cultures.map(c => c.combatStyle);
-function load(): Character {
-  try { return normalize(JSON.parse(localStorage.getItem(KEY) ?? "null")); } catch { return blank(); }
-}
+
 function normalize(saved: Partial<Character> | null, home = true): Character {
   const fallback = blank();
+  const migrated = migrateCharacter(saved ?? fallback);
   const c = {
-    ...fallback, ...saved,
-    alloc: { ...fallback.alloc, ...saved?.alloc },
-    extras: Array.isArray(saved?.extras) ? saved.extras.filter(x => typeof x === "string") : [],
+    ...fallback, ...migrated,
+    cultureSelections: { ...fallback.cultureSelections, ...migrated.cultureSelections },
+    alloc: { ...fallback.alloc, ...migrated.alloc },
+    extras: Array.isArray(migrated.extras) ? migrated.extras.filter(x => typeof x === "string") : [],
     home,
   } as Character;
   if (!Object.hasOwn(AGE_CATEGORIES, c.ageCategory)) c.ageCategory = "adult";
@@ -50,19 +54,25 @@ function normalize(saved: Partial<Character> | null, home = true): Character {
       || c.rollAssignments.some(i => !Number.isInteger(i) || i < 0 || i >= STATS.length)) {
     c.rollAssignments = STATS.map((_, i) => i);
   }
-  const cu = cultures[c.culture] ?? cultures[0], ca = careers[c.career] ?? careers[0];
-  const learned = new Set([...cu.standard, cu.combatStyle, ...cu.professional, ...ca.standard, ...ca.professional]);
+  const culture = selectedCulture(c.culture), career = selectedCareer(c.career);
+  const learned = new Set([
+    ...cultureSkills(culture, c.cultureSelections.standard, c.cultureSelections.professional, c.cultureSelections.combatStyle),
+    ...career.standard, ...career.professional,
+  ]);
   let validHobby = false;
   if (c.hobbySkill) {
-    try { validHobby = skillDef(c.hobbySkill, [...COMBAT_STYLES, ...c.extras]).pro; } catch { /* discard invalid legacy hobby skills */ }
+    try { validHobby = skillDef(c.hobbySkill, [c.cultureSelections.combatStyle, ...c.extras].filter(Boolean)).pro; }
+    catch { /* discard invalid legacy hobby skills */ }
   }
   if (learned.has(c.hobbySkill) || (c.hobbySkill && !validHobby)) c.hobbySkill = "";
-  c.alloc.bonus = Object.fromEntries(Object.entries(c.alloc.bonus ?? {}).filter(([name]) => bonusEligibleFor(c, learned, name)));
+  c.alloc.bonus = Object.fromEntries(Object.entries(c.alloc.bonus ?? {}).filter(([name]) =>
+    learned.has(name) || c.extras.includes(name) || name === c.hobbySkill));
   if (c.step === STEPS.length - 1 && sum(Object.values(c.alloc.bonus)) < bonusPool(c.ageCategory)) c.step = 4;
   return c;
 }
-function bonusEligibleFor(c: Character, learned: Set<string>, name: string) {
-  return learned.has(name) || c.extras.includes(name) || name === c.hobbySkill;
+
+function load(): Character {
+  try { return normalize(JSON.parse(localStorage.getItem(KEY) ?? "null")); } catch { return blank(); }
 }
 export const char: Character = $state(load());
 
@@ -92,15 +102,20 @@ export const hasProgress = () => !!char.name || char.step > 0 || used("culture")
 
 export const culture = () => selectedCulture(char.culture);
 export const career = () => selectedCareer(char.career);
-export const learnedSkills = () => {
-  const c = culture(), k = career();
-  return [...new Set([...c.standard, c.combatStyle, ...c.professional, ...k.standard, ...k.professional])];
-};
+export const learnedSkills = () => [...new Set([
+  ...cultureSkills(culture(), char.cultureSelections.standard, char.cultureSelections.professional, char.cultureSelections.combatStyle),
+  ...career().standard, ...career().professional,
+])];
 export const poolFor = (kind: Kind) => kind === "bonus" ? bonusPool(char.ageCategory) : POOLS[kind];
 export const capFor = (kind: Kind) => kind === "bonus" ? bonusCap(char.ageCategory) : PER_SKILL_CAP;
-// Older saves may contain arbitrary bonus skills, which previously used the
-// Combat Style formula as a fallback. Keep those entries renderable.
-export const skillDefinition = (n: string) => skillDef(n, [...COMBAT_STYLES, ...char.extras]);
+
+export function cultureAllocationErrors(): string[] {
+  return validateCultureAllocation(culture(), char.cultureSelections, char.alloc.culture, POOLS.culture);
+}
+
+const combatStyles = () => [char.cultureSelections.combatStyle, ...char.extras].filter(Boolean);
+// Keep older saved specialisations renderable when their source skill is not registered.
+export const skillDefinition = (n: string) => skillDef(n, combatStyles());
 export const base = (n: string) => formulaVal(skillDefinition(n).f, char.chars);
 export const added = (n: string) => sum((Object.keys(POOLS) as Kind[]).map(k => char.alloc[k][n] ?? 0));
 export const total = (n: string) => base(n) + added(n);
@@ -109,13 +124,19 @@ export const used = (k: Kind) => sum(Object.values(char.alloc[k]));
 export function setAlloc(kind: Kind, name: string, v: number) {
   if (kind === "bonus" && !bonusEligible().includes(name)) return;
   const a = char.alloc[kind];
-  const n = allocationValue(v, poolFor(kind), used(kind), a[name] ?? 0, capFor(kind));
+  const n = kind === "culture"
+    ? (() => {
+        const room = POOLS.culture - used(kind) + (a[name] ?? 0);
+        const raw = Math.round(v) || 0;
+        return raw <= 0 || room < 5 ? 0 : Math.max(5, Math.min(PER_SKILL_CAP, room, raw));
+      })()
+    : allocationValue(v, poolFor(kind), used(kind), a[name] ?? 0, capFor(kind));
   if (n) a[name] = n; else delete a[name];
 }
 export function addExtra(name: string): boolean {
   const v = name.trim();
   if (!v || char.extras.includes(v)) return false;
-  try { skillDef(v, COMBAT_STYLES); } catch { return false; }
+  try { skillDef(v, combatStyles()); } catch { return false; }
   char.extras.push(v);
   return true;
 }
@@ -151,16 +172,15 @@ export function refreshBonusEligibility() {
 }
 export const canComplete = () => used("bonus") === bonusPool(char.ageCategory);
 
-export function allSkills(): string[] {
-  return [...new Set([...STANDARD.map(s => s[0]), ...MAGIC.map(s => s[0]), ...learnedSkills(),
-    ...char.extras, ...(char.hobbySkill ? [char.hobbySkill] : []),
-    ...(Object.keys(char.alloc) as Kind[]).flatMap(x => Object.keys(char.alloc[x]))])];
-}
 export function bonusEligible(): string[] {
   return [...new Set([...learnedSkills(), ...char.extras, ...(char.hobbySkill ? [char.hobbySkill] : [])])];
 }
+export function allSkills(): string[] {
+  return [...new Set([...STANDARD.map(s => s[0]), ...MAGIC.map(s => s[0]), ...bonusEligible(),
+    ...(Object.keys(char.alloc) as Kind[]).flatMap(x => Object.keys(char.alloc[x]))])];
+}
 export function stepSkills(kind: Kind): string[] {
-  if (kind === "bonus") return bonusEligible();
-  return skillsForStage(kind, culture(), career(), char.extras,
-    (Object.keys(POOLS) as Kind[]).flatMap(x => Object.keys(char.alloc[x])));
+  if (kind === "culture") return cultureSkills(culture(), char.cultureSelections.standard, char.cultureSelections.professional, char.cultureSelections.combatStyle);
+  if (kind === "career") return skillsForStage(kind, culture(), career());
+  return bonusEligible();
 }

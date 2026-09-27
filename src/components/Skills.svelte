@@ -1,6 +1,6 @@
 <script lang="ts">
   import { type Kind } from "../lib/rules";
-  import { addExtra, base, capFor, career, char, culture, poolFor, setAlloc, setHobbySkill, skillDefinition, stepSkills, total, used } from "../lib/store.svelte";
+  import { addExtra, base, capFor, career, char, culture, cultureAllocationErrors, poolFor, setAlloc, setHobbySkill, skillDefinition, stepSkills, total, used } from "../lib/store.svelte";
   import StepHead from "./StepHead.svelte";
   import Stepper from "./Stepper.svelte";
   let { kind }: { kind: Kind } = $props();
@@ -9,6 +9,7 @@
   const names = $derived(stepSkills(kind));
   const left = $derived(pool - used(kind));
   const title = $derived({ culture: `Culture · ${culture().name}`, career: `Career · ${career().name}`, bonus: "Bonus skills" }[kind]);
+  const cultureErrors = $derived(cultureAllocationErrors());
   let extra = $state("");
   let extraError = $state("");
 </script>
@@ -18,12 +19,15 @@
   <div class="left"><b>{left}</b><span>points remain <em>of {pool} · max +{cap} per skill</em></span></div>
   <div class="meter"><i style:width="{(pool - left) / pool * 100}%"></i></div>
 </div>
+{#if kind === "culture" && cultureErrors.length}
+  <div class="validation" role="status"><b>Culture allocation incomplete</b><ul>{#each cultureErrors as error}<li>{error}</li>{/each}</ul></div>
+{/if}
 <div class="card skills">
   {#each names as n (n)}
     {@const v = char.alloc[kind][n] ?? 0}
     <div class="skill" class:has={v > 0}>
       <div class="nm"><span>{n}{#if skillDefinition(n).pro}<em>pro</em>{/if}</span><small>base {base(n)}%</small></div>
-      <Stepper label={n} value={v} max={cap} canInc={left > 0} onchange={x => setAlloc(kind, n, x)} />
+      <Stepper label={n} value={v} max={cap} canInc={left >= (kind === "culture" && v === 0 ? 5 : 1)} jumpFromZero={kind === "culture"} onchange={x => setAlloc(kind, n, x)} />
       <div class="tot">{total(n)}%</div>
     </div>
   {/each}
