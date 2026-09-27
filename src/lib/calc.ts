@@ -38,10 +38,11 @@ export function passionStartingValue(category: PassionCategory, chars: Chars, su
 
 export function skillDef(name: string, combatStyles: readonly string[] = []): { f: Term[]; pro: boolean } {
   const b = baseName(name);
+  if (combatStyles.includes(name.trim())) return { f: COMBAT_STYLE[1], pro: true };
   const s = STANDARD.find(x => x[0] === b), p = PROFESSIONAL.find(x => x[0] === b), m = MAGIC.find(x => x[0] === b);
   if (s) return { f: s[1], pro: false };
   if (p || m) return { f: (p ?? m)![1], pro: true };
-  if (b === COMBAT_STYLE[0] || combatStyles.includes(name.trim())) return { f: COMBAT_STYLE[1], pro: true };
+  if (b === COMBAT_STYLE[0]) return { f: COMBAT_STYLE[1], pro: true };
   throw new Error(`Unknown skill "${name}". Use a registered skill or a specialisation of one.`);
 }
 

@@ -4,6 +4,11 @@ export function cultureSkills(culture: Culture, standard: string[][], profession
   return [...new Set([...culture.standard, ...standard.flat(), ...professional, ...(combatStyle ? [combatStyle] : [])])];
 }
 
+/** Drop points for a removed style unless its name remains eligible another way. */
+export function reconcileCultureCombatStyle(previous: string, next: string, otherEligible: readonly string[], allocation: Record<string, number>) {
+  if (previous && previous !== next && !otherEligible.includes(previous)) delete allocation[previous];
+}
+
 export function validateCultureAllocation(culture: Culture, selection: { standard: string[][]; professional: string[]; combatStyle: string }, allocation: Record<string, number>, pool = 100): string[] {
   const errors: string[] = [];
   if (culture.standardChoices.some((g, i) => selection.standard[i]?.length !== g.count ||

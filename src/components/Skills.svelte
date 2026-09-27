@@ -1,6 +1,6 @@
 <script lang="ts">
   import { type Kind } from "../lib/rules";
-  import { addExtra, base, capFor, career, char, culture, cultureAllocationErrors, poolFor, refreshBonusEligibility, setAlloc, setHobbySkill, skillDefinition, stepSkills, toggleCareerProfessional, total, used } from "../lib/store.svelte";
+  import { addExtra, base, capFor, career, char, culture, cultureAllocationErrors, poolFor, refreshBonusEligibility, setAlloc, setCultureCombatStyle, setHobbySkill, skillDefinition, stepSkills, toggleCareerProfessional, total, used } from "../lib/store.svelte";
   import StepHead from "./StepHead.svelte";
   import Stepper from "./Stepper.svelte";
   let { kind }: { kind: Kind } = $props();
@@ -22,12 +22,6 @@
   function toggleCultureProfessional(option: string, checked: boolean) {
     const selected = char.cultureSelections.professional;
     char.cultureSelections.professional = checked ? [...selected, option] : selected.filter(x => x !== option);
-    char.alloc.culture = {};
-    char.cultureMigration = false;
-    refreshBonusEligibility();
-  }
-  function setCulturalCombatStyle(value: string) {
-    char.cultureSelections.combatStyle = value.trim();
     char.alloc.culture = {};
     char.cultureMigration = false;
     refreshBonusEligibility();
@@ -77,9 +71,9 @@
     </div>
     <label class="field"><span>Cultural Combat Style (optional)</span>
       <input class="wide" value={char.cultureSelections.combatStyle} placeholder="Enter one cultural Combat Style, if desired"
-        onchange={e => setCulturalCombatStyle(e.currentTarget.value)}>
+        onchange={e => setCultureCombatStyle(e.currentTarget.value)}>
     </label>
-    <p class="hint">Allocate culture points to the selected Combat Style below when you choose it.</p>
+    <p class="hint">This style is eligible for Culture points and uses its STR + DEX base.</p>
   </section>
 {/if}
 <div class="card skills">

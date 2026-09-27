@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { cultures } from "../src/lib/content";
 import { formulaVal, skillDef } from "../src/lib/calc";
-import { cultureSkills, validateCultureAllocation } from "../src/lib/culture";
+import { cultureSkills, reconcileCultureCombatStyle, validateCultureAllocation } from "../src/lib/culture";
 
 describe("core culture templates", () => {
   test("provide the four official cultures with their conditional skill choices and passions", () => {
@@ -29,6 +29,26 @@ describe("core culture templates", () => {
     const chars = { STR: 10, CON: 10, SIZ: 10, DEX: 10, INT: 10, POW: 10, CHA: 10 } as const;
     expect(formulaVal(skillDef("Customs").f, chars)).toBe(60);
     expect(formulaVal(skillDef("Native Tongue").f, chars)).toBe(60);
+  });
+
+  test("an optional cultural style is eligible with the STR + DEX base", () => {
+    const culture = cultures[0];
+    const standard = culture.standardChoices.map(group => group.options.slice(0, group.count));
+    const style = "Healing";
+    expect(cultureSkills(culture, standard, [], "")).not.toContain("");
+    expect(cultureSkills(culture, standard, [], style)).toContain(style);
+    const chars = { STR: 12, CON: 10, SIZ: 10, DEX: 14, INT: 10, POW: 10, CHA: 10 } as const;
+    expect(formulaVal(skillDef(style, [style]).f, chars)).toBe(26);
+  });
+
+  test("changing or removing a style clears its old points without clearing eligible skills", () => {
+    const allocation = { "Old Style": 10, Athletics: 15 };
+    reconcileCultureCombatStyle("Old Style", "New Style", ["Athletics"], allocation);
+    expect(allocation).toEqual({ Athletics: 15 });
+
+    const overlappingAllocation = { Athletics: 15 };
+    reconcileCultureCombatStyle("Athletics", "", ["Athletics"], overlappingAllocation);
+    expect(overlappingAllocation).toEqual({ Athletics: 15 });
   });
 
   test.each(cultures)("$name accepts a complete 100 point allocation", culture => {

@@ -4,7 +4,7 @@ import { migrateCharacterStep, migrateCultureTables, normalizeAgeCategory, norma
 import { baseName, formulaVal, nativeTongueName, normalizeAge, rollAge, skillDef, sum } from "./calc";
 import { culturePassions } from "./passions";
 import { allocationValue, selectedCareer, selectedCulture, skillsForStage } from "./creation";
-import { cultureSkills, validateCultureAllocation } from "./culture";
+import { cultureSkills, reconcileCultureCombatStyle, validateCultureAllocation } from "./culture";
 import { migrateCharacter } from "./migration";
 import { AGE_CATEGORIES, bonusCap, bonusPool, MAGIC, PER_SKILL_CAP, POOLS, STANDARD, STATS, type AgeCategory, type Chars, type Kind, type PassionCategory } from "./rules";
 
@@ -206,6 +206,16 @@ export function setAlloc(kind: Kind, name: string, v: number) {
       })()
     : allocationValue(v, poolFor(kind), used(kind), a[name] ?? 0, capFor(kind));
   if (n) a[name] = n; else delete a[name];
+}
+export function setCultureCombatStyle(value: string) {
+  const style = value.trim();
+  const previous = char.cultureSelections.combatStyle;
+  if (style === previous) return;
+  reconcileCultureCombatStyle(previous, style,
+    cultureSkills(culture(), char.cultureSelections.standard, char.cultureSelections.professional, ""), char.alloc.culture);
+  char.cultureSelections.combatStyle = style;
+  char.cultureMigration = false;
+  refreshBonusEligibility();
 }
 export function toggleCareerProfessional(name: string) {
   const selected = char.careerProfessional;
