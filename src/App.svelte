@@ -11,7 +11,6 @@
   let open = $state(false);
   const last = STEPS.length - 1;
   const canContinue = $derived(char.generation === "roll" || canFinishPointBuy(char.chars));
-  const canContinue = $derived(char.generation === "roll" || canFinishPointBuy(char.chars));
 
   // Persist on any change and scroll to top when the step changes.
   $effect(() => { JSON.stringify(char); persist(); });

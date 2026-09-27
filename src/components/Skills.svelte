@@ -1,7 +1,7 @@
 <script lang="ts">
   import { skillDef } from "../lib/calc";
   import { type Kind } from "../lib/rules";
-  import { base, capFor, career, char, culture, poolFor, setAlloc, setHobbySkill, stepSkills, total, used } from "../lib/store.svelte";
+  import { addExtra, base, capFor, career, char, culture, poolFor, setAlloc, setHobbySkill, stepSkills, total, used } from "../lib/store.svelte";
   import StepHead from "./StepHead.svelte";
   import Stepper from "./Stepper.svelte";
   let { kind }: { kind: Kind } = $props();
@@ -36,5 +36,8 @@
       <input bind:value={extra} placeholder="One new professional skill or combat style"><button disabled={!extra.trim()}>Add hobby skill</button>
     </form>
   {/if}
-  <p class="mute">Bonus points improve skills learned through culture or career, plus this one optional hobby skill.</p>
+  <form class="card bar" onsubmit={e => { e.preventDefault(); addExtra(extra); extra = ""; }}>
+    <input bind:value={extra} placeholder="Add a custom skill, e.g. Lore (Astronomy)"><button disabled={!extra.trim()}>Add custom skill</button>
+  </form>
+  <p class="mute">Bonus points improve learned skills, custom skills, and this one optional hobby skill.</p>
 {/if}

@@ -104,6 +104,10 @@ export function setAlloc(kind: Kind, name: string, v: number) {
   const n = Math.max(0, Math.min(capFor(kind), room, Math.round(v) || 0));
   if (n) a[name] = n; else delete a[name];
 }
+export function addExtra(name: string) {
+  const v = name.trim();
+  if (v && !char.extras.includes(v)) char.extras.push(v);
+}
 export function setAgeCategory(ageCategory: AgeCategory) {
   char.ageCategory = ageCategory;
   char.age = rollAge(ageCategory);
