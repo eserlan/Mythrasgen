@@ -7,6 +7,7 @@ import { allocationValue, selectedCareer, selectedCulture, skillsForStage } from
 import { cultureSkills, reconcileCultureCombatStyle, validateCultureAllocation } from "./culture";
 import { migrateCharacter } from "./migration";
 import { AGE_CATEGORIES, bonusCap, bonusPool, MAGIC, PER_SKILL_CAP, POOLS, STANDARD, STATS, type AgeCategory, type Chars, type Kind, type PassionCategory } from "./rules";
+import { createCharacterRepository } from "./character-library";
 
 export interface Passion {
   type: "Loyalty" | "Love" | "Hate";
@@ -17,7 +18,7 @@ export interface Passion {
 }
 
 export interface Character {
-  name: string; race: string; nativeLanguage: string; chars: Chars; ageCategory: AgeCategory; age: number; culture: number; career: number;
+  id: string; name: string; race: string; nativeLanguage: string; chars: Chars; ageCategory: AgeCategory; age: number; culture: number; career: number;
   cultureSelections: { standard: string[][]; professional: string[]; combatStyle: string };
   cultureMigration?: boolean;
   alloc: Record<Kind, Record<string, number>>; hobbySkill: string; extras: string[]; careerProfessional: string[]; step: number;
@@ -35,7 +36,6 @@ export interface Character {
   /** True while the landing page is showing. */
   home: boolean;
 }
-const KEY = "mythresgen.v1";
 export const STEPS = ["Concept", "Characteristics", "Culture", "Career", "Bonus Skills", "Background", "Sheet"];
 export const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII"];
 export const INTRO = [
@@ -49,7 +49,7 @@ export const INTRO = [
 ];
 
 const blank = (): Character => ({
-  name: "", race: "", nativeLanguage: "", chars: Object.fromEntries(STATS.map(k => [k, 10])) as Chars,
+  id: "", name: "", race: "", nativeLanguage: "", chars: Object.fromEntries(STATS.map(k => [k, 10])) as Chars,
   ageCategory: "adult", age: rollAge("adult"), culture: 0, career: 0,
   cultureSelections: { standard: [], professional: [], combatStyle: "" },
   alloc: { culture: {}, career: {}, bonus: {} }, hobbySkill: "", extras: [], careerProfessional: [], step: 0,
@@ -70,6 +70,7 @@ function normalize(value: Partial<Character> | null, home = true): Character {
   const normalized = {
     ...fallback,
     ...migrated,
+    id: typeof migrated.id === "string" && migrated.id ? migrated.id : fallback.id,
     career: legacyCareer ? restoreLegacyCareerIndex(migrated.career ?? fallback.career) : migrated.career ?? fallback.career,
     cultureSelections: { ...fallback.cultureSelections, ...migrated.cultureSelections },
     step: migrateCharacterStep(migrated.step ?? fallback.step, !!migrated.background),
@@ -132,14 +133,56 @@ function restoreCareer(character: Character, legacy = false) {
     [name === "Native Tongue" ? nativeTongueName(character.nativeLanguage) : name, points]));
 }
 
-function load(): Character {
-  try { return normalize(JSON.parse(localStorage.getItem(KEY) ?? "null")); } catch { return blank(); }
-}
-export const char: Character = $state(load());
+let browserStorage: Storage | null = null;
+try { browserStorage = typeof localStorage === "undefined" ? null : localStorage; } catch { /* storage blocked */ }
+const repository = createCharacterRepository<Character>(
+  browserStorage ?? { getItem: () => null, setItem: () => {} },
+  () => { const { id: _id, ...data } = blank(); return data; },
+);
+const initialCharacter = repository.getCharacter(repository.getActiveCharacterId() ?? "") ?? repository.createCharacter();
+export const char: Character = $state(normalize(initialCharacter, true));
+export const characterLibrary = $state({ characters: repository.listCharacters() as Character[] });
+function refreshLibrary() { characterLibrary.characters = repository.listCharacters() as Character[]; }
 
-export function persist() { try { localStorage.setItem(KEY, JSON.stringify(char)); } catch { /* storage unavailable */ } }
-export const reset = (home = true) => Object.assign(char, blank(), { home });
-export const replace = (c: Partial<Character>) => Object.assign(char, normalize(c, false));
+export function persist() { repository.saveCharacter({ ...char }); refreshLibrary(); }
+export const reset = (home = true) => Object.assign(char, blank(), { id: char.id, home });
+export const replace = (c: Partial<Character>) => Object.assign(char, normalize({ ...c, id: char.id }, false));
+export function createCharacter() {
+  persist();
+  const created = repository.createCharacter();
+  Object.assign(char, normalize(created, false));
+  refreshLibrary();
+  return created.id;
+}
+export function selectCharacter(id: string) {
+  persist();
+  if (!repository.setActiveCharacter(id)) return false;
+  const selected = repository.getCharacter(id);
+  if (!selected) return false;
+  Object.assign(char, normalize(selected, false));
+  refreshLibrary();
+  return true;
+}
+export function deleteCharacter(id: string) {
+  persist();
+  if (!repository.deleteCharacter(id)) return false;
+  const fallbackId = repository.getActiveCharacterId();
+  const fallback = fallbackId ? repository.getCharacter(fallbackId) : null;
+  if (fallback) Object.assign(char, normalize(fallback, false));
+  else {
+    const created = repository.createCharacter();
+    Object.assign(char, normalize(created, true));
+  }
+  refreshLibrary();
+  return true;
+}
+export function renameCharacter(id: string, name: string) {
+  const existing = repository.getCharacter(id);
+  if (!existing) return;
+  repository.saveCharacter({ ...existing, name: name.trim() });
+  if (char.id === id) char.name = name.trim();
+  refreshLibrary();
+}
 export function setRollResults(results: number[]) {
   if (results.length !== STATS.length) return;
   char.generation = "roll";

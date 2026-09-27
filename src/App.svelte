@@ -6,11 +6,13 @@
   import Sheet from "./components/Sheet.svelte";
   import Skills from "./components/Skills.svelte";
   import Background from "./components/Background.svelte";
+  import Characters from "./components/Characters.svelte";
   import { canFinishPointBuy } from "./lib/calc";
-  import { canVisitStep } from "./lib/navigation";
-  import { canComplete, char, cultureAllocationErrors, persist, replace, reset, ROMAN, STEPS } from "./lib/store.svelte";
+  import { canVisitStep, isLandingView } from "./lib/navigation";
+  import { canComplete, char, createCharacter, cultureAllocationErrors, persist, replace, ROMAN, STEPS } from "./lib/store.svelte";
 
   let open = $state(false);
+  let showLibrary = $state(false);
   const last = STEPS.length - 1;
   const canContinue = $derived(char.generation === "roll" || canFinishPointBuy(char.chars));
   const canVisit = (step: number) => canVisitStep(step, canContinue, cultureAllocationErrors().length === 0)
@@ -35,33 +37,38 @@
     if (!canVisit(last)) return;
     char.step = last; await tick(); window.print();
   }
-  const newChar = () => { if (confirm("Discard this character?")) reset(false); };
+  const newChar = () => { createCharacter(); char.home = false; showLibrary = false; };
 </script>
 
-{#if char.home}
-  <Landing />
+{#if isLandingView(char.home, showLibrary)}
+  <Landing onLibrary={() => { showLibrary = true; }} />
 {:else}
 <header class="noprint" class:open>
   <div class="top">
     <button class="brand" onclick={() => (char.home = true)} title="Back to the start"><span>◆</span> Mythras <em>Chargen</em></button>
     <button class="burger" aria-label="Menu" aria-expanded={open} onclick={() => (open = !open)}>☰</button>
     <div class="tools" role="presentation" onclick={() => (open = false)}>
+      <button onclick={() => (showLibrary = true)}>Characters</button>
       <button onclick={save}>Save</button>
       <label class="btn">Load<input type="file" accept=".json" hidden onchange={loadFile}></label>
       <button onclick={print} disabled={!canVisit(last)}>Print</button>
       <button onclick={newChar}>New</button>
     </div>
   </div>
-  <nav>
-    {#each STEPS as s, i}
-      <button class="step" class:on={i === char.step} class:done={i < char.step} disabled={!canVisit(i)} onclick={() => (char.step = i)}>
-        <i>{i < char.step ? "✓" : ROMAN[i]}</i><span>{s}</span>
-      </button>
-    {/each}
-  </nav>
+  {#if !showLibrary}
+    <nav>
+      {#each STEPS as s, i}
+        <button class="step" class:on={i === char.step} class:done={i < char.step} disabled={!canVisit(i)} onclick={() => (char.step = i)}>
+          <i>{i < char.step ? "✓" : ROMAN[i]}</i><span>{s}</span>
+        </button>
+      {/each}
+    </nav>
+  {/if}
 </header>
 
-<main>
+{#if showLibrary}
+  <main><Characters onOpen={() => (showLibrary = false)} onBack={() => (showLibrary = false)} /></main>
+{:else}<main>
   {#key char.step}<div class="page">
   {#if char.step === 0}<Concept />
   {:else if char.step === 1}<Characteristics />
@@ -76,5 +83,5 @@
     {#if char.step > 0}<button onclick={() => char.step--}>← {STEPS[char.step - 1]}</button>{:else}<span></span>{/if}
     {#if char.step < last}<button class="primary" disabled={!canVisit(char.step + 1)} onclick={() => (char.step += 1)}>{char.step === 1 && !canContinue ? "Finish characteristics" : char.step === 4 && !canComplete() ? "Spend all bonus points" : `${STEPS[char.step + 1]} →`}</button>{/if}
   </div>
-</main>
+</main>{/if}
 {/if}
