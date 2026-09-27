@@ -1,7 +1,7 @@
 <script lang="ts">
   import StepHead from "./StepHead.svelte";
   import { char, availableMoney, eventCount, moneyMultiplier, roll4d6, rollDie, rollPercentile, startingMoney } from "../lib/store.svelte";
-  import { CONNECTIONS, CONNECTION_TYPES, EXTENDED_FAMILY, FAMILY_STANDING, PARENTS, SIBLINGS, SOCIAL_CLASSES, socialClassForRoll, tableResult } from "../lib/background-rules";
+  import { CONNECTIONS, CONNECTION_TYPES, EXTENDED_FAMILY, FAMILY_STANDING, PARENTS, SIBLINGS, SOCIAL_CLASSES, setBackgroundEventResult, socialClassForRoll, tableResult } from "../lib/background-rules";
   import { cultures, type CultureKind } from "../lib/content";
   import { AGE_CATEGORIES } from "../lib/rules";
 
@@ -58,16 +58,11 @@
   function rollEvent(index: number) {
     const result = rollPercentile();
     chosenResults[index] = result;
-    background.events[index] = { roll: result, text: "", source: "rolled" };
+    background.events[index] = setBackgroundEventResult(background.events[index], result, "rolled");
   }
   function chooseEvent(index: number) {
     const result = Math.max(1, Math.min(100, Math.round(chosenResults[index] || 1)));
-    const current = background.events[index];
-    background.events[index] = {
-      roll: result,
-      text: current.roll === result ? current.text : "",
-      source: "chosen",
-    };
+    background.events[index] = setBackgroundEventResult(background.events[index], result, "chosen");
     chosenResults[index] = result;
   }
   function clearArchivedEvents() {

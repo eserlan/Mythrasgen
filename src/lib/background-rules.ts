@@ -39,6 +39,18 @@ export function isResolvedBackgroundEvent(event: BackgroundEvent): boolean {
   return Number.isInteger(event.roll) && event.roll >= 1 && event.roll <= 100;
 }
 
+export function setBackgroundEventResult(
+  current: BackgroundEvent,
+  roll: number,
+  source: NonNullable<BackgroundEvent["source"]>,
+): BackgroundEvent {
+  return {
+    roll,
+    text: !isResolvedBackgroundEvent(current) || current.roll === roll ? current.text : "",
+    source,
+  };
+}
+
 function isMeaningfulBackgroundEvent(event: BackgroundEvent): boolean {
   return isResolvedBackgroundEvent(event) || !!event.text.trim() || !!event.source;
 }
