@@ -37,7 +37,7 @@
     <div class="card bar"><span>Hobby skill: <b>{char.hobbySkill}</b></span><button type="button" onclick={() => { setHobbySkill(""); extra = ""; }}>Remove</button></div>
   {:else}
     <form class="card bar" onsubmit={e => { e.preventDefault(); setHobbySkill(extra); extra = ""; }}>
-      <input bind:value={extra} placeholder="One new professional skill or combat style"><button disabled={!extra.trim()}>Add hobby skill</button>
+      <input bind:value={extra} aria-label="New professional hobby skill or combat style" placeholder="One new professional skill or combat style"><button disabled={!extra.trim()}>Add hobby skill</button>
     </form>
   {/if}
   <form class="card bar" onsubmit={e => {
