@@ -36,7 +36,7 @@ export const INTRO = [
 
 const blank = (): Character => ({
   name: "", chars: Object.fromEntries(STATS.map(k => [k, 10])) as Chars, culture: 0, career: 0,
-  alloc: { culture: {}, career: {}, bonus: {} }, extras: [], step: 0, home: true,
+  alloc: { culture: {}, career: {}, bonus: {} }, extras: [], step: 0,
   ageCategory: "Adult", age: 22, socialTable: "Civilised", moneyTable: "Civilised",
   background: { events: [{ roll: 0, text: "" }], socialClassRoll: 50, socialClass: "Freeman",
     parentsRoll: 50, parents: "", siblingsRoll: 50, siblings: "", extendedFamilyRoll: 50, extendedFamily: "",
