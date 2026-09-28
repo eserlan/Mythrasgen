@@ -3,7 +3,7 @@ import { detectMagicDisciplines, emptyMagicState, normalizeMagicState, reconcile
 import { careers } from "../src/lib/content";
 import {
   calculateFolkMagicStartingEntitlement, CORE_FOLK_MAGIC_CAREER_SUGGESTIONS, CORE_FOLK_MAGIC_SPELLS,
-  FOLK_MAGIC_SPECIALIST_ENTITLEMENT, resolveFolkMagicCareerSuggestion,
+  FOLK_MAGIC_SPECIALIST_ENTITLEMENT, folkMagicConfigurationStatus, resolveFolkMagicCareerSuggestion,
 } from "../src/lib/folk-magic";
 
 (globalThis as typeof globalThis & { $state: <T>(value: T) => T }).$state = value => value;
@@ -51,6 +51,18 @@ describe("Folk Magic rules data", () => {
     expect(calculateFolkMagicStartingEntitlement(undefined)).toMatchObject({ skillValue: 0, count: 0, rate: 20 });
     expect(calculateFolkMagicStartingEntitlement(46, { id: "campaign-rate", rate: 15, reason: "Campaign rule" }))
       .toMatchObject({ ruleId: "campaign-rate", rate: 15, count: 4, reason: "Campaign rule" });
+  });
+
+  test("requires an exact known-spell count and preserves selections when entitlement falls", () => {
+    expect(folkMagicConfigurationStatus(3, 3)).toBe("complete");
+    expect(folkMagicConfigurationStatus(3, 3, true)).toBe("action-required");
+    expect(folkMagicConfigurationStatus(2, 3)).toBe("action-required");
+    expect(folkMagicConfigurationStatus(4, 3)).toBe("action-required");
+    const knownSpells = ["folk-magic:alarm", "folk-magic:find", "folk-magic:heal"];
+    const lowerEntitlement = calculateFolkMagicStartingEntitlement(21);
+    expect(lowerEntitlement.count).toBe(2);
+    expect(knownSpells).toHaveLength(3);
+    expect(folkMagicConfigurationStatus(knownSpells.length, lowerEntitlement.count)).toBe("action-required");
   });
 
   test("maps canonical careers to advisory lists and represents Any as unrestricted", () => {
