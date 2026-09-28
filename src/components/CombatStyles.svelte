@@ -61,7 +61,7 @@
         <button type="submit" disabled={!additions[style.id]?.trim()}>Add weapon</button>
       </form>
 
-      <h4>Combat Style Traits</h4>
+      <h4>Traits</h4>
       {#if style.traits.length}
         <ul class="combat-traits">{#each style.traits as trait (trait.id)}
           <li><b>{trait.displayName}</b>{#if trait.description}<span> — {trait.description}</span>{/if}
