@@ -160,8 +160,8 @@
         <div class="picked-traits" aria-live="polite">
           <b>Selected traits ({pickedCoreTraits.length + (customTraitName.trim() ? 1 : 0)})</b>
           {#if pickedCoreTraits.length || customTraitName.trim()}
-            <ul>{#each pickedCoreTraits as trait (trait.id)}<li>{trait.displayName} <button type="button" class="ghost" aria-label={`Remove ${trait.displayName}`} onclick={() => pickedTraits = pickedTraits.filter(id => id !== trait.id)}>Remove</button></li>{/each}
-              {#if customTraitName.trim()}<li>{customTraitName.trim()} <span class="custom-trait-badge">Custom / Campaign</span></li>{/if}</ul>
+            <ul class="picked-trait-chips">{#each pickedCoreTraits as trait (trait.id)}<li class="picked-trait-chip"><span class="picked-trait-name">{trait.displayName}</span><button type="button" class="ghost picked-trait-remove" aria-label={`Remove ${trait.displayName}`} onclick={() => pickedTraits = pickedTraits.filter(id => id !== trait.id)}><span aria-hidden="true">×</span></button></li>{/each}
+              {#if customTraitName.trim()}<li class="picked-trait-chip"><span class="picked-trait-name">{customTraitName.trim()} <span class="custom-trait-badge">Custom / Campaign</span></span><button type="button" class="ghost picked-trait-remove" aria-label={`Remove ${customTraitName.trim()}`} onclick={() => { customTraitName = ""; customTraitDescription = ""; }}><span aria-hidden="true">×</span></button></li>{/if}</ul>
           {:else}<p class="mute">No traits selected.</p>{/if}
         </div>
       </section>
