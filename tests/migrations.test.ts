@@ -41,7 +41,8 @@ describe("imported background normalization", () => {
     socialClassCulture: "Civilised" as const, socialClassMethod: "rolled" as const, socialClassMoney: 1,
     socialClassEquipment: "Tools", socialClassResources: "Rented accommodation",
     parentsRoll: 50, parents: "", siblingsRoll: 50, siblings: "", extendedFamilyRoll: 50, extendedFamily: "",
-    standingRoll: 50, familyTies: [], connectionsRoll: 50, connections: [], startingMoneyRoll: 14,
+    standingRoll: 50, standingResolved: false, familyReputationCountRoll: 0, familyTies: [],
+    connectionsRoll: 50, connectionsResolved: false, connections: [], relationships: [], startingMoneyRoll: 14,
     equipment: "Tools", purchases: [],
   };
 
@@ -63,6 +64,33 @@ describe("imported background normalization", () => {
     expect(value.events).toEqual([{ roll: 0, eventId: "40-41", source: "chosen" }]);
     expect(value.archivedEvents).toEqual([{ roll: 12, eventId: "11-12" }]);
     expect(value.purchases).toEqual([{ name: "Torch", cost: 2 }]);
+  });
+
+  test("migrates legacy family ties and connections into sourced relationship records", () => {
+    const value = normalizeBackground({ familyTies: ["Enemy", "Ally"], connections: ["Rival"] }, fallback);
+    expect(value.relationships).toEqual([
+      { source: "reputation", allowedTypes: ["Enemy", "Rival"], type: "Enemy", name: "" },
+      { source: "reputation", allowedTypes: ["Contact", "Ally"], type: "Ally", name: "" },
+      { source: "connections", allowedTypes: ["Ally", "Contact", "Enemy", "Rival"], type: "Rival", name: "" },
+    ]);
+  });
+
+  test("preserves generated relationship provenance, constraints, identity and subsidiary count roll", () => {
+    const value = normalizeBackground({
+      familyReputationCountRoll: 2,
+      relationships: [{ source: "reputation", allowedTypes: ["Enemy", "Rival"], type: "Rival", name: "Gundleus the Sage" }],
+    }, fallback);
+    expect(value.familyReputationCountRoll).toBe(2);
+    expect(value.relationships[0]).toEqual({
+      source: "reputation", allowedTypes: ["Enemy", "Rival"], type: "Rival", name: "Gundleus the Sage",
+    });
+  });
+
+  test("treats legacy default percentile placeholders as unrolled optional tables", () => {
+    const value = normalizeBackground({ standingRoll: 50, connectionsRoll: 50 }, fallback);
+    expect(value.standingResolved).toBe(false);
+    expect(value.connectionsResolved).toBe(false);
+    expect(normalizeBackground({ standingRoll: 50, familyTies: ["Enemy"] }, fallback).standingResolved).toBe(true);
   });
 
   test("migrates saved event text to catalogue identity and keeps actual random rolls", () => {

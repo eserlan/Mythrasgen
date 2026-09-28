@@ -13,6 +13,7 @@ import { availableFrames, bodyRanges, FRAMES, isInRange, reconcileMeasurements, 
 import { attachCharacterStyle, CORE_COMBAT_STYLES, detachCharacterStyle, legacyCombatStyle, normalizeCombatStyles, type CharacterCombatStyle, type CombatStyleSelection } from "./combat-styles";
 import { hasMeaningfulSpecialisation, requiresSpecialisation, resolveSkillTemplate, specialisationStageErrors } from "./specialisations";
 import { hobbySkillName, restoreHobbySkill, type HobbySkill } from "./hobby-skills";
+import type { FamilyRelationship } from "./family-relationships";
 
 export interface Passion {
   type: "Loyalty" | "Love" | "Hate";
@@ -38,8 +39,8 @@ export interface Character {
     socialClassCulture: CultureKind; socialClassMethod: "rolled" | "chosen"; socialClassMoney: number;
     socialClassEquipment: string; socialClassResources: string;
     parentsRoll: number; parents: string; siblingsRoll: number; siblings: string; extendedFamilyRoll: number; extendedFamily: string;
-    standingRoll: number; familyTies: string[]; connectionsRoll: number;
-    connections: string[]; startingMoneyRoll: number; equipment: string;
+    standingRoll: number; standingResolved: boolean; familyReputationCountRoll: number; familyTies: string[]; connectionsRoll: number;
+    connectionsResolved: boolean; connections: string[]; relationships: FamilyRelationship[]; startingMoneyRoll: number; equipment: string;
     purchases: { name: string; cost: number }[];
   };
   socialTable: CultureKind;
@@ -74,8 +75,9 @@ const blank = (): Character => ({
   background: { events: [{ roll: 0, text: "" }], archivedEvents: [], socialClassRoll: 50, socialClass: "Freeman",
     socialClassCulture: "Barbarian", socialClassMethod: "rolled", socialClassMoney: 1,
     socialClassEquipment: "Tools; simple weapons", socialClassResources: "Rented accommodation; may own a few livestock",
-    parentsRoll: 50, parents: "", siblingsRoll: 50, siblings: "", extendedFamilyRoll: 50, extendedFamily: "",
-    standingRoll: 50, familyTies: [], connectionsRoll: 50, connections: [], startingMoneyRoll: 14,
+    parentsRoll: 0, parents: "", siblingsRoll: 0, siblings: "", extendedFamilyRoll: 0, extendedFamily: "",
+    standingRoll: 0, standingResolved: false, familyReputationCountRoll: 0, familyTies: [], connectionsRoll: 0,
+    connectionsResolved: false, connections: [], relationships: [], startingMoneyRoll: 14,
     equipment: "Tools; simple weapons; rented accommodation", purchases: [] },
   generation: "pointBuy", rollResults: null, rollAssignments: STATS.map((_, i) => i), home: true,
 });

@@ -1,7 +1,8 @@
 <script lang="ts">
   import StepHead from "./StepHead.svelte";
   import { char, availableMoney, eventCount, moneyMultiplier, resolveSocialClass, roll4d6, rollDie, rollPercentile, socialClassReady, startingMoney } from "../lib/store.svelte";
-  import { CONNECTIONS, CONNECTION_TYPES, EXTENDED_FAMILY, FAMILY_STANDING, PARENTS, SIBLINGS, SOCIAL_CLASSES, chooseBackgroundEvent, rollUniqueBackgroundResult, setBackgroundEventResult, socialClassForRoll, tableResult, resolveBackgroundEvent } from "../lib/background-rules";
+  import { CONNECTIONS, EXTENDED_FAMILY, FAMILY_STANDING, PARENTS, SIBLINGS, SOCIAL_CLASSES, chooseBackgroundEvent, rollUniqueBackgroundResult, setBackgroundEventResult, socialClassForRoll, tableResult, resolveBackgroundEvent } from "../lib/background-rules";
+  import { ALL_RELATIONSHIP_TYPES, reconcileFamilyRelationships, resolveFamilyRelationshipCount } from "../lib/family-relationships";
   import { CORE_BACKGROUND_EVENTS } from "../lib/background-events";
   import { cultures } from "../lib/content";
   import { AGE_CATEGORIES } from "../lib/rules";
@@ -50,15 +51,16 @@
   }
   function rollStanding(roll = rollPercentile()) {
     background.standingRoll = roll;
-    const result = tableResult(FAMILY_STANDING, roll)[3];
-    const count = result.startsWith("None") ? 0 : result.includes("1d3") ? rollDie(3) : 1;
-    const options = result.includes("Enemy") ? ["Enemy", "Rival"] : ["Contact", "Ally"];
-    background.familyTies = Array.from({ length: count }, () => options[rollDie(options.length) - 1]);
+    background.standingResolved = true;
+    const resolved = resolveFamilyRelationshipCount(String(tableResult(FAMILY_STANDING, roll)[3]), rollDie);
+    background.familyReputationCountRoll = resolved.countRoll;
+    background.relationships = reconcileFamilyRelationships(background.relationships, "reputation", resolved.count, resolved.allowedTypes);
   }
   function rollConnections(roll = rollPercentile()) {
     background.connectionsRoll = roll;
-    const count = tableResult(CONNECTIONS, background.connectionsRoll)[3];
-    background.connections = Array.from({ length: count }, () => CONNECTION_TYPES[rollDie(4) - 1]);
+    background.connectionsResolved = true;
+    const resolved = resolveFamilyRelationshipCount(String(tableResult(CONNECTIONS, roll)[3]), rollDie);
+    background.relationships = reconcileFamilyRelationships(background.relationships, "connections", resolved.count, ALL_RELATIONSHIP_TYPES);
   }
   function rollEvent(index: number) {
     const taken = background.events.filter((_, i) => i !== index).map(event => resolveBackgroundEvent(event)?.range ?? "");
@@ -175,18 +177,59 @@
   </div>
 </dialog>
 
-<section class="card">
-  <h3>Parents, family &amp; connections</h3>
+<section class="card family-background">
+  <h3>Parents, Family &amp; Connections</h3>
   <div class="family-grid">
-    <div><p class="label">Parents · d100</p><button type="button" onclick={rollParents}>Roll parents</button> <b>{background.parentsRoll}</b><input aria-label="Parents" bind:value={background.parents} placeholder="Choose or record parents" /></div>
-    <div><p class="label">Siblings · d100</p><button type="button" onclick={rollSiblings}>Roll siblings</button> <b>{background.siblingsRoll}</b><input aria-label="Siblings" bind:value={background.siblings} placeholder="Choose or record siblings" /></div>
-    <div><p class="label">Extended family · d100</p><button type="button" onclick={rollExtendedFamily}>Roll extended family</button> <b>{background.extendedFamilyRoll}</b><input aria-label="Extended family" bind:value={background.extendedFamily} placeholder="Choose or record extended family" /></div>
-    <div><p class="label">Family standing · d100</p><div class="field-row"><input aria-label="Family standing roll" type="number" min="1" max="100" bind:value={background.standingRoll} /><button type="button" onclick={() => rollStanding()}>Roll</button><button type="button" onclick={() => rollStanding(background.standingRoll)}>Apply</button></div><p>{standing[2]}</p>
-      {#each background.familyTies as tie, i}<label class="field"><span>Family tie {i + 1}</span><select bind:value={background.familyTies[i]}>{#each tie === "Enemy" || tie === "Rival" ? ["Enemy", "Rival"] : ["Contact", "Ally"] as type}<option>{type}</option>{/each}</select></label>{/each}
-    </div>
-    <div><p class="label">Connections · d100</p><div class="field-row"><input aria-label="Connections roll" type="number" min="1" max="100" bind:value={background.connectionsRoll} /><button type="button" onclick={() => rollConnections()}>Roll</button><button type="button" onclick={() => rollConnections(background.connectionsRoll)}>Apply</button></div><p>{connectionBand[2]}</p>
-      {#each background.connections as relation, i}<label class="field"><span>Connection {i + 1}</span><select bind:value={background.connections[i]}>{#each CONNECTION_TYPES as type}<option>{type}</option>{/each}</select></label>{/each}
-    </div>
+    <article class="family-result">
+      <h4>Parents</h4>
+      {#if background.parents}<p role="status">{background.parents} <small>(rolled {background.parentsRoll})</small></p>{:else}<p class="mute">Not rolled</p>{/if}
+      <button type="button" class="ghost" onclick={rollParents}>{background.parents ? "Reroll" : "Roll"}</button>
+    </article>
+    <article class="family-result">
+      <h4>Siblings</h4>
+      {#if background.siblings}<p role="status">{background.siblings} <small>(rolled {background.siblingsRoll})</small></p>{:else}<p class="mute">Not rolled</p>{/if}
+      <button type="button" class="ghost" onclick={rollSiblings}>{background.siblings ? "Reroll" : "Roll"}</button>
+    </article>
+    <article class="family-result">
+      <h4>Extended Family</h4>
+      {#if background.extendedFamily}<p role="status">{background.extendedFamily} <small>(rolled {background.extendedFamilyRoll})</small></p>{:else}<p class="mute">Not rolled</p>{/if}
+      <button type="button" class="ghost" onclick={rollExtendedFamily}>{background.extendedFamily ? "Reroll" : "Roll"}</button>
+    </article>
+  </div>
+  <div class="family-generation-grid">
+    <article class="family-result">
+      <h4>Family Reputation</h4>
+      {#if background.standingResolved}
+        <p role="status">{standing[2]} <small>(rolled {background.standingRoll})</small></p>
+        {#if String(standing[3]).startsWith("None")}<p class="family-generates">Generates: none</p>{:else}<p class="family-generates">Generates: {standing[3]}{#if background.familyReputationCountRoll}<small> (count roll {background.familyReputationCountRoll})</small>{/if}</p>{/if}
+      {:else}<p class="mute">Not rolled</p>{/if}
+      <button type="button" class="ghost" onclick={() => rollStanding()}>{background.standingResolved ? "Reroll" : "Roll"}</button>
+    </article>
+    <article class="family-result">
+      <h4>Connections</h4>
+      {#if background.connectionsResolved}
+        <p role="status">{connectionBand[2]} <small>(rolled {background.connectionsRoll})</small></p>
+        <p class="family-generates">Generates: {connectionBand[3]} relationship{connectionBand[3] === 1 ? "" : "s"}</p>
+      {:else}<p class="mute">Not rolled</p>{/if}
+      <button type="button" class="ghost" onclick={() => rollConnections()}>{background.connectionsResolved ? "Reroll" : "Roll"}</button>
+    </article>
+  </div>
+  <div class="family-relationships">
+    <h4>Allies, Contacts, Rivals &amp; Enemies</h4>
+    {#if background.relationships.length}
+      <div class="relationship-list">
+        {#each background.relationships as relationship, i (relationship)}
+          <div class="relationship-row">
+            <b>{i + 1}.</b>
+            <select aria-label="Relationship {i + 1} type" bind:value={relationship.type}>
+              {#each relationship.allowedTypes as type}<option value={type}>{type}</option>{/each}
+            </select>
+            <input aria-label="Relationship {i + 1} name or identity" bind:value={relationship.name} placeholder="Name or identity" />
+            <small>{relationship.source === "reputation" ? "Family Reputation" : "Connections"}</small>
+          </div>
+        {/each}
+      </div>
+    {:else}<p class="mute">Roll Family Reputation or Connections to generate relationships.</p>{/if}
   </div>
 </section>
 
