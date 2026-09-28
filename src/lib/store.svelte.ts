@@ -12,6 +12,7 @@ import { swapAssignedValues } from "./characteristics";
 import { availableFrames, bodyRanges, FRAMES, isInRange, reconcileMeasurements, type Frame } from "./body";
 import { attachCharacterStyle, CORE_COMBAT_STYLES, detachCharacterStyle, legacyCombatStyle, normalizeCombatStyles, type CharacterCombatStyle, type CombatStyleSelection } from "./combat-styles";
 import { hasMeaningfulSpecialisation, requiresSpecialisation, resolveSkillTemplate, specialisationStageErrors } from "./specialisations";
+import { hobbySkillName, restoreHobbySkill, type HobbySkill } from "./hobby-skills";
 
 export interface Passion {
   type: "Loyalty" | "Love" | "Hate";
@@ -30,7 +31,7 @@ export interface Character {
   combatStyles: CharacterCombatStyle[];
   skillSpecialisations: { culture: Record<string, string>; career: Record<string, string> };
   cultureMigration?: boolean;
-  alloc: Record<Kind, Record<string, number>>; hobbySkill: string; extras: string[]; careerProfessional: string[]; careerCombatStyles: string[]; step: number;
+  alloc: Record<Kind, Record<string, number>>; hobbySkill: HobbySkill | null; careerProfessional: string[]; careerCombatStyles: string[]; step: number;
   passionsEnabled: boolean; passions: Passion[];
   background: {
     events: BackgroundEvent[]; archivedEvents: BackgroundEvent[]; socialClassRoll: number; socialClass: string;
@@ -67,7 +68,7 @@ const blank = (): Character => ({
   combatStyles: [],
   cultureSelections: { standard: [], professional: [], combatStyle: "" },
   skillSpecialisations: { culture: {}, career: {} },
-  alloc: { culture: {}, career: {}, bonus: {} }, hobbySkill: "", extras: [], careerProfessional: [], careerCombatStyles: [], step: 0,
+  alloc: { culture: {}, career: {}, bonus: {} }, hobbySkill: null, careerProfessional: [], careerCombatStyles: [], step: 0,
   passionsEnabled: false, passions: [],
   socialTable: "Barbarian", moneyTable: "Barbarian",
   background: { events: [{ roll: 0, text: "" }], archivedEvents: [], socialClassRoll: 50, socialClass: "Freeman",
@@ -86,6 +87,7 @@ function normalize(value: Partial<Character> | null, home = true): Character {
       : {};
   const fallback = blank();
   const migrated = migrateCharacter(value ?? fallback);
+  const legacyHobby = migrated.hobbySkill;
   const legacyCareer = !!value && value.career !== undefined && !Array.isArray(value.careerProfessional);
   const cultureKind = cultures[migrated.culture ?? fallback.culture]?.kind;
   const ageCategory = normalizeAgeCategory(migrated.ageCategory, fallback.ageCategory);
@@ -106,10 +108,9 @@ function normalize(value: Partial<Character> | null, home = true): Character {
     age: normalizeAge(Number.isFinite(migrated.age) ? migrated.age! : fallback.age, ageCategory),
     background: normalizeBackground(migrated.background, fallback.background),
     alloc: { ...fallback.alloc, ...(migrated.alloc ?? {}) },
-    extras: Array.isArray(migrated.extras) ? migrated.extras.filter(x => typeof x === "string") : [],
     careerProfessional: Array.isArray(migrated.careerProfessional) ? migrated.careerProfessional : [],
     careerCombatStyles: Array.isArray(migrated.careerCombatStyles) ? migrated.careerCombatStyles.filter(name => typeof name === "string") : [],
-    hobbySkill: typeof migrated.hobbySkill === "string" ? migrated.hobbySkill : "",
+    hobbySkill: null,
     race: normalizeRace(migrated.race),
     ...normalizeIdentityFields(migrated),
     nativeLanguage: typeof migrated.nativeLanguage === "string" ? migrated.nativeLanguage : "",
@@ -118,8 +119,9 @@ function normalize(value: Partial<Character> | null, home = true): Character {
   const legacyNames = [
     ...(normalized.cultureSelections.combatStyle ? [[normalized.cultureSelections.combatStyle, "culture"] as const] : []),
     ...normalized.careerCombatStyles.filter(Boolean).map(name => [name, "career"] as const),
-    ...(normalized.hobbySkill && (/^Combat Style \(/.test(normalized.hobbySkill)
-      || CORE_COMBAT_STYLES.some(style => style.name === normalized.hobbySkill)) ? [[normalized.hobbySkill, "bonus"] as const] : []),
+    ...(typeof legacyHobby === "string" && (/^Combat Style \(/.test(legacyHobby)
+      || CORE_COMBAT_STYLES.some(style => style.name === legacyHobby)
+      || normalized.combatStyles.some(style => style.name === legacyHobby)) ? [[legacyHobby, "bonus"] as const] : []),
     ...(["culture", "career", "bonus"] as const).flatMap(origin => Object.keys(normalized.alloc[origin] ?? {})
       .filter(name => /^Combat Style \(.+\)$/.test(name)).map(name => [name, origin] as const)),
   ];
@@ -131,6 +133,9 @@ function normalize(value: Partial<Character> | null, home = true): Character {
       normalized.combatStyles = attachCharacterStyle(normalized.combatStyles, legacyCombatStyle(name, origin), origin);
     }
   }
+  normalized.hobbySkill = restoreHobbySkill(legacyHobby, [
+    ...CORE_COMBAT_STYLES.map(style => style.name), ...normalized.combatStyles.map(style => style.name),
+  ]);
   const resolvedCulture = (migrated.background as Partial<Character["background"]> | undefined)?.socialClassCulture
     ?? migrated.socialTable ?? cultureKind ?? "Civilised";
   normalized.socialTable = cultureKind ?? "Civilised";
@@ -197,15 +202,17 @@ function normalize(value: Partial<Character> | null, home = true): Character {
     ...normalized.careerProfessional.filter(template => requiresSpecialisation(template)
       && !resolveSkillTemplate(template, normalized.skillSpecialisations.career[template])),
   ]);
+  const hobbyName = hobbySkillName(normalized.hobbySkill);
   let validHobby = false;
-  if (normalized.hobbySkill) {
-    try { validHobby = skillDef(normalized.hobbySkill, [normalized.cultureSelections.combatStyle, ...normalized.careerCombatStyles,
-      ...normalized.combatStyles.map(style => style.name), ...normalized.extras].filter(Boolean)).pro; }
-    catch { /* discard invalid legacy hobby skills */ }
+  if (normalized.hobbySkill?.type === "combatStyle") {
+    validHobby = normalized.combatStyles.some(style => style.name === hobbyName)
+      || CORE_COMBAT_STYLES.some(style => style.name === hobbyName);
+  } else if (normalized.hobbySkill?.type === "professionalSkill") {
+    try { validHobby = skillDef(hobbyName).pro; } catch { /* discard invalid legacy hobby skills */ }
   }
-  if (learned.has(normalized.hobbySkill) || (normalized.hobbySkill && !validHobby)) normalized.hobbySkill = "";
+  if (learned.has(hobbyName) || (normalized.hobbySkill && !validHobby)) normalized.hobbySkill = null;
   normalized.alloc.bonus = Object.fromEntries(Object.entries(normalized.alloc.bonus ?? {}).filter(([name]) =>
-    learned.has(name) || unresolvedProfessionalTemplates.has(name) || normalized.extras.includes(name) || name === normalized.hobbySkill));
+    learned.has(name) || unresolvedProfessionalTemplates.has(name) || name === hobbyName && !!normalized.hobbySkill));
   if (normalized.step === STEPS.length - 1 && sum(Object.values(normalized.alloc.bonus)) < bonusPool(normalized.ageCategory)) normalized.step = 4;
   return normalized;
 }
@@ -410,7 +417,7 @@ export function reconcileCultureSelection() {
 }
 
 const combatStyles = () => [char.cultureSelections.combatStyle, ...char.careerCombatStyles,
-  ...char.combatStyles.map(style => style.name), ...(career().combatStyle ?? []), ...char.extras, char.hobbySkill].filter(Boolean);
+  ...char.combatStyles.map(style => style.name), ...(career().combatStyle ?? []), hobbySkillName(char.hobbySkill)].filter(Boolean);
 // Keep older saved specialisations renderable when their source skill is not registered.
 export const skillDefinition = (n: string) => skillDef(n, combatStyles());
 export const base = (n: string) => formulaVal(skillDefinition(n).f, char.chars);
@@ -461,10 +468,11 @@ export function chooseCultureCombatStyle(definition: CombatStyleSelection | null
   setCultureCombatStyle(name, definition ?? undefined);
 }
 export function chooseBonusCombatStyle(definition: CombatStyleSelection | null) {
-  if (!definition) { setHobbySkill(""); return; }
-  const alreadyKnown = learnedSkills().includes(definition.name);
+  if (!definition) { clearHobbySkill(); return; }
+  if (learnedSkills().includes(definition.name)) return;
+  clearHobbySkill();
   char.combatStyles = attachCharacterStyle(char.combatStyles, definition, "bonus");
-  if (!alreadyKnown) setHobbySkill(definition.name);
+  char.hobbySkill = { type: "combatStyle", name: definition.name };
 }
 export function chooseCareerCombatStyle(slot: number, definition: CombatStyleSelection | null) {
   if (slot < 0 || slot >= (career().combatStyle?.length ?? 0)) return;
@@ -486,13 +494,6 @@ export function toggleCareerProfessional(name: string) {
     reconcileStageAllocation("career");
     refreshBonusEligibility();
   }
-}
-export function addExtra(name: string): boolean {
-  const v = name.trim();
-  if (!v || char.extras.includes(v)) return false;
-  try { skillDef(v, combatStyles()); } catch { return false; }
-  char.extras.push(v);
-  return true;
 }
 export function setAgeCategory(ageCategory: AgeCategory) {
   char.ageCategory = ageCategory;
@@ -517,40 +518,38 @@ export function setNativeLanguage(language: string) {
   }
 }
 export function rollCharacterAge() { char.age = rollAge(char.ageCategory); }
-export function setHobbySkill(name: string) {
-  const v = name.trim();
-  if (!v) {
-    if (char.hobbySkill) {
-      delete char.alloc.bonus[char.hobbySkill];
-      char.combatStyles = detachCharacterStyle(char.combatStyles, char.hobbySkill, "bonus");
-    }
-    char.hobbySkill = "";
+function clearHobbySkill() {
+  const previous = hobbySkillName(char.hobbySkill);
+  if (previous) {
+    delete char.alloc.bonus[previous];
+    if (char.hobbySkill?.type === "combatStyle") char.combatStyles = detachCharacterStyle(char.combatStyles, previous, "bonus");
+  }
+  char.hobbySkill = null;
+}
+export { clearHobbySkill };
+export function setHobbyProfessionalSkill(template: string, specialisation = "") {
+  const choice = restoreHobbySkill({ type: "professionalSkill", template, specialisation, name: "" });
+  if (choice?.type !== "professionalSkill") {
+    if (char.hobbySkill?.type === "professionalSkill" && char.hobbySkill.template === template) clearHobbySkill();
     return;
   }
-  if (v === char.hobbySkill) return;
-  let professional = false;
-  try { professional = skillDefinition(v).pro; } catch { return; }
-  if (professional && !learnedSkills().includes(v)) {
-    const previous = char.hobbySkill;
-    if (previous) {
-      delete char.alloc.bonus[previous];
-      char.combatStyles = detachCharacterStyle(char.combatStyles, previous, "bonus");
-    }
-    char.hobbySkill = v;
+  if (learnedSkills().includes(choice.name)) {
+    if (char.hobbySkill?.type === "professionalSkill" && char.hobbySkill.template === template) clearHobbySkill();
+    return;
   }
+  if (hobbySkillName(char.hobbySkill) === choice.name && char.hobbySkill?.type === "professionalSkill") return;
+  clearHobbySkill();
+  char.hobbySkill = choice;
 }
 export function refreshBonusEligibility() {
-  if (char.hobbySkill && learnedSkills().includes(char.hobbySkill)) {
-    delete char.alloc.bonus[char.hobbySkill];
-    char.hobbySkill = "";
-  }
+  if (char.hobbySkill && learnedSkills().includes(hobbySkillName(char.hobbySkill))) clearHobbySkill();
   const eligible = new Set(bonusEligible());
   for (const name of Object.keys(char.alloc.bonus)) if (!eligible.has(name)) delete char.alloc.bonus[name];
 }
 export const canComplete = () => used("bonus") === bonusPool(char.ageCategory);
 
 export function bonusEligible(): string[] {
-  return [...new Set([...learnedSkills(), ...char.extras, ...(char.hobbySkill ? [char.hobbySkill] : [])])];
+  return [...new Set([...learnedSkills(), ...(char.hobbySkill ? [hobbySkillName(char.hobbySkill)] : [])])];
 }
 export function seedCulturePassions(prompts: string[] = culture().passions) {
   char.passions = culturePassions(prompts);

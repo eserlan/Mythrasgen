@@ -136,28 +136,32 @@ describe("core culture and career packages", () => {
     const warrior = careers.find(career => career.name === "Warrior")!;
     const cultureSkills = skillsForStage("culture", cultures[0], warrior);
     const careerSkills = skillsForStage("career", cultures[0], warrior);
-    const bonusSkills = skillsForStage("bonus", cultures[0], warrior, ["Passion (Family)", "People's Combat Style"], ["Lore (Tactics)"], warrior.professional.slice(0, 3));
+    const bonusSkills = skillsForStage("bonus", cultures[0], warrior,
+      { type: "combatStyle", name: "People's Combat Style" }, warrior.professional.slice(0, 3));
     expect(cultureSkills).toContain("Healing");
     expect(cultureSkills).toContain("Boating");
     expect(careerSkills).toContain("Lore (Strategy and Tactics)");
     expect(careerSkills).toContain("Combat Style (Cultural Style)");
     expect(careerSkills).not.toContain("Boating");
     expect(bonusSkills).toContain("People's Combat Style");
-    expect(bonusSkills).toContain("Passion (Family)");
-    expect(bonusSkills).toContain("Lore (Tactics)");
+    expect(bonusSkills).not.toContain("Passion (Family)");
+    expect(bonusSkills).toContain("People's Combat Style");
+    expect(bonusSkills).not.toContain("Lore (Tactics)");
   });
 
   test("bonus sheet includes selected career Professional Skills only", () => {
     const warrior = careers.find(career => career.name === "Warrior")!;
     const selected = warrior.professional.slice(0, 3);
-    const bonusSkills = skillsForStage("bonus", cultures[0], warrior, [], [], selected);
+    const bonusSkills = skillsForStage("bonus", cultures[0], warrior, null, selected);
     expect(selected.every(skill => bonusSkills.includes(skill))).toBe(true);
     expect(bonusSkills).not.toContain(warrior.professional[3]);
   });
 
-  test("specialized extra allocations stay specialized in the bonus skill list", () => {
-    const bonusSkills = skillsForStage("bonus", cultures[0], careers[0], ["Passion (Family)"], ["Passion (Family)"]);
-    expect(bonusSkills).toContain("Passion (Family)");
-    expect(bonusSkills).not.toContain("Passion");
+  test("a specialised hobby name appears in the bonus skill list", () => {
+    const bonusSkills = skillsForStage("bonus", cultures[0], careers[0], {
+      type: "professionalSkill", template: "Lore (any)", specialisation: "Astronomy", name: "Lore (Astronomy)",
+    });
+    expect(bonusSkills).toContain("Lore (Astronomy)");
+    expect(bonusSkills).not.toContain("Passion (Family)");
   });
 });

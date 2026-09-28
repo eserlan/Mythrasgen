@@ -70,7 +70,7 @@ describe("Core Combat Style trait choices and details", () => {
     const skills = readFileSync(new URL("../src/components/Skills.svelte", import.meta.url), "utf8");
     expect(skills).toContain('idPrefix={`career-combat-style-${i}`}');
     expect(skills).toContain('idPrefix="culture-combat-style"');
-    expect(skills).toContain('idPrefix="bonus-combat-style"');
+    expect(skills).toContain('idPrefix="bonus-hobby-combat-style"');
   });
 
   test("aligns checkbox and wrapping trait label in a compact horizontal control", () => {

@@ -1,6 +1,8 @@
 <script lang="ts">
   import { type Kind } from "../lib/rules";
-  import { addExtra, base, capFor, career, careerAllocationErrors, char, chooseBonusCombatStyle, chooseCareerCombatStyle, chooseCultureCombatStyle, culture, cultureAllocationErrors, poolFor, reconcileCultureSelection, refreshBonusEligibility, setAlloc, setHobbySkill, setSkillSpecialisation, skillDefinition, stepSkills, toggleCareerProfessional, total, used } from "../lib/store.svelte";
+  import { base, capFor, career, careerAllocationErrors, char, chooseBonusCombatStyle, chooseCareerCombatStyle, chooseCultureCombatStyle, clearHobbySkill, culture, cultureAllocationErrors, learnedSkills, poolFor, reconcileCultureSelection, refreshBonusEligibility, setAlloc, setHobbyProfessionalSkill, setSkillSpecialisation, skillDefinition, stepSkills, toggleCareerProfessional, total, used } from "../lib/store.svelte";
+  import { HOBBY_PROFESSIONAL_SKILLS, hobbySkillName } from "../lib/hobby-skills";
+  import { requiresSpecialisation, resolveSkillTemplate } from "../lib/specialisations";
   import CombatStyleChooser from "./CombatStyleChooser.svelte";
   import ProfessionalSkillChoice from "./ProfessionalSkillChoice.svelte";
   import StepHead from "./StepHead.svelte";
@@ -13,8 +15,40 @@
   const title = $derived({ culture: `Culture · ${culture().name}`, career: `Career · ${career().name}`, bonus: "Bonus skills" }[kind]);
   const cultureErrors = $derived(cultureAllocationErrors());
   const careerErrors = $derived(careerAllocationErrors());
-  let extra = $state("");
-  let extraError = $state("");
+  let hobbyBranch = $state(char.hobbySkill?.type ?? "");
+  let hobbyTemplate = $state(char.hobbySkill?.type === "professionalSkill" ? char.hobbySkill.template : "");
+  let hobbySpecialisation = $state(char.hobbySkill?.type === "professionalSkill" ? char.hobbySkill.specialisation : "");
+  let hobbyError = $state("");
+  function learnedHobbySkill(template: string, specialisation = "") {
+    const name = resolveSkillTemplate(template, specialisation);
+    return !!name && learnedSkills().includes(name);
+  }
+  function switchHobbyBranch(branch: "professionalSkill" | "combatStyle") {
+    if (hobbyBranch !== branch) clearHobbySkill();
+    hobbyBranch = branch;
+    hobbyTemplate = "";
+    hobbySpecialisation = "";
+    hobbyError = "";
+  }
+  function selectHobbyProfessional(template: string, selected: boolean) {
+    if (!selected) {
+      if (hobbyTemplate === template) { clearHobbySkill(); hobbyTemplate = ""; hobbySpecialisation = ""; }
+      return;
+    }
+    if (learnedHobbySkill(template)) { hobbyError = "Choose a new Professional Skill not already learned through Culture or Career."; return; }
+    hobbyTemplate = template;
+    hobbySpecialisation = "";
+    hobbyError = "";
+    if (!requiresSpecialisation(template)) setHobbyProfessionalSkill(template);
+    else clearHobbySkill();
+  }
+  function setHobbySpecialisation(value: string) {
+    hobbySpecialisation = value;
+    hobbyError = learnedHobbySkill(hobbyTemplate, value)
+      ? "Choose a new Professional Skill not already learned through Culture or Career."
+      : "";
+    setHobbyProfessionalSkill(hobbyTemplate, value);
+  }
   function toggleCultureStandard(group: number, option: string, checked: boolean) {
     const selected = [...(char.cultureSelections.standard[group] ?? [])];
     char.cultureSelections.standard[group] = checked ? [...selected, option] : selected.filter(x => x !== option);
@@ -97,23 +131,29 @@
   {/each}
 </div>
 {#if kind === "bonus"}
-  {#if char.hobbySkill}
-    <div class="card bar"><span>Hobby / interest: <b>{char.hobbySkill}</b></span><button type="button" onclick={() => { setHobbySkill(""); extra = ""; }}>Remove</button></div>
-  {:else}
-    <section class="card">
-      <form class="bar" onsubmit={e => { e.preventDefault(); setHobbySkill(extra); extra = ""; }}>
-        <input bind:value={extra} aria-label="New professional hobby skill or combat style" placeholder="One new professional hobby skill"><button disabled={!extra.trim()}>Add hobby skill</button>
-      </form>
-      <CombatStyleChooser idPrefix="bonus-combat-style" styles={char.combatStyles} onchoose={chooseBonusCombatStyle} />
-    </section>
-  {/if}
-  <form class="card bar" onsubmit={e => {
-    e.preventDefault();
-    if (addExtra(extra)) { extra = ""; extraError = ""; }
-    else extraError = "Use a registered skill name or a specialisation, e.g. Lore (Astronomy).";
-  }}>
-    <input bind:value={extra} oninput={() => extraError = ""} placeholder="Add a custom skill, e.g. Lore (Astronomy)"><button disabled={!extra.trim()}>Add custom skill</button>
-    {#if extraError}<small role="alert">{extraError}</small>{/if}
-  </form>
-  <p class="mute">Bonus points improve learned skills, custom skills, and this one optional hobby skill.</p>
+  <section class="card hobby-skill" aria-label="Optional Hobby Skill">
+    <h3>Optional Hobby Skill</h3>
+    <p class="mute">Choose one new Professional Skill or Combat Style reflecting a personal hobby or interest.</p>
+    <p class="hint">Your hobby is one additional skill learned outside your Culture and Career. A hobby Combat Style is separate from your Cultural Combat Style on Page III.</p>
+    <div class="choice-list" role="group" aria-label="Hobby Skill type">
+      <label><input type="radio" name="hobby-skill-type" checked={hobbyBranch === "professionalSkill"} onchange={() => switchHobbyBranch("professionalSkill")}>Professional Skill</label>
+      <label><input type="radio" name="hobby-skill-type" checked={hobbyBranch === "combatStyle"} onchange={() => switchHobbyBranch("combatStyle")}>Combat Style</label>
+    </div>
+    {#if hobbyBranch === "professionalSkill"}
+      <div class="professional-options" aria-label="Professional Skill choices">
+        {#each HOBBY_PROFESSIONAL_SKILLS as skill (skill)}
+          <ProfessionalSkillChoice skill={skill} selected={hobbyTemplate === skill}
+            disabled={hobbyTemplate !== skill && !requiresSpecialisation(skill) && learnedHobbySkill(skill)}
+            specialisation={hobbySpecialisation}
+            onselect={selected => selectHobbyProfessional(skill, selected)}
+            onspecialisation={setHobbySpecialisation} />
+        {/each}
+      </div>
+      {#if hobbyError}<p class="validation" role="alert">{hobbyError}</p>{/if}
+      {#if char.hobbySkill?.type === "professionalSkill"}<p class="hint" aria-live="polite">Selected hobby skill: <b>{hobbySkillName(char.hobbySkill)}</b></p>{/if}
+    {:else if hobbyBranch === "combatStyle"}
+      <CombatStyleChooser idPrefix="bonus-hobby-combat-style" selectedName={char.hobbySkill?.type === "combatStyle" ? char.hobbySkill.name : ""} styles={char.combatStyles} onchoose={chooseBonusCombatStyle} />
+    {/if}
+  </section>
+  <p class="mute">Bonus points improve skills learned through Culture or Career and the optional Hobby Skill.</p>
 {/if}

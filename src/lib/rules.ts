@@ -70,5 +70,7 @@ export const MAGIC: Skill[] = [
   ["Invocation", [["INT", 2]]], ["Meditation", ["INT", "CON"]], ["Mysticism", ["POW", "CON"]],
   ["Shaping", ["INT", "POW"]], ["Trance", ["POW", "CON"]],
 ];
+/** The registered skill-name catalogue used when a character learns a new hobby skill. */
+export const PROFESSIONAL_SKILL_NAMES = [...new Set([...PROFESSIONAL, ...MAGIC].map(([name]) => name))];
 export const COMBAT_STYLE_FORMULA: Term[] = ["STR", "DEX"];
 export const COMBAT_STYLE: Skill = ["Combat Style", COMBAT_STYLE_FORMULA];
