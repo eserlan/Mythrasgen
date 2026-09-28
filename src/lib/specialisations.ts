@@ -1,15 +1,51 @@
 import { baseName } from "./calc";
 
-/** Parenthetical values in official Culture/Career data that ask the player to name a specialisation. */
-export const SPECIALISATION_TEMPLATES = new Set([
-  "any", "primary", "secondary", "primary catch", "secondary catch",
-  "specific alchemical speciality", "specific species", "specific physiological speciality",
-  "specific shipboard speciality", "regional or specific species", "hunting related",
-]);
+/** Placeholder text in official skill lists that asks the player to name a specialisation. */
+const SPECIALISATION_PROMPTS: Readonly<Record<string, string>> = {
+  "any": "Specialisation",
+  "primary": "Primary",
+  "secondary": "Secondary",
+  "primary catch": "Primary catch",
+  "secondary catch": "Secondary catch",
+  "specific alchemical speciality": "Specific alchemical speciality",
+  "specific species": "Specific species",
+  "specific physiological speciality": "Specific physiological speciality",
+  "specific shipboard speciality": "Specific shipboard speciality",
+  "regional or specific species": "Regional or specific species",
+  "hunting related": "Hunting related",
+  "pantheon, cult or god": "Pantheon, Cult or God",
+  "cult, school or grimoire": "Cult, School or Grimoire",
+};
+
+/** Familiar examples make the shared inline field more useful without UI skill-name checks. */
+const SKILL_SPECIALISATION_PROMPTS: Readonly<Record<string, string>> = {
+  Art: "Painting",
+  Craft: "Blacksmithing",
+  Language: "Dwarven",
+  Lore: "Wilderness",
+};
+
+export type ProfessionalSkillMetadata = {
+  name: string;
+  requiresSpecialisation: boolean;
+  specialisationPrompt?: string;
+};
+
+/** Resolve a source-list skill into the metadata used by every creation surface. */
+export function professionalSkillMetadata(template: string): ProfessionalSkillMetadata {
+  const name = baseName(template);
+  const match = /\(([^()]*)\)\s*$/.exec(template.trim());
+  const prompt = match && SPECIALISATION_PROMPTS[match[1].trim().toLocaleLowerCase()];
+  if (!prompt) return { name, requiresSpecialisation: false };
+  return {
+    name,
+    requiresSpecialisation: true,
+    specialisationPrompt: SKILL_SPECIALISATION_PROMPTS[name] ?? prompt,
+  };
+}
 
 export function requiresSpecialisation(template: string): boolean {
-  const match = /\(([^()]*)\)\s*$/.exec(template.trim());
-  return !!match && SPECIALISATION_TEMPLATES.has(match[1].trim().toLocaleLowerCase());
+  return professionalSkillMetadata(template).requiresSpecialisation;
 }
 
 export function concreteSkillName(template: string, specialisation: string): string {

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { formulaVal, skillDef } from "../src/lib/calc";
 import { careers, cultures } from "../src/lib/content";
-import { concreteSkillName, hasMeaningfulSpecialisation, requiresSpecialisation, resolveSkillTemplate, specialisationStageErrors } from "../src/lib/specialisations";
+import { concreteSkillName, hasMeaningfulSpecialisation, professionalSkillMetadata, requiresSpecialisation, resolveSkillTemplate, specialisationStageErrors } from "../src/lib/specialisations";
 
 // Bun runs this store module without Svelte's compiler, so provide the identity
 // implementation needed to exercise its module initialization and plain state.
@@ -14,6 +14,19 @@ describe("Professional Skill specialisations", () => {
     const concrete = resolveSkillTemplate(template, "  Example  ");
     expect(concrete).toBe(`${template.split(" ")[0]} (Example)`);
     expect(skillDef(concrete!).f).toEqual(skillDef(template.split(" ")[0]).f);
+  });
+
+  test.each([
+    ["Devotion (Pantheon, Cult or God)", "Devotion", "Pantheon, Cult or God", "Orlanth"],
+    ["Invocation (Cult, School or Grimoire)", "Invocation", "Cult, School or Grimoire", "College of Pyromancy"],
+  ])("uses shared metadata to resolve %s", (template, name, prompt, value) => {
+    expect(professionalSkillMetadata(template)).toEqual({
+      name, requiresSpecialisation: true, specialisationPrompt: prompt,
+    });
+    expect(resolveSkillTemplate(template, "   ")).toBeNull();
+    expect(resolveSkillTemplate(template, value)).toBe(`${name} (${value})`);
+    expect(specialisationStageErrors([template], { [template]: "   " })).toHaveLength(1);
+    expect(specialisationStageErrors([template], { [template]: value })).toEqual([]);
   });
 
   test("flags selected incomplete templates and accepts only meaningful text", () => {

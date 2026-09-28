@@ -28,12 +28,40 @@ describe("optional Page V Hobby Skill", () => {
     expect(HOBBY_PROFESSIONAL_SKILLS).toContain("Craft (any)");
     expect(HOBBY_PROFESSIONAL_SKILLS).toContain("Language (any)");
     expect(HOBBY_PROFESSIONAL_SKILLS).toContain("Lore (any)");
+    expect(HOBBY_PROFESSIONAL_SKILLS).toContain("Devotion (Pantheon, Cult or God)");
+    expect(HOBBY_PROFESSIONAL_SKILLS).toContain("Invocation (Cult, School or Grimoire)");
     expect(HOBBY_PROFESSIONAL_SKILLS.some(name => name.startsWith("Combat Style"))).toBe(false);
     expect(restoreHobbySkill({ type: "professionalSkill", template: "Lore (any)", specialisation: "any" })).toBeNull();
     expect(restoreHobbySkill("Lore (any)")).toBeNull();
     expect(restoreHobbySkill("Lore (Astronomy)")).toEqual({
       type: "professionalSkill", template: "Lore (any)", specialisation: "Astronomy", name: "Lore (Astronomy)",
     });
+    expect(restoreHobbySkill("Devotion (Pantheon, Cult or God)")).toBeNull();
+    expect(restoreHobbySkill({ type: "professionalSkill", template: "Invocation (Cult, School or Grimoire)", specialisation: " " })).toBeNull();
+  });
+
+  test.each([
+    ["Devotion (Pantheon, Cult or God)", "Orlanth", "Cult of Mithras"],
+    ["Invocation (Cult, School or Grimoire)", "College of Pyromancy", "The Black Grimoire"],
+  ])("keeps %s concrete through allocation changes and save/load", (template, first, second) => {
+    const { char, replace, setHobbyProfessionalSkill, setAlloc, bonusEligible } = store;
+    replace({ ...char, hobbySkill: null, alloc: { culture: {}, career: {}, bonus: {} } });
+
+    setHobbyProfessionalSkill(template, first);
+    const firstName = `${template.split(" (")[0]} (${first})`;
+    expect(char.hobbySkill).toEqual({ type: "professionalSkill", template, specialisation: first, name: firstName });
+    expect(bonusEligible()).toContain(firstName);
+    setAlloc("bonus", firstName, 8);
+
+    setHobbyProfessionalSkill(template, second);
+    const secondName = `${template.split(" (")[0]} (${second})`;
+    expect(char.hobbySkill).toEqual({ type: "professionalSkill", template, specialisation: second, name: secondName });
+    expect(char.alloc.bonus[firstName]).toBeUndefined();
+    expect(bonusEligible()).toContain(secondName);
+
+    const saved = JSON.parse(JSON.stringify(char));
+    replace(saved);
+    expect(char.hobbySkill).toEqual({ type: "professionalSkill", template, specialisation: second, name: secondName });
   });
 
   test("allows one hobby at a time and reconciles bonus allocations when switching branches", () => {

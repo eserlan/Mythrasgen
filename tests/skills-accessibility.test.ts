@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, test } from "bun:test";
+import { professionalSkillMetadata } from "../src/lib/specialisations";
 
 describe("bonus skill controls", () => {
   test("offers one optional Hobby Skill branch and removes free-text custom skills", () => {
@@ -23,9 +24,12 @@ describe("specialised professional skill choices", () => {
     expect(choice).toContain("{selected && needsSpecialisation ? baseName : skill}");
     expect(choice).toContain("{#if selected && needsSpecialisation}");
     expect(choice).toContain('aria-label="{baseName} specialisation"');
-    expect(choice).toContain('Art: "Painting"');
-    expect(choice).toContain('Craft: "Blacksmithing"');
-    expect(choice).toContain('Language: "Dwarven"');
-    expect(choice).toContain('Lore: "Wilderness"');
+    expect(choice).toContain("professionalSkillMetadata(skill)");
+    expect(professionalSkillMetadata("Art (any)").specialisationPrompt).toBe("Painting");
+    expect(professionalSkillMetadata("Craft (any)").specialisationPrompt).toBe("Blacksmithing");
+    expect(professionalSkillMetadata("Language (any)").specialisationPrompt).toBe("Dwarven");
+    expect(professionalSkillMetadata("Lore (any)").specialisationPrompt).toBe("Wilderness");
+    expect(professionalSkillMetadata("Devotion (Pantheon, Cult or God)").specialisationPrompt).toBe("Pantheon, Cult or God");
+    expect(professionalSkillMetadata("Invocation (Cult, School or Grimoire)").specialisationPrompt).toBe("Cult, School or Grimoire");
   });
 });

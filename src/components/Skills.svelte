@@ -2,7 +2,7 @@
   import { type Kind } from "../lib/rules";
   import { base, capFor, career, careerAllocationErrors, char, chooseBonusCombatStyle, chooseCareerCombatStyle, chooseCultureCombatStyle, clearHobbySkill, culture, cultureAllocationErrors, learnedSkills, poolFor, reconcileCultureSelection, refreshBonusEligibility, setAlloc, setHobbyProfessionalSkill, setSkillSpecialisation, skillDefinition, stepSkills, toggleCareerProfessional, total, used } from "../lib/store.svelte";
   import { HOBBY_PROFESSIONAL_SKILLS, hobbySkillName } from "../lib/hobby-skills";
-  import { requiresSpecialisation, resolveSkillTemplate } from "../lib/specialisations";
+  import { hasMeaningfulSpecialisation, requiresSpecialisation, resolveSkillTemplate } from "../lib/specialisations";
   import CombatStyleChooser from "./CombatStyleChooser.svelte";
   import ProfessionalSkillChoice from "./ProfessionalSkillChoice.svelte";
   import StepHead from "./StepHead.svelte";
@@ -38,7 +38,7 @@
     if (learnedHobbySkill(template)) { hobbyError = "Choose a new Professional Skill not already learned through Culture or Career."; return; }
     hobbyTemplate = template;
     hobbySpecialisation = "";
-    hobbyError = "";
+    hobbyError = requiresSpecialisation(template) ? "Enter a specialisation for the selected Professional Skill." : "";
     if (!requiresSpecialisation(template)) setHobbyProfessionalSkill(template);
     else clearHobbySkill();
   }
@@ -46,7 +46,9 @@
     hobbySpecialisation = value;
     hobbyError = learnedHobbySkill(hobbyTemplate, value)
       ? "Choose a new Professional Skill not already learned through Culture or Career."
-      : "";
+      : requiresSpecialisation(hobbyTemplate) && !hasMeaningfulSpecialisation(value)
+        ? "Enter a specialisation for the selected Professional Skill."
+        : "";
     setHobbyProfessionalSkill(hobbyTemplate, value);
   }
   function toggleCultureStandard(group: number, option: string, checked: boolean) {
