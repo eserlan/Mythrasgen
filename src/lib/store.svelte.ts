@@ -6,7 +6,7 @@ import { culturePassions } from "./passions";
 import { allocationValue, selectedCareer, selectedCulture } from "./creation";
 import { cultureSkills, reconcileCultureCombatStyle, validateCultureAllocation } from "./culture";
 import { migrateCharacter } from "./migration";
-import { AGE_CATEGORIES, bonusCap, bonusPool, MAGIC, PER_SKILL_CAP, POOLS, STANDARD, STATS, type AgeCategory, type Chars, type Kind, type PassionCategory } from "./rules";
+import { AGE_CATEGORIES, bonusCap, bonusPool, MAGIC, PER_SKILL_CAP, POOLS, RESISTANCES, STANDARD, STATS, type AgeCategory, type Chars, type Kind, type PassionCategory } from "./rules";
 import { createCharacterRepository } from "./character-library";
 import { swapAssignedValues } from "./characteristics";
 import { availableFrames, bodyRanges, FRAMES, isInRange, reconcileMeasurements, type Frame } from "./body";
@@ -334,6 +334,7 @@ const careerSkills = () => [...new Set([...career().standard, ...char.careerComb
 export const nativeTongue = () => nativeTongueName(char.nativeLanguage);
 
 export const learnedSkills = () => [...new Set([
+  ...RESISTANCES,
   ...resolveNativeTongue(cultureSkills(culture(), char.cultureSelections.standard, resolvedProfessional("culture"), char.cultureSelections.combatStyle)),
   ...resolveNativeTongue(careerSkills()),
 ])];
