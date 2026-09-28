@@ -17,6 +17,17 @@ describe("Core Folk Magic chooser details", () => {
     expect(FOLK_MAGIC_TRAIT_HELP.Ranged).toContain("Folk Magic skill in metres");
   });
 
+  test("uses the Core traits and spell limits for historically error-prone details", () => {
+    expect(CORE_FOLK_MAGIC_DETAILS.Bypass.traits).toEqual(["Touch", "Trigger"]);
+    expect(CORE_FOLK_MAGIC_DETAILS.Calculate.traits).toEqual(["Instant", "Ranged"]);
+    expect(CORE_FOLK_MAGIC_DETAILS.Incognito.traits).toEqual(["Resist (Endurance)", "Touch", "Trigger"]);
+    expect(CORE_FOLK_MAGIC_DETAILS.Chill.traits).toContain("Instant");
+    expect(CORE_FOLK_MAGIC_DETAILS.Heat.effect).toContain("one third of the caster's POW");
+    expect(CORE_FOLK_MAGIC_DETAILS.Heal.effect).toContain("Minor Wound");
+    expect(FOLK_MAGIC_TRAIT_HELP.Trigger).toContain("later activation");
+    expect(FOLK_MAGIC_TRAIT_HELP["Resist (Special)"]).toContain("specifies how the target resists");
+  });
+
   test("uses Babble as the display name while retaining the saved Babel spell ID", () => {
     expect(CORE_FOLK_MAGIC_SPELLS.find(spell => spell.name === "Babble")?.id).toBe("folk-magic:babel");
     expect(CORE_FOLK_MAGIC_SPELLS.some(spell => spell.name === "Babel")).toBe(false);
