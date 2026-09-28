@@ -87,4 +87,8 @@ describe("skill descriptions", () => {
     expect(skillDescription("Language (any)")).toBe(skillDescription("Language"));
     expect(skillDescription("Combat Style (Cultural Style)")).toBe(skillDescription("Combat Style"));
   });
+
+  test("unknown campaign skills do not inherit the combat style description", () => {
+    expect(skillDescription("Custom Campaign Skill")).toBeUndefined();
+  });
 });

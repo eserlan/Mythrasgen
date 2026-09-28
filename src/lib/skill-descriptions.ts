@@ -64,9 +64,9 @@ export const SKILL_DESCRIPTIONS: Readonly<Record<string, string>> = {
   "Combat Style": "Fight with a learned combination of weapons, tactics, and techniques.",
 };
 
-export function skillDescription(name: string): string {
+export function skillDescription(name: string): string | undefined {
   const baseName = name.split(" (")[0].trim();
-  return SKILL_DESCRIPTIONS[baseName] ?? SKILL_DESCRIPTIONS["Combat Style"];
+  return SKILL_DESCRIPTIONS[baseName];
 }
 
 /** Names in the core rule catalogue must always have an explicit description. */

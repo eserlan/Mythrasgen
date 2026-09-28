@@ -22,6 +22,7 @@ describe("specialised professional skill choices", () => {
 
     expect((skills.match(/<ProfessionalSkillChoice\b/g) ?? []).length).toBe(3);
     expect(choice).toContain("const displayName = $derived(selected && needsSpecialisation ? baseName : skill)");
+    expect(choice).toContain("<span>{displayName}</span></label>");
     expect(choice).toContain("{#if selected && needsSpecialisation}");
     expect(choice).toContain('aria-label="{baseName} specialisation"');
     expect(choice).toContain("professionalSkillMetadata(skill)");
@@ -32,7 +33,7 @@ describe("specialised professional skill choices", () => {
     expect(professionalSkillMetadata("Devotion (Pantheon, Cult or God)").specialisationPrompt).toBe("Pantheon, Cult or God");
     expect(professionalSkillMetadata("Invocation (Cult, School or Grimoire)").specialisationPrompt).toBe("Cult, School or Grimoire");
     expect(professionalSkillMetadata("Binding (Cult, Totem or Tradition)").specialisationPrompt).toBe("Cult, Totem or Tradition");
-    expect(choice).toContain("<SkillInfo name={displayName} />");
+    expect(choice).toContain('<SkillInfo name={displayName} showName={false} />');
     expect(choice).toContain("{#if selected && needsSpecialisation}");
     expect(choice).toContain("oninput={e => onspecialisation(e.currentTarget.value)}");
   });

@@ -27,8 +27,8 @@
 
 <div class="professional-choice">
   <label class="professional-skill-label"><input type="checkbox" checked={selected} {disabled}
-    aria-label={displayName} onchange={e => onselect(e.currentTarget.checked)}><span class="sr-only">{displayName}</span></label>
-  <SkillInfo name={displayName} />
+    aria-label={displayName} onchange={e => onselect(e.currentTarget.checked)}><span>{displayName}</span></label>
+  <SkillInfo name={displayName} showName={false} />
   {#if selected && needsSpecialisation}
     <label class="specialisation-field">
       <span class="sr-only">{baseName} specialisation</span>

@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import { skillDescription } from "../lib/skill-descriptions";
 
-  let { name }: { name: string } = $props();
+  let { name, showName = true }: { name: string; showName?: boolean } = $props();
   let root = $state<HTMLSpanElement>();
   let open = $state(false);
   let pinned = $state(false);
@@ -22,7 +22,7 @@
     hold = undefined;
   }
   function onPointerDown(event: PointerEvent) {
-    if (event.pointerType !== "touch") return;
+    if (event.pointerType !== "touch" || !description) return;
     stopHold();
     holdX = event.clientX;
     holdY = event.clientY;
@@ -51,13 +51,13 @@
   });
 </script>
 
-<span class="skill-info" role="group" aria-label={name} bind:this={root} onpointerenter={event => { if (event.pointerType === "mouse") open = true; }}
+<span class="skill-info" role="group" aria-label={name} bind:this={root} onpointerenter={event => { if (event.pointerType === "mouse" && description) open = true; }}
   onpointerleave={onPointerLeave} onpointerdown={onPointerDown} onpointermove={onPointerMove} onpointerup={stopHold} onpointercancel={stopHold}>
-  <span class="skill-info-name">{name}</span>
-  <button class="skill-info-trigger" type="button" aria-label={`About ${name}: ${description}`} aria-expanded={open}
+  {#if showName}<span class="skill-info-name">{name}</span>{/if}
+  {#if description}<button class="skill-info-trigger" type="button" aria-label={`About ${name}: ${description}`} aria-expanded={open}
     aria-controls={id} onclick={() => { pinned = !pinned; open = pinned || focused; }}
     onfocus={() => { focused = true; open = true; }} onblur={() => { focused = false; if (!pinned) open = false; }}>ⓘ</button>
-  <span class="skill-info-tooltip" id={id} role="tooltip" hidden={!open}>{description}</span>
+    <span class="skill-info-tooltip" id={id} role="tooltip" hidden={!open}>{description}</span>{/if}
 </span>
 
 <style>
