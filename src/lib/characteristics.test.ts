@@ -34,6 +34,17 @@ describe("rolled characteristic swaps", () => {
     expect(assignments).toEqual(originalAssignments);
   });
 
+  test("uses assigned roll dice when checking existing saved swaps", () => {
+    // This character was saved by a version that allowed cross-dice swaps:
+    // STR holds the SIZ roll and SIZ holds the STR roll.
+    const assignments = [2, 1, 0, 3, 4, 5, 6];
+    expect(canSwapCharacteristics("STR", "CON", assignments)).toBe(false);
+    expect(canSwapCharacteristics("STR", "INT", assignments)).toBe(true);
+    const chars = values();
+    expect(swapAssignedValues(chars, assignments, "STR", "INT")).toBe(true);
+    expect(assignments).toEqual([4, 1, 0, 3, 2, 5, 6]);
+  });
+
   test("only announces cancellation when reroll clears an active swap selection", () => {
     expect(swapCancellationAnnouncement(true)).toBe("Swap selection cancelled.");
     expect(swapCancellationAnnouncement(false)).toBe("");
