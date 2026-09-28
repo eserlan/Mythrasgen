@@ -1,4 +1,15 @@
-import { STATS, type Chars, type Stat } from "./rules";
+import { CHAR_ROLL, STATS, type Chars, type Stat } from "./rules";
+
+/** Characteristics may exchange values only when their assigned rolls use the same dice. */
+export function canSwapCharacteristics(first: Stat, second: Stat, assignments: readonly number[] = STATS.map((_, i) => i)): boolean {
+  const firstIndex = STATS.indexOf(first);
+  const secondIndex = STATS.indexOf(second);
+  if (firstIndex < 0 || secondIndex < 0 || firstIndex === secondIndex
+      || assignments.length !== STATS.length
+      || new Set(assignments).size !== STATS.length
+      || assignments.some(index => !Number.isInteger(index) || index < 0 || index >= STATS.length)) return false;
+  return CHAR_ROLL[STATS[assignments[firstIndex]]] === CHAR_ROLL[STATS[assignments[secondIndex]]];
+}
 
 /** Return an announcement only when rerolling cancels an active swap selection. */
 export function swapCancellationAnnouncement(selectionActive: boolean): string {
@@ -9,7 +20,7 @@ export function swapCancellationAnnouncement(selectionActive: boolean): string {
 export function swapAssignedValues(chars: Chars, assignments: number[], first: Stat, second: Stat): boolean {
   const firstIndex = STATS.indexOf(first);
   const secondIndex = STATS.indexOf(second);
-  if (firstIndex < 0 || secondIndex < 0 || firstIndex === secondIndex
+  if (firstIndex < 0 || secondIndex < 0 || !canSwapCharacteristics(first, second, assignments)
       || assignments.length !== STATS.length
       || new Set(assignments).size !== STATS.length
       || assignments.some(index => !Number.isInteger(index) || index < 0 || index >= STATS.length)) return false;

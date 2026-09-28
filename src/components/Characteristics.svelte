@@ -1,6 +1,6 @@
 <script lang="ts">
   import { canFinishPointBuy, pointBuyTotal, rollStat } from "../lib/calc";
-  import { swapCancellationAnnouncement } from "../lib/characteristics";
+  import { canSwapCharacteristics, swapCancellationAnnouncement } from "../lib/characteristics";
   import { CHAR_ROLL, POINT_BUY, STATS, STAT_NAMES, pointBuyMin, type Stat } from "../lib/rules";
   import { availableFrames, bodyRanges, isInRange, type Frame } from "../lib/body";
   import { characteristicsActionLabel, characteristicsRerollConfirmationMessage, confirmCharacteristicsRoll } from "../lib/creation";
@@ -85,7 +85,7 @@
       {left === 0 ? "All points spent" : `${left} points left`}
     </span>
   {:else}
-    <span class="mute" id="roll-instructions">Assign the rolled results to suit your character. Select two Characteristics to swap their values.</span>
+    <span class="mute" id="roll-instructions">Select two Characteristics that currently hold rolls made with the same dice to swap their values.</span>
     {#if selectedStat}
       <span class="swap-prompt">{STAT_NAMES[selectedStat]} selected</span>
       <button class="ghost" onclick={() => { selectedStat = null; swapMessage = "Swap selection cancelled."; }}>Cancel selection</button>
@@ -103,12 +103,18 @@
       </div>
     {:else if char.rollResults}
       <div class="char-roll">
-        <button type="button" class="char swap-card" class:selected={selectedStat === k} aria-pressed={selectedStat === k}
-          aria-describedby="roll-instructions" aria-label="{STAT_NAMES[k]}, {char.chars[k]}. {selectedStat === k ? 'Selected for swapping.' : 'Select to swap values.'}"
+        <button type="button" class="char swap-card" class:selected={selectedStat === k}
+          class:swap-target={selectedStat !== null && selectedStat !== k && canSwapCharacteristics(selectedStat, k, char.rollAssignments)}
+          class:swap-unavailable={selectedStat !== null && selectedStat !== k && !canSwapCharacteristics(selectedStat, k, char.rollAssignments)}
+          disabled={selectedStat !== null && selectedStat !== k && !canSwapCharacteristics(selectedStat, k, char.rollAssignments)}
+          aria-pressed={selectedStat === k}
+          aria-describedby="roll-instructions" aria-label="{STAT_NAMES[k]}, {char.chars[k]}. {selectedStat === k ? 'Selected for swapping.' : selectedStat && !canSwapCharacteristics(selectedStat, k, char.rollAssignments) ? 'Unavailable: rolled with different dice.' : 'Select to swap values.'}"
           onclick={() => selectForSwap(k)}>
           <small>{k}</small><em>{STAT_NAMES[k]}</em>
           <strong class="rolled">{char.chars[k]}</strong>
-          {#if selectedStat === k}<span class="swap-state">Selected</span>{/if}
+          {#if selectedStat === k}<span class="swap-state">Selected</span>
+          {:else if selectedStat && canSwapCharacteristics(selectedStat, k, char.rollAssignments)}<span class="swap-state">Swap target</span>
+          {:else if selectedStat}<span class="swap-state">Unavailable</span>{/if}
         </button>
         <button class="ghost" title="Reroll this {CHAR_ROLL[STATS[char.rollAssignments[STATS.indexOf(k)]]]} result" aria-label="Reroll {STAT_NAMES[k]} roll" onclick={() => reroll(k)}>↻ Reroll</button>
       </div>
