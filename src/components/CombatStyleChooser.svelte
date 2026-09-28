@@ -2,7 +2,7 @@
   import { tick } from "svelte";
   import { CORE_COMBAT_STYLES, CORE_COMBAT_TRAITS, customCombatStyle, resolveCoreCombatStyle, type CharacterCombatStyle, type CombatStyleDefinition, type CombatStyleSelection, type CombatStyleTrait } from "../lib/combat-styles";
 
-  let { selectedName = "", styles = [], onchoose }: { selectedName?: string; styles?: CharacterCombatStyle[]; onchoose: (style: CombatStyleSelection | null) => void } = $props();
+  let { selectedName = "", styles = [], idPrefix, onchoose }: { selectedName?: string; styles?: CharacterCombatStyle[]; idPrefix: string; onchoose: (style: CombatStyleSelection | null) => void } = $props();
   let dialog: HTMLDialogElement;
   let searchInput = $state<HTMLInputElement>();
   let resultsRegion = $state<HTMLDivElement>();
@@ -151,9 +151,9 @@
             <article class="trait-picker-result">
               <div class="trait-picker-heading">
                 <label><input type="checkbox" checked={pickedTraits.includes(trait.id)} onchange={event => pickedTraits = event.currentTarget.checked ? [...pickedTraits, trait.id] : pickedTraits.filter(id => id !== trait.id)}><span><b>{trait.displayName}</b></span></label>
-                <button type="button" class="ghost trait-picker-details" aria-expanded={expandedTraits.includes(trait.id)} aria-controls={`core-trait-description-${trait.id}`} onclick={() => toggleTraitDetails(trait.id)}>Details</button>
+                <button type="button" class="ghost trait-picker-details" aria-expanded={expandedTraits.includes(trait.id)} aria-controls={`${idPrefix}-core-trait-description-${trait.id}`} onclick={() => toggleTraitDetails(trait.id)}>Details</button>
               </div>
-              <div class="trait-picker-description" id={`core-trait-description-${trait.id}`} hidden={!expandedTraits.includes(trait.id)}>{trait.description}</div>
+              <div class="trait-picker-description" id={`${idPrefix}-core-trait-description-${trait.id}`} hidden={!expandedTraits.includes(trait.id)}>{trait.description}</div>
             </article>
           {:else}<p class="hint">No matching Mythras Core traits.</p>{/each}
         </div>

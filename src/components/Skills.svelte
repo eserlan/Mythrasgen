@@ -55,7 +55,7 @@
       {/each}
     </div>
     {#each career().combatStyle ?? [] as _slot, i (i)}
-      <CombatStyleChooser selectedName={char.careerCombatStyles[i] ?? ""} styles={char.combatStyles} onchoose={style => chooseCareerCombatStyle(i, style)} />
+      <CombatStyleChooser idPrefix={`career-combat-style-${i}`} selectedName={char.careerCombatStyles[i] ?? ""} styles={char.combatStyles} onchoose={style => chooseCareerCombatStyle(i, style)} />
     {/each}
   </section>
   {#if careerErrors.length}<div class="validation" role="status"><b>Career selection incomplete</b><ul>{#each careerErrors as error}<li>{error}</li>{/each}</ul></div>{/if}
@@ -93,7 +93,7 @@
       {/each}
     </div>
     <div class="culture-combat-style">
-      <CombatStyleChooser selectedName={char.cultureSelections.combatStyle} styles={char.combatStyles} onchoose={chooseCultureCombatStyle} />
+      <CombatStyleChooser idPrefix="culture-combat-style" selectedName={char.cultureSelections.combatStyle} styles={char.combatStyles} onchoose={chooseCultureCombatStyle} />
     </div>
   </section>
 {/if}
@@ -115,7 +115,7 @@
       <form class="bar" onsubmit={e => { e.preventDefault(); setHobbySkill(extra); extra = ""; }}>
         <input bind:value={extra} aria-label="New professional hobby skill or combat style" placeholder="One new professional hobby skill"><button disabled={!extra.trim()}>Add hobby skill</button>
       </form>
-      <CombatStyleChooser styles={char.combatStyles} onchoose={chooseBonusCombatStyle} />
+      <CombatStyleChooser idPrefix="bonus-combat-style" styles={char.combatStyles} onchoose={chooseBonusCombatStyle} />
     </section>
   {/if}
   <form class="card bar" onsubmit={e => {

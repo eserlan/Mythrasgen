@@ -25,12 +25,12 @@ describe("Core Combat Style trait details", () => {
   test("keeps rules text collapsed and exposes it through an associated disclosure button", () => {
     expect(picker).toContain("let expandedTraits = $state<string[]>([])");
     expect(picker).toContain('aria-expanded={expandedTraits.includes(trait.id)}');
-    expect(picker).toContain('aria-controls={`core-trait-description-${trait.id}`}');
+    expect(picker).toContain('aria-controls={`${idPrefix}-core-trait-description-${trait.id}`}');
     expect(picker).toContain('hidden={!expandedTraits.includes(trait.id)}');
     expect(picker).toContain('onclick={() => toggleTraitDetails(trait.id)}');
     expect(picker.match(/\{trait\.description\}/g)).toHaveLength(1);
     expect(picker).toContain('<div class="trait-picker-heading">');
-    expect(picker).toContain('<div class="trait-picker-description" id={`core-trait-description-${trait.id}`}');
+    expect(picker).toContain('<div class="trait-picker-description" id={`${idPrefix}-core-trait-description-${trait.id}`}');
     expect(picker).not.toContain("<details>");
     expect(picker).not.toContain("<small>{trait.description}</small>");
   });
@@ -40,5 +40,13 @@ describe("Core Combat Style trait details", () => {
     expect(picker).toContain("function toggleTraitDetails(id: string)");
     expect(picker).toContain("expandedTraits = expandedTraits.includes(id)");
     expect(picker).not.toContain("expandedTraits = pickedTraits");
+  });
+
+  test("uses a caller-specific prefix so disclosure ids stay unique across chooser instances", () => {
+    expect(picker).toContain("idPrefix: string");
+    const skills = readFileSync(new URL("../src/components/Skills.svelte", import.meta.url), "utf8");
+    expect(skills).toContain('idPrefix={`career-combat-style-${i}`}');
+    expect(skills).toContain('idPrefix="culture-combat-style"');
+    expect(skills).toContain('idPrefix="bonus-combat-style"');
   });
 });
