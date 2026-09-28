@@ -295,10 +295,11 @@ svg.body text{text-anchor:middle;fill:var(--fg)}svg.body .hp{font:700 15px var(-
 .combat-style-result button{grid-column:2;grid-row:2/4;align-self:center}
 .combat-style-dialog-footer{display:flex;justify-content:space-between;gap:8px;border-top:1px solid var(--line);padding-top:12px}
 .combat-style-editor .field{gap:5px}
-.combat-style-editor fieldset{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:6px 14px;border:1px solid var(--line);padding:10px}
+.combat-style-editor fieldset{border:1px solid var(--line);padding:10px}
 .combat-style-editor legend{font-family:var(--display);font-size:.72rem;text-transform:uppercase;letter-spacing:.1em;color:var(--mute)}
-.combat-style-editor fieldset label{display:flex;align-items:center;gap:8px}
+.combat-style-editor fieldset label{display:flex;align-items:flex-start;gap:8px}
 .combat-style-editor input[type=checkbox]{accent-color:var(--bronze);width:18px;height:18px}
+.trait-picker{display:grid;gap:8px;min-width:0}.trait-picker h3{margin:0;font:700 .8rem var(--display);text-transform:uppercase;letter-spacing:.08em}.trait-picker-hint{margin:0;font-size:.82rem}.trait-picker-results{display:grid;gap:6px;overflow:auto;overscroll-behavior:contain;max-height:36dvh;padding:1px 4px 1px 1px}.trait-picker-result{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:8px 12px;border:1px solid var(--line);background:var(--card2);padding:9px}.trait-picker-result label{align-items:flex-start}.trait-picker-result label span{display:grid;gap:2px}.trait-picker-result label small{color:var(--mute);line-height:1.35}.trait-picker-result input{flex:none;margin-top:2px}.trait-picker-result details{font-size:.76rem}.trait-picker-result summary{cursor:pointer;color:var(--accent,var(--bronze));white-space:nowrap}.trait-picker-result details p{margin:5px 0 0;max-width:42rem;color:var(--mute)}.picked-traits{border-top:1px solid var(--line);padding-top:8px}.picked-traits ul{display:flex;flex-wrap:wrap;gap:5px 12px;padding-left:20px}.picked-traits li button{margin-left:4px;padding:1px 5px;font-size:.7rem}.picked-traits p{margin:5px 0}.custom-trait-entry{display:grid;gap:7px}.custom-trait-badge{font-size:.68rem;color:var(--mute);border:1px solid var(--line);padding:1px 5px;border-radius:3px}
 @media(max-width:560px){
   .combat-style-dialog-content,.combat-style-editor{padding:14px}
   .combat-style-close{display:inline-block}

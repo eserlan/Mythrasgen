@@ -1,6 +1,6 @@
 <script lang="ts">
   import { tick } from "svelte";
-  import { CORE_COMBAT_STYLES, customCombatStyle, resolveCoreCombatStyle, type CharacterCombatStyle, type CombatStyleDefinition, type CombatStyleSelection, type CombatStyleTrait } from "../lib/combat-styles";
+  import { CORE_COMBAT_STYLES, CORE_COMBAT_TRAITS, customCombatStyle, resolveCoreCombatStyle, type CharacterCombatStyle, type CombatStyleDefinition, type CombatStyleSelection, type CombatStyleTrait } from "../lib/combat-styles";
 
   let { selectedName = "", styles = [], onchoose }: { selectedName?: string; styles?: CharacterCombatStyle[]; onchoose: (style: CombatStyleSelection | null) => void } = $props();
   let dialog: HTMLDialogElement;
@@ -10,15 +10,17 @@
   let weapons = $state("");
   let notes = $state("");
   let pickedTraits = $state<string[]>([]);
+  let traitQuery = $state("");
   let customTraitName = $state("");
   let customTraitDescription = $state("");
   let editingCustom = $state(false);
   let pendingStyle = $state<CombatStyleDefinition | null>(null);
   let weaponPicks = $state<number[]>([]);
   let traitPicks = $state<number[]>([]);
-  const knownTraits = [...new Map(CORE_COMBAT_STYLES.flatMap(style => [
-    ...style.traits, ...(style.traitChoices ?? []).flat(),
-  ]).map(trait => [trait.id, trait])).values()];
+  const knownTraits = CORE_COMBAT_TRAITS;
+  const filteredTraits = $derived(knownTraits.filter(trait =>
+    `${trait.displayName} ${trait.description ?? ""}`.toLocaleLowerCase().includes(traitQuery.trim().toLocaleLowerCase())));
+  const pickedCoreTraits = $derived(knownTraits.filter(trait => pickedTraits.includes(trait.id)));
   const knownStyles = $derived([
     ...CORE_COMBAT_STYLES,
     ...styles.filter(style => !CORE_COMBAT_STYLES.some(preset => preset.id === style.id)),
@@ -114,13 +116,30 @@
       <h2 id="combat-style-dialog-title">Create a Custom Combat Style</h2>
       <label class="field"><span>Style Name</span><input class="wide" bind:value={name} required></label>
       <label class="field"><span>Weapons (comma separated names)</span><input class="wide" bind:value={weapons} placeholder="Spear, shield"></label>
-      <fieldset><legend>Suggested traits</legend>
-        {#each knownTraits as trait (trait.id)}
-          <label><input type="checkbox" checked={pickedTraits.includes(trait.id)} onchange={event => pickedTraits = event.currentTarget.checked ? [...pickedTraits, trait.id] : pickedTraits.filter(id => id !== trait.id)}>{trait.displayName}</label>
-        {/each}
-      </fieldset>
-      <label class="field"><span>Custom trait (optional)</span><input class="wide" bind:value={customTraitName}></label>
+      <section class="trait-picker" aria-labelledby="core-traits-title">
+        <h3 id="core-traits-title">Mythras Core traits</h3>
+        <label class="field"><span>Search traits…</span><input class="wide" bind:value={traitQuery} placeholder="Trait name or what it does"></label>
+        <p class="mute trait-picker-hint">Select any traits allowed by your campaign. Core traits are reference data; they do not automate combat effects.</p>
+        <div class="trait-picker-results" aria-label="Mythras Core Combat Style Traits">
+          {#each filteredTraits as trait (trait.id)}
+            <article class="trait-picker-result">
+              <label><input type="checkbox" checked={pickedTraits.includes(trait.id)} onchange={event => pickedTraits = event.currentTarget.checked ? [...pickedTraits, trait.id] : pickedTraits.filter(id => id !== trait.id)}><span><b>{trait.displayName}</b><small>{trait.description}</small></span></label>
+              <details><summary>Details</summary><p>{trait.description}</p></details>
+            </article>
+          {:else}<p class="hint">No matching Mythras Core traits.</p>{/each}
+        </div>
+        <div class="picked-traits" aria-live="polite">
+          <b>Selected traits ({pickedCoreTraits.length + (customTraitName.trim() ? 1 : 0)})</b>
+          {#if pickedCoreTraits.length || customTraitName.trim()}
+            <ul>{#each pickedCoreTraits as trait (trait.id)}<li>{trait.displayName} <button type="button" class="ghost" aria-label={`Remove ${trait.displayName}`} onclick={() => pickedTraits = pickedTraits.filter(id => id !== trait.id)}>Remove</button></li>{/each}
+              {#if customTraitName.trim()}<li>{customTraitName.trim()} <span class="custom-trait-badge">Custom / Campaign</span></li>{/if}</ul>
+          {:else}<p class="mute">No traits selected.</p>{/if}
+        </div>
+      </section>
+      <fieldset class="custom-trait-entry"><legend>Custom Trait (optional) · Custom / Campaign</legend>
+        <label class="field"><span>Trait name</span><input class="wide" bind:value={customTraitName}></label>
       {#if customTraitName.trim()}<label class="field"><span>Trait description (optional)</span><textarea class="wide" bind:value={customTraitDescription}></textarea></label>{/if}
+      </fieldset>
       <label class="field"><span>Notes (optional)</span><textarea class="wide" bind:value={notes}></textarea></label>
       <div class="combat-style-actions"><button type="submit" class="primary">Save Custom Style</button><button type="button" class="secondary" onclick={() => dialog.close()}>Cancel</button></div>
     </form>
