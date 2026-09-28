@@ -15,6 +15,7 @@ const SPECIALISATION_PROMPTS: Readonly<Record<string, string>> = {
   "hunting related": "Hunting related",
   "pantheon, cult or god": "Pantheon, Cult or God",
   "cult, school or grimoire": "Cult, School or Grimoire",
+  "cult, totem or tradition": "Cult, Totem or Tradition",
 };
 
 /** Familiar examples make the shared inline field more useful without UI skill-name checks. */
@@ -23,6 +24,7 @@ const SKILL_SPECIALISATION_PROMPTS: Readonly<Record<string, string>> = {
   Craft: "Blacksmithing",
   Language: "Dwarven",
   Lore: "Wilderness",
+  Binding: "Cult, Totem or Tradition",
 };
 
 export type ProfessionalSkillMetadata = {

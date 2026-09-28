@@ -31,5 +31,9 @@ describe("specialised professional skill choices", () => {
     expect(professionalSkillMetadata("Lore (any)").specialisationPrompt).toBe("Wilderness");
     expect(professionalSkillMetadata("Devotion (Pantheon, Cult or God)").specialisationPrompt).toBe("Pantheon, Cult or God");
     expect(professionalSkillMetadata("Invocation (Cult, School or Grimoire)").specialisationPrompt).toBe("Cult, School or Grimoire");
+    expect(professionalSkillMetadata("Binding (Cult, Totem or Tradition)").specialisationPrompt).toBe("Cult, Totem or Tradition");
+    expect(choice).toContain("{selected && needsSpecialisation ? baseName : skill}");
+    expect(choice).toContain("{#if selected && needsSpecialisation}");
+    expect(choice).toContain("oninput={e => onspecialisation(e.currentTarget.value)}");
   });
 });
