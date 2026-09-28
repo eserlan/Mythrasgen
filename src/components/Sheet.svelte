@@ -45,7 +45,7 @@
   </div>
   <Derived />
   <div class="card">
-    <h3>Background &amp; possessions</h3>
+    <h3>Background</h3>
     <p><b>Age:</b> {char.age} ({AGE_CATEGORIES[char.ageCategory].label}) · <b>Social class:</b> {socialClassReady() ? char.background.socialClass : "Reconciliation required"}</p>
     {#if socialClassReady()}<p><b>Money modifier:</b> ×{char.background.socialClassMoney} · <b>Background resources:</b> {char.background.socialClassResources}</p>{/if}
     <p><b>Parents:</b> {char.background.parents || "Unrecorded"} · <b>Siblings:</b> {char.background.siblings || "Unrecorded"}</p>
