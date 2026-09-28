@@ -279,6 +279,11 @@ svg.body text{text-anchor:middle;fill:var(--fg)}svg.body .hp{font:700 15px var(-
 .combat-style-dialog::backdrop{background:#0c0906b8;backdrop-filter:blur(2px)}
 .combat-style-dialog-content,.combat-style-editor{padding:20px;display:grid;gap:14px;box-sizing:border-box}
 .combat-style-dialog-content{height:min(86dvh,900px);max-height:calc(100dvh - 32px);min-height:0;grid-template-rows:auto minmax(0,1fr) auto}
+.combat-style-resolution-view{grid-row:1/-1;display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:14px;min-height:0}
+.combat-style-resolution-context{margin:0;color:var(--mute);line-height:1.5}
+.combat-style-resolution-choices{display:grid;align-content:start;gap:14px;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:1px 4px 1px 1px}
+.combat-style-resolution-choices .field{margin:0}
+.combat-style-resolution-view h2:focus{outline:2px solid var(--bronze);outline-offset:3px}
 .combat-style-editor{max-height:calc(100dvh - 32px);overflow-y:auto}
 .combat-style-dialog-heading{background:var(--card);padding:0 0 12px;border-bottom:1px solid var(--line)}
 .combat-style-dialog-heading>div{display:flex;align-items:center;justify-content:space-between;gap:12px}

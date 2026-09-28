@@ -5,6 +5,9 @@
   let { selectedName = "", styles = [], onchoose }: { selectedName?: string; styles?: CharacterCombatStyle[]; onchoose: (style: CombatStyleSelection | null) => void } = $props();
   let dialog: HTMLDialogElement;
   let searchInput = $state<HTMLInputElement>();
+  let resultsRegion = $state<HTMLDivElement>();
+  let resolutionHeading = $state<HTMLHeadingElement>();
+  let browseScrollTop = 0;
   let query = $state("");
   let name = $state("");
   let weapons = $state("");
@@ -67,17 +70,27 @@
     dialog.close();
   }
 
-  function choosePreset(style: CombatStyleDefinition) {
+  async function choosePreset(style: CombatStyleDefinition) {
     const weaponChoices = style.weaponChoices ?? [];
     const traitChoices = style.traitChoices ?? [];
     if (weaponChoices.length || traitChoices.length) {
+      browseScrollTop = resultsRegion?.scrollTop ?? 0;
       pendingStyle = style;
       weaponPicks = weaponChoices.map(() => -1);
       traitPicks = traitChoices.map(() => -1);
+      await tick();
+      resolutionHeading?.focus();
       return;
     }
     const selection = resolveCoreCombatStyle(style);
     if (selection) choose(selection);
+  }
+
+  async function backToBrowse() {
+    pendingStyle = null;
+    await tick();
+    if (resultsRegion) resultsRegion.scrollTop = browseScrollTop;
+    searchInput?.focus();
   }
 
   function confirmPreset() {
@@ -110,7 +123,7 @@
   {/if}
 </section>
 
-<dialog class="combat-style-dialog" bind:this={dialog} aria-labelledby="combat-style-dialog-title" onclose={() => editingCustom = false}>
+<dialog class="combat-style-dialog" bind:this={dialog} aria-labelledby={pendingStyle ? "combat-style-resolution-title" : "combat-style-dialog-title"} onclose={() => editingCustom = false}>
   {#if editingCustom}
     <form class="combat-style-editor" onsubmit={event => { event.preventDefault(); create(); }}>
       <h2 id="combat-style-dialog-title">Create a Custom Combat Style</h2>
@@ -145,14 +158,16 @@
     </form>
   {:else}
     <div class="combat-style-dialog-content">
-      <header class="combat-style-dialog-heading">
-        <div><h2 id="combat-style-dialog-title">Choose a Combat Style</h2><button type="button" class="ghost combat-style-close" aria-label="Close combat style picker" onclick={() => dialog.close()}>Close</button></div>
-        <label class="field"><span>Search combat styles…</span><input bind:this={searchInput} class="wide" bind:value={query} placeholder="Name, weapon, or trait"></label>
-      </header>
-      <div class="combat-style-main" role="region" aria-label="Combat style results">
-        {#if pendingStyle}
-          <fieldset class="preset-resolution">
-            <legend>Resolve {pendingStyle.name}{#if pendingStyle.aliases?.length} / {pendingStyle.aliases.join(" / ")}{/if}</legend>
+      {#if pendingStyle}
+        <section class="combat-style-resolution-view" aria-labelledby="combat-style-resolution-title">
+          <header class="combat-style-dialog-heading">
+            <div><h2 id="combat-style-resolution-title" bind:this={resolutionHeading} tabindex="-1">Resolve {pendingStyle.name}{#if pendingStyle.aliases?.length} / {pendingStyle.aliases.join(" / ")}{/if}</h2><button type="button" class="ghost combat-style-close" aria-label="Close combat style picker" onclick={() => dialog.close()}>Close</button></div>
+            <p class="combat-style-resolution-context">
+              {[...pendingStyle.weapons.map(weapon => weapon.name), ...(pendingStyle.weaponChoices ?? []).map(group => group.map(weapon => weapon.name).join(" or "))].join(" · ") || "No weapons recorded"}
+              {#if pendingStyle.traits.length || pendingStyle.traitChoices?.length}<br><b>Traits:</b> {[...pendingStyle.traits.map(trait => trait.displayName), ...(pendingStyle.traitChoices ?? []).map(group => group.map(trait => trait.displayName).join(" or "))].join(" / ")}{/if}
+            </p>
+          </header>
+          <div class="combat-style-resolution-choices">
             {#each pendingStyle.weaponChoices ?? [] as group, index (index)}
               <label class="field"><span>Choose weapon</span><select class="wide" value={weaponPicks[index]} onchange={event => weaponPicks[index] = Number(event.currentTarget.value)}>
                 <option value="-1">Choose one</option>
@@ -165,9 +180,15 @@
                 {#each group as trait, optionIndex (trait.id)}<option value={optionIndex}>{trait.displayName}</option>{/each}
               </select></label>
             {/each}
-            <div class="combat-style-actions"><button type="button" class="primary" disabled={[...weaponPicks, ...traitPicks].some(index => index < 0)} onclick={confirmPreset}>Use Selected Style</button><button type="button" class="secondary" onclick={() => pendingStyle = null}>Cancel</button></div>
-          </fieldset>
-        {/if}
+          </div>
+          <div class="combat-style-actions"><button type="button" class="primary" disabled={[...weaponPicks, ...traitPicks].some(index => index < 0)} onclick={confirmPreset}>Use Selected Style</button><button type="button" class="secondary" onclick={backToBrowse}>Back</button></div>
+        </section>
+      {:else}
+        <header class="combat-style-dialog-heading">
+          <div><h2 id="combat-style-dialog-title">Choose a Combat Style</h2><button type="button" class="ghost combat-style-close" aria-label="Close combat style picker" onclick={() => dialog.close()}>Close</button></div>
+          <label class="field"><span>Search combat styles…</span><input bind:this={searchInput} class="wide" bind:value={query} placeholder="Name, weapon, or trait"></label>
+        </header>
+        <div class="combat-style-main" bind:this={resultsRegion} role="region" aria-label="Combat style results">
         <div class="combat-style-results">
           {#each results as style (style.id)}
             <article class="combat-style-result">
@@ -181,8 +202,9 @@
             </article>
           {:else}<p class="hint">No matching combat styles.</p>{/each}
         </div>
-      </div>
-      <div class="combat-style-dialog-footer"><button type="button" class="secondary" onclick={() => { editingCustom = true; }}>Create Custom</button><button type="button" class="secondary" onclick={() => dialog.close()}>Cancel</button></div>
+        </div>
+        <div class="combat-style-dialog-footer"><button type="button" class="secondary" onclick={() => { editingCustom = true; }}>Create Custom</button><button type="button" class="secondary" onclick={() => dialog.close()}>Cancel</button></div>
+      {/if}
     </div>
   {/if}
 </dialog>
