@@ -38,10 +38,14 @@ export interface BackgroundData {
   purchases: { name: string; cost: number }[];
 }
 
-/** Keep existing saves on the same logical screen when Combat is inserted before Sheet. */
-export function migrateCharacterStep(step: number, hasBackground: boolean): number {
-  if (!hasBackground && step === 5) return 7;
-  return step === 6 ? 7 : step;
+/** Keep old saves on the same logical screen when Magic is inserted before Background. */
+export function migrateCharacterStep(step: number, hasBackground: boolean, hasMagic = false): number {
+  if (hasMagic) return Math.max(0, Math.min(8, step));
+  if (!hasBackground && step === 5) return 8;
+  if (hasBackground && step === 5) return 6;
+  if (step === 6) return 7;
+  if (step === 7) return 8;
+  return step;
 }
 
 /** Infer the new table selections from a saved culture while preserving explicit custom choices. */

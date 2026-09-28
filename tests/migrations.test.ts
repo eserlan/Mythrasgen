@@ -10,13 +10,19 @@ describe("race normalization", () => {
 });
 
 describe("legacy character step migration", () => {
-  test("keeps old sheet saves on the sheet after inserting Combat", () => {
-    expect(migrateCharacterStep(5, false)).toBe(7);
+  test("keeps old saves on the sheet after inserting Magic", () => {
+    expect(migrateCharacterStep(5, false)).toBe(8);
   });
 
-  test("leaves the current Background step in place and shifts old Sheet saves", () => {
-    expect(migrateCharacterStep(5, true)).toBe(5);
+  test("moves Background and later old steps around the inserted Magic page", () => {
+    expect(migrateCharacterStep(5, true)).toBe(6);
     expect(migrateCharacterStep(6, true)).toBe(7);
+    expect(migrateCharacterStep(7, true)).toBe(8);
+  });
+
+  test("keeps step numbers for saves that already include Magic", () => {
+    expect(migrateCharacterStep(5, true, true)).toBe(5);
+    expect(migrateCharacterStep(8, true, true)).toBe(8);
   });
 });
 

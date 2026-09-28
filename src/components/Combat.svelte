@@ -3,6 +3,6 @@
   import CombatStyles from "./CombatStyles.svelte";
 </script>
 
-<StepHead step={6} title="Combat" />
+<StepHead step={7} title="Combat" />
 <p class="hint">Each listed weapon is governed by its Combat Style percentage. Weapons are not separate skills.</p>
 <CombatStyles />
