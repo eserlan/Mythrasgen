@@ -31,8 +31,11 @@ describe("Core Combat Style trait details", () => {
     expect(picker.match(/\{trait\.description\}/g)).toHaveLength(1);
     expect(picker).toContain('<div class="trait-picker-heading">');
     expect(picker).toContain('<div class="trait-picker-description" id={`${idPrefix}-core-trait-description-${trait.id}`}');
+    expect(picker).toContain('<label class="trait-picker-choice"><input type="checkbox"');
+    expect(picker).toContain("onchange={event => pickedTraits = event.currentTarget.checked");
     expect(picker).not.toContain("<details>");
     expect(picker).not.toContain("<small>{trait.description}</small>");
+    expect(picker).not.toContain("<small>{trait.displayName}</small>");
   });
 
   test("search includes descriptions while collapsed and details do not change selection", () => {
@@ -48,5 +51,9 @@ describe("Core Combat Style trait details", () => {
     expect(skills).toContain('idPrefix={`career-combat-style-${i}`}');
     expect(skills).toContain('idPrefix="culture-combat-style"');
     expect(skills).toContain('idPrefix="bonus-combat-style"');
+    expect(readFileSync(new URL("../src/app.css", import.meta.url), "utf8")).toContain(
+      ".combat-style-editor fieldset .trait-picker-choice{display:grid;grid-template-columns:18px minmax(0,1fr);align-items:start;gap:0 8px;min-width:0;cursor:pointer}",
+    );
+    expect(readFileSync(new URL("../src/app.css", import.meta.url), "utf8")).toContain("input:focus-visible");
   });
 });

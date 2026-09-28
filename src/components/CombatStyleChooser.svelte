@@ -150,7 +150,7 @@
           {#each filteredTraits as trait (trait.id)}
             <article class="trait-picker-result">
               <div class="trait-picker-heading">
-                <label><input type="checkbox" checked={pickedTraits.includes(trait.id)} onchange={event => pickedTraits = event.currentTarget.checked ? [...pickedTraits, trait.id] : pickedTraits.filter(id => id !== trait.id)}><span><b>{trait.displayName}</b></span></label>
+                <label class="trait-picker-choice"><input type="checkbox" checked={pickedTraits.includes(trait.id)} onchange={event => pickedTraits = event.currentTarget.checked ? [...pickedTraits, trait.id] : pickedTraits.filter(id => id !== trait.id)}><span><b>{trait.displayName}</b></span></label>
                 <button type="button" class="ghost trait-picker-details" aria-expanded={expandedTraits.includes(trait.id)} aria-controls={`${idPrefix}-core-trait-description-${trait.id}`} onclick={() => toggleTraitDetails(trait.id)}>Details</button>
               </div>
               <div class="trait-picker-description" id={`${idPrefix}-core-trait-description-${trait.id}`} hidden={!expandedTraits.includes(trait.id)}>{trait.description}</div>
