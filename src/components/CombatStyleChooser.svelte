@@ -1,5 +1,6 @@
 <script lang="ts">
   import { tick } from "svelte";
+  import SkillInfo from "./SkillInfo.svelte";
   import { CORE_COMBAT_STYLES, CORE_COMBAT_TRAITS, customCombatStyle, resolveCoreCombatStyle, type CharacterCombatStyle, type CombatStyleDefinition, type CombatStyleSelection, type CombatStyleTrait } from "../lib/combat-styles";
 
   let { selectedName = "", styles = [], idPrefix, onchoose }: { selectedName?: string; styles?: CharacterCombatStyle[]; idPrefix: string; onchoose: (style: CombatStyleSelection | null) => void } = $props();
@@ -128,7 +129,7 @@
   {:else}
     <div class="combat-style-summary">
       <div class="combat-style-summary-heading">
-        <h3>{selectedName} — {selected?.baseFormula.join(" + ") ?? "STR + DEX"}</h3>
+        <h3><SkillInfo name={`Combat Style (${selectedName})`} /> — {selected?.baseFormula.join(" + ") ?? "STR + DEX"}</h3>
         <small>{selected?.source.libraryName ?? "Custom / Campaign"}{#if selected?.source.reference} · {selected.source.reference}{/if}</small>
       </div>
       {#if selected?.weapons.length}<p>{selected.weapons.map(weapon => weapon.name).join(" · ")}</p>{/if}
@@ -214,7 +215,7 @@
           {#each results as style (style.id)}
             <article class="combat-style-result">
               <div class="combat-style-result-content">
-                <h3>{style.name}{#if style.aliases?.length} / {style.aliases.join(" / ")}{/if}</h3>
+                <h3><SkillInfo name={`Combat Style (${style.name})`} />{#if style.aliases?.length} / {style.aliases.join(" / ")}{/if}</h3>
                 <div class="combat-style-metadata">
                   <p><strong>Weapons:</strong> <span>{styleWeapons(style).join(" · ") || "None recorded"}</span></p>
                   <p><strong>{"searchable" in style ? (styleTraits(style).length === 1 ? "Suggested Trait" : "Suggested Traits") : (style.traits.length === 1 ? "Trait" : "Traits")}:</strong> <span>{styleTraits(style).join(" / ") || "None recorded"}</span></p>

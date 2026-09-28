@@ -1,5 +1,6 @@
 <script lang="ts">
   import { professionalSkillMetadata } from "../lib/specialisations";
+  import SkillInfo from "./SkillInfo.svelte";
 
   let {
     skill,
@@ -20,12 +21,14 @@
   const metadata = $derived(professionalSkillMetadata(skill));
   const baseName = $derived(metadata.name);
   const needsSpecialisation = $derived(metadata.requiresSpecialisation);
+  const displayName = $derived(selected && needsSpecialisation ? baseName : skill);
   const placeholder = $derived(metadata.specialisationPrompt ?? "Specialisation");
 </script>
 
 <div class="professional-choice">
   <label class="professional-skill-label"><input type="checkbox" checked={selected} {disabled}
-    onchange={e => onselect(e.currentTarget.checked)}>{selected && needsSpecialisation ? baseName : skill}</label>
+    aria-label={displayName} onchange={e => onselect(e.currentTarget.checked)}><span>{displayName}</span></label>
+  <SkillInfo name={displayName} showName={false} />
   {#if selected && needsSpecialisation}
     <label class="specialisation-field">
       <span class="sr-only">{baseName} specialisation</span>

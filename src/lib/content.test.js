@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { careerSkillOptions, careers, restoreCareerAllocation, restoreLegacyCareerIndex, selectCareerProfessional } from "./content";
 import { MAGIC, PROFESSIONAL, STANDARD } from "./rules";
 import { baseName } from "./calc";
+import { describedCoreSkillNames, SKILL_DESCRIPTIONS, skillDescription } from "./skill-descriptions";
 
 const coreCareerNames = [
   "Agent", "Alchemist", "Beast Handler", "Courtesan", "Courtier", "Crafter", "Entertainer", "Farmer",
@@ -71,5 +72,23 @@ describe("core careers", () => {
     expect(careers[restoreLegacyCareerIndex(3)].name).toBe("Thief");
     expect(careers[restoreLegacyCareerIndex(4)].name).toBe("Physician");
     expect(careers[restoreLegacyCareerIndex(5)].name).toBe("Hunter");
+  });
+});
+
+describe("skill descriptions", () => {
+  test("every Standard, Professional, and Magic skill has a concise description", () => {
+    expect(describedCoreSkillNames().every(name => typeof SKILL_DESCRIPTIONS[name] === "string" && SKILL_DESCRIPTIONS[name].length > 0)).toBe(true);
+    expect(Object.values(SKILL_DESCRIPTIONS).every(description => description.split(/[.!?]+/).filter(Boolean).length <= 2)).toBe(true);
+  });
+
+  test("specialised variants inherit their base skill description", () => {
+    expect(skillDescription("Lore (Astronomy)")).toBe(skillDescription("Lore"));
+    expect(skillDescription("Craft (Alchemy)")).toBe(skillDescription("Craft"));
+    expect(skillDescription("Language (any)")).toBe(skillDescription("Language"));
+    expect(skillDescription("Combat Style (Cultural Style)")).toBe(skillDescription("Combat Style"));
+  });
+
+  test("unknown campaign skills do not inherit the combat style description", () => {
+    expect(skillDescription("Custom Campaign Skill")).toBeUndefined();
   });
 });

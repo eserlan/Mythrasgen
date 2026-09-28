@@ -7,6 +7,7 @@
   import StepHead from "./StepHead.svelte";
   import CombatStyles from "./CombatStyles.svelte";
   import { CONNECTIONS, FAMILY_STANDING, resolvedBackgroundEvents, tableResult } from "../lib/background-rules";
+  import SkillInfo from "./SkillInfo.svelte";
   const loc = $derived(deriveStats(char.chars).loc);
   const skills = $derived(allSkills().sort());
   const std = $derived(skills.filter(n => !skillDefinition(n).pro && !RESISTANCES.includes(n as typeof RESISTANCES[number])));
@@ -60,17 +61,17 @@
     <div class="card"><h3>Hit locations</h3><HitLocations {loc} /></div>
     <div class="card">
       <h3>Combat &amp; professional</h3>
-      <ul class="leaders">{#each pro as n}<li><span>{n}</span><i></i><b>{total(n)}%</b></li>{/each}</ul>
+      <ul class="leaders">{#each pro as n}<li><span><SkillInfo name={n} /></span><i></i><b>{total(n)}%</b></li>{/each}</ul>
     </div>
   </div>
   <div class="sheet-combat"><h2>Combat</h2><CombatStyles /></div>
   <div class="card">
     <h3>Resistances</h3>
-    <ul class="leaders cols">{#each RESISTANCES as n}<li><span>{n}</span><i></i><b>{total(n)}%</b></li>{/each}</ul>
+    <ul class="leaders cols">{#each RESISTANCES as n}<li><span><SkillInfo name={n} /></span><i></i><b>{total(n)}%</b></li>{/each}</ul>
   </div>
   <div class="card">
     <h3>Standard skills</h3>
-    <ul class="leaders cols">{#each std as n}<li><span>{n}</span><i></i><b>{total(n)}%</b></li>{/each}</ul>
+    <ul class="leaders cols">{#each std as n}<li><span><SkillInfo name={n} /></span><i></i><b>{total(n)}%</b></li>{/each}</ul>
   </div>
   {#if char.passionsEnabled && char.passions.length}
     <div class="card sheet-passions">
