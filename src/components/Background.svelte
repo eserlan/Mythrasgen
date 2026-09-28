@@ -79,7 +79,7 @@
   }
 </script>
 
-<StepHead step={5} title="Background &amp; possessions" />
+<StepHead step={5} title="Background" />
 <section class="card">
   <h3>Background events</h3>
   <p class="mute">Age {char.age} ({AGE_CATEGORIES[char.ageCategory].label}) calls for {eventCount()} background event{eventCount() === 1 ? "" : "s"}. Roll a d100 result or choose one from the official Core Rules table (pp. 18–20), then record its event text below.</p>
