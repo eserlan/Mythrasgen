@@ -154,10 +154,10 @@ main{padding:8px 16px 70px}
 .social-class-dialog-content .combat-style-dialog-heading{padding-bottom:10px}
 .social-class-dialog-content .combat-style-dialog-heading h2{margin:0}
 .social-class-dialog-content .combat-style-dialog-heading p{margin:8px 0 0;font-size:.8rem}
-.social-class-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:7px}
-.social-class-option{display:flex;justify-content:space-between;align-items:baseline;gap:8px;text-align:left;background:var(--card2);border:1px solid var(--line);color:var(--fg);padding:10px;font:400 .85rem var(--body);cursor:pointer}
+.social-class-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr));gap:7px}
+.social-class-option{display:grid;justify-items:start;gap:4px;text-align:left;background:var(--card2);border:1px solid var(--line);color:var(--fg);padding:10px;font:400 .85rem var(--body);cursor:pointer}
 .social-class-option:hover,.social-class-option:focus-visible{border-color:var(--bronze);outline-color:var(--bronze)}
-.social-class-option b{overflow-wrap:anywhere}.social-class-option span{flex:none;color:var(--mute);font-size:.75rem}
+.social-class-option b{overflow-wrap:normal;word-break:normal}.social-class-option span{color:var(--mute);font-size:.75rem}
 .family-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px 18px}
 .family-grid>div{padding:8px 0;border-bottom:1px dotted var(--line)}
 .field{display:flex;flex-direction:column;gap:5px}
@@ -341,6 +341,7 @@ svg.body text{text-anchor:middle;fill:var(--fg)}svg.body .hp{font:700 15px var(-
 .combat-style-metadata strong{font-weight:700}
 .combat-style-result button{grid-column:2;grid-row:1;align-self:start}
 .combat-style-dialog-footer{display:flex;justify-content:space-between;gap:8px;border-top:1px solid var(--line);padding-top:12px}
+.social-class-dialog.combat-style-dialog{width:min(520px,calc(100vw - 28px));max-width:520px}
 .combat-style-editor .field{gap:5px}
 .combat-style-editor fieldset{border:1px solid var(--line);padding:10px}
 .combat-style-editor legend{font-family:var(--display);font-size:.72rem;text-transform:uppercase;letter-spacing:.1em;color:var(--mute)}
