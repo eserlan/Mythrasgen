@@ -6,6 +6,7 @@
   import Sheet from "./components/Sheet.svelte";
   import Skills from "./components/Skills.svelte";
   import Background from "./components/Background.svelte";
+  import Magic from "./components/Magic.svelte";
   import Combat from "./components/Combat.svelte";
   import Characters from "./components/Characters.svelte";
   import { canFinishPointBuy } from "./lib/calc";
@@ -77,8 +78,9 @@
   {:else if char.step === 2}<Skills kind="culture" />
   {:else if char.step === 3}<Skills kind="career" />
   {:else if char.step === 4}<Skills kind="bonus" />
-  {:else if char.step === 5}<Background />
-  {:else if char.step === 6}<Combat />
+  {:else if char.step === 5}<Magic />
+  {:else if char.step === 6}<Background />
+  {:else if char.step === 7}<Combat />
   {:else}<Sheet />{/if}
   </div>{/key}
 

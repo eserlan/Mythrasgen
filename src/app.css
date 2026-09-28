@@ -161,6 +161,14 @@ main{padding:8px 16px 70px}
 .family-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px 18px}
 .family-grid>div{padding:8px 0;border-bottom:1px dotted var(--line)}
 .family-background h3{margin-bottom:10px}
+.magic-empty-title{font:700 1.1rem var(--display);margin:8px 0 2px}.magic-foundation>.mute{margin:0;color:var(--mute)}
+.magic-capabilities{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:10px}
+.magic-capability{min-width:0;padding:12px;background:var(--card2);border:1px solid var(--line)}
+.magic-capability-heading{display:flex;align-items:center;justify-content:space-between;gap:10px}.magic-capability h4,.magic-organisations h4{margin:0;font:700 .75rem var(--display);letter-spacing:.1em;text-transform:uppercase;color:var(--bronze)}
+.magic-status{font:700 .62rem var(--display);letter-spacing:.08em;text-transform:uppercase;color:var(--mute);text-align:right}
+.magic-skills{list-style:none;padding:0;margin:8px 0 0}.magic-skills li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:1px 12px;padding:6px 0;border-top:1px dotted var(--line)}
+.magic-skills li:first-child{border-top:0}.magic-skills li>span{overflow-wrap:anywhere}.magic-skills li>b{font:700 1rem var(--display);color:var(--bronze);white-space:nowrap}.magic-skills small{grid-column:1/-1;color:var(--mute);font-size:.76rem}
+.magic-organisations{margin-top:18px;padding-top:12px;border-top:1px solid var(--line)}.magic-organisations p{margin:4px 0 0;color:var(--mute);font-size:.88rem}
 .family-result{min-width:0;padding:9px 11px;background:var(--card2);border:1px solid var(--line)}
 .family-result h4,.family-relationships h4{margin:0 0 5px;font:700 .7rem var(--display);letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
 .family-result p{margin:5px 0;overflow-wrap:anywhere}

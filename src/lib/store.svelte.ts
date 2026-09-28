@@ -14,6 +14,7 @@ import { attachCharacterStyle, CORE_COMBAT_STYLES, detachCharacterStyle, legacyC
 import { hasMeaningfulSpecialisation, requiresSpecialisation, resolveSkillTemplate, specialisationStageErrors } from "./specialisations";
 import { hobbySkillName, restoreHobbySkill, type HobbySkill } from "./hobby-skills";
 import type { FamilyRelationship } from "./family-relationships";
+import { detectMagicDisciplines, emptyMagicState, normalizeMagicState, normalizeMemberships, reconcileMagicState, type MagicState, type OrganisationMembership } from "./magic";
 
 export interface Passion {
   type: "Loyalty" | "Love" | "Hate";
@@ -44,20 +45,23 @@ export interface Character {
     startingMoneyKey: string; startingMoneyTotal: number; currentMoney: number; equipment: string;
     purchases: { name: string; cost: number }[];
   };
+  magic: MagicState;
+  memberships: OrganisationMembership[];
   socialTable: CultureKind;
   moneyTable: CultureKind;
   generation: "pointBuy" | "roll"; rollResults: number[] | null; rollAssignments: number[];
   /** True while the landing page is showing. */
   home: boolean;
 }
-export const STEPS = ["Concept", "Characteristics", "Culture", "Career", "Bonus Skills", "Background", "Combat", "Sheet"];
-export const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII"];
+export const STEPS = ["Concept", "Characteristics", "Culture", "Career", "Bonus Skills", "Magic", "Background", "Combat", "Sheet"];
+export const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX"];
 export const INTRO = [
   "Name your hero and choose their culture and career.",
   "The raw measure of body and mind. Roll the dice, or set each by hand.",
   "The customs and skills every child of your people learns.",
   "The trade or calling that shaped your adult years.",
   "Use age-based bonus points to round out learned skills and one optional hobby skill.",
+  "Review the magical disciplines granted by your skills. Future discipline stages will build on these capabilities.",
   "The people, events, and possessions your hero starts with.",
   "Combat Styles, their weapons, and the training that governs them.",
   "Your hero, ready for the table.",
@@ -72,6 +76,7 @@ const blank = (): Character => ({
   skillSpecialisations: { culture: {}, career: {} },
   alloc: { culture: {}, career: {}, bonus: {} }, hobbySkill: null, careerProfessional: [], careerCombatStyles: [], step: 0,
   passionsEnabled: false, passions: [],
+  magic: emptyMagicState(), memberships: [],
   socialTable: "Barbarian", moneyTable: "Barbarian",
   background: { events: [{ roll: 0 }], archivedEvents: [], socialClassRoll: 50, socialClass: "Freeman",
     socialClassCulture: "Barbarian", socialClassMethod: "rolled", socialClassMoney: 1,
@@ -105,7 +110,8 @@ function normalize(value: Partial<Character> | null, home = true): Character {
       culture: restoreSpecialisations(migrated.skillSpecialisations?.culture),
       career: restoreSpecialisations(migrated.skillSpecialisations?.career),
     },
-    step: migrateCharacterStep(migrated.step ?? fallback.step, !!migrated.background),
+    step: migrateCharacterStep(migrated.step ?? fallback.step, !!migrated.background, !!migrated.magic),
+    magic: normalizeMagicState(migrated.magic), memberships: normalizeMemberships(migrated.memberships),
     ...migrateCultureTables(cultureKind, migrated.socialTable, migrated.moneyTable),
     ageCategory,
     age: normalizeAge(Number.isFinite(migrated.age) ? migrated.age! : fallback.age, ageCategory),
@@ -239,7 +245,29 @@ function normalize(value: Partial<Character> | null, home = true): Character {
   normalized.alloc.bonus = Object.fromEntries(Object.entries(normalized.alloc.bonus ?? {}).filter(([name]) =>
     learned.has(name) || unresolvedProfessionalTemplates.has(name) || name === hobbyName && !!normalized.hobbySkill));
   if (normalized.step === STEPS.length - 1 && sum(Object.values(normalized.alloc.bonus)) < bonusPool(normalized.ageCategory)) normalized.step = 4;
+  normalized.magic = reconcileMagicState(normalized.magic, detectMagicDisciplines(magicSkillsFor(normalized)));
   return normalized;
+}
+
+function magicSkillsFor(character: Character) {
+  const cultureLearned = cultureSkills(selectedCulture(character.culture), character.cultureSelections.standard,
+    character.cultureSelections.professional.map(template => resolveSkillTemplate(template, character.skillSpecialisations.culture[template]))
+      .filter((name): name is string => !!name), character.cultureSelections.combatStyle);
+  const careerLearned = [...new Set([...selectedCareer(character.career).standard, ...character.careerCombatStyles.filter(Boolean),
+    ...character.careerProfessional.map(template => resolveSkillTemplate(template, character.skillSpecialisations.career[template]))
+      .filter((name): name is string => !!name)])];
+  const hobby = hobbySkillName(character.hobbySkill);
+  const names = [...new Set([...cultureLearned, ...careerLearned, ...(hobby ? [hobby] : []), ...Object.keys(character.alloc.bonus)])];
+  return names.map(name => {
+    const origins = [
+      ...(cultureLearned.includes(name) ? ["culture" as const] : []),
+      ...(careerLearned.includes(name) ? ["career" as const] : []),
+      ...(name === hobby || (character.alloc.bonus[name] ?? 0) > 0 ? ["bonus" as const] : []),
+    ];
+    const value = formulaVal(skillDef(name, [...character.careerCombatStyles, character.cultureSelections.combatStyle].filter(Boolean)).f, character.chars)
+      + sum((Object.keys(POOLS) as Kind[]).map(kind => character.alloc[kind][name] ?? 0));
+    return { name, value, origins };
+  });
 }
 function restoreCareer(character: Character, legacy = false) {
   const selected = careers[character.career] ?? careers[0];
@@ -269,6 +297,9 @@ export const characterLibrary = $state({ characters: repository.listCharacters()
 function refreshLibrary() { characterLibrary.characters = repository.listCharacters() as Character[]; }
 
 export function persist() { recalculateStartingMoney(); repository.saveCharacter({ ...char }); refreshLibrary(); }
+export function reconcileMagic() {
+  char.magic = reconcileMagicState(char.magic, detectMagicDisciplines(magicSkillsFor(char)));
+}
 export const reset = (home = true) => Object.assign(char, blank(), { id: char.id, home });
 export const replace = (c: Partial<Character>) => Object.assign(char, normalize({ ...c, id: char.id }, false));
 export function createCharacter() {

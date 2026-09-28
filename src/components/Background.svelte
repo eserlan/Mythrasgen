@@ -91,7 +91,7 @@
   }
 </script>
 
-<StepHead step={5} title="Background" />
+<StepHead step={6} title="Background" />
 <section class="card">
   <h3>Background events — {eventCount() === 0 ? "none" : `${eventCount()} event${eventCount() === 1 ? "" : "s"}`}</h3>
   <p class="mute">Age {char.age} ({AGE_CATEGORIES[char.ageCategory].label}) calls for {eventCount()} background event{eventCount() === 1 ? "" : "s"}. Random rolls never repeat an event already held; chosen events are unrestricted. Events are optional — leave a slot empty if it does not fit your hero.</p>

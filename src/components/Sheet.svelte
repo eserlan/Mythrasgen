@@ -17,7 +17,7 @@
   const connectionTier = $derived(tableResult(CONNECTIONS, char.background.connectionsRoll));
 </script>
 
-<div class="noprint"><StepHead step={7} title="Character sheet" /></div>
+<div class="noprint"><StepHead step={8} title="Character sheet" /></div>
 <article class="sheet">
   <div class="banner">
     <div class="meander" aria-hidden="true"></div>
