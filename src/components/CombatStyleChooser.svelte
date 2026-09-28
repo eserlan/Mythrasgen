@@ -143,7 +143,7 @@
         <div class="trait-picker-results" aria-label="Mythras Core Combat Style Traits">
           {#each filteredTraits as trait (trait.id)}
             <article class="trait-picker-result">
-              <label><input type="checkbox" checked={pickedTraits.includes(trait.id)} onchange={event => pickedTraits = event.currentTarget.checked ? [...pickedTraits, trait.id] : pickedTraits.filter(id => id !== trait.id)}><span><b>{trait.displayName}</b><small>{trait.description}</small></span></label>
+              <label class="trait-picker-choice"><input type="checkbox" checked={pickedTraits.includes(trait.id)} onchange={event => pickedTraits = event.currentTarget.checked ? [...pickedTraits, trait.id] : pickedTraits.filter(id => id !== trait.id)}><span><b>{trait.displayName}</b><small>{trait.description}</small></span></label>
               <details><summary>Details</summary><p>{trait.description}</p></details>
             </article>
           {:else}<p class="hint">No matching Mythras Core traits.</p>{/each}
