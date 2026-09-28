@@ -20,3 +20,19 @@ describe("Combat Style preset resolution view", () => {
     expect(picker).toContain("onclick={backToBrowse}");
   });
 });
+
+describe("custom Combat Style trait choices", () => {
+  test("keeps the checkbox and trait name in one accessible, aligned label", () => {
+    expect(picker).toContain('<label class="trait-picker-choice"><input type="checkbox"');
+    expect(picker).toContain('<span><b>{trait.displayName}</b><small>{trait.description}</small></span></label>');
+    expect(picker).toContain("onchange={event => pickedTraits = event.currentTarget.checked");
+  });
+
+  test("uses a wrapping text column and preserves a visible checkbox focus state", () => {
+    expect(picker).toContain("class=\"trait-picker-choice\"");
+    expect(readFileSync(new URL("../src/app.css", import.meta.url), "utf8")).toContain(
+      ".combat-style-editor fieldset .trait-picker-choice{display:grid;grid-template-columns:18px minmax(0,1fr);align-items:start;gap:0 8px;min-width:0;cursor:pointer}",
+    );
+    expect(readFileSync(new URL("../src/app.css", import.meta.url), "utf8")).toContain("input:focus-visible");
+  });
+});
