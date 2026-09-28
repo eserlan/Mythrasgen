@@ -1,8 +1,8 @@
 <script lang="ts">
   import StepHead from "./StepHead.svelte";
   import { char, availableMoney, eventCount, moneyMultiplier, resolveSocialClass, roll4d6, rollDie, rollPercentile, socialClassReady, startingMoney } from "../lib/store.svelte";
-  import { backgroundEventText, CONNECTIONS, CONNECTION_TYPES, EXTENDED_FAMILY, FAMILY_STANDING, PARENTS, SIBLINGS, SOCIAL_CLASSES, socialClassForRoll, tableResult } from "../lib/background-rules";
-  import { CORE_BACKGROUND_EVENTS, coreBackgroundEventForRange, rollUniqueCoreBackgroundEvent } from "../lib/background-events";
+  import { chooseBackgroundEvent, CONNECTIONS, CONNECTION_TYPES, EXTENDED_FAMILY, FAMILY_STANDING, PARENTS, SIBLINGS, resolveBackgroundEvent, rollUniqueBackgroundResult, setBackgroundEventResult, SOCIAL_CLASSES, socialClassForRoll, tableResult } from "../lib/background-rules";
+  import { CORE_BACKGROUND_EVENTS } from "../lib/background-events";
   import { cultures } from "../lib/content";
   import { AGE_CATEGORIES } from "../lib/rules";
 
@@ -65,17 +65,17 @@
     background.connections = Array.from({ length: count }, () => CONNECTION_TYPES[rollDie(4) - 1]);
   }
   function rollEvent(index: number) {
-    const taken = background.events.filter((_, i) => i !== index).map(event => event.range).filter(range => range !== "");
-    const { roll, event } = rollUniqueCoreBackgroundEvent(taken);
-    background.events[index] = { roll, range: event.range, source: "rolled" };
+    const taken = background.events.filter((_, i) => i !== index).map(event => event.eventId ?? "");
+    const roll = rollUniqueBackgroundResult(taken);
+    background.events[index] = setBackgroundEventResult(roll, "rolled");
   }
-  function chooseEvent(index: number, range: string) {
-    background.events[index] = { roll: 0, range, source: "chosen" };
+  function chooseEvent(index: number, eventId: string) {
+    background.events[index] = chooseBackgroundEvent(eventId);
     chooserFor = null;
     filter = "";
   }
   function clearEvent(index: number) {
-    background.events[index] = { roll: 0, range: "" };
+    background.events[index] = { roll: 0 };
   }
   function clearArchivedEvents() {
     background.archivedEvents = [];
@@ -98,7 +98,7 @@
     <p class="hint" role="status">No Background Events from age.</p>
   {/if}
   {#each background.events as event, i}
-    {@const entry = coreBackgroundEventForRange(event.range)}
+    {@const entry = resolveBackgroundEvent(event)}
     <div class="event-entry" class:resolved={!!entry}>
       <div class="field-row event-row">
         <span class="event-num">Event {i + 1}</span>
@@ -122,7 +122,7 @@
   {#if background.archivedEvents.length}
     <div class="hint" role="status">
       <p>{background.archivedEvents.length} event{background.archivedEvents.length === 1 ? " was" : "s were"} preserved here after the age category reduced the active slot count.</p>
-      {#each background.archivedEvents as event, i}<p>Previously active event {i + 1}: {event.range ? `Table result ${event.range}` : "unresolved"}{backgroundEventText(event) ? ` — ${backgroundEventText(event)}` : ""}</p>{/each}
+      {#each background.archivedEvents as event, i}{@const archived = resolveBackgroundEvent(event)}<p>Previously active event {i + 1}: {archived?.range ?? "unresolved"}{archived ? ` — ${archived.text}` : ""}</p>{/each}
       <button type="button" class="ghost" onclick={clearArchivedEvents}>Discard preserved events</button>
     </div>
   {/if}

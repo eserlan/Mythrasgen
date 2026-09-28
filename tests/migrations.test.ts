@@ -37,7 +37,7 @@ describe("legacy background table migration", () => {
 
 describe("imported background normalization", () => {
   const fallback = {
-    events: [{ roll: 0, range: "" }], archivedEvents: [], socialClassRoll: 50, socialClass: "Freeman",
+    events: [{ roll: 0, text: "" }], archivedEvents: [], socialClassRoll: 50, socialClass: "Freeman",
     socialClassCulture: "Civilised" as const, socialClassMethod: "rolled" as const, socialClassMoney: 1,
     socialClassEquipment: "Tools", socialClassResources: "Rented accommodation",
     parentsRoll: 50, parents: "", siblingsRoll: 50, siblings: "", extendedFamilyRoll: 50, extendedFamily: "",
@@ -60,16 +60,25 @@ describe("imported background normalization", () => {
       archivedEvents: [{ roll: 12, text: "Retained" }, { roll: -1, text: "Invalid" }],
       purchases: [{ name: "Torch", cost: 2 }, { name: "Invalid", cost: -1 }],
     }, fallback);
-    expect(value.events).toEqual([{ roll: 40, range: "40-41", source: "chosen" }]);
-    expect(value.archivedEvents).toEqual([{ roll: 12, range: "11-12" }]);
+    expect(value.events).toEqual([{ roll: 0, eventId: "40-41", source: "chosen" }]);
+    expect(value.archivedEvents).toEqual([{ roll: 12, eventId: "11-12" }]);
     expect(value.purchases).toEqual([{ name: "Torch", cost: 2 }]);
   });
 
-  test("keeps canonical ranges already stored on imported events", () => {
+  test("migrates saved event text to catalogue identity and keeps actual random rolls", () => {
+    const value = normalizeBackground({
+      events: [{ roll: 69, text: "Copied catalogue paragraph", source: "rolled" }],
+    }, fallback);
+    expect(value.events).toEqual([{ roll: 69, eventId: "69-70", source: "rolled" }]);
+  });
+
+  test("migrates canonical ranges saved by the earlier background event format", () => {
     const value = normalizeBackground({
       events: [{ roll: 0, range: "69-70", source: "chosen" }],
+      archivedEvents: [{ roll: 42, range: "42-43", source: "rolled" }],
     }, fallback);
-    expect(value.events).toEqual([{ roll: 0, range: "69-70", source: "chosen" }]);
+    expect(value.events).toEqual([{ roll: 0, eventId: "69-70", source: "chosen" }]);
+    expect(value.archivedEvents).toEqual([{ roll: 42, eventId: "42-43", source: "rolled" }]);
   });
 
   test("preserves resolved social-class rules data in saved background records", () => {

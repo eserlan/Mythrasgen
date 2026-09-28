@@ -1,7 +1,7 @@
 import type { CultureKind } from "./content";
 import { AGE_CATEGORIES, type AgeCategory } from "./rules";
 import type { BackgroundEvent } from "./background-rules";
-import { coreBackgroundEventForRange, coreBackgroundEventForRoll } from "./background-events";
+import { CORE_BACKGROUND_EVENTS, coreBackgroundEventForRoll } from "./background-events";
 
 export type { AgeCategory } from "./rules";
 
@@ -89,13 +89,18 @@ export function normalizeBackground(value: unknown, fallback: BackgroundData): B
   const strings = (candidate: unknown, original: string[]) =>
     Array.isArray(candidate) ? candidate.filter((item): item is string => typeof item === "string") : original;
   const events = (candidate: unknown, original: BackgroundEvent[]) => Array.isArray(candidate)
-    ? candidate.filter((event): event is BackgroundEvent & { text?: unknown } => !!event && typeof event === "object"
+    ? candidate.filter((event): event is BackgroundEvent => !!event && typeof event === "object"
       && Number.isInteger(event.roll) && event.roll >= 0 && event.roll <= 100)
       .map(event => {
-        const range = typeof event.range === "string" && coreBackgroundEventForRange(event.range)
-          ? event.range
-          : coreBackgroundEventForRoll(event.roll)?.range ?? "";
-        return { roll: event.roll, range, ...(event.source === "rolled" || event.source === "chosen" ? { source: event.source } : {}) };
+        const legacyRange = (event as BackgroundEvent & { range?: unknown }).range;
+        const savedIdentity = typeof event.eventId === "string" ? event.eventId : legacyRange;
+        const resolved = (typeof savedIdentity === "string" ? CORE_BACKGROUND_EVENTS.find(item => item.range === savedIdentity) : undefined)
+          ?? coreBackgroundEventForRoll(event.roll);
+        const eventId = resolved?.range;
+        const roll = event.source === "chosen" ? 0 : event.roll;
+        return eventId
+          ? { roll, eventId, ...(event.source === "rolled" || event.source === "chosen" ? { source: event.source } : {}) }
+          : { roll, ...(typeof event.text === "string" ? { text: event.text } : {}) };
       })
     : original;
   return {

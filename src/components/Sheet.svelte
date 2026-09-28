@@ -6,7 +6,7 @@
   import HitLocations from "./HitLocations.svelte";
   import StepHead from "./StepHead.svelte";
   import CombatStyles from "./CombatStyles.svelte";
-  import { backgroundEventText, CONNECTIONS, FAMILY_STANDING, resolvedBackgroundEvents, tableResult } from "../lib/background-rules";
+  import { CONNECTIONS, FAMILY_STANDING, resolvedBackgroundEvents, resolveBackgroundEvent, tableResult } from "../lib/background-rules";
   import SkillInfo from "./SkillInfo.svelte";
   const loc = $derived(deriveStats(char.chars).loc);
   const skills = $derived(allSkills().sort());
@@ -52,7 +52,7 @@
     <p><b>Parents:</b> {char.background.parents || "Unrecorded"} · <b>Siblings:</b> {char.background.siblings || "Unrecorded"}</p>
     {#if char.background.extendedFamily}<p><b>Extended family:</b> {char.background.extendedFamily}</p>{/if}
     <p><b>Family standing:</b> {standing[2]} · ties: {char.background.familyTies.join(", ") || "None generated"} · <b>Connections:</b> {connectionTier[2]} — {char.background.connections.join(", ") || "None generated"}</p>
-    {#each resolvedBackgroundEvents(char.background.events) as { event, index }}<p><b>Background event {index + 1} (table result {event.range}{event.source === "rolled" && event.roll >= 1 ? `, rolled ${event.roll}` : ""}):</b> {backgroundEventText(event)}</p>{/each}
+    {#each resolvedBackgroundEvents(char.background.events) as { event, index }}{@const resolvedEvent = resolveBackgroundEvent(event)}<p><b>Background event {index + 1} ({event.source === "rolled" ? `rolled ${event.roll}; ` : ""}{resolvedEvent?.range}):</b> {resolvedEvent?.text}</p>{/each}
     <p><b>Starting equipment:</b> {socialClassReady() ? char.background.equipment || "Unrecorded" : "Pending Social Class reconciliation"}</p>
     <p><b>Starting money:</b> {socialClassReady() ? `${startingMoney()} sp` : "Pending Social Class"} · <b>Remaining:</b> {availableMoney()} sp</p>
     {#if char.background.purchases.length}<ul>{#each char.background.purchases as item}<li>{item.name} · {item.cost} sp</li>{/each}</ul>{/if}

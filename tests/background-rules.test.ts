@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { BACKGROUND_EVENT_COUNTS, backgroundEventText, calculateStartingMoney, isSocialClassResolvedForCulture, reconcileBackgroundEvents, resolvedBackgroundEvents, SOCIAL_CLASSES, socialClassForRoll } from "../src/lib/background-rules";
-import { CORE_BACKGROUND_EVENTS, coreBackgroundEventForRange, coreBackgroundEventForRoll } from "../src/lib/background-events";
+import { BACKGROUND_EVENT_COUNTS, calculateStartingMoney, chooseBackgroundEvent, isSocialClassResolvedForCulture, reconcileBackgroundEvents, resolvedBackgroundEvents, resolveBackgroundEvent, rollUniqueBackgroundResult, setBackgroundEventResult, SOCIAL_CLASSES, socialClassForRoll } from "../src/lib/background-rules";
+import { CORE_BACKGROUND_EVENTS, coreBackgroundEventForRoll } from "../src/lib/background-events";
 
 describe("Core Background Events catalogue", () => {
   test("contains all supplied rows and resolves each d100 result exactly once", () => {
@@ -21,13 +21,6 @@ describe("Core Background Events catalogue", () => {
     expect(coreBackgroundEventForRoll(101)).toBeUndefined();
     expect(coreBackgroundEventForRoll(1.5)).toBeUndefined();
   });
-
-  test("resolves canonical ranges back to their entries", () => {
-    expect(coreBackgroundEventForRange("69-70")).toBe(coreBackgroundEventForRoll(69));
-    expect(coreBackgroundEventForRange("99-00")).toBe(coreBackgroundEventForRoll(100));
-    expect(coreBackgroundEventForRange("bogus")).toBeUndefined();
-    expect(coreBackgroundEventForRange("")).toBeUndefined();
-  });
 });
 
 describe("background event counts", () => {
@@ -36,7 +29,7 @@ describe("background event counts", () => {
   });
 
   test("preserves displaced results and restores them when slots expand", () => {
-    const resolved = [{ roll: 18, range: "18-19", source: "rolled" as const }, { roll: 0, range: "25", source: "chosen" as const }];
+    const resolved = [{ roll: 18, text: "Recorded event", source: "rolled" as const }, { roll: 27, text: "Another event", source: "chosen" as const }];
     const reduced = reconcileBackgroundEvents(resolved, [], 1);
     expect(reduced.events).toEqual([resolved[0]]);
     expect(reduced.archived).toEqual([resolved[1]]);
@@ -44,22 +37,38 @@ describe("background event counts", () => {
   });
 
   test("creates empty slots without rolling an event", () => {
-    expect(reconcileBackgroundEvents([], [], 2).events).toEqual([{ roll: 0, range: "" }, { roll: 0, range: "" }]);
+    expect(reconcileBackgroundEvents([], [], 2).events).toEqual([{ roll: 0, text: "" }, { roll: 0, text: "" }]);
   });
 
   test("does not retain unused blank slots when an age category has fewer events", () => {
-    expect(reconcileBackgroundEvents([{ roll: 0, range: "" }], [], 0)).toEqual({ events: [], archived: [] });
+    expect(reconcileBackgroundEvents([{ roll: 0, text: "" }], [], 0)).toEqual({ events: [], archived: [] });
   });
 
-  test("resolves official event text from the canonical range", () => {
-    expect(backgroundEventText({ roll: 69, range: "69-70" })).toBe(coreBackgroundEventForRoll(69)?.text);
-    expect(backgroundEventText({ roll: 0, range: "99-00" })).toBe(coreBackgroundEventForRoll(100)?.text);
-    expect(backgroundEventText({ roll: 0, range: "" })).toBe("");
+  test("stores the canonical identity and actual roll without copying catalogue text", () => {
+    expect(setBackgroundEventResult(42, "rolled"))
+      .toEqual({ roll: 42, eventId: "42-43", source: "rolled" });
+    expect(resolveBackgroundEvent({ roll: 42, eventId: "42-43", source: "rolled" }))
+      .toBe(coreBackgroundEventForRoll(42));
+  });
+
+  test("stores chosen identity without inventing a roll", () => {
+    const chosen = chooseBackgroundEvent("03-04");
+    expect(chosen).toEqual({ roll: 0, eventId: "03-04", source: "chosen" });
+    expect(resolveBackgroundEvent(chosen)).toBe(coreBackgroundEventForRoll(3));
+  });
+
+  test("rerolls a distinct number when it resolves to an event already present", () => {
+    const rolls = [0.03, 0.05];
+    expect(rollUniqueBackgroundResult(["03-04"], () => rolls.shift()!)).toBe(6);
+  });
+
+  test("returns an unused event range when random retries collide repeatedly", () => {
+    expect(rollUniqueBackgroundResult([3, 5], () => 0.03)).toBe(1);
   });
 
   test("keeps original slot numbers when unresolved events are omitted from the sheet", () => {
-    expect(resolvedBackgroundEvents([{ roll: 0, range: "" }, { roll: 0, range: "40-41", source: "chosen" as const }]))
-      .toEqual([{ event: { roll: 0, range: "40-41", source: "chosen" }, index: 1 }]);
+    expect(resolvedBackgroundEvents([{ roll: 0, text: "" }, { roll: 42, text: "Resolved" }]))
+      .toEqual([{ event: { roll: 42, text: "Resolved" }, index: 1 }]);
   });
 });
 
