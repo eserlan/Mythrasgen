@@ -40,7 +40,7 @@ export interface CombatStyleDefinition {
 
 export type CombatStyleOrigin = Kind | "custom" | "legacy";
 /** Character-owned style data. Presets are copied into this snapshot on selection. */
-export interface CharacterCombatStyle extends Omit<CombatStyleDefinition, "searchable"> {
+export interface CharacterCombatStyle extends Omit<CombatStyleDefinition, "searchable" | "weaponChoices" | "traitChoices"> {
   origin: CombatStyleOrigin;
   origins: CombatStyleOrigin[];
   allocations: Partial<Record<Kind, number>>;
@@ -235,19 +235,23 @@ export function normalizeCombatStyles(value: unknown): CharacterCombatStyle[] {
     && typeof style.id === "string" && typeof style.name === "string"
     && Array.isArray(style.weapons) && Array.isArray(style.traits)
     && Array.isArray(style.baseFormula) && typeof style.source?.libraryId === "string")
-    .map(style => ({
-      ...style,
-      baseFormula: structuredClone(style.baseFormula),
-      weapons: style.weapons.filter(weapon => !!weapon && typeof weapon.name === "string").map(weapon => ({ ...weapon })),
-      traits: style.traits.filter(trait => !!trait && typeof trait.id === "string" && typeof trait.name === "string")
-        .map(trait => ({ ...trait, source: { ...trait.source } })),
-      source: { ...style.source },
-      origin: ["culture", "career", "bonus", "custom", "legacy"].includes(style.origin) ? style.origin : "legacy",
-      origins: Array.isArray(style.origins)
-        ? [...new Set(style.origins.filter(origin => ["culture", "career", "bonus", "custom", "legacy"].includes(origin)))]
-        : [["culture", "career", "bonus", "custom", "legacy"].includes(style.origin) ? style.origin : "legacy"],
-      allocations: style.allocations && typeof style.allocations === "object" ? { ...style.allocations } : {},
-    }));
+    .map(style => {
+      const savedStyle = style as CharacterCombatStyle & Partial<Pick<CombatStyleDefinition, "searchable" | "weaponChoices" | "traitChoices">>;
+      const { searchable: _searchable, weaponChoices: _weaponChoices, traitChoices: _traitChoices, ...characterStyle } = savedStyle;
+      return {
+        ...characterStyle,
+        baseFormula: structuredClone(style.baseFormula),
+        weapons: style.weapons.filter(weapon => !!weapon && typeof weapon.name === "string").map(weapon => ({ ...weapon })),
+        traits: style.traits.filter(trait => !!trait && typeof trait.id === "string" && typeof trait.name === "string")
+          .map(trait => ({ ...trait, source: { ...trait.source } })),
+        source: { ...style.source },
+        origin: ["culture", "career", "bonus", "custom", "legacy"].includes(style.origin) ? style.origin : "legacy",
+        origins: Array.isArray(style.origins)
+          ? [...new Set(style.origins.filter(origin => ["culture", "career", "bonus", "custom", "legacy"].includes(origin)))]
+          : [["culture", "career", "bonus", "custom", "legacy"].includes(style.origin) ? style.origin : "legacy"],
+        allocations: style.allocations && typeof style.allocations === "object" ? { ...style.allocations } : {},
+      };
+    });
 }
 
 export function customCombatStyle(name: string, weapons: string[], traits: CombatStyleTrait[], notes = ""): CombatStyleDefinition {

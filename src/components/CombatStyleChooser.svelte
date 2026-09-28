@@ -21,16 +21,24 @@
   const filteredTraits = $derived(knownTraits.filter(trait =>
     `${trait.displayName} ${trait.description ?? ""}`.toLocaleLowerCase().includes(traitQuery.trim().toLocaleLowerCase())));
   const pickedCoreTraits = $derived(knownTraits.filter(trait => pickedTraits.includes(trait.id)));
+  const styleWeapons = (style: CombatStyleDefinition | CharacterCombatStyle) => [
+    ...style.weapons.map(weapon => weapon.name),
+    ...("weaponChoices" in style ? (style.weaponChoices ?? []).map(group => group.map(weapon => weapon.name).join(" or ")) : []),
+  ];
   const knownStyles = $derived([
     ...CORE_COMBAT_STYLES,
     ...styles.filter(style => !CORE_COMBAT_STYLES.some(preset => preset.id === style.id)),
   ]);
   const results = $derived(knownStyles.filter(style =>
-    `${style.name} ${style.weapons.map(weapon => weapon.name).join(" ")} ${style.traits.map(trait => trait.displayName).join(" ")} ${(style.traitChoices ?? []).flat().map(trait => trait.displayName).join(" ")} ${style.source.libraryName} ${style.source.reference ?? ""} ${"searchable" in style ? style.searchable.join(" ") : ""}`
+    `${style.name} ${styleWeapons(style).join(" ")} ${styleTraits(style).join(" ")} ${style.source.libraryName} ${style.source.reference ?? ""} ${"searchable" in style ? style.searchable.join(" ") : ""}`
       .toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())));
   const selected = $derived(styles.find(style => style.name === selectedName)
     ?? CORE_COMBAT_STYLES.find(style => style.name === selectedName));
-  const selectedTraits = $derived(selected?.traits.map(trait => trait.displayName).join(" / ") ?? "");
+  const selectedTraits = $derived(selected?.traits.map(trait => trait.displayName) ?? []);
+  const styleTraits = (style: CombatStyleDefinition | CharacterCombatStyle) => [
+    ...style.traits.map(trait => trait.displayName),
+    ...("traitChoices" in style ? (style.traitChoices ?? []).map(group => group.map(trait => trait.displayName).join(" or ")) : []),
+  ];
 
   async function openPicker() {
     editingCustom = false;
@@ -47,8 +55,7 @@
   }
 
   function chooseExisting(style: CharacterCombatStyle) {
-    const { weaponChoices: _weaponChoices, traitChoices: _traitChoices, ...selection } = style;
-    choose(selection);
+    choose(style);
   }
 
   function remove() {
@@ -101,7 +108,7 @@
         <small>{selected?.source.libraryName ?? "Custom / Campaign"}{#if selected?.source.reference} · {selected.source.reference}{/if}</small>
       </div>
       {#if selected?.weapons.length}<p>{selected.weapons.map(weapon => weapon.name).join(" · ")}</p>{/if}
-      {#if selectedTraits}<p><b>Suggested Trait:</b> {selectedTraits}</p>{/if}
+      {#if selectedTraits.length}<p><b>{selectedTraits.length === 1 ? "Trait" : "Traits"}:</b> {selectedTraits.join(" / ")}</p>{/if}
       <div class="combat-style-actions">
         <button type="button" class="ghost" onclick={openPicker}>Change</button>
         <button type="button" class="ghost" onclick={remove}>Remove</button>
@@ -160,7 +167,7 @@
               </select></label>
             {/each}
             {#each pendingStyle.traitChoices ?? [] as group, index (index)}
-              <label class="field"><span>Choose trait</span><select class="wide" value={traitPicks[index]} onchange={event => traitPicks[index] = Number(event.currentTarget.value)}>
+              <label class="field"><span>Choose Trait</span><select class="wide" value={traitPicks[index]} onchange={event => traitPicks[index] = Number(event.currentTarget.value)}>
                 <option value="-1">Choose one</option>
                 {#each group as trait, optionIndex (trait.id)}<option value={optionIndex}>{trait.displayName}</option>{/each}
               </select></label>
@@ -173,8 +180,8 @@
             <article class="combat-style-result">
               <h3>{style.name}{#if style.aliases?.length} / {style.aliases.join(" / ")}{/if}</h3>
               <dl>
-                <div><dt>Weapons</dt><dd>{[...style.weapons.map(weapon => weapon.name), ...(style.weaponChoices ?? []).map(group => group.map(weapon => weapon.name).join(" or "))].join(" · ") || "None recorded"}</dd></div>
-                <div><dt>Suggested Traits</dt><dd>{[...style.traits.map(trait => trait.displayName), ...(style.traitChoices ?? []).map(group => group.map(trait => trait.displayName).join(" or "))].join(" / ") || "None recorded"}</dd></div>
+                <div><dt>Weapons</dt><dd>{styleWeapons(style).join(" · ") || "None recorded"}</dd></div>
+                <div><dt>{"searchable" in style ? (styleTraits(style).length === 1 ? "Suggested Trait" : "Suggested Traits") : (style.traits.length === 1 ? "Trait" : "Traits")}</dt><dd>{styleTraits(style).join(" / ") || "None recorded"}</dd></div>
               </dl>
               <small class="combat-style-source">{style.source.libraryName}{#if style.source.reference} · {style.source.reference}{/if}</small>
               <button type="button" class="primary" onclick={() => "searchable" in style ? choosePreset(style) : chooseExisting(style)}>Select</button>

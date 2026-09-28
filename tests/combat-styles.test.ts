@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { attachCharacterStyle, CORE_COMBAT_STYLES, CORE_COMBAT_TRAITS, customCombatStyle, legacyCombatStyle, resolveCoreCombatStyle, type CharacterCombatStyle } from "../src/lib/combat-styles";
+import { attachCharacterStyle, CORE_COMBAT_STYLES, CORE_COMBAT_TRAITS, customCombatStyle, legacyCombatStyle, normalizeCombatStyles, resolveCoreCombatStyle, type CharacterCombatStyle } from "../src/lib/combat-styles";
 import { CHARACTER_LIBRARY_KEY, createCharacterRepository, type StorageLike } from "../src/lib/character-library";
 
 // Bun runs the store without Svelte's compiler, so provide the identity state helper.
@@ -76,6 +76,11 @@ describe("structured Combat Styles", () => {
       weapons: [{ name: "Dagger" }, { name: "Shortsword" }, { name: "Crossbow" }],
       traits: [{ name: "Assassination" }],
     });
+    const resolvedAssassin = resolveCoreCombatStyle(assassin, [0], [1])!;
+    const characterStyle = attachCharacterStyle([], resolvedAssassin, "culture")[0];
+    expect(characterStyle.traits.map(trait => trait.name)).toEqual(["Ranged Marksman"]);
+    expect("traitChoices" in characterStyle).toBe(false);
+    expect(assassin.traitChoices?.[0].map(trait => trait.name)).toEqual(["Assassination", "Ranged Marksman"]);
     expect(CORE_COMBAT_STYLES[3].aliases).toEqual(["Mounted Knight"]);
     expect(CORE_COMBAT_STYLES[4].aliases).toEqual(["Hoplite"]);
     expect(CORE_COMBAT_STYLES[6].aliases).toEqual(["Pirate"]);
@@ -135,13 +140,18 @@ describe("structured Combat Styles", () => {
     const initial = createCharacterRepository<{ id: string; combatStyles: CharacterCombatStyle[] }>(storage,
       () => ({ combatStyles: [] }), undefined, () => "character");
     const custom = customCombatStyle("River Guard", ["Spear"], [CORE_COMBAT_TRAITS.find(trait => trait.name === "Blind Fighting")!]);
+    const selectedAssassin = attachCharacterStyle([], resolveCoreCombatStyle(CORE_COMBAT_STYLES[1], [0], [1])!, "career")[0];
     const styles = [{ ...legacyCombatStyle("Meerish Infantry", "culture"), allocations: { culture: 10 } },
+      selectedAssassin,
       { ...custom, origin: "custom" as const, origins: ["custom" as const], allocations: {} }];
     initial.saveCharacter({ id: "character", combatStyles: styles });
     const restored = createCharacterRepository<{ id: string; combatStyles: CharacterCombatStyle[] }>(storage,
       () => ({ combatStyles: [] }), undefined, () => "other");
     expect(values.has(CHARACTER_LIBRARY_KEY)).toBe(true);
     expect(restored.getCharacter("character")?.combatStyles).toEqual(styles);
+    expect(restored.getCharacter("character")?.combatStyles[1].traits.map(trait => trait.name)).toEqual(["Ranged Marksman"]);
+    expect("traitChoices" in restored.getCharacter("character")!.combatStyles[1]).toBe(false);
+    expect(normalizeCombatStyles([{ ...selectedAssassin, traitChoices: CORE_COMBAT_STYLES[1].traitChoices }])[0]).not.toHaveProperty("traitChoices");
   });
   test("choosing an already learned bonus Combat Style preserves an unrelated hobby and its points", () => {
     const { char, replace, chooseBonusCombatStyle } = store;
