@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { requiresSpecialisation } from "../lib/specialisations";
+  import { professionalSkillMetadata } from "../lib/specialisations";
 
   let {
     skill,
@@ -17,9 +17,10 @@
     onspecialisation: (value: string) => void;
   } = $props();
 
-  const baseName = $derived(skill.replace(/\s*\([^)]*\)$/, ""));
-  const needsSpecialisation = $derived(requiresSpecialisation(skill));
-  const placeholder = $derived(({ Art: "Painting", Craft: "Blacksmithing", Language: "Dwarven", Lore: "Wilderness" } as Record<string, string>)[baseName] ?? "Specialisation");
+  const metadata = $derived(professionalSkillMetadata(skill));
+  const baseName = $derived(metadata.name);
+  const needsSpecialisation = $derived(metadata.requiresSpecialisation);
+  const placeholder = $derived(metadata.specialisationPrompt ?? "Specialisation");
 </script>
 
 <div class="professional-choice">
@@ -29,7 +30,7 @@
     <label class="specialisation-field">
       <span class="sr-only">{baseName} specialisation</span>
       <input value={specialisation} {placeholder}
-        aria-label="{baseName} specialisation" oninput={e => onspecialisation(e.currentTarget.value)}>
+        aria-label="{baseName} specialisation" aria-required="true" oninput={e => onspecialisation(e.currentTarget.value)}>
     </label>
   {/if}
 </div>
