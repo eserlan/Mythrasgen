@@ -123,8 +123,21 @@ main{padding:8px 16px 70px}
 .age-derived{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;border-left:1px solid var(--line);padding-left:16px}
 .age-derived div{display:flex;flex-direction:column;gap:3px}.age-derived span{color:var(--mute);font-size:.78rem}.age-derived b{font:700 1.15rem var(--display)}.age-derived .ageing{grid-column:1/-1;color:var(--acc);font-size:.82rem}
 .field-row{display:flex;align-items:end;gap:12px;flex-wrap:wrap}.field-row>.field{flex:1;min-width:150px}
-.event-entry{display:grid;grid-template-columns:minmax(135px,1fr) auto;gap:8px 14px;align-items:end;border-top:1px dotted var(--line);padding:8px 0}
-.event-text{grid-column:1/-1}
+.event-entry{display:grid;gap:7px;border-top:1px dotted var(--line);padding:9px 0}
+.event-controls{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.event-controls>b{font:700 .72rem var(--display);letter-spacing:.08em;text-transform:uppercase;min-width:62px}
+.event-result{display:grid;grid-template-columns:max-content minmax(0,1fr);align-items:start;gap:10px;font-size:.9rem;line-height:1.4}
+.event-result>b{color:var(--bronze);font-variant-numeric:tabular-nums}
+.event-result p,.event-empty{margin:0}
+.background-event-dialog{width:min(700px,calc(100vw - 28px))}
+.background-event-picker{height:min(78dvh,760px);max-height:calc(100dvh - 32px);padding:16px;box-sizing:border-box;display:grid;grid-template-rows:auto minmax(0,1fr);gap:10px}
+.background-event-picker .combat-style-dialog-heading{padding-bottom:9px}
+.background-event-picker .combat-style-dialog-heading h2{margin:0}
+.background-event-options{display:grid;align-content:start;gap:5px;overflow:auto;overscroll-behavior:contain;padding:1px}
+.background-event-option{display:grid;grid-template-columns:58px minmax(0,1fr);align-items:start;gap:8px;text-align:left;padding:8px 10px;border:1px solid var(--line);background:var(--card2);color:var(--fg);font:400 .82rem/1.35 var(--body);cursor:pointer}
+.background-event-option:hover,.background-event-option:focus-visible{border-color:var(--bronze);outline-color:var(--bronze)}
+.background-event-option>b{color:var(--bronze);font-variant-numeric:tabular-nums}
+.background-event-option span{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
 .family-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px 18px}
 .family-grid>div{padding:8px 0;border-bottom:1px dotted var(--line)}
 .field{display:flex;flex-direction:column;gap:5px}

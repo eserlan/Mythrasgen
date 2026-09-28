@@ -1,6 +1,6 @@
 import type { CultureKind } from "./content";
 import { AGE_CATEGORIES, type AgeCategory } from "./rules";
-import { coreBackgroundEventForRoll } from "./background-events";
+import { CORE_BACKGROUND_EVENTS, coreBackgroundEventForRoll, type CoreBackgroundEvent } from "./background-events";
 
 export interface SocialClass {
   name: string;
@@ -18,10 +18,12 @@ export const BACKGROUND_EVENT_COUNTS: Record<AgeCategory, number> = Object.fromE
 ) as Record<AgeCategory, number>;
 
 export interface BackgroundEvent {
-  /** The percentile result on the official Mythras Background Events table; 0 means unresolved. */
+  /** The actual percentile roll, or 0 when the event was selected directly. */
   roll: number;
-  /** Event text recorded by the player from their copy of the Core Rules. */
-  text: string;
+  /** Stable catalogue identity. Event text is resolved from the catalogue. */
+  eventId?: string;
+  /** Legacy imported text, retained only for migration compatibility. */
+  text?: string;
   source?: "rolled" | "chosen";
 }
 
@@ -39,7 +41,11 @@ export function reconcileBackgroundEvents(
 }
 
 export function isResolvedBackgroundEvent(event: BackgroundEvent): boolean {
-  return Number.isInteger(event.roll) && event.roll >= 1 && event.roll <= 100;
+  return !!resolveBackgroundEvent(event);
+}
+
+export function resolveBackgroundEvent(event: BackgroundEvent): CoreBackgroundEvent | undefined {
+  return CORE_BACKGROUND_EVENTS.find(item => item.range === event.eventId) ?? coreBackgroundEventForRoll(event.roll);
 }
 
 export function resolvedBackgroundEvents(events: BackgroundEvent[]): { event: BackgroundEvent; index: number }[] {
@@ -47,24 +53,20 @@ export function resolvedBackgroundEvents(events: BackgroundEvent[]): { event: Ba
 }
 
 export function setBackgroundEventResult(
-  current: BackgroundEvent,
   roll: number,
   source: NonNullable<BackgroundEvent["source"]>,
 ): BackgroundEvent {
   const nextEvent = coreBackgroundEventForRoll(roll);
-  const currentEvent = coreBackgroundEventForRoll(current.roll);
-  return {
-    roll,
-    text: nextEvent
-      ? currentEvent?.range === nextEvent.range ? current.text || nextEvent.text
-        : currentEvent ? nextEvent.text : current.text || nextEvent.text
-      : "",
-    source,
-  };
+  return nextEvent ? { roll, eventId: nextEvent.range, source } : { roll: 0 };
+}
+
+export function chooseBackgroundEvent(eventId: string): BackgroundEvent {
+  const event = CORE_BACKGROUND_EVENTS.find(item => item.range === eventId);
+  return event ? { roll: 0, eventId: event.range, source: "chosen" } : { roll: 0 };
 }
 
 function isMeaningfulBackgroundEvent(event: BackgroundEvent): boolean {
-  return isResolvedBackgroundEvent(event) || !!event.text.trim() || !!event.source;
+  return isResolvedBackgroundEvent(event) || !!event.text?.trim() || !!event.source;
 }
 export const CULTURE_MONEY_MULTIPLIERS: Record<CultureKind, number> = { Barbarian: 50, Civilised: 75, Nomadic: 25, Primitive: 10 };
 
@@ -165,17 +167,19 @@ export function tableResult<T extends readonly (readonly [number, number, ...unk
 /**
  * Roll a d100 Background Event result that avoids event entries already held in
  * other active slots (Core Rules: duplicate randomly rolled events are rerolled).
- * Chosen results are unrestricted — pass only the rolls to avoid.
+ * Chosen results are unrestricted; pass existing rolls or canonical ranges to avoid.
  *
  * Distinct rolls in the same table range count as the same event. Invalid or
  * unresolved entries in `existingRolls` are ignored.
  */
 export function rollUniqueBackgroundResult(
-  existingRolls: readonly number[] = [],
+  existingRolls: readonly (number | string)[] = [],
   rng: () => number = Math.random,
 ): number {
-  const taken = new Set(existingRolls.flatMap(roll => {
-    const event = coreBackgroundEventForRoll(roll);
+  const taken = new Set(existingRolls.flatMap(result => {
+    const event = typeof result === "number"
+      ? coreBackgroundEventForRoll(result)
+      : CORE_BACKGROUND_EVENTS.find(item => item.range === result);
     return event ? [event.range] : [];
   }));
   if (taken.size >= 55) return 1 + Math.floor(rng() * 100);

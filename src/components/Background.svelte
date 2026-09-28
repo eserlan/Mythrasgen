@@ -1,15 +1,16 @@
 <script lang="ts">
   import StepHead from "./StepHead.svelte";
   import { char, availableMoney, eventCount, moneyMultiplier, resolveSocialClass, roll4d6, rollDie, rollPercentile, socialClassReady, startingMoney } from "../lib/store.svelte";
-  import { CONNECTIONS, CONNECTION_TYPES, EXTENDED_FAMILY, FAMILY_STANDING, PARENTS, SIBLINGS, SOCIAL_CLASSES, rollUniqueBackgroundResult, setBackgroundEventResult, socialClassForRoll, tableResult } from "../lib/background-rules";
-  import { coreBackgroundEventForRoll } from "../lib/background-events";
+  import { CONNECTIONS, CONNECTION_TYPES, EXTENDED_FAMILY, FAMILY_STANDING, PARENTS, SIBLINGS, SOCIAL_CLASSES, chooseBackgroundEvent, rollUniqueBackgroundResult, setBackgroundEventResult, socialClassForRoll, tableResult, resolveBackgroundEvent } from "../lib/background-rules";
+  import { CORE_BACKGROUND_EVENTS } from "../lib/background-events";
   import { cultures } from "../lib/content";
   import { AGE_CATEGORIES } from "../lib/rules";
 
   let purchaseName = $state("");
   let purchaseCost = $state(0);
-  let chosenResults = $state<number[]>([]);
   let classChoice = $state("");
+  let eventDialog: HTMLDialogElement;
+  let eventSlot = $state(0);
   let background = $derived(char.background);
   let classes = $derived(SOCIAL_CLASSES[char.socialTable]);
   let standing = $derived(tableResult(FAMILY_STANDING, background.standingRoll));
@@ -59,18 +60,20 @@
     background.connections = Array.from({ length: count }, () => CONNECTION_TYPES[rollDie(4) - 1]);
   }
   function rollEvent(index: number) {
-    const taken = background.events.filter((_, i) => i !== index).map(event => event.roll);
+    const taken = background.events.filter((_, i) => i !== index).map(event => resolveBackgroundEvent(event)?.range ?? "");
     const result = rollUniqueBackgroundResult(taken);
-    chosenResults[index] = result;
-    background.events[index] = setBackgroundEventResult(background.events[index], result, "rolled");
+    background.events[index] = setBackgroundEventResult(result, "rolled");
   }
   function chooseEvent(index: number) {
-    const result = Math.max(1, Math.min(100, Math.round(chosenResults[index] || 1)));
-    background.events[index] = setBackgroundEventResult(background.events[index], result, "chosen");
-    chosenResults[index] = result;
+    eventSlot = index;
+    eventDialog.showModal();
+  }
+  function selectEvent(eventId: string) {
+    background.events[eventSlot] = chooseBackgroundEvent(eventId);
+    eventDialog.close();
   }
   function clearEvent(index: number) {
-    background.events[index] = { roll: 0, text: "" };
+    background.events[index] = { roll: 0 };
   }
   function clearArchivedEvents() {
     background.archivedEvents = [];
@@ -86,33 +89,48 @@
 
 <StepHead step={5} title="Background" />
 <section class="card">
-  <h3>Background events</h3>
-  <p class="mute">Age {char.age} ({AGE_CATEGORIES[char.ageCategory].label}) calls for {eventCount()} background event{eventCount() === 1 ? "" : "s"}. Roll a d100 result or choose one from the official Core Rules table (pp. 18–20); its event text appears below. Random rolls automatically avoid duplicate events; chosen results are unrestricted. Events are optional — clear a slot that does not fit your hero.</p>
+  <h3>Background events — {eventCount()} event{eventCount() === 1 ? "" : "s"}</h3>
   {#if eventCount() === 0}
     <p class="hint" role="status">No Background Events from age.</p>
   {/if}
   {#each background.events as event, i}
+    {@const resolvedEvent = resolveBackgroundEvent(event)}
     <div class="event-entry">
-      <div class="field-row">
-        <label class="field"><span>Event {i + 1} · official d100 result</span><input type="number" min="1" max="100" value={chosenResults[i] ?? (event.roll || 1)} oninput={e => chosenResults[i] = Number(e.currentTarget.value)} /></label>
-        <button type="button" onclick={() => rollEvent(i)}>{event.roll ? "Reroll event" : "Roll event"}</button>
-        <button type="button" class="ghost" onclick={() => chooseEvent(i)}>Choose event</button>
-        {#if event.roll || event.text.trim() || event.source}<button type="button" class="ghost" title="Clear this event (events are optional)" onclick={() => clearEvent(i)}>Clear</button>{/if}
+      <div class="event-controls">
+        <b>Event {i + 1}</b>
+        <button type="button" onclick={() => rollEvent(i)}>{event.source === "rolled" ? "Reroll" : "Roll d100"}</button>
+        <button type="button" class="ghost" onclick={() => chooseEvent(i)}>Choose Event</button>
+        <button type="button" class="ghost" title="Clear this optional event" onclick={() => clearEvent(i)}>Clear</button>
       </div>
-      {#if event.roll >= 1 && event.roll <= 100}
-        <p class="mute" role="status">{event.source === "chosen" ? "Chosen" : event.source === "rolled" ? "Rolled" : "Recorded"}: Core Rules table result {event.roll} ({coreBackgroundEventForRoll(event.roll)?.range}).</p>
-        <label class="field event-text"><span>Official event text</span><textarea rows="2" bind:value={event.text} placeholder="Official event text is filled in automatically"></textarea></label>
-      {:else}<p class="mute">Choose or roll a result to resolve this slot.</p>{/if}
+      {#if resolvedEvent}
+        <div class="event-result" role="status">
+          <b>{event.source === "rolled" ? `${String(event.roll).padStart(2, "0")} (${resolvedEvent.range})` : resolvedEvent.range}</b>
+          <p>{resolvedEvent.text}</p>
+        </div>
+      {:else}<p class="mute event-empty">Empty — optional</p>{/if}
     </div>
   {/each}
   {#if background.archivedEvents.length}
     <div class="hint" role="status">
       <p>{background.archivedEvents.length} event{background.archivedEvents.length === 1 ? " was" : "s were"} preserved here after the age category reduced the active slot count.</p>
-      {#each background.archivedEvents as event, i}<p>Previously active event {i + 1}: {event.roll ? `Core Rules result ${event.roll}` : "unresolved"}{event.text ? ` — ${event.text}` : ""}</p>{/each}
+      {#each background.archivedEvents as event, i}{@const archived = resolveBackgroundEvent(event)}<p>Previously active event {i + 1}: {archived?.range ?? "unresolved"}</p>{/each}
       <button type="button" class="ghost" onclick={clearArchivedEvents}>Discard preserved events</button>
     </div>
   {/if}
 </section>
+
+<dialog class="background-event-dialog combat-style-dialog" bind:this={eventDialog} aria-labelledby="background-event-title">
+  <div class="background-event-picker">
+    <header class="combat-style-dialog-heading"><div><h2 id="background-event-title">Choose a Background Event</h2><button type="button" class="ghost" onclick={() => eventDialog.close()}>Close</button></div></header>
+    <div class="background-event-options" aria-label="Background Events catalogue">
+      {#each CORE_BACKGROUND_EVENTS as option (option.range)}
+        <button type="button" class="background-event-option" onclick={() => selectEvent(option.range)}>
+          <b>{option.range}</b><span>{option.text.slice(0, 150)}{option.text.length > 150 ? "…" : ""}</span>
+        </button>
+      {/each}
+    </div>
+  </div>
+</dialog>
 
 <section class="card">
   <h3>Social class</h3>
