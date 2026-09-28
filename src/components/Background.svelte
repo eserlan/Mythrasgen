@@ -81,6 +81,15 @@
   function clearArchivedEvents() {
     background.archivedEvents = [];
   }
+  function showEventChooser(node: HTMLDialogElement) {
+    node.showModal();
+    node.querySelector<HTMLInputElement>(".mfilter")?.focus();
+    return { destroy: () => { if (node.open) node.close(); } };
+  }
+  function closeEventChooser() {
+    chooserFor = null;
+    filter = "";
+  }
   function addPurchase() {
     const name = purchaseName.trim();
     const cost = Math.max(0, Number(purchaseCost) || 0);
@@ -91,7 +100,6 @@
 </script>
 
 <StepHead step={5} title="Background" />
-<svelte:window onkeydown={e => { if (e.key === "Escape") { chooserFor = null; filter = ""; } }} />
 <section class="card">
   <h3>Background events — {eventCount() === 0 ? "none" : `${eventCount()} event${eventCount() === 1 ? "" : "s"}`}</h3>
   <p class="mute">Age {char.age} ({AGE_CATEGORIES[char.ageCategory].label}) calls for {eventCount()} background event{eventCount() === 1 ? "" : "s"}. Random rolls never repeat an event already held; chosen events are unrestricted. Events are optional — leave a slot empty if it does not fit your hero.</p>
@@ -209,14 +217,11 @@
 </section>
 
 {#if chooserFor != null}
-  <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <div class="overlay" role="presentation" onclick={() => (chooserFor = null)}>
-    <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <!-- svelte-ignore a11y_interactive_supports_focus -->
-    <div class="sheet-modal" role="dialog" aria-modal="true" aria-label="Choose a background event" onclick={e => e.stopPropagation()}>
+  <dialog class="overlay" use:showEventChooser aria-label="Choose a background event" onclose={closeEventChooser} onclick={e => { if (e.target === e.currentTarget) e.currentTarget.close(); }}>
+    <div class="sheet-modal">
       <div class="mhead">
         <b>Choose event {(chooserFor ?? 0) + 1}</b>
-        <button type="button" class="ghost" onclick={() => (chooserFor = null)}>Close ✕</button>
+        <button type="button" class="ghost" onclick={e => e.currentTarget.closest("dialog")?.close()}>Close ✕</button>
       </div>
       <input class="mfilter" bind:value={filter} placeholder="Filter events…" aria-label="Filter events" />
       <ul class="mlist">
@@ -228,7 +233,7 @@
         {:else}<li class="mute small pad">No events match “{filter}”.</li>{/each}
       </ul>
     </div>
-  </div>
+  </dialog>
 {/if}
 
 <style>
@@ -238,7 +243,8 @@
   .event-num { font-family: var(--display); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--bronze); font-weight: 700; margin-right: auto; }
   .event-res b { font-family: var(--display); color: var(--bronze); }
   .event-text { margin: 6px 0 2px; font-size: 0.98rem; }
-  .overlay { position: fixed; inset: 0; z-index: 50; background: #0009; display: grid; place-items: center; padding: 16px; }
+  .overlay { position: fixed; inset: 0; z-index: 50; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: 16px; border: 0; background: transparent; display: grid; place-items: center; }
+  .overlay::backdrop { background: #0009; }
   .sheet-modal { width: min(560px, 100%); max-height: min(70vh, 560px); display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--line2); border-radius: 4px; box-shadow: var(--shadow); }
   .mhead { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid var(--line); font-family: var(--display); text-transform: uppercase; letter-spacing: 0.1em; font-size: 0.75rem; }
   .mfilter { margin: 10px 14px 4px; }
