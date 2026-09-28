@@ -138,6 +138,26 @@ main{padding:8px 16px 70px}
 .background-event-option:hover,.background-event-option:focus-visible{border-color:var(--bronze);outline-color:var(--bronze)}
 .background-event-option>b{color:var(--bronze);font-variant-numeric:tabular-nums}
 .background-event-option span{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.social-class-context{margin:0 0 10px}
+.social-class-main{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px 12px;background:var(--card2);border:1px solid var(--line);border-left:2px solid var(--bronze)}
+.social-class-result{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:0;min-width:0}
+.social-class-result>span{font:700 .68rem var(--display);letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
+.social-class-result strong{font:700 1.35rem var(--display);color:var(--bronze);overflow-wrap:anywhere}
+.social-class-result small{font-size:.78rem;color:var(--mute)}
+.social-class-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.social-class-actions button{padding:6px 11px}
+.social-class-summary{display:flex;align-items:baseline;gap:4px 18px;flex-wrap:wrap;padding:9px 2px 0}
+.social-class-summary p{margin:0;min-width:0;overflow-wrap:anywhere;font-size:.88rem}
+.social-class-summary .social-class-resources{flex:1 1 100%;color:var(--mute)}
+.social-class-dialog{width:min(520px,calc(100vw - 28px))}
+.social-class-dialog-content{padding:18px;display:grid;gap:12px;box-sizing:border-box;max-height:calc(100dvh - 32px);overflow-y:auto}
+.social-class-dialog-content .combat-style-dialog-heading{padding-bottom:10px}
+.social-class-dialog-content .combat-style-dialog-heading h2{margin:0}
+.social-class-dialog-content .combat-style-dialog-heading p{margin:8px 0 0;font-size:.8rem}
+.social-class-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:7px}
+.social-class-option{display:flex;justify-content:space-between;align-items:baseline;gap:8px;text-align:left;background:var(--card2);border:1px solid var(--line);color:var(--fg);padding:10px;font:400 .85rem var(--body);cursor:pointer}
+.social-class-option:hover,.social-class-option:focus-visible{border-color:var(--bronze);outline-color:var(--bronze)}
+.social-class-option b{overflow-wrap:anywhere}.social-class-option span{flex:none;color:var(--mute);font-size:.75rem}
 .family-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px 18px}
 .family-grid>div{padding:8px 0;border-bottom:1px dotted var(--line)}
 .field{display:flex;flex-direction:column;gap:5px}
