@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { HOBBY_PROFESSIONAL_SKILLS, restoreHobbySkill } from "../src/lib/hobby-skills";
+import { HOBBY_PROFESSIONAL_SKILLS, restoreHobbySkill, sortHobbyProfessionalSkills } from "../src/lib/hobby-skills";
 import { CORE_COMBAT_STYLES, resolveCoreCombatStyle } from "../src/lib/combat-styles";
 
 // Bun runs the store module without Svelte's compiler, so provide its identity rune.
@@ -7,6 +7,22 @@ import { CORE_COMBAT_STYLES, resolveCoreCombatStyle } from "../src/lib/combat-st
 const store = await import("../src/lib/store.svelte");
 
 describe("optional Page V Hobby Skill", () => {
+  test("sorts complete option labels alphabetically regardless of source insertion order", () => {
+    const labels = [
+      "Trance", "Craft (Mining)", "Lore (any)", "Craft (any)", "Binding (Cult, Totem or Tradition)",
+      "Craft (Animal Husbandry)", "Acrobatics", "Craft (Alchemy)", "Binding", "Craft (Hunting Related)",
+    ];
+    const expected = [
+      "Acrobatics", "Binding", "Binding (Cult, Totem or Tradition)", "Craft (Alchemy)",
+      "Craft (Animal Husbandry)", "Craft (any)", "Craft (Hunting Related)", "Craft (Mining)",
+      "Lore (any)", "Trance",
+    ];
+
+    expect(sortHobbyProfessionalSkills(labels)).toEqual(expected);
+    expect(sortHobbyProfessionalSkills([...labels].reverse())).toEqual(expected);
+    expect(sortHobbyProfessionalSkills([...HOBBY_PROFESSIONAL_SKILLS].reverse())).toEqual(HOBBY_PROFESSIONAL_SKILLS);
+  });
+
   test("offers registered Professional Skills and requires concrete specialisations", () => {
     expect(HOBBY_PROFESSIONAL_SKILLS).toContain("Art (any)");
     expect(HOBBY_PROFESSIONAL_SKILLS).toContain("Craft (any)");

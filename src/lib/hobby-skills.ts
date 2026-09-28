@@ -12,8 +12,16 @@ const templates = [...new Set([
 ])].filter(name => !/^Combat Style(?:\s|$)/.test(name));
 const specialisedBases = new Set(templates.filter(requiresSpecialisation).map(baseName));
 
-export const HOBBY_PROFESSIONAL_SKILLS = templates.filter(name =>
-  requiresSpecialisation(name) || !specialisedBases.has(name));
+const skillLabelCollator = new Intl.Collator("en", { sensitivity: "base" });
+
+/** Sort by the complete option label, with a deterministic tie-break for case-only variants. */
+export function sortHobbyProfessionalSkills(skills: readonly string[]): string[] {
+  return [...skills].sort((left, right) =>
+    skillLabelCollator.compare(left, right) || (left < right ? -1 : left > right ? 1 : 0));
+}
+
+export const HOBBY_PROFESSIONAL_SKILLS = sortHobbyProfessionalSkills(templates.filter(name =>
+  requiresSpecialisation(name) || !specialisedBases.has(name)));
 
 export type HobbySkill =
   | { type: "professionalSkill"; template: string; specialisation: string; name: string }
