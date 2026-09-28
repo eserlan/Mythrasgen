@@ -6,6 +6,7 @@
   import type { MagicSkillOrigin } from "../lib/magic";
   import {
     calculateFolkMagicStartingEntitlement, CORE_FOLK_MAGIC_SPELLS,
+    FOLK_MAGIC_TRAIT_HELP,
     FOLK_MAGIC_SPECIALIST_ENTITLEMENT, FOLK_MAGIC_STANDARD_ENTITLEMENT,
     folkMagicConfigurationStatus, resolveFolkMagicCareerSuggestion, type CustomFolkMagicSpell, type FolkMagicSpellReference,
   } from "../lib/folk-magic";
@@ -68,7 +69,19 @@
     updateStatus();
   }
   function isSelected(id: string) { return selected.some(item => item.spell.spellId === id); }
+  function findSubjectExists(subject: string) {
+    const normalized = subject.trim().toLocaleLowerCase();
+    return !!normalized && selected.some(item => item.spell.spellId === "folk-magic:find" && item.spell.specialisation?.trim().toLocaleLowerCase() === normalized);
+  }
   function toggleSpell(id: string) {
+    if (id === "folk-magic:find") {
+      const subject = findSubject.trim();
+      if (!subject || findSubjectExists(subject) || selectedCount >= entitlement.count) return;
+      selected.push({ spell: { spellId: id, specialisation: subject }, provenance: [] });
+      findSubject = "";
+      updateStatus();
+      return;
+    }
     const index = selected.findIndex(item => item.spell.spellId === id);
     if (index >= 0) selected.splice(index, 1);
     else {
@@ -76,18 +89,17 @@
       const spell = availableSpells.find(item => item.id === id);
       if (!spell) return;
       const reference: FolkMagicSpellReference = { spellId: id };
-      if (spell.source === "core" && spell.specialisation === "subject") {
-        if (!findSubject.trim()) return;
-        reference.specialisation = findSubject.trim();
-      }
       selected.push({ spell: reference, provenance: [] });
-      findSubject = "";
     }
     updateStatus();
   }
-  function changeFindSubject(id: string, value: string) {
-    const known = selected.find(item => item.spell.spellId === id);
-    if (known) { known.spell.specialisation = value.trim(); updateStatus(); }
+  function removeKnownSpell(known: typeof selected[number]) {
+    const index = selected.indexOf(known);
+    if (index >= 0) selected.splice(index, 1);
+    updateStatus();
+  }
+  function changeFindSubject(known: typeof selected[number], value: string) {
+    if (selected.includes(known)) { known.spell.specialisation = value.trim(); updateStatus(); }
   }
   function createCustomSpell() {
     const name = customName.trim();
@@ -107,7 +119,10 @@
     query = "";
     picker.showModal();
   }
-  function spellName(id: string) { return availableSpells.find(spell => spell.id === id)?.name ?? id; }
+  function spellName(id: string, specialisation?: string) {
+    const name = availableSpells.find(spell => spell.id === id)?.name ?? id;
+    return id === "folk-magic:find" && specialisation?.trim() ? `${name} (${specialisation.trim()})` : name;
+  }
 </script>
 
 <StepHead step={5} title="Magic" />
@@ -162,16 +177,16 @@
         {#if selectedCount < entitlement.count}<p class="folk-magic-error">Choose {entitlement.count - selectedCount} more starting {entitlement.count - selectedCount === 1 ? "spell" : "spells"}.</p>{/if}
         <div class="folk-magic-known">
           {#if selected.length}
-            {#each selected as known (known.spell.spellId)}
+            {#each selected as known (`${known.spell.spellId}:${known.spell.specialisation ?? ""}`)}
               <div class="folk-magic-known-row">
-                <div><b>{spellName(known.spell.spellId)}</b>
+                <div><b>{spellName(known.spell.spellId, known.spell.specialisation)}</b>
                   <small>{known.spell.spellId.startsWith("custom:") ? "Custom spell" : "Core Folk Magic"}</small>
                   {#if known.spell.spellId.endsWith(":find")}
-                    <label class="folk-magic-find">Find subject <input value={known.spell.specialisation ?? ""} placeholder="e.g. a spring" aria-invalid={!known.spell.specialisation?.trim()} onchange={event => changeFindSubject(known.spell.spellId, event.currentTarget.value)} /></label>
+                    <label class="folk-magic-find">Find subject <input value={known.spell.specialisation ?? ""} placeholder="e.g. a spring" aria-invalid={!known.spell.specialisation?.trim()} onchange={event => changeFindSubject(known, event.currentTarget.value)} /></label>
                     {#if !known.spell.specialisation?.trim()}<small class="folk-magic-error">Choose a subject for Find to complete Folk Magic.</small>{/if}
                   {/if}
                 </div>
-                <button type="button" class="ghost" onclick={() => toggleSpell(known.spell.spellId)} aria-label="Deselect {spellName(known.spell.spellId)}">Deselect</button>
+                <button type="button" class="ghost" onclick={() => removeKnownSpell(known)} aria-label="Deselect {spellName(known.spell.spellId, known.spell.specialisation)}">Deselect</button>
               </div>
             {/each}
           {:else}<p class="mute">No starting spells selected yet.</p>{/if}
@@ -213,22 +228,37 @@
     <ul class="folk-magic-picker-list">
       {#each pickerSpells as spell (spell.id)}
         <li class:selected={isSelected(spell.id)}>
-          <button type="button" class="folk-magic-spell-choice" disabled={!isSelected(spell.id) && (selectedCount >= entitlement.count || (spell.id === "folk-magic:find" && !findSubject.trim()))} onclick={() => toggleSpell(spell.id)}>
-            <span class="folk-magic-check">{isSelected(spell.id) ? "✓" : "+"}</span><span><b>{spell.name}</b>
+          <button type="button" class="folk-magic-spell-choice" disabled={selectedCount >= entitlement.count || (spell.id === "folk-magic:find" && (!findSubject.trim() || findSubjectExists(findSubject)))} onclick={() => toggleSpell(spell.id)}>
+            <span class="folk-magic-check">{spell.id === "folk-magic:find" ? "+" : isSelected(spell.id) ? "✓" : "+"}</span><span><b>{spell.name}</b>
               <small>{spell.source === "custom" ? "Custom" : suggestedIds.has(spell.id) ? "Suggested · Core" : "Core Folk Magic"}</small>
-              {#if "specialisation" in spell && spell.specialisation === "subject"}<small>Choose a subject when known (Find X).</small>{/if}
+              {#if "specialisation" in spell && spell.specialisation === "subject"}<small>Add each chosen subject as a separately learned spell (Find X).</small>{/if}
             </span>
           </button>
           <button type="button" class="ghost folk-magic-details-button" onclick={() => detailsSpellId = detailsSpellId === spell.id ? null : spell.id}>{detailsSpellId === spell.id ? "Hide details" : "Details"}</button>
-          {#if detailsSpellId === spell.id}<p class="folk-magic-spell-details">{spell.source === "custom" ? spell.description || "No notes added." : spell.specialisation === "subject" ? "Core spell identity. Record the chosen subject above; consult the Core rules for the full effect." : "Core Folk Magic spell. Consult the Core rules for the full effect."}</p>{/if}
+          {#if detailsSpellId === spell.id}
+            {#if spell.source === "custom"}
+              <p class="folk-magic-spell-details">{spell.description || "No notes added."}</p>
+            {:else}
+              <div class="folk-magic-spell-details">
+                <div class="folk-magic-traits" aria-label="Spell traits">{#each spell.details.traits as trait (trait)}<span title={FOLK_MAGIC_TRAIT_HELP[trait] ?? FOLK_MAGIC_TRAIT_HELP["Resist (skill)"]}>{trait}</span>{/each}</div>
+                <p>{spell.details.effect}</p>
+                {#if spell.details.specialisation}
+                  {#if spell.details.specialisation.kind === "subject"}<small>Specialised by subject: {spell.details.specialisation.examples.map(subject => `${spell.name} (${subject})`).join(", ")}. Custom subjects are also supported; add a chosen subject before learning this spell.</small>
+                  {:else}<small>Specialised by animal type; specify the chosen type when learning this spell.</small>{/if}
+                {/if}
+                {#if spell.details.mechanicsGap}<small class="folk-magic-gap">Exact Core limits for this spell need verification.</small>{/if}
+                {#if !spell.details.traits.includes("Concentration") && !spell.details.traits.includes("Instant") && !spell.details.traits.includes("Special Duration")}<small title={FOLK_MAGIC_TRAIT_HELP["Normal duration"]}>Normally lasts for the scene or action for which it is used.</small>{/if}
+              </div>
+            {/if}
+          {/if}
         </li>
       {:else}<li class="mute folk-magic-no-results">No available spells match this search.</li>{/each}
     </ul>
     {#if pickerTab === "core" && coreAllowed && CORE_FOLK_MAGIC_SPELLS.some(spell => !coreSpells.some(availableSpell => availableSpell.id === spell.id))}
       <p class="folk-magic-suggestion-note">Some Core spells are unavailable under the active campaign or tradition configuration.</p>
     {/if}
-    {#if pickerSpells.some(spell => spell.id.endsWith(":find")) && !isSelected("folk-magic:find")}
-      <label class="folk-magic-find">Find subject <input bind:value={findSubject} placeholder="e.g. a spring" /></label>
+    {#if pickerSpells.some(spell => spell.id === "folk-magic:find")}
+      <label class="folk-magic-find">Find subject <input bind:value={findSubject} placeholder="e.g. Livestock or a spring" /><small>Core examples: Arrows, Flaw, Livestock, Loot, Object, Sickness. Campaign and custom subjects are allowed.</small></label>
     {/if}
   </div>
 </dialog>
@@ -274,6 +304,7 @@
   .folk-magic-spell-choice{display:flex;align-items:center;gap:10px;flex:1;text-align:left;background:none;border:0;padding:7px 5px;text-transform:none;letter-spacing:0;font:inherit}.folk-magic-spell-choice:hover:not(:disabled){transform:none}.folk-magic-spell-choice:disabled{opacity:.5}
   .folk-magic-check{width:24px;height:24px;display:grid;place-items:center;border:1px solid var(--line2);color:var(--bronze);font-weight:bold}.selected .folk-magic-check{color:var(--ok);border-color:var(--ok)}
   .folk-magic-details-button{font-size:.65rem}.folk-magic-spell-details{width:100%;margin:0 6px 6px 39px;color:var(--mute);font-size:.86rem}
+  .folk-magic-traits{display:flex;flex-wrap:wrap;gap:5px;margin:0 0 7px}.folk-magic-traits span{padding:2px 6px;border:1px solid var(--line2);color:var(--bronze);font-size:.74rem}.folk-magic-spell-details p{margin:0 0 6px}.folk-magic-spell-details small{display:block;margin-top:4px}.folk-magic-spell-details .folk-magic-gap{color:var(--acc)}
   .folk-magic-no-results{padding:12px}
   @media(max-width:520px){.folk-magic-entitlement{align-items:flex-start;flex-direction:column}.folk-magic-known-row{align-items:flex-start}.folk-magic-actions>*{flex:1}}
 </style>
