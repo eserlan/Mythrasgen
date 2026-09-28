@@ -48,6 +48,11 @@
     ...style.traits.map(trait => trait.displayName),
     ...("traitChoices" in style ? (style.traitChoices ?? []).map(group => group.map(trait => trait.displayName).join(" or ")) : []),
   ];
+  const styleCitation = (style: CombatStyleDefinition | CharacterCombatStyle) =>
+    style.source.reference?.replace(
+      /^Mythras Core Rules, 3rd edition: Sample Combat Styles \(Characters, p\. (\d+)\)$/,
+      "Characters p.$1",
+    );
 
   async function openPicker() {
     editingCustom = false;
@@ -208,12 +213,14 @@
         <div class="combat-style-results">
           {#each results as style (style.id)}
             <article class="combat-style-result">
-              <h3>{style.name}{#if style.aliases?.length} / {style.aliases.join(" / ")}{/if}</h3>
-              <dl>
-                <div><dt>Weapons</dt><dd>{styleWeapons(style).join(" · ") || "None recorded"}</dd></div>
-                <div><dt>{"searchable" in style ? (styleTraits(style).length === 1 ? "Suggested Trait" : "Suggested Traits") : (style.traits.length === 1 ? "Trait" : "Traits")}</dt><dd>{styleTraits(style).join(" / ") || "None recorded"}</dd></div>
-              </dl>
-              <small class="combat-style-source">{style.source.libraryName}{#if style.source.reference} · {style.source.reference}{/if}</small>
+              <div class="combat-style-result-content">
+                <h3>{style.name}{#if style.aliases?.length} / {style.aliases.join(" / ")}{/if}</h3>
+                <dl>
+                  <div><dt>Weapons</dt><dd>{styleWeapons(style).join(" · ") || "None recorded"}</dd></div>
+                  <div><dt>{"searchable" in style ? (styleTraits(style).length === 1 ? "Suggested Trait" : "Suggested Traits") : (style.traits.length === 1 ? "Trait" : "Traits")}</dt><dd>{styleTraits(style).join(" / ") || "None recorded"}</dd></div>
+                </dl>
+                <small class="combat-style-source">{style.source.libraryName}{#if styleCitation(style)} · {styleCitation(style)}{/if}</small>
+              </div>
               <button type="button" class="primary" onclick={() => "searchable" in style ? choosePreset(style) : chooseExisting(style)}>Select</button>
             </article>
           {:else}<p class="hint">No matching combat styles.</p>{/each}
