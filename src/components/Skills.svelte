@@ -7,6 +7,7 @@
   import ProfessionalSkillChoice from "./ProfessionalSkillChoice.svelte";
   import StepHead from "./StepHead.svelte";
   import Stepper from "./Stepper.svelte";
+  import SkillInfo from "./SkillInfo.svelte";
   let { kind }: { kind: Kind } = $props();
   const pool = $derived(poolFor(kind));
   const cap = $derived(capFor(kind));
@@ -126,7 +127,7 @@
   {#each names as n (n)}
     {@const v = char.alloc[kind][n] ?? 0}
     <div class="skill" class:has={v > 0}>
-      <div class="nm"><span>{n}{#if skillDefinition(n).pro}<em>pro</em>{/if}</span><small>base {base(n)}%</small></div>
+      <div class="nm"><span><SkillInfo name={n} />{#if skillDefinition(n).pro}<em>pro</em>{/if}</span><small>base {base(n)}%</small></div>
       <Stepper label={n} value={v} max={cap} canInc={left >= (kind === "culture" && v === 0 ? 5 : 1)} jumpFromZero={kind === "culture"} onchange={x => setAlloc(kind, n, x)} />
       <div class="tot">{total(n)}%</div>
     </div>

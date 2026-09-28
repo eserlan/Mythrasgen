@@ -1,6 +1,7 @@
 <script lang="ts">
   import StepHead from "./StepHead.svelte";
   import Passions from "./Passions.svelte";
+  import SkillInfo from "./SkillInfo.svelte";
   import { careers, cultures } from "../lib/content";
   import { updateCulturePassions } from "../lib/passions";
   import { AGE_CATEGORIES, type AgeCategory } from "../lib/rules";
@@ -76,13 +77,13 @@
     {/if}
     {#if char.cultureMigration}<p class="validation" role="status">This character uses the previous culture rules. Review the selected culture and make fresh cultural skill choices; its old cultural point allocations were cleared.</p>{/if}
     <p class="label">Standard skills</p>
-    <p>{#each cu.standard as s}<span class="chip">{s}</span>{/each}</p>
+    <p>{#each cu.standard as s}<span class="chip"><SkillInfo name={s} /></span>{/each}</p>
     {#each cu.standardChoices as group}
       <p class="label">{group.label} ({group.count})</p>
-      <p class="hint">Options: {group.options.join(", ")}</p>
+      <p class="hint">Options: {#each group.options as option, i}<SkillInfo name={option} />{#if i < group.options.length - 1}, {/if}{/each}</p>
     {/each}
     <p class="label">Professional skill options</p>
-    <p>{#each cu.professional as s}<span class="chip">{s}</span>{/each}</p>
+    <p>{#each cu.professional as s}<span class="chip"><SkillInfo name={s} /></span>{/each}</p>
     <p class="hint">Choose culture skills and allocate cultural points on Page III. An optional Cultural Combat Style can be chosen there.</p>
   </div>
   <div class="card">
@@ -93,7 +94,7 @@
       </select>
     </label>
     <p class="label">Skills</p>
-    <p>{#each [...ca.standard.map(s => s === "Native Tongue" ? nativeTongue() : s), ...(ca.combatStyle ?? []), ...ca.professional] as s}<span class="chip">{s}</span>{/each}</p>
+    <p>{#each [...ca.standard.map(s => s === "Native Tongue" ? nativeTongue() : s), ...(ca.combatStyle ?? []), ...ca.professional] as s}<span class="chip"><SkillInfo name={s} /></span>{/each}</p>
     <p class="hint">Select career Professional Skills and allocate career points on Page IV.</p>
   </div>
 </div>

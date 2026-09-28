@@ -1,6 +1,7 @@
 <script lang="ts">
   import { char, combatStyleSummary } from "../lib/store.svelte";
   import { resolveWeapon } from "../lib/weapons";
+  import SkillInfo from "./SkillInfo.svelte";
 
   const styles = $derived(combatStyleSummary());
   let additions = $state<Record<string, string>>({});
@@ -24,7 +25,7 @@
   {#each styles as style (style.id)}
     <section class="card combat-style" aria-label={`Combat Style ${style.name}`}>
       <header class="combat-style-heading">
-        <div><h3>{style.name}</h3><p class="mute">{style.source.libraryName}{#if style.source.reference} · {style.source.reference}{/if}</p></div>
+        <div><h3><SkillInfo name={`Combat Style (${style.name})`} /></h3><p class="mute">{style.source.libraryName}{#if style.source.reference} · {style.source.reference}{/if}</p></div>
         <b class="combat-percentage">{style.percentage}%</b>
       </header>
       <p class="combat-origin"><b>Origin:</b> {style.origins.map(originLabel).join(", ")}</p>
