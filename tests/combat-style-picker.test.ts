@@ -20,7 +20,7 @@ describe("Combat Style preset resolution view", () => {
     expect(picker).toContain("onclick={backToBrowse}");
   });
 
-  test("uses a shared card grid and compact display citations while retaining full provenance", () => {
+  test("uses inline summary rows and compact citations while retaining full provenance", () => {
     const css = readFileSync(new URL("../src/app.css", import.meta.url), "utf8");
     const styles = readFileSync(new URL("../src/lib/combat-styles.ts", import.meta.url), "utf8");
     expect(picker).toContain('<article class="combat-style-result">');
@@ -28,10 +28,14 @@ describe("Combat Style preset resolution view", () => {
     expect(picker).toContain('styleCitation(style)');
     expect(picker).toContain('"3rd ed., Characters p.$1"');
     expect(css).toContain(".combat-style-result{display:grid;grid-template-columns:minmax(0,1fr) max-content");
-    expect(css).toContain("grid-template-columns:132px minmax(0,1fr)");
+    expect(picker).toContain('<div class="combat-style-metadata">');
+    expect(picker).toContain('<p><strong>Weapons:</strong> <span>{styleWeapons(style).join(" · ") || "None recorded"}</span></p>');
+    expect(picker).toContain('<strong>{"searchable" in style ? (styleTraits(style).length === 1 ? "Suggested Trait" : "Suggested Traits") : (style.traits.length === 1 ? "Trait" : "Traits")}:</strong> <span>');
+    expect(picker).not.toContain("<dl>");
+    expect(css).not.toContain("grid-template-columns:132px minmax(0,1fr)");
     expect(css).toContain("overflow-wrap:anywhere");
     expect(css).toContain("@media(max-width:560px)");
-    expect(css).toContain(".combat-style-result dl div{grid-template-columns:1fr;gap:0}");
+    expect(css).not.toContain(".combat-style-result dl div");
     expect(styles).toContain('Mythras Core Rules, 3rd edition: Sample Combat Styles (Characters, p. 12)');
   });
 });

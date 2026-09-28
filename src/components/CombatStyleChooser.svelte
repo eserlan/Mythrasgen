@@ -215,10 +215,10 @@
             <article class="combat-style-result">
               <div class="combat-style-result-content">
                 <h3>{style.name}{#if style.aliases?.length} / {style.aliases.join(" / ")}{/if}</h3>
-                <dl>
-                  <div><dt>Weapons</dt><dd>{styleWeapons(style).join(" · ") || "None recorded"}</dd></div>
-                  <div><dt>{"searchable" in style ? (styleTraits(style).length === 1 ? "Suggested Trait" : "Suggested Traits") : (style.traits.length === 1 ? "Trait" : "Traits")}</dt><dd>{styleTraits(style).join(" / ") || "None recorded"}</dd></div>
-                </dl>
+                <div class="combat-style-metadata">
+                  <p><strong>Weapons:</strong> <span>{styleWeapons(style).join(" · ") || "None recorded"}</span></p>
+                  <p><strong>{"searchable" in style ? (styleTraits(style).length === 1 ? "Suggested Trait" : "Suggested Traits") : (style.traits.length === 1 ? "Trait" : "Traits")}:</strong> <span>{styleTraits(style).join(" / ") || "None recorded"}</span></p>
+                </div>
                 <small class="combat-style-source">{style.source.libraryName}{#if styleCitation(style)} · {styleCitation(style)}{/if}</small>
               </div>
               <button type="button" class="primary" onclick={() => "searchable" in style ? choosePreset(style) : chooseExisting(style)}>Select</button>
