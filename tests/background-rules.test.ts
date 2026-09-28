@@ -1,5 +1,27 @@
 import { describe, expect, test } from "bun:test";
-import { BACKGROUND_EVENT_COUNTS, calculateStartingMoney, isSocialClassResolvedForCulture, reconcileBackgroundEvents, resolvedBackgroundEvents, setBackgroundEventResult, SOCIAL_CLASSES, socialClassForRoll } from "../src/lib/background-rules";
+import { BACKGROUND_EVENT_COUNTS, calculateStartingMoney, isSocialClassResolvedForCulture, reconcileBackgroundEvents, resolvedBackgroundEvents, rollUniqueBackgroundResult, setBackgroundEventResult, SOCIAL_CLASSES, socialClassForRoll } from "../src/lib/background-rules";
+import { CORE_BACKGROUND_EVENTS, coreBackgroundEventForRoll } from "../src/lib/background-events";
+
+describe("Core Background Events catalogue", () => {
+  test("contains all supplied rows and resolves each d100 result exactly once", () => {
+    expect(CORE_BACKGROUND_EVENTS).toHaveLength(55);
+    for (let roll = 1; roll <= 100; roll++) {
+      const matches = CORE_BACKGROUND_EVENTS.filter(event => roll >= event.min && roll <= event.max);
+      expect(matches).toHaveLength(1);
+      expect(coreBackgroundEventForRoll(roll)).toBe(matches[0]);
+    }
+  });
+
+  test("returns stable identity, display range, and text, including 100 as 99-00", () => {
+    expect(coreBackgroundEventForRoll(100)).toEqual(CORE_BACKGROUND_EVENTS.at(-1));
+    expect(coreBackgroundEventForRoll(100)?.range).toBe("99-00");
+    expect(coreBackgroundEventForRoll(100)).toBe(coreBackgroundEventForRoll(99));
+    expect(coreBackgroundEventForRoll(1)?.text).toContain("mistaken identity");
+    expect(coreBackgroundEventForRoll(0)).toBeUndefined();
+    expect(coreBackgroundEventForRoll(101)).toBeUndefined();
+    expect(coreBackgroundEventForRoll(1.5)).toBeUndefined();
+  });
+});
 
 describe("background event counts", () => {
   test("uses the age category event totals", () => {
@@ -29,7 +51,21 @@ describe("background event counts", () => {
 
   test("clears text when the resolved result changes", () => {
     expect(setBackgroundEventResult({ roll: 41, text: "Old event" }, 42, "chosen"))
-      .toEqual({ roll: 42, text: "", source: "chosen" });
+      .toEqual({ roll: 42, text: coreBackgroundEventForRoll(42)?.text, source: "chosen" });
+  });
+
+  test("fills canonical event text when rolling or choosing a result", () => {
+    expect(setBackgroundEventResult({ roll: 0, text: "" }, 100, "rolled"))
+      .toEqual({ roll: 100, text: coreBackgroundEventForRoll(100)?.text, source: "rolled" });
+  });
+
+  test("rerolls a distinct number when it resolves to an event already present", () => {
+    const rolls = [0.03, 0.05];
+    expect(rollUniqueBackgroundResult([3], () => rolls.shift()!)).toBe(6);
+  });
+
+  test("returns an unused event range when random retries collide repeatedly", () => {
+    expect(rollUniqueBackgroundResult([3, 5], () => 0.03)).toBe(1);
   });
 
   test("keeps original slot numbers when unresolved events are omitted from the sheet", () => {
