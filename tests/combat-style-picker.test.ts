@@ -31,7 +31,7 @@ describe("custom Combat Style trait choices", () => {
   test("uses a wrapping text column and preserves a visible checkbox focus state", () => {
     expect(picker).toContain("class=\"trait-picker-choice\"");
     expect(readFileSync(new URL("../src/app.css", import.meta.url), "utf8")).toContain(
-      ".trait-picker-choice{display:grid;grid-template-columns:18px minmax(0,1fr);align-items:start;gap:0 8px;min-width:0;cursor:pointer}",
+      ".combat-style-editor fieldset .trait-picker-choice{display:grid;grid-template-columns:18px minmax(0,1fr);align-items:start;gap:0 8px;min-width:0;cursor:pointer}",
     );
     expect(readFileSync(new URL("../src/app.css", import.meta.url), "utf8")).toContain("input:focus-visible");
   });
