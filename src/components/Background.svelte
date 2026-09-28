@@ -8,7 +8,7 @@
 
   let purchaseName = $state("");
   let purchaseCost = $state(0);
-  let classChoice = $state("");
+  let socialClassDialog: HTMLDialogElement;
   let eventDialog: HTMLDialogElement;
   let eventSlot = $state(0);
   let background = $derived(char.background);
@@ -21,11 +21,12 @@
     background.socialClassRoll = normalized;
     resolveSocialClass(socialClassForRoll(char.socialTable, normalized), "rolled");
   }
-  function chooseClass() {
-    const row = classes.find(item => item.name === classChoice);
+  function chooseClass(name: string) {
+    const row = classes.find(item => item.name === name);
     if (row) {
       background.socialClassRoll = 0;
       resolveSocialClass(row, "chosen");
+      socialClassDialog.close();
     }
   }
   function rollParents() {
@@ -134,27 +135,45 @@
 
 <section class="card">
   <h3>Social class</h3>
-  <p class="mute">Culture table: <b>{cultures[char.culture]?.name ?? char.socialTable}</b>. Roll 1d100 on that culture’s Social Class table. The GM may allow choosing instead.</p>
+  <p class="mute social-class-context">{cultures[char.culture]?.name ?? char.socialTable} · Roll d100 or choose a class if the GM permits.</p>
   {#if !socialClassReady()}
     <div class="validation" role="status"><b>Social class needs reconciliation</b><p>The culture changed from {background.socialClassCulture}. The previous result ({background.socialClass || "unresolved"}) and its saved resources are preserved. Roll on the {char.socialTable} table or choose a class with GM approval.</p></div>
   {/if}
-  <div class="field-row">
-    <label class="field"><span>1d100 result</span><input type="number" min="1" max="100" bind:value={background.socialClassRoll} /></label>
-    <button type="button" onclick={() => setClass(rollPercentile())}>Roll Social Class</button>
-    <button type="button" onclick={() => setClass(background.socialClassRoll)}>Apply roll</button>
+  <div class="social-class-main">
+    {#if socialClassReady()}
+      <p class="social-class-result" role="status"><span>Social Class</span><strong>{background.socialClass}</strong><small>{background.socialClassMethod === "rolled" ? `(rolled ${background.socialClassRoll})` : "(chosen)"}</small></p>
+    {:else}
+      <p class="social-class-result" role="status"><span>Social Class</span><strong>Reconciliation required</strong></p>
+    {/if}
+    <div class="social-class-actions">
+      <button type="button" onclick={() => setClass(rollPercentile())}>{socialClassReady() ? "Reroll" : "Roll Social Class"}</button>
+      <button type="button" class="ghost" onclick={() => socialClassDialog.showModal()}>Choose…</button>
+    </div>
   </div>
-  <div class="field-row">
-    <label class="field"><span>Choose class (GM option)</span><select bind:value={classChoice}>
-      <option value="">Select a class</option>
-      {#each classes as row}<option value={row.name}>{row.name} (×{row.money})</option>{/each}
-    </select></label>
-    <button type="button" class="ghost" disabled={!classChoice} onclick={chooseClass}>Choose class</button>
-  </div>
-  <p><b>Resolved Social Class:</b> {socialClassReady() ? `${background.socialClass} (${background.socialClassMethod})` : "Reconciliation required"}</p>
-  <p><b>Money Modifier:</b> ×{socialClassReady() ? background.socialClassMoney : "—"}</p>
-  <p class="label">Typical equipment</p><p>{background.socialClassEquipment}</p>
-  <p class="label">Background Resources</p><p>{background.socialClassResources}</p>
+  {#if socialClassReady()}
+    <div class="social-class-summary">
+      <p><b>Money:</b> ×{background.socialClassMoney}</p>
+      <p><b>Typical Equipment:</b> {background.socialClassEquipment}</p>
+      <p class="social-class-resources"><b>Background Resources:</b> {background.socialClassResources}</p>
+    </div>
+  {/if}
 </section>
+
+<dialog class="social-class-dialog combat-style-dialog" bind:this={socialClassDialog} aria-labelledby="social-class-dialog-title">
+  <div class="social-class-dialog-content">
+    <header class="combat-style-dialog-heading">
+      <div><h2 id="social-class-dialog-title">Choose a Social Class</h2><button type="button" class="ghost" onclick={() => socialClassDialog.close()}>Close</button></div>
+      <p class="mute">{cultures[char.culture]?.name ?? char.socialTable} table · GM option</p>
+    </header>
+    <div class="social-class-options" aria-label="Social Classes for {char.socialTable}">
+      {#each classes as row (row.name)}
+        <button type="button" class="social-class-option" onclick={() => chooseClass(row.name)}>
+          <b>{row.name}</b><span>Money ×{row.money}</span>
+        </button>
+      {/each}
+    </div>
+  </div>
+</dialog>
 
 <section class="card">
   <h3>Parents, family &amp; connections</h3>
