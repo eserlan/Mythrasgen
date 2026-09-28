@@ -21,15 +21,36 @@ describe("Combat Style preset resolution view", () => {
   });
 });
 
-describe("custom Combat Style trait choices", () => {
-  test("keeps the checkbox and trait name in one accessible, aligned label", () => {
+describe("Core Combat Style trait details", () => {
+  test("keeps rules text collapsed and exposes it through an associated disclosure button", () => {
+    expect(picker).toContain("let expandedTraits = $state<string[]>([])");
+    expect(picker).toContain('aria-expanded={expandedTraits.includes(trait.id)}');
+    expect(picker).toContain('aria-controls={`${idPrefix}-core-trait-description-${trait.id}`}');
+    expect(picker).toContain('hidden={!expandedTraits.includes(trait.id)}');
+    expect(picker).toContain('onclick={() => toggleTraitDetails(trait.id)}');
+    expect(picker.match(/\{trait\.description\}/g)).toHaveLength(1);
+    expect(picker).toContain('<div class="trait-picker-heading">');
+    expect(picker).toContain('<div class="trait-picker-description" id={`${idPrefix}-core-trait-description-${trait.id}`}');
     expect(picker).toContain('<label class="trait-picker-choice"><input type="checkbox"');
-    expect(picker).toContain('<span><b>{trait.displayName}</b><small>{trait.description}</small></span></label>');
     expect(picker).toContain("onchange={event => pickedTraits = event.currentTarget.checked");
+    expect(picker).not.toContain("<details>");
+    expect(picker).not.toContain("<small>{trait.description}</small>");
+    expect(picker).not.toContain("<small>{trait.displayName}</small>");
   });
 
-  test("uses a wrapping text column and preserves a visible checkbox focus state", () => {
-    expect(picker).toContain("class=\"trait-picker-choice\"");
+  test("search includes descriptions while collapsed and details do not change selection", () => {
+    expect(picker).toContain('`${trait.displayName} ${trait.description ?? ""}`');
+    expect(picker).toContain("function toggleTraitDetails(id: string)");
+    expect(picker).toContain("expandedTraits = expandedTraits.includes(id)");
+    expect(picker).not.toContain("expandedTraits = pickedTraits");
+  });
+
+  test("uses a caller-specific prefix so disclosure ids stay unique across chooser instances", () => {
+    expect(picker).toContain("idPrefix: string");
+    const skills = readFileSync(new URL("../src/components/Skills.svelte", import.meta.url), "utf8");
+    expect(skills).toContain('idPrefix={`career-combat-style-${i}`}');
+    expect(skills).toContain('idPrefix="culture-combat-style"');
+    expect(skills).toContain('idPrefix="bonus-combat-style"');
     expect(readFileSync(new URL("../src/app.css", import.meta.url), "utf8")).toContain(
       ".combat-style-editor fieldset .trait-picker-choice{display:grid;grid-template-columns:18px minmax(0,1fr);align-items:start;gap:0 8px;min-width:0;cursor:pointer}",
     );
