@@ -100,6 +100,15 @@ describe("imported background normalization", () => {
     expect(value.events).toEqual([{ roll: 69, eventId: "69-70", source: "rolled" }]);
   });
 
+  test("migrates canonical ranges saved by the earlier background event format", () => {
+    const value = normalizeBackground({
+      events: [{ roll: 0, range: "69-70", source: "chosen" }],
+      archivedEvents: [{ roll: 42, range: "42-43", source: "rolled" }],
+    }, fallback);
+    expect(value.events).toEqual([{ roll: 0, eventId: "69-70", source: "chosen" }]);
+    expect(value.archivedEvents).toEqual([{ roll: 42, eventId: "42-43", source: "rolled" }]);
+  });
+
   test("preserves resolved social-class rules data in saved background records", () => {
     const value = normalizeBackground({
       socialClass: "Gentry", socialClassCulture: "Civilised", socialClassMethod: "chosen",

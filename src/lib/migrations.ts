@@ -123,7 +123,9 @@ export function normalizeBackground(value: unknown, fallback: BackgroundData): B
     ? candidate.filter((event): event is BackgroundEvent => !!event && typeof event === "object"
       && Number.isInteger(event.roll) && event.roll >= 0 && event.roll <= 100)
       .map(event => {
-        const resolved = (typeof event.eventId === "string" ? CORE_BACKGROUND_EVENTS.find(item => item.range === event.eventId) : undefined)
+        const legacyRange = (event as BackgroundEvent & { range?: unknown }).range;
+        const savedIdentity = typeof event.eventId === "string" ? event.eventId : legacyRange;
+        const resolved = (typeof savedIdentity === "string" ? CORE_BACKGROUND_EVENTS.find(item => item.range === savedIdentity) : undefined)
           ?? coreBackgroundEventForRoll(event.roll);
         const eventId = resolved?.range;
         const roll = event.source === "chosen" ? 0 : event.roll;
