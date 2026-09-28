@@ -1,6 +1,6 @@
 import type { CultureKind } from "./content";
 import { AGE_CATEGORIES, type AgeCategory } from "./rules";
-import { coreBackgroundEventForRoll } from "./background-events";
+import { coreBackgroundEventForRange, coreBackgroundEventForRoll } from "./background-events";
 
 export interface SocialClass {
   name: string;
@@ -18,11 +18,17 @@ export const BACKGROUND_EVENT_COUNTS: Record<AgeCategory, number> = Object.fromE
 ) as Record<AgeCategory, number>;
 
 export interface BackgroundEvent {
-  /** The percentile result on the official Mythras Background Events table; 0 means unresolved. */
+  /** The actual d100 rolled for this slot; 0 when chosen or unresolved. */
   roll: number;
-  /** Event text recorded by the player from their copy of the Core Rules. */
-  text: string;
+  /** Canonical catalogue identity (display range, e.g. "69-70"); "" means unresolved. */
+  range: string;
   source?: "rolled" | "chosen";
+}
+
+/** Official event text resolved from the canonical catalogue identity. */
+export function backgroundEventText(event: Pick<BackgroundEvent, "roll" | "range">): string {
+  return coreBackgroundEventForRange(event.range)?.text
+    ?? coreBackgroundEventForRoll(event.roll)?.text ?? "";
 }
 
 /** Keep exactly the age-derived number of active slots while retaining any displaced results. */
@@ -34,37 +40,20 @@ export function reconcileBackgroundEvents(
   const active = [...events];
   const retained = archived.filter(event => isMeaningfulBackgroundEvent(event));
   if (active.length > count) retained.unshift(...active.splice(count).filter(isMeaningfulBackgroundEvent));
-  while (active.length < count) active.push(retained.shift() ?? { roll: 0, text: "" });
+  while (active.length < count) active.push(retained.shift() ?? { roll: 0, range: "" });
   return { events: active, archived: retained };
 }
 
 export function isResolvedBackgroundEvent(event: BackgroundEvent): boolean {
-  return Number.isInteger(event.roll) && event.roll >= 1 && event.roll <= 100;
+  return typeof event.range === "string" && coreBackgroundEventForRange(event.range) !== undefined;
 }
 
 export function resolvedBackgroundEvents(events: BackgroundEvent[]): { event: BackgroundEvent; index: number }[] {
   return events.flatMap((event, index) => isResolvedBackgroundEvent(event) ? [{ event, index }] : []);
 }
 
-export function setBackgroundEventResult(
-  current: BackgroundEvent,
-  roll: number,
-  source: NonNullable<BackgroundEvent["source"]>,
-): BackgroundEvent {
-  const nextEvent = coreBackgroundEventForRoll(roll);
-  const currentEvent = coreBackgroundEventForRoll(current.roll);
-  return {
-    roll,
-    text: nextEvent
-      ? currentEvent?.range === nextEvent.range ? current.text || nextEvent.text
-        : currentEvent ? nextEvent.text : current.text || nextEvent.text
-      : "",
-    source,
-  };
-}
-
 function isMeaningfulBackgroundEvent(event: BackgroundEvent): boolean {
-  return isResolvedBackgroundEvent(event) || !!event.text.trim() || !!event.source;
+  return isResolvedBackgroundEvent(event) || !!event.source;
 }
 export const CULTURE_MONEY_MULTIPLIERS: Record<CultureKind, number> = { Barbarian: 50, Civilised: 75, Nomadic: 25, Primitive: 10 };
 
@@ -160,33 +149,4 @@ export const CONNECTION_TYPES = ["Ally", "Contact", "Enemy", "Rival"] as const;
 
 export function tableResult<T extends readonly (readonly [number, number, ...unknown[]])[]>(rows: T, roll: number): T[number] {
   return rows.find(row => roll >= row[0] && roll <= row[1]) ?? rows[0];
-}
-
-/**
- * Roll a d100 Background Event result that avoids event entries already held in
- * other active slots (Core Rules: duplicate randomly rolled events are rerolled).
- * Chosen results are unrestricted — pass only the rolls to avoid.
- *
- * Distinct rolls in the same table range count as the same event. Invalid or
- * unresolved entries in `existingRolls` are ignored.
- */
-export function rollUniqueBackgroundResult(
-  existingRolls: readonly number[] = [],
-  rng: () => number = Math.random,
-): number {
-  const taken = new Set(existingRolls.flatMap(roll => {
-    const event = coreBackgroundEventForRoll(roll);
-    return event ? [event.range] : [];
-  }));
-  if (taken.size >= 55) return 1 + Math.floor(rng() * 100);
-  for (let attempt = 0; attempt < 200; attempt++) {
-    const roll = 1 + Math.floor(rng() * 100);
-    const event = coreBackgroundEventForRoll(roll);
-    if (event && !taken.has(event.range)) return roll;
-  }
-  for (let roll = 1; roll <= 100; roll++) {
-    const event = coreBackgroundEventForRoll(roll);
-    if (event && !taken.has(event.range)) return roll;
-  }
-  return 1 + Math.floor(rng() * 100);
 }

@@ -71,7 +71,7 @@ const blank = (): Character => ({
   alloc: { culture: {}, career: {}, bonus: {} }, hobbySkill: null, careerProfessional: [], careerCombatStyles: [], step: 0,
   passionsEnabled: false, passions: [],
   socialTable: "Barbarian", moneyTable: "Barbarian",
-  background: { events: [{ roll: 0, text: "" }], archivedEvents: [], socialClassRoll: 50, socialClass: "Freeman",
+  background: { events: [{ roll: 0, range: "" }], archivedEvents: [], socialClassRoll: 50, socialClass: "Freeman",
     socialClassCulture: "Barbarian", socialClassMethod: "rolled", socialClassMoney: 1,
     socialClassEquipment: "Tools; simple weapons", socialClassResources: "Rented accommodation; may own a few livestock",
     parentsRoll: 50, parents: "", siblingsRoll: 50, siblings: "", extendedFamilyRoll: 50, extendedFamily: "",

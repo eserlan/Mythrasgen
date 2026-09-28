@@ -1,16 +1,22 @@
 <script lang="ts">
   import StepHead from "./StepHead.svelte";
   import { char, availableMoney, eventCount, moneyMultiplier, resolveSocialClass, roll4d6, rollDie, rollPercentile, socialClassReady, startingMoney } from "../lib/store.svelte";
-  import { CONNECTIONS, CONNECTION_TYPES, EXTENDED_FAMILY, FAMILY_STANDING, PARENTS, SIBLINGS, SOCIAL_CLASSES, rollUniqueBackgroundResult, setBackgroundEventResult, socialClassForRoll, tableResult } from "../lib/background-rules";
-  import { coreBackgroundEventForRoll } from "../lib/background-events";
+  import { backgroundEventText, CONNECTIONS, CONNECTION_TYPES, EXTENDED_FAMILY, FAMILY_STANDING, PARENTS, SIBLINGS, SOCIAL_CLASSES, socialClassForRoll, tableResult } from "../lib/background-rules";
+  import { CORE_BACKGROUND_EVENTS, coreBackgroundEventForRange, rollUniqueCoreBackgroundEvent } from "../lib/background-events";
   import { cultures } from "../lib/content";
   import { AGE_CATEGORIES } from "../lib/rules";
 
   let purchaseName = $state("");
   let purchaseCost = $state(0);
-  let chosenResults = $state<number[]>([]);
   let classChoice = $state("");
+  let chooserFor: number | null = $state(null);
+  let filter = $state("");
   let background = $derived(char.background);
+  const filteredEvents = $derived(CORE_BACKGROUND_EVENTS.filter(entry => {
+    const q = filter.trim().toLowerCase();
+    if (!q) return true;
+    return `${entry.range} ${entry.text}`.toLowerCase().includes(q);
+  }));
   let classes = $derived(SOCIAL_CLASSES[char.socialTable]);
   let standing = $derived(tableResult(FAMILY_STANDING, background.standingRoll));
   let connectionBand = $derived(tableResult(CONNECTIONS, background.connectionsRoll));
@@ -59,18 +65,17 @@
     background.connections = Array.from({ length: count }, () => CONNECTION_TYPES[rollDie(4) - 1]);
   }
   function rollEvent(index: number) {
-    const taken = background.events.filter((_, i) => i !== index).map(event => event.roll);
-    const result = rollUniqueBackgroundResult(taken);
-    chosenResults[index] = result;
-    background.events[index] = setBackgroundEventResult(background.events[index], result, "rolled");
+    const taken = background.events.filter((_, i) => i !== index).map(event => event.range).filter(range => range !== "");
+    const { roll, event } = rollUniqueCoreBackgroundEvent(taken);
+    background.events[index] = { roll, range: event.range, source: "rolled" };
   }
-  function chooseEvent(index: number) {
-    const result = Math.max(1, Math.min(100, Math.round(chosenResults[index] || 1)));
-    background.events[index] = setBackgroundEventResult(background.events[index], result, "chosen");
-    chosenResults[index] = result;
+  function chooseEvent(index: number, range: string) {
+    background.events[index] = { roll: 0, range, source: "chosen" };
+    chooserFor = null;
+    filter = "";
   }
   function clearEvent(index: number) {
-    background.events[index] = { roll: 0, text: "" };
+    background.events[index] = { roll: 0, range: "" };
   }
   function clearArchivedEvents() {
     background.archivedEvents = [];
@@ -85,30 +90,39 @@
 </script>
 
 <StepHead step={5} title="Background" />
+<svelte:window onkeydown={e => { if (e.key === "Escape") { chooserFor = null; filter = ""; } }} />
 <section class="card">
-  <h3>Background events</h3>
-  <p class="mute">Age {char.age} ({AGE_CATEGORIES[char.ageCategory].label}) calls for {eventCount()} background event{eventCount() === 1 ? "" : "s"}. Roll a d100 result or choose one from the official Core Rules table (pp. 18–20); its event text appears below. Random rolls automatically avoid duplicate events; chosen results are unrestricted. Events are optional — clear a slot that does not fit your hero.</p>
+  <h3>Background events — {eventCount() === 0 ? "none" : `${eventCount()} event${eventCount() === 1 ? "" : "s"}`}</h3>
+  <p class="mute">Age {char.age} ({AGE_CATEGORIES[char.ageCategory].label}) calls for {eventCount()} background event{eventCount() === 1 ? "" : "s"}. Random rolls never repeat an event already held; chosen events are unrestricted. Events are optional — leave a slot empty if it does not fit your hero.</p>
   {#if eventCount() === 0}
     <p class="hint" role="status">No Background Events from age.</p>
   {/if}
   {#each background.events as event, i}
-    <div class="event-entry">
-      <div class="field-row">
-        <label class="field"><span>Event {i + 1} · official d100 result</span><input type="number" min="1" max="100" value={chosenResults[i] ?? (event.roll || 1)} oninput={e => chosenResults[i] = Number(e.currentTarget.value)} /></label>
-        <button type="button" onclick={() => rollEvent(i)}>{event.roll ? "Reroll event" : "Roll event"}</button>
-        <button type="button" class="ghost" onclick={() => chooseEvent(i)}>Choose event</button>
-        {#if event.roll || event.text.trim() || event.source}<button type="button" class="ghost" title="Clear this event (events are optional)" onclick={() => clearEvent(i)}>Clear</button>{/if}
+    {@const entry = coreBackgroundEventForRange(event.range)}
+    <div class="event-entry" class:resolved={!!entry}>
+      <div class="field-row event-row">
+        <span class="event-num">Event {i + 1}</span>
+        {#if !entry}
+          <button type="button" onclick={() => rollEvent(i)}>Roll d100</button>
+          <button type="button" class="ghost" onclick={() => (chooserFor = i)}>Choose event…</button>
+        {:else}
+          <span class="event-res" role="status">
+            {#if event.source === "rolled" && event.roll >= 1 && event.roll <= 100}
+              <b>{String(event.roll).padStart(2, "0")}</b> · {entry.range}
+            {:else}{entry.range} · chosen{/if}
+          </span>
+          <button type="button" class="ghost" onclick={() => rollEvent(i)}>Reroll</button>
+          <button type="button" class="ghost" onclick={() => (chooserFor = i)}>Change</button>
+          <button type="button" class="ghost" title="Clear this event (events are optional)" onclick={() => clearEvent(i)}>Clear</button>
+        {/if}
       </div>
-      {#if event.roll >= 1 && event.roll <= 100}
-        <p class="mute" role="status">{event.source === "chosen" ? "Chosen" : event.source === "rolled" ? "Rolled" : "Recorded"}: Core Rules table result {event.roll} ({coreBackgroundEventForRoll(event.roll)?.range}).</p>
-        <label class="field event-text"><span>Official event text</span><textarea rows="2" bind:value={event.text} placeholder="Official event text is filled in automatically"></textarea></label>
-      {:else}<p class="mute">Choose or roll a result to resolve this slot.</p>{/if}
+      {#if entry}<p class="event-text">{entry.text}</p>{/if}
     </div>
   {/each}
   {#if background.archivedEvents.length}
     <div class="hint" role="status">
       <p>{background.archivedEvents.length} event{background.archivedEvents.length === 1 ? " was" : "s were"} preserved here after the age category reduced the active slot count.</p>
-      {#each background.archivedEvents as event, i}<p>Previously active event {i + 1}: {event.roll ? `Core Rules result ${event.roll}` : "unresolved"}{event.text ? ` — ${event.text}` : ""}</p>{/each}
+      {#each background.archivedEvents as event, i}<p>Previously active event {i + 1}: {event.range ? `Table result ${event.range}` : "unresolved"}{backgroundEventText(event) ? ` — ${backgroundEventText(event)}` : ""}</p>{/each}
       <button type="button" class="ghost" onclick={clearArchivedEvents}>Discard preserved events</button>
     </div>
   {/if}
@@ -174,3 +188,46 @@
     <ul class="leaders">{#each background.purchases as item, i}<li><span>{item.name}</span><i></i><b>{item.cost} sp</b><button type="button" class="ghost" aria-label="Remove {item.name}" onclick={() => background.purchases.splice(i, 1)}>Remove</button></li>{/each}</ul>
   {:else}<p class="mute">No additional purchases.</p>{/if}
 </section>
+
+{#if chooserFor != null}
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <div class="overlay" role="presentation" onclick={() => (chooserFor = null)}>
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_interactive_supports_focus -->
+    <div class="sheet-modal" role="dialog" aria-modal="true" aria-label="Choose a background event" onclick={e => e.stopPropagation()}>
+      <div class="mhead">
+        <b>Choose event {(chooserFor ?? 0) + 1}</b>
+        <button type="button" class="ghost" onclick={() => (chooserFor = null)}>Close ✕</button>
+      </div>
+      <input class="mfilter" bind:value={filter} placeholder="Filter events…" aria-label="Filter events" />
+      <ul class="mlist">
+        {#each filteredEvents as entry (entry.range)}
+          <li><button type="button" class="mitem" onclick={() => chooseEvent(chooserFor as number, entry.range)}>
+            <span class="range">{entry.range}</span>
+            <span class="mtext">{entry.text.length > 110 ? `${entry.text.slice(0, 110)}…` : entry.text}</span>
+          </button></li>
+        {:else}<li class="mute small pad">No events match “{filter}”.</li>{/each}
+      </ul>
+    </div>
+  </div>
+{/if}
+
+<style>
+  .event-entry { display: block; border: 1px solid var(--line); border-radius: 2px; padding: 8px 10px; margin: 8px 0; }
+  .event-entry.resolved { border-color: var(--line2); background: var(--card2); }
+  .event-row { align-items: center; }
+  .event-num { font-family: var(--display); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--bronze); font-weight: 700; margin-right: auto; }
+  .event-res b { font-family: var(--display); color: var(--bronze); }
+  .event-text { margin: 6px 0 2px; font-size: 0.98rem; }
+  .overlay { position: fixed; inset: 0; z-index: 50; background: #0009; display: grid; place-items: center; padding: 16px; }
+  .sheet-modal { width: min(560px, 100%); max-height: min(70vh, 560px); display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--line2); border-radius: 4px; box-shadow: var(--shadow); }
+  .mhead { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid var(--line); font-family: var(--display); text-transform: uppercase; letter-spacing: 0.1em; font-size: 0.75rem; }
+  .mfilter { margin: 10px 14px 4px; }
+  .mlist { list-style: none; margin: 6px 0 10px; padding: 0 8px; overflow: auto; }
+  .mitem { display: flex; gap: 10px; align-items: baseline; width: 100%; text-align: left; background: none; border: 0; border-bottom: 1px dotted var(--line2); border-radius: 0; padding: 8px 6px; text-transform: none; letter-spacing: 0; font-family: var(--body); font-size: 1rem; font-weight: 400; }
+  .mitem:hover { border-color: var(--bronze2); transform: none; }
+  .range { font-family: var(--display); font-weight: 700; color: var(--bronze); white-space: nowrap; font-size: 0.8rem; }
+  .mtext { color: var(--fg); }
+  .small { font-size: 0.9rem; }
+  .pad { padding: 12px; }
+</style>

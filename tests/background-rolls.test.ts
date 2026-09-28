@@ -1,46 +1,49 @@
 import { describe, expect, test } from "bun:test";
-import { rollUniqueBackgroundResult } from "../src/lib/background-rules";
+import {
+  CORE_BACKGROUND_EVENTS,
+  coreBackgroundEventForRoll,
+  rollUniqueCoreBackgroundEvent,
+} from "../src/lib/background-events";
 
-describe("rollUniqueBackgroundResult", () => {
-  test("returns a valid d100 result", () => {
+describe("rollUniqueCoreBackgroundEvent", () => {
+  test("returns a valid roll resolving to the returned event", () => {
     for (let i = 0; i < 50; i++) {
-      const roll = rollUniqueBackgroundResult([]);
+      const { roll, event } = rollUniqueCoreBackgroundEvent([]);
       expect(Number.isInteger(roll)).toBe(true);
       expect(roll).toBeGreaterThanOrEqual(1);
       expect(roll).toBeLessThanOrEqual(100);
+      expect(coreBackgroundEventForRoll(roll)).toBe(event);
     }
   });
 
-  test("avoids results already held in other slots", () => {
-    const taken = [18, 27, 42];
+  test("never returns an event already held in another slot", () => {
+    const taken = ["18-19", "25", "69-70"];
     for (let i = 0; i < 50; i++) {
-      expect(taken).not.toContain(rollUniqueBackgroundResult(taken));
+      const { event } = rollUniqueCoreBackgroundEvent(taken);
+      expect(taken).not.toContain(event.range);
     }
   });
 
-  test("ignores invalid and unresolved entries", () => {
-    // 0 means unresolved; only 42 is really taken.
-    for (let i = 0; i < 50; i++) {
-      const roll = rollUniqueBackgroundResult([0, 0, 42, -5, 101, 1.5, NaN]);
-      expect(roll).toBeGreaterThanOrEqual(1);
-      expect(roll).toBeLessThanOrEqual(100);
-    }
-    // With a stub rng, an invalid-heavy list still resolves deterministically.
-    expect(rollUniqueBackgroundResult([0, -1, 101], () => 0)).toBe(1);
+  test("treats distinct rolls in the same range as the same event", () => {
+    // rng 0.035 -> roll 4, which is range 03-04; excluding that range must skip it.
+    expect(rollUniqueCoreBackgroundEvent(["03-04"], () => 0.035).event.range).not.toBe("03-04");
+    // Unknown ranges in the exclusion list are ignored.
+    const { event } = rollUniqueCoreBackgroundEvent(["bogus"], () => 0.035);
+    expect(event.range).toBe("03-04");
   });
 
   test("honours the provided rng", () => {
-    expect(rollUniqueBackgroundResult([], () => 0)).toBe(1);
-    expect(rollUniqueBackgroundResult([], () => 0.9999)).toBe(100);
-    // A taken result is skipped via reroll.
-    expect(rollUniqueBackgroundResult([1], () => 0)).toBeGreaterThanOrEqual(2);
+    expect(rollUniqueCoreBackgroundEvent([], () => 0)).toEqual({
+      roll: 1,
+      event: coreBackgroundEventForRoll(1),
+    });
+    expect(rollUniqueCoreBackgroundEvent([], () => 0.9999).roll).toBe(100);
   });
 
-  test("falls back to a valid roll when every result is taken", () => {
-    const all = Array.from({ length: 100 }, (_, i) => i + 1);
-    const roll = rollUniqueBackgroundResult(all, () => 0.42);
+  test("falls back to a valid event when every entry is taken", () => {
+    const all = CORE_BACKGROUND_EVENTS.map(entry => entry.range);
+    const { roll, event } = rollUniqueCoreBackgroundEvent(all, () => 0.42);
     expect(Number.isInteger(roll)).toBe(true);
-    expect(roll).toBeGreaterThanOrEqual(1);
-    expect(roll).toBeLessThanOrEqual(100);
+    expect(coreBackgroundEventForRoll(roll)).toBe(event);
   });
 });

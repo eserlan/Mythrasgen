@@ -70,3 +70,42 @@ export function coreBackgroundEventForRoll(roll: number): CoreBackgroundEvent | 
   if (!Number.isInteger(roll) || roll < 1 || roll > 100) return undefined;
   return CORE_BACKGROUND_EVENTS.find(event => roll >= event.min && roll <= event.max);
 }
+
+/** Resolve a canonical display range (the stable event identity) to its entry. */
+export function coreBackgroundEventForRange(range: string): CoreBackgroundEvent | undefined {
+  return CORE_BACKGROUND_EVENTS.find(event => event.range === range);
+}
+
+export interface RolledCoreBackgroundEvent {
+  roll: number;
+  event: CoreBackgroundEvent;
+}
+
+/**
+ * Roll a d100 result that resolves to an event not already held (Core Rules:
+ * duplicate randomly rolled Background Events are rerolled). Manually chosen
+ * events are unrestricted — pass only the ranges to avoid.
+ *
+ * Falls back to an unrestricted roll when every catalogue entry is taken.
+ */
+export function rollUniqueCoreBackgroundEvent(
+  excludeRanges: readonly string[] = [],
+  rng: () => number = Math.random,
+): RolledCoreBackgroundEvent {
+  const taken = new Set(excludeRanges);
+  if (taken.size >= CORE_BACKGROUND_EVENTS.length) {
+    const roll = 1 + Math.floor(rng() * 100);
+    return { roll, event: coreBackgroundEventForRoll(roll) ?? CORE_BACKGROUND_EVENTS[0] };
+  }
+  for (let attempt = 0; attempt < 200; attempt++) {
+    const roll = 1 + Math.floor(rng() * 100);
+    const event = coreBackgroundEventForRoll(roll);
+    if (event && !taken.has(event.range)) return { roll, event };
+  }
+  for (let roll = 1; roll <= 100; roll++) {
+    const event = coreBackgroundEventForRoll(roll);
+    if (event && !taken.has(event.range)) return { roll, event };
+  }
+  const roll = 1 + Math.floor(rng() * 100);
+  return { roll, event: coreBackgroundEventForRoll(roll) ?? CORE_BACKGROUND_EVENTS[0] };
+}
