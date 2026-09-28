@@ -155,3 +155,27 @@ export const CONNECTION_TYPES = ["Ally", "Contact", "Enemy", "Rival"] as const;
 export function tableResult<T extends readonly (readonly [number, number, ...unknown[]])[]>(rows: T, roll: number): T[number] {
   return rows.find(row => roll >= row[0] && roll <= row[1]) ?? rows[0];
 }
+
+/**
+ * Roll a d100 Background Event result that avoids results already held in other
+ * active slots (Core Rules: duplicate randomly rolled Background Events are
+ * rerolled). Chosen results are unrestricted — pass only the rolls to avoid.
+ *
+ * Invalid/unresolved entries (0, out-of-range, non-integers) in `existingRolls`
+ * are ignored. Falls back to an unrestricted roll when every result is taken.
+ */
+export function rollUniqueBackgroundResult(
+  existingRolls: readonly number[] = [],
+  rng: () => number = Math.random,
+): number {
+  const taken = new Set(
+    existingRolls.filter(roll => Number.isInteger(roll) && roll >= 1 && roll <= 100),
+  );
+  if (taken.size >= 100) return 1 + Math.floor(rng() * 100);
+  for (let attempt = 0; attempt < 200; attempt++) {
+    const roll = 1 + Math.floor(rng() * 100);
+    if (!taken.has(roll)) return roll;
+  }
+  for (let roll = 1; roll <= 100; roll++) if (!taken.has(roll)) return roll;
+  return 1 + Math.floor(rng() * 100);
+}
