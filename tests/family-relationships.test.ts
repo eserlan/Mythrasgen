@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { familyRelationshipSpec, reconcileFamilyRelationships, resolveFamilyRelationshipCount, type FamilyRelationship } from "../src/lib/family-relationships";
+import { familyRelationshipSpec, formatFamilyRelationships, reconcileFamilyRelationships, resolveFamilyRelationshipCount, type FamilyRelationship } from "../src/lib/family-relationships";
 
 const repEnemy: FamilyRelationship = {
   source: "reputation", allowedTypes: ["Enemy", "Rival"], type: "Rival", name: "The old rival",
@@ -44,5 +44,11 @@ describe("Core family relationship generation", () => {
   test("preserves compatible names and types while trimming obsolete same-source slots", () => {
     const trimmed = reconcileFamilyRelationships([repEnemy, { ...repEnemy, name: "second" }, connection], "reputation", 1, ["Enemy", "Rival"]);
     expect(trimmed).toEqual([repEnemy, connection]);
+  });
+
+  test("formats each source's relationships for the character sheet", () => {
+    expect(formatFamilyRelationships([repEnemy, connection], "reputation")).toBe("Rival (The old rival)");
+    expect(formatFamilyRelationships([repEnemy, connection], "connections")).toBe("Contact (Cult of Yethis)");
+    expect(formatFamilyRelationships([], "connections")).toBe("None generated");
   });
 });

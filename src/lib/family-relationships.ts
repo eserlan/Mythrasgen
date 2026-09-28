@@ -10,6 +10,13 @@ export interface FamilyRelationship {
 
 export const ALL_RELATIONSHIP_TYPES: RelationshipType[] = ["Ally", "Contact", "Enemy", "Rival"];
 
+export function formatFamilyRelationships(relationships: FamilyRelationship[], source: RelationshipSource): string {
+  return relationships
+    .filter(relationship => relationship.source === source)
+    .map(relationship => `${relationship.type}${relationship.name ? ` (${relationship.name})` : ""}`)
+    .join(", ") || "None generated";
+}
+
 /** Read the relationship count and constraints printed in a Core family table result. */
 export function familyRelationshipSpec(result: string): { count: number; die: number; allowedTypes: RelationshipType[] } {
   if (/^None\b/i.test(result)) return { count: 0, die: 0, allowedTypes: [] };
