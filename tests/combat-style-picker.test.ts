@@ -19,6 +19,21 @@ describe("Combat Style preset resolution view", () => {
     expect(picker).toContain("resultsRegion.scrollTop = browseScrollTop");
     expect(picker).toContain("onclick={backToBrowse}");
   });
+
+  test("uses a shared card grid and compact display citations while retaining full provenance", () => {
+    const css = readFileSync(new URL("../src/app.css", import.meta.url), "utf8");
+    const styles = readFileSync(new URL("../src/lib/combat-styles.ts", import.meta.url), "utf8");
+    expect(picker).toContain('<article class="combat-style-result">');
+    expect(picker).toContain('<div class="combat-style-result-content">');
+    expect(picker).toContain('styleCitation(style)');
+    expect(picker).toContain('"3rd ed., Characters p.$1"');
+    expect(css).toContain(".combat-style-result{display:grid;grid-template-columns:minmax(0,1fr) max-content");
+    expect(css).toContain("grid-template-columns:132px minmax(0,1fr)");
+    expect(css).toContain("overflow-wrap:anywhere");
+    expect(css).toContain("@media(max-width:560px)");
+    expect(css).toContain(".combat-style-result dl div{grid-template-columns:1fr;gap:0}");
+    expect(styles).toContain('Mythras Core Rules, 3rd edition: Sample Combat Styles (Characters, p. 12)');
+  });
 });
 
 describe("Core Combat Style trait choices and details", () => {
