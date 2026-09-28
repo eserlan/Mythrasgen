@@ -20,6 +20,7 @@ const original = {
   startingMoneyKey: char.background.startingMoneyKey,
   startingMoneyTotal: char.background.startingMoneyTotal,
   currentMoney: char.background.currentMoney,
+  purchases: structuredClone(char.background.purchases),
 };
 
 afterEach(() => {
@@ -37,6 +38,7 @@ afterEach(() => {
   char.background.startingMoneyKey = original.startingMoneyKey;
   char.background.startingMoneyTotal = original.startingMoneyTotal;
   char.background.currentMoney = original.currentMoney;
+  char.background.purchases = structuredClone(original.purchases);
 });
 
 describe("persistent starting money", () => {
@@ -81,5 +83,27 @@ describe("persistent starting money", () => {
     expect(char.background.startingMoneyTotal).toBe(975);
     setStartingMoneyRoll(14);
     expect(char.background.currentMoney).toBe(1050);
+  });
+
+  test("migrates the previous purchase ledger into current funds", () => {
+    char.culture = cultures.findIndex(culture => culture.kind === "Civilised");
+    char.moneyTable = "Civilised";
+    char.socialTable = "Civilised";
+    char.background.socialClass = "Freeman";
+    char.background.socialClassRoll = 50;
+    char.background.socialClassMethod = "rolled";
+    char.background.socialClassCulture = "Civilised";
+    char.background.socialClassMoney = 1;
+    char.background.socialClassEquipment = "Tools; simple weapons";
+    char.background.socialClassResources = "Rented accommodation; may own a few livestock";
+    setStartingMoneyRoll(13);
+    char.background.purchases = [{ name: "Torch", cost: 2 }, { name: "Rope", cost: 15 }];
+
+    const legacySave = structuredClone(char);
+    delete (legacySave.background as Partial<typeof legacySave.background>).currentMoney;
+    replace(legacySave);
+
+    expect(char.background.currentMoney).toBe(958);
+    expect(char.background.startingMoneyTotal).toBe(975);
   });
 });

@@ -163,7 +163,15 @@ function normalize(value: Partial<Character> | null, home = true): Character {
   normalized.background.startingMoneyTotal = moneyReady
     ? calculateStartingMoney(normalized.background.startingMoneyRoll, normalized.moneyTable, normalized.background.socialClassMoney)
     : 0;
-  if (normalized.background.startingMoneyKey !== moneyKey) normalized.background.currentMoney = normalized.background.startingMoneyTotal;
+  const migratedCurrentMoney = migrated.background?.currentMoney;
+  const savedCurrentMoney = typeof migratedCurrentMoney === "number"
+    && Number.isFinite(migratedCurrentMoney) && migratedCurrentMoney >= 0;
+  if (!savedCurrentMoney) {
+    const spent = normalized.background.purchases.reduce((total, item) => total + item.cost, 0);
+    normalized.background.currentMoney = Math.max(0, normalized.background.startingMoneyTotal - spent);
+  } else if (normalized.background.startingMoneyKey !== moneyKey) {
+    normalized.background.currentMoney = normalized.background.startingMoneyTotal;
+  }
   normalized.background.startingMoneyKey = moneyKey;
   normalized.frameOptions = Array.isArray(migrated.frameOptions)
     ? migrated.frameOptions.filter((frame): frame is Frame => FRAMES.includes(frame as Frame))
