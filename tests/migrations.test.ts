@@ -60,9 +60,16 @@ describe("imported background normalization", () => {
       archivedEvents: [{ roll: 12, text: "Retained" }, { roll: -1, text: "Invalid" }],
       purchases: [{ name: "Torch", cost: 2 }, { name: "Invalid", cost: -1 }],
     }, fallback);
-    expect(value.events).toEqual([{ roll: 40, text: "Valid", source: "chosen" }]);
-    expect(value.archivedEvents).toEqual([{ roll: 12, text: "Retained" }]);
+    expect(value.events).toEqual([{ roll: 0, eventId: "40-41", source: "chosen" }]);
+    expect(value.archivedEvents).toEqual([{ roll: 12, eventId: "11-12" }]);
     expect(value.purchases).toEqual([{ name: "Torch", cost: 2 }]);
+  });
+
+  test("migrates saved event text to catalogue identity and keeps actual random rolls", () => {
+    const value = normalizeBackground({
+      events: [{ roll: 69, text: "Copied catalogue paragraph", source: "rolled" }],
+    }, fallback);
+    expect(value.events).toEqual([{ roll: 69, eventId: "69-70", source: "rolled" }]);
   });
 
   test("preserves resolved social-class rules data in saved background records", () => {

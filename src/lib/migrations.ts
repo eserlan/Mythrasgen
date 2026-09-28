@@ -1,6 +1,7 @@
 import type { CultureKind } from "./content";
 import { AGE_CATEGORIES, type AgeCategory } from "./rules";
 import type { BackgroundEvent } from "./background-rules";
+import { CORE_BACKGROUND_EVENTS, coreBackgroundEventForRoll } from "./background-events";
 
 export type { AgeCategory } from "./rules";
 
@@ -89,8 +90,16 @@ export function normalizeBackground(value: unknown, fallback: BackgroundData): B
     Array.isArray(candidate) ? candidate.filter((item): item is string => typeof item === "string") : original;
   const events = (candidate: unknown, original: BackgroundEvent[]) => Array.isArray(candidate)
     ? candidate.filter((event): event is BackgroundEvent => !!event && typeof event === "object"
-      && Number.isInteger(event.roll) && event.roll >= 0 && event.roll <= 100 && typeof event.text === "string")
-      .map(event => ({ roll: event.roll, text: event.text, ...(event.source === "rolled" || event.source === "chosen" ? { source: event.source } : {}) }))
+      && Number.isInteger(event.roll) && event.roll >= 0 && event.roll <= 100)
+      .map(event => {
+        const resolved = (typeof event.eventId === "string" ? CORE_BACKGROUND_EVENTS.find(item => item.range === event.eventId) : undefined)
+          ?? coreBackgroundEventForRoll(event.roll);
+        const eventId = resolved?.range;
+        const roll = event.source === "chosen" ? 0 : event.roll;
+        return eventId
+          ? { roll, eventId, ...(event.source === "rolled" || event.source === "chosen" ? { source: event.source } : {}) }
+          : { roll, ...(typeof event.text === "string" ? { text: event.text } : {}) };
+      })
     : original;
   return {
     ...fallback,

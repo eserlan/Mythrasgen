@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { BACKGROUND_EVENT_COUNTS, calculateStartingMoney, isSocialClassResolvedForCulture, reconcileBackgroundEvents, resolvedBackgroundEvents, rollUniqueBackgroundResult, setBackgroundEventResult, SOCIAL_CLASSES, socialClassForRoll } from "../src/lib/background-rules";
+import { BACKGROUND_EVENT_COUNTS, calculateStartingMoney, chooseBackgroundEvent, isSocialClassResolvedForCulture, reconcileBackgroundEvents, resolvedBackgroundEvents, resolveBackgroundEvent, rollUniqueBackgroundResult, setBackgroundEventResult, SOCIAL_CLASSES, socialClassForRoll } from "../src/lib/background-rules";
 import { CORE_BACKGROUND_EVENTS, coreBackgroundEventForRoll } from "../src/lib/background-events";
 
 describe("Core Background Events catalogue", () => {
@@ -44,24 +44,22 @@ describe("background event counts", () => {
     expect(reconcileBackgroundEvents([{ roll: 0, text: "" }], [], 0)).toEqual({ events: [], archived: [] });
   });
 
-  test("keeps text entered before resolving an event slot", () => {
-    expect(setBackgroundEventResult({ roll: 0, text: "Recorded before rolling" }, 42, "rolled"))
-      .toEqual({ roll: 42, text: "Recorded before rolling", source: "rolled" });
+  test("stores the canonical identity and actual roll without copying catalogue text", () => {
+    expect(setBackgroundEventResult(42, "rolled"))
+      .toEqual({ roll: 42, eventId: "42-43", source: "rolled" });
+    expect(resolveBackgroundEvent({ roll: 42, eventId: "42-43", source: "rolled" }))
+      .toBe(coreBackgroundEventForRoll(42));
   });
 
-  test("clears text when the resolved result changes", () => {
-    expect(setBackgroundEventResult({ roll: 41, text: "Old event" }, 42, "chosen"))
-      .toEqual({ roll: 42, text: coreBackgroundEventForRoll(42)?.text, source: "chosen" });
-  });
-
-  test("fills canonical event text when rolling or choosing a result", () => {
-    expect(setBackgroundEventResult({ roll: 0, text: "" }, 100, "rolled"))
-      .toEqual({ roll: 100, text: coreBackgroundEventForRoll(100)?.text, source: "rolled" });
+  test("stores chosen identity without inventing a roll", () => {
+    const chosen = chooseBackgroundEvent("03-04");
+    expect(chosen).toEqual({ roll: 0, eventId: "03-04", source: "chosen" });
+    expect(resolveBackgroundEvent(chosen)).toBe(coreBackgroundEventForRoll(3));
   });
 
   test("rerolls a distinct number when it resolves to an event already present", () => {
     const rolls = [0.03, 0.05];
-    expect(rollUniqueBackgroundResult([3], () => rolls.shift()!)).toBe(6);
+    expect(rollUniqueBackgroundResult(["03-04"], () => rolls.shift()!)).toBe(6);
   });
 
   test("returns an unused event range when random retries collide repeatedly", () => {
