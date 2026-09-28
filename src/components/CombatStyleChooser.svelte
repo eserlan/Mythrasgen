@@ -130,36 +130,38 @@
         <div><h2 id="combat-style-dialog-title">Choose a Combat Style</h2><button type="button" class="ghost combat-style-close" aria-label="Close combat style picker" onclick={() => dialog.close()}>Close</button></div>
         <label class="field"><span>Search combat styles…</span><input bind:this={searchInput} class="wide" bind:value={query} placeholder="Name, weapon, or trait"></label>
       </header>
-      {#if pendingStyle}
-        <fieldset class="preset-resolution">
-          <legend>Resolve {pendingStyle.name}{#if pendingStyle.aliases?.length} / {pendingStyle.aliases.join(" / ")}{/if}</legend>
-          {#each pendingStyle.weaponChoices ?? [] as group, index (index)}
-            <label class="field"><span>Choose weapon</span><select class="wide" value={weaponPicks[index]} onchange={event => weaponPicks[index] = Number(event.currentTarget.value)}>
-              <option value="-1">Choose one</option>
-              {#each group as weapon, optionIndex (weapon.name)}<option value={optionIndex}>{weapon.name}</option>{/each}
-            </select></label>
-          {/each}
-          {#each pendingStyle.traitChoices ?? [] as group, index (index)}
-            <label class="field"><span>Choose trait</span><select class="wide" value={traitPicks[index]} onchange={event => traitPicks[index] = Number(event.currentTarget.value)}>
-              <option value="-1">Choose one</option>
-              {#each group as trait, optionIndex (trait.id)}<option value={optionIndex}>{trait.displayName}</option>{/each}
-            </select></label>
-          {/each}
-          <div class="combat-style-actions"><button type="button" class="primary" disabled={[...weaponPicks, ...traitPicks].some(index => index < 0)} onclick={confirmPreset}>Use Selected Style</button><button type="button" class="secondary" onclick={() => pendingStyle = null}>Cancel</button></div>
-        </fieldset>
-      {/if}
-      <div class="combat-style-results" aria-label="Combat styles">
-        {#each results as style (style.id)}
-          <article class="combat-style-result">
-            <h3>{style.name}{#if style.aliases?.length} / {style.aliases.join(" / ")}{/if}</h3>
-            <dl>
-              <div><dt>Weapons</dt><dd>{[...style.weapons.map(weapon => weapon.name), ...(style.weaponChoices ?? []).map(group => group.map(weapon => weapon.name).join(" or "))].join(" · ") || "None recorded"}</dd></div>
-              <div><dt>Suggested Traits</dt><dd>{[...style.traits.map(trait => trait.displayName), ...(style.traitChoices ?? []).map(group => group.map(trait => trait.displayName).join(" or "))].join(" / ") || "None recorded"}</dd></div>
-            </dl>
-            <small class="combat-style-source">{style.source.libraryName}{#if style.source.reference} · {style.source.reference}{/if}</small>
-            <button type="button" class="primary" onclick={() => "searchable" in style ? choosePreset(style) : chooseExisting(style)}>Select</button>
-          </article>
-        {:else}<p class="hint">No matching combat styles.</p>{/each}
+      <div class="combat-style-main" role="region" aria-label="Combat style results">
+        {#if pendingStyle}
+          <fieldset class="preset-resolution">
+            <legend>Resolve {pendingStyle.name}{#if pendingStyle.aliases?.length} / {pendingStyle.aliases.join(" / ")}{/if}</legend>
+            {#each pendingStyle.weaponChoices ?? [] as group, index (index)}
+              <label class="field"><span>Choose weapon</span><select class="wide" value={weaponPicks[index]} onchange={event => weaponPicks[index] = Number(event.currentTarget.value)}>
+                <option value="-1">Choose one</option>
+                {#each group as weapon, optionIndex (weapon.name)}<option value={optionIndex}>{weapon.name}</option>{/each}
+              </select></label>
+            {/each}
+            {#each pendingStyle.traitChoices ?? [] as group, index (index)}
+              <label class="field"><span>Choose trait</span><select class="wide" value={traitPicks[index]} onchange={event => traitPicks[index] = Number(event.currentTarget.value)}>
+                <option value="-1">Choose one</option>
+                {#each group as trait, optionIndex (trait.id)}<option value={optionIndex}>{trait.displayName}</option>{/each}
+              </select></label>
+            {/each}
+            <div class="combat-style-actions"><button type="button" class="primary" disabled={[...weaponPicks, ...traitPicks].some(index => index < 0)} onclick={confirmPreset}>Use Selected Style</button><button type="button" class="secondary" onclick={() => pendingStyle = null}>Cancel</button></div>
+          </fieldset>
+        {/if}
+        <div class="combat-style-results">
+          {#each results as style (style.id)}
+            <article class="combat-style-result">
+              <h3>{style.name}{#if style.aliases?.length} / {style.aliases.join(" / ")}{/if}</h3>
+              <dl>
+                <div><dt>Weapons</dt><dd>{[...style.weapons.map(weapon => weapon.name), ...(style.weaponChoices ?? []).map(group => group.map(weapon => weapon.name).join(" or "))].join(" · ") || "None recorded"}</dd></div>
+                <div><dt>Suggested Traits</dt><dd>{[...style.traits.map(trait => trait.displayName), ...(style.traitChoices ?? []).map(group => group.map(trait => trait.displayName).join(" or "))].join(" / ") || "None recorded"}</dd></div>
+              </dl>
+              <small class="combat-style-source">{style.source.libraryName}{#if style.source.reference} · {style.source.reference}{/if}</small>
+              <button type="button" class="primary" onclick={() => "searchable" in style ? choosePreset(style) : chooseExisting(style)}>Select</button>
+            </article>
+          {:else}<p class="hint">No matching combat styles.</p>{/each}
+        </div>
       </div>
       <div class="combat-style-dialog-footer"><button type="button" class="secondary" onclick={() => { editingCustom = true; }}>Create Custom</button><button type="button" class="secondary" onclick={() => dialog.close()}>Cancel</button></div>
     </div>
