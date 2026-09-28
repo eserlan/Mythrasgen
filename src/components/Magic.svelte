@@ -38,7 +38,8 @@
   const customSpells = $derived(folkState.customSpells.filter(spell => customAllowed));
   const selected = $derived(folkState.knownSpells);
   const selectedCount = $derived(selected.length);
-  const complete = $derived(folkMagicConfigurationStatus(selectedCount, entitlement.count) === "complete");
+  const hasUnresolvedSpecialisation = $derived(selected.some(item => item.spell.spellId === "folk-magic:find" && !item.spell.specialisation?.trim()));
+  const complete = $derived(folkMagicConfigurationStatus(selectedCount, entitlement.count, hasUnresolvedSpecialisation) === "complete");
   const overEntitled = $derived(selectedCount > entitlement.count);
   const suggestedIds = $derived(suggestion.mode === "selected"
     ? new Set(suggestion.spellIds.filter(id => coreSpells.some(spell => spell.id === id))) : new Set<string>());
@@ -166,7 +167,8 @@
                 <div><b>{spellName(known.spell.spellId)}</b>
                   <small>{known.spell.spellId.startsWith("custom:") ? "Custom spell" : "Core Folk Magic"}</small>
                   {#if known.spell.spellId.endsWith(":find")}
-                    <label class="folk-magic-find">Find subject <input value={known.spell.specialisation ?? ""} placeholder="e.g. a spring" onchange={event => changeFindSubject(known.spell.spellId, event.currentTarget.value)} /></label>
+                    <label class="folk-magic-find">Find subject <input value={known.spell.specialisation ?? ""} placeholder="e.g. a spring" aria-invalid={!known.spell.specialisation?.trim()} onchange={event => changeFindSubject(known.spell.spellId, event.currentTarget.value)} /></label>
+                    {#if !known.spell.specialisation?.trim()}<small class="folk-magic-error">Choose a subject for Find to complete Folk Magic.</small>{/if}
                   {/if}
                 </div>
                 <button type="button" class="ghost" onclick={() => toggleSpell(known.spell.spellId)} aria-label="Deselect {spellName(known.spell.spellId)}">Deselect</button>

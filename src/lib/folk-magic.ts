@@ -107,8 +107,12 @@ export const FOLK_MAGIC_STANDARD_ENTITLEMENT: FolkMagicEntitlementRule = { id: "
 export const FOLK_MAGIC_SPECIALIST_ENTITLEMENT: FolkMagicEntitlementRule = { id: "folk-magic-specialist", rate: 10, reason: "Career explicitly specialises in Folk Magic" };
 export interface FolkMagicEntitlement { skillValue: number; ruleId: string; rate: number; count: number; reason?: string }
 /** Exact starting entitlement is required for completion; reconciliation never removes known spells. */
-export function folkMagicConfigurationStatus(selectedCount: number, entitlementCount: number): "complete" | "action-required" {
-  return selectedCount === entitlementCount ? "complete" : "action-required";
+export function folkMagicConfigurationStatus(
+  selectedCount: number,
+  entitlementCount: number,
+  hasUnresolvedSpecialisation = false,
+): "complete" | "action-required" {
+  return selectedCount === entitlementCount && !hasUnresolvedSpecialisation ? "complete" : "action-required";
 }
 /** Calculates starting entitlement only; there is no lifetime maximum on known Folk Magic spells. */
 export function calculateFolkMagicStartingEntitlement(

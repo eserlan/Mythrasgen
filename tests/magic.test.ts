@@ -55,6 +55,7 @@ describe("Folk Magic rules data", () => {
 
   test("requires an exact known-spell count and preserves selections when entitlement falls", () => {
     expect(folkMagicConfigurationStatus(3, 3)).toBe("complete");
+    expect(folkMagicConfigurationStatus(3, 3, true)).toBe("action-required");
     expect(folkMagicConfigurationStatus(2, 3)).toBe("action-required");
     expect(folkMagicConfigurationStatus(4, 3)).toBe("action-required");
     const knownSpells = ["folk-magic:alarm", "folk-magic:find", "folk-magic:heal"];
