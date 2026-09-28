@@ -5,7 +5,7 @@
   import { careers, cultures } from "../lib/content";
   import { updateCulturePassions } from "../lib/passions";
   import { AGE_CATEGORIES, type AgeCategory } from "../lib/rules";
-  import { char, culture, career, nativeTongue, refreshBonusEligibility, setAgeCategory, setNativeLanguage, rollCharacterAge } from "../lib/store.svelte";
+  import { char, culture, career, nativeTongue, recalculateStartingMoney, refreshBonusEligibility, setAgeCategory, setNativeLanguage, rollCharacterAge } from "../lib/store.svelte";
   const cu = $derived(culture()), ca = $derived(career());
   const pick = (kind: "culture" | "career", i: number) => {
     const replacementPassions = kind === "culture" && char.passionsEnabled
@@ -22,6 +22,7 @@
       char.socialTable = cultures[i].kind;
       char.moneyTable = cultures[i].kind;
     }
+    if (kind === "culture") recalculateStartingMoney();
     if (replacementPassions) char.passions = replacementPassions;
     refreshBonusEligibility();
   };

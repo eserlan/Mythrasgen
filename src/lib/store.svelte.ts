@@ -40,7 +40,8 @@ export interface Character {
     socialClassEquipment: string; socialClassResources: string;
     parentsRoll: number; parents: string; siblingsRoll: number; siblings: string; extendedFamilyRoll: number; extendedFamily: string;
     standingRoll: number; standingResolved: boolean; familyReputationCountRoll: number; familyTies: string[]; connectionsRoll: number;
-    connectionsResolved: boolean; connections: string[]; relationships: FamilyRelationship[]; startingMoneyRoll: number; equipment: string;
+    connectionsResolved: boolean; connections: string[]; relationships: FamilyRelationship[]; startingMoneyRoll: number;
+    startingMoneyKey: string; startingMoneyTotal: number; currentMoney: number; equipment: string;
     purchases: { name: string; cost: number }[];
   };
   socialTable: CultureKind;
@@ -77,7 +78,7 @@ const blank = (): Character => ({
     socialClassEquipment: "Tools; simple weapons", socialClassResources: "Rented accommodation; may own a few livestock",
     parentsRoll: 0, parents: "", siblingsRoll: 0, siblings: "", extendedFamilyRoll: 0, extendedFamily: "",
     standingRoll: 0, standingResolved: false, familyReputationCountRoll: 0, familyTies: [], connectionsRoll: 0,
-    connectionsResolved: false, connections: [], relationships: [], startingMoneyRoll: 14,
+    connectionsResolved: false, connections: [], relationships: [], startingMoneyRoll: 14, startingMoneyKey: "", startingMoneyTotal: 700, currentMoney: 700,
     equipment: "Tools; simple weapons; rented accommodation", purchases: [] },
   generation: "pointBuy", rollResults: null, rollAssignments: STATS.map((_, i) => i), home: true,
 });
@@ -150,6 +151,20 @@ function normalize(value: Partial<Character> | null, home = true): Character {
     normalized.background.socialClassEquipment = savedClass.equipment;
     normalized.background.socialClassResources = savedClass.possessions;
   }
+  const moneyReady = isSocialClassResolvedForCulture(normalized.socialTable, {
+    rank: normalized.background.socialClass,
+    roll: normalized.background.socialClassRoll,
+    method: normalized.background.socialClassMethod,
+    money: normalized.background.socialClassMoney,
+    equipment: normalized.background.socialClassEquipment,
+    resources: normalized.background.socialClassResources,
+  });
+  const moneyKey = `${normalized.background.startingMoneyRoll}:${normalized.moneyTable}:${moneyReady ? normalized.background.socialClassMoney : "pending"}`;
+  normalized.background.startingMoneyTotal = moneyReady
+    ? calculateStartingMoney(normalized.background.startingMoneyRoll, normalized.moneyTable, normalized.background.socialClassMoney)
+    : 0;
+  if (normalized.background.startingMoneyKey !== moneyKey) normalized.background.currentMoney = normalized.background.startingMoneyTotal;
+  normalized.background.startingMoneyKey = moneyKey;
   normalized.frameOptions = Array.isArray(migrated.frameOptions)
     ? migrated.frameOptions.filter((frame): frame is Frame => FRAMES.includes(frame as Frame))
     : undefined;
@@ -245,7 +260,7 @@ export const char: Character = $state(normalize(initialCharacter, true));
 export const characterLibrary = $state({ characters: repository.listCharacters() as Character[] });
 function refreshLibrary() { characterLibrary.characters = repository.listCharacters() as Character[]; }
 
-export function persist() { repository.saveCharacter({ ...char }); refreshLibrary(); }
+export function persist() { recalculateStartingMoney(); repository.saveCharacter({ ...char }); refreshLibrary(); }
 export const reset = (home = true) => Object.assign(char, blank(), { id: char.id, home });
 export const replace = (c: Partial<Character>) => Object.assign(char, normalize({ ...c, id: char.id }, false));
 export function createCharacter() {
@@ -361,13 +376,25 @@ export const resolveSocialClass = (row: ReturnType<typeof socialClassForRoll>, m
   char.background.socialClassEquipment = row.equipment;
   char.background.socialClassResources = row.possessions;
   char.background.equipment = `${row.equipment}. ${row.possessions}.`;
+  recalculateStartingMoney();
 };
-export const startingMoney = () => socialClassReady()
-  ? calculateStartingMoney(char.background.startingMoneyRoll, char.moneyTable, char.background.socialClassMoney)
-  : 0;
+export function recalculateStartingMoney() {
+  const ready = socialClassReady();
+  const key = `${char.background.startingMoneyRoll}:${char.moneyTable}:${ready ? char.background.socialClassMoney : "pending"}`;
+  const total = ready
+    ? calculateStartingMoney(char.background.startingMoneyRoll, char.moneyTable, char.background.socialClassMoney)
+    : 0;
+  if (char.background.startingMoneyKey !== key) char.background.currentMoney = total;
+  char.background.startingMoneyKey = key;
+  char.background.startingMoneyTotal = total;
+  return total;
+}
+export function setStartingMoneyRoll(roll: number) {
+  char.background.startingMoneyRoll = Math.max(4, Math.min(24, Math.round(Number(roll) || 4)));
+  return recalculateStartingMoney();
+}
+export const startingMoney = () => char.background.startingMoneyTotal;
 export const socialClassMoney = (kind: CultureKind, rank: string) => classMoneyMultiplier(kind, rank);
-export const spentMoney = () => char.background.purchases.reduce((total, item) => total + Math.max(0, item.cost), 0);
-export const availableMoney = () => socialClassReady() ? startingMoney() - spentMoney() : 0;
 export const rollDie = (sides: number) => Math.floor(Math.random() * sides) + 1;
 export const rollPercentile = () => rollDie(100);
 export const roll4d6 = () => rollDie(6) + rollDie(6) + rollDie(6) + rollDie(6);
