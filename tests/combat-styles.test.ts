@@ -1,12 +1,35 @@
 import { describe, expect, test } from "bun:test";
-import { attachCharacterStyle, CORE_COMBAT_STYLES, customCombatStyle, legacyCombatStyle, resolveCoreCombatStyle, type CharacterCombatStyle } from "../src/lib/combat-styles";
+import { attachCharacterStyle, CORE_COMBAT_STYLES, CORE_COMBAT_TRAITS, customCombatStyle, legacyCombatStyle, resolveCoreCombatStyle, type CharacterCombatStyle } from "../src/lib/combat-styles";
 import { CHARACTER_LIBRARY_KEY, createCharacterRepository, type StorageLike } from "../src/lib/character-library";
 
 // Bun runs the store without Svelte's compiler, so provide the identity state helper.
 (globalThis as typeof globalThis & { $state: <T>(value: T) => T }).$state = value => value;
 const store = await import("../src/lib/store.svelte");
 
+// Name fixture audited against Mythras Core Rules, 3rd edition, Combat Style Traits table (p. 89).
+const CORE_TRAIT_SOURCE_FIXTURE = [
+  "Assassination", "Batter Aside", "Beast-back Lancer", "Blind Fighting", "Cautious Fighter", "Chariot Fighting",
+  "Daredevil", "Defensive Minded", "Do or Die", "Excellent Footwork", "Formation Fighting", "Hidden Weapons",
+  "Intimidating Scream", "Knockout Blow", "Mancatcher", "Mounted Combat", "Ranged Marksman", "Shield Splitter",
+  "Shield Wall", "Siege Warfare", "Skirmishing", "Swashbuckling", "Throw Weapons", "Trained Beast",
+  "Unarmed Prowess", "Water Combat",
+];
+
 describe("structured Combat Styles", () => {
+  test("contains every trait from the Core table in one canonical, sourced catalogue", () => {
+    expect(CORE_COMBAT_TRAITS.map(trait => trait.name)).toEqual(CORE_TRAIT_SOURCE_FIXTURE);
+    expect(new Set(CORE_COMBAT_TRAITS.map(trait => trait.id)).size).toBe(CORE_TRAIT_SOURCE_FIXTURE.length);
+    for (const trait of CORE_COMBAT_TRAITS) {
+      expect(trait).toMatchObject({
+        id: `mythras-core:trait:${trait.name.toLowerCase().replaceAll(" ", "-")}`,
+        displayName: trait.name,
+        source: { libraryId: "mythras-core", libraryName: "Mythras Core", reference: "Mythras Core Rules, 3rd edition: Combat Style Traits, p. 89" },
+      });
+      expect(trait.description?.length).toBeGreaterThan(10);
+    }
+    expect(Object.isFrozen(CORE_COMBAT_TRAITS)).toBe(true);
+  });
+
   test("ships exactly the ten Sample Combat Styles with core weapons, traits, and STR + DEX bases", () => {
     expect(CORE_COMBAT_STYLES.map(style => style.name)).toEqual([
       "Street Brawler", "Assassin", "Barbarian Warrior", "Cavalry", "City Watch", "Gladiator", "Marine", "Master Archer", "Meerish Slinger", "Noble Warrior",
@@ -26,7 +49,7 @@ describe("structured Combat Styles", () => {
     expect(CORE_COMBAT_STYLES.map(style => (style.traitChoices ?? []).map(group => group.map(trait => trait.name)))).toEqual([
       [["Batter Aside", "Unarmed Prowess"]], [["Assassination", "Ranged Marksman"]], [["Do or Die", "Intimidating Scream"]],
       [["Beast-back Lancer", "Mounted Combat"]], [["Cautious Fighter", "Formation Fighting"]], [["Daredevil", "Mancatcher"]],
-      [["Excellent Footwork", "Swashbuckler"]], [["Ranged Marksman", "Skirmishing"]], [["Knockout Blow", "Shield Wall"]], [],
+      [["Excellent Footwork", "Swashbuckling"]], [["Ranged Marksman", "Skirmishing"]], [["Knockout Blow", "Shield Wall"]], [],
     ]);
     expect(CORE_COMBAT_STYLES.map(style => (style.weaponChoices ?? []).map(group => group.map(weapon => weapon.name)))).toEqual([
       [], [["Bow", "Crossbow"]], [], [], [], [], [["Falchion", "Rapier"]], [], [], [],
@@ -36,6 +59,7 @@ describe("structured Combat Styles", () => {
         expect(typeof trait.id).toBe("string");
         expect(trait.displayName).toBe(trait.name);
         expect(trait.source.libraryId).toBe("mythras-core");
+        expect(CORE_COMBAT_TRAITS.find(coreTrait => coreTrait.id === trait.id)).toBe(trait);
       }
     }
   });
@@ -110,9 +134,9 @@ describe("structured Combat Styles", () => {
     const storage: StorageLike = { getItem: key => values.get(key) ?? null, setItem: (key, value) => { values.set(key, value); } };
     const initial = createCharacterRepository<{ id: string; combatStyles: CharacterCombatStyle[] }>(storage,
       () => ({ combatStyles: [] }), undefined, () => "character");
-    const styles = [
-      { ...legacyCombatStyle("Meerish Infantry", "culture"), allocations: { culture: 10 } },
-    ];
+    const custom = customCombatStyle("River Guard", ["Spear"], [CORE_COMBAT_TRAITS.find(trait => trait.name === "Blind Fighting")!]);
+    const styles = [{ ...legacyCombatStyle("Meerish Infantry", "culture"), allocations: { culture: 10 } },
+      { ...custom, origin: "custom" as const, origins: ["custom" as const], allocations: {} }];
     initial.saveCharacter({ id: "character", combatStyles: styles });
     const restored = createCharacterRepository<{ id: string; combatStyles: CharacterCombatStyle[] }>(storage,
       () => ({ combatStyles: [] }), undefined, () => "other");
