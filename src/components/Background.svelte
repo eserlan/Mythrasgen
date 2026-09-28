@@ -3,6 +3,7 @@
   import { char, availableMoney, eventCount, moneyMultiplier, resolveSocialClass, roll4d6, rollDie, rollPercentile, socialClassReady, startingMoney } from "../lib/store.svelte";
   import { chooseBackgroundEvent, CONNECTIONS, CONNECTION_TYPES, EXTENDED_FAMILY, FAMILY_STANDING, PARENTS, SIBLINGS, resolveBackgroundEvent, rollUniqueBackgroundResult, setBackgroundEventResult, SOCIAL_CLASSES, socialClassForRoll, tableResult } from "../lib/background-rules";
   import { CORE_BACKGROUND_EVENTS } from "../lib/background-events";
+  import { activateModalDialog } from "../lib/modal-dialog";
   import { cultures } from "../lib/content";
   import { AGE_CATEGORIES } from "../lib/rules";
 
@@ -82,9 +83,7 @@
     background.archivedEvents = [];
   }
   function showEventChooser(node: HTMLDialogElement) {
-    node.showModal();
-    node.querySelector<HTMLInputElement>(".mfilter")?.focus();
-    return { destroy: () => { if (node.open) node.close(); } };
+    return activateModalDialog(node, ".mfilter");
   }
   function closeEventChooser() {
     chooserFor = null;
