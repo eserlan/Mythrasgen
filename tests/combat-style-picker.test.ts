@@ -26,7 +26,7 @@ describe("Combat Style preset resolution view", () => {
     expect(picker).toContain('<article class="combat-style-result">');
     expect(picker).toContain('<div class="combat-style-result-content">');
     expect(picker).toContain('styleCitation(style)');
-    expect(picker).toContain('"Characters p.$1"');
+    expect(picker).toContain('"3rd ed., Characters p.$1"');
     expect(css).toContain(".combat-style-result{display:grid;grid-template-columns:minmax(0,1fr) max-content");
     expect(css).toContain("grid-template-columns:132px minmax(0,1fr)");
     expect(css).toContain("overflow-wrap:anywhere");

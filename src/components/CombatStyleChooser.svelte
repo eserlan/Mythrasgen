@@ -51,7 +51,7 @@
   const styleCitation = (style: CombatStyleDefinition | CharacterCombatStyle) =>
     style.source.reference?.replace(
       /^Mythras Core Rules, 3rd edition: Sample Combat Styles \(Characters, p\. (\d+)\)$/,
-      "Characters p.$1",
+      "3rd ed., Characters p.$1",
     );
 
   async function openPicker() {
