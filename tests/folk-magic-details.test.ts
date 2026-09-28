@@ -13,7 +13,7 @@ describe("Core Folk Magic chooser details", () => {
     }
     expect(CORE_FOLK_MAGIC_DETAILS.Bladesharp.effect).toContain("one die step");
     expect(CORE_FOLK_MAGIC_DETAILS.Disruption.effect).toContain("1d3 damage");
-    expect(CORE_FOLK_MAGIC_DETAILS.Breath.mechanicsGap).toBe(true);
+    expect(CORE_FOLK_MAGIC_DETAILS.Breath.mechanicsGap).toBeUndefined();
     expect(FOLK_MAGIC_TRAIT_HELP.Ranged).toContain("Folk Magic skill in metres");
   });
 
