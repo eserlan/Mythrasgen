@@ -76,4 +76,19 @@ describe("Core Combat Style trait choices and details", () => {
     expect(css).toContain(".trait-picker-result label span{display:block;min-width:0;overflow-wrap:anywhere}");
     expect(css).toContain("input:focus-visible");
   });
+
+  test("renders selected traits as wrapping, accessible removable chips", () => {
+    const css = readFileSync(new URL("../src/app.css", import.meta.url), "utf8");
+    expect(picker).toContain('<ul class="picked-trait-chips">');
+    expect(picker).toContain('class="picked-trait-chip"');
+    expect(picker).toContain('aria-label={`Remove ${trait.displayName}`}');
+    expect(picker).toContain('<span aria-hidden="true">×</span>');
+    expect(picker).toContain('pickedTraits = pickedTraits.filter(id => id !== trait.id)');
+    expect(picker).toContain('Selected traits ({pickedCoreTraits.length + (customTraitName.trim() ? 1 : 0)})');
+    expect(picker).toContain('No traits selected.');
+    expect(css).toContain('.picked-trait-chips{display:flex;flex-wrap:wrap;gap:8px;');
+    expect(css).toContain('.picked-trait-chip{display:inline-flex;');
+    expect(css).toContain('.picked-trait-name{min-width:0;overflow-wrap:anywhere}');
+    expect(css).toContain('button:focus-visible');
+  });
 });
