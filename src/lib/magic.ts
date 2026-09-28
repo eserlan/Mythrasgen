@@ -1,3 +1,5 @@
+import { emptyFolkMagicState, normalizeFolkMagicState, type FolkMagicState } from "./folk-magic";
+
 export const MAGIC_DISCIPLINES = ["Folk Magic", "Animism", "Mysticism", "Sorcery", "Theism"] as const;
 export type MagicDiscipline = typeof MAGIC_DISCIPLINES[number];
 export type MagicSkillOrigin = "culture" | "career" | "bonus";
@@ -48,10 +50,12 @@ export interface MagicState {
   archivedDisciplines: MagicDisciplineState[];
   traditions: MagicTradition[];
   startingAbilityEntitlements: StartingAbilityEntitlement[];
+  /** Folk Magic spell knowledge and custom catalogue extensions, separate from its skill record. */
+  folkMagic: FolkMagicState;
 }
 
 export const emptyMagicState = (): MagicState => ({
-  disciplines: [], archivedDisciplines: [], traditions: [], startingAbilityEntitlements: [],
+  disciplines: [], archivedDisciplines: [], traditions: [], startingAbilityEntitlements: [], folkMagic: emptyFolkMagicState(),
 });
 
 export interface DetectedMagicSkill {
@@ -122,7 +126,8 @@ export function normalizeMagicState(value: unknown): MagicState {
         sourceSkillValue: entitlement.sourceSkillValue as number, ruleId: entitlement.ruleId,
         rate: entitlement.rate as number, count: entitlement.count as number }];
     }) : [];
-  return { disciplines: normalizeStates(source.disciplines), archivedDisciplines: normalizeStates(source.archivedDisciplines), traditions, startingAbilityEntitlements };
+  return { disciplines: normalizeStates(source.disciplines), archivedDisciplines: normalizeStates(source.archivedDisciplines), traditions, startingAbilityEntitlements,
+    folkMagic: normalizeFolkMagicState(source.folkMagic) };
 }
 
 /** Reconcile detected skills while preserving configuration and explicitly archiving lost capabilities. */
