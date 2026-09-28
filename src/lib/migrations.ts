@@ -2,6 +2,7 @@ import type { CultureKind } from "./content";
 import { AGE_CATEGORIES, type AgeCategory } from "./rules";
 import type { BackgroundEvent } from "./background-rules";
 import { CORE_BACKGROUND_EVENTS, coreBackgroundEventForRoll } from "./background-events";
+import { ALL_RELATIONSHIP_TYPES, type FamilyRelationship, type RelationshipType } from "./family-relationships";
 
 export type { AgeCategory } from "./rules";
 
@@ -22,9 +23,13 @@ export interface BackgroundData {
   extendedFamilyRoll: number;
   extendedFamily: string;
   standingRoll: number;
+  standingResolved: boolean;
+  familyReputationCountRoll: number;
   familyTies: string[];
   connectionsRoll: number;
+  connectionsResolved: boolean;
   connections: string[];
+  relationships: FamilyRelationship[];
   startingMoneyRoll: number;
   equipment: string;
   purchases: { name: string; cost: number }[];
@@ -88,6 +93,32 @@ export function normalizeBackground(value: unknown, fallback: BackgroundData): B
     : {};
   const strings = (candidate: unknown, original: string[]) =>
     Array.isArray(candidate) ? candidate.filter((item): item is string => typeof item === "string") : original;
+  const legacyRelationships = [
+    ...strings(saved.familyTies, fallback.familyTies).filter((type): type is RelationshipType => ALL_RELATIONSHIP_TYPES.includes(type as RelationshipType)).map(type => ({
+      source: "reputation" as const,
+      allowedTypes: (type === "Enemy" || type === "Rival" ? ["Enemy", "Rival"] : ["Contact", "Ally"]) as RelationshipType[],
+      type: type as RelationshipType,
+      name: "",
+    })),
+    ...strings(saved.connections, fallback.connections).filter((type): type is RelationshipType => ALL_RELATIONSHIP_TYPES.includes(type as RelationshipType)).map(type => ({
+      source: "connections" as const, allowedTypes: [...ALL_RELATIONSHIP_TYPES], type: type as RelationshipType, name: "",
+    })),
+  ];
+  const legacyFamilyTies = strings(saved.familyTies, fallback.familyTies);
+  const legacyConnections = strings(saved.connections, fallback.connections);
+  const relationships = (candidate: unknown): FamilyRelationship[] => Array.isArray(candidate)
+    ? candidate.flatMap(item => {
+      if (!item || typeof item !== "object") return [];
+      const relation = item as Partial<FamilyRelationship>;
+      const allowedTypes = Array.isArray(relation.allowedTypes)
+        ? relation.allowedTypes.filter((type): type is RelationshipType => ALL_RELATIONSHIP_TYPES.includes(type as RelationshipType))
+        : [];
+      if ((relation.source !== "reputation" && relation.source !== "connections") || !allowedTypes.length
+          || !ALL_RELATIONSHIP_TYPES.includes(relation.type as RelationshipType)) return [];
+      return [{ source: relation.source, allowedTypes, type: allowedTypes.includes(relation.type as RelationshipType) ? relation.type as RelationshipType : allowedTypes[0],
+        name: typeof relation.name === "string" ? relation.name : "" }];
+    })
+    : legacyRelationships;
   const events = (candidate: unknown, original: BackgroundEvent[]) => Array.isArray(candidate)
     ? candidate.filter((event): event is BackgroundEvent => !!event && typeof event === "object"
       && Number.isInteger(event.roll) && event.roll >= 0 && event.roll <= 100)
@@ -121,13 +152,20 @@ export function normalizeBackground(value: unknown, fallback: BackgroundData): B
     extendedFamilyRoll: Number.isFinite(saved.extendedFamilyRoll) ? saved.extendedFamilyRoll! : fallback.extendedFamilyRoll,
     extendedFamily: typeof saved.extendedFamily === "string" ? saved.extendedFamily : fallback.extendedFamily,
     standingRoll: Number.isFinite(saved.standingRoll) ? saved.standingRoll! : fallback.standingRoll,
+    standingResolved: typeof saved.standingResolved === "boolean" ? saved.standingResolved
+      : (Number.isFinite(saved.standingRoll) && saved.standingRoll !== 50) || legacyFamilyTies.length > 0,
+    familyReputationCountRoll: Number.isInteger(saved.familyReputationCountRoll) && saved.familyReputationCountRoll! >= 0
+      ? saved.familyReputationCountRoll! : fallback.familyReputationCountRoll,
     connectionsRoll: Number.isFinite(saved.connectionsRoll) ? saved.connectionsRoll! : fallback.connectionsRoll,
+    connectionsResolved: typeof saved.connectionsResolved === "boolean" ? saved.connectionsResolved
+      : (Number.isFinite(saved.connectionsRoll) && saved.connectionsRoll !== 50) || legacyConnections.length > 0,
     startingMoneyRoll: Number.isFinite(saved.startingMoneyRoll) ? saved.startingMoneyRoll! : fallback.startingMoneyRoll,
     equipment: typeof saved.equipment === "string" ? saved.equipment : fallback.equipment,
     events: events(saved.events, fallback.events),
     archivedEvents: events(saved.archivedEvents, fallback.archivedEvents),
-    familyTies: strings(saved.familyTies, fallback.familyTies),
-    connections: strings(saved.connections, fallback.connections),
+    familyTies: legacyFamilyTies,
+    connections: legacyConnections,
+    relationships: relationships(saved.relationships),
     purchases: Array.isArray(saved.purchases)
       ? saved.purchases.filter((item): item is { name: string; cost: number } =>
           !!item && typeof item === "object" && typeof item.name === "string" && Number.isFinite(item.cost) && item.cost >= 0)
