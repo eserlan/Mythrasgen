@@ -5,13 +5,6 @@ import { hasMeaningfulSpecialisation, requiresSpecialisation } from "./specialis
 
 // Keep familiar career and culture specialisation templates available while also
 // allowing any registered Professional Skill from the core catalogue.
-const templates = [...new Set([
-  ...PROFESSIONAL_SKILL_NAMES,
-  ...cultures.flatMap(culture => culture.professional),
-  ...careers.flatMap(career => career.professional),
-])].filter(name => !/^Combat Style(?:\s|$)/.test(name));
-const specialisedBases = new Set(templates.filter(requiresSpecialisation).map(baseName));
-
 const skillLabelCollator = new Intl.Collator("en", { sensitivity: "base" });
 
 /** Sort by the complete option label, with a deterministic tie-break for case-only variants. */
@@ -20,8 +13,21 @@ export function sortHobbyProfessionalSkills(skills: readonly string[]): string[]
     skillLabelCollator.compare(left, right) || (left < right ? -1 : left > right ? 1 : 0));
 }
 
-export const HOBBY_PROFESSIONAL_SKILLS = sortHobbyProfessionalSkills(templates.filter(name =>
-  requiresSpecialisation(name) || !specialisedBases.has(name)));
+/** Merge catalogue sources while allowing a specialised template to replace its bare core skill. */
+export function mergeHobbyProfessionalSkillTemplates(sources: readonly (readonly string[])[]): string[] {
+  const templates = [...new Set(sources.flat())].filter(name => !/^Combat Style(?:\s|$)/.test(name));
+  const specialisedBases = new Set(templates.filter(requiresSpecialisation).map(baseName));
+  return sortHobbyProfessionalSkills(templates.filter(name =>
+    requiresSpecialisation(name) || !specialisedBases.has(name)));
+}
+
+const templates = mergeHobbyProfessionalSkillTemplates([
+  PROFESSIONAL_SKILL_NAMES,
+  ...cultures.map(culture => culture.professional),
+  ...careers.map(career => career.professional),
+]);
+
+export const HOBBY_PROFESSIONAL_SKILLS = templates;
 
 export type HobbySkill =
   | { type: "professionalSkill"; template: string; specialisation: string; name: string }

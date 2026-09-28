@@ -17,6 +17,7 @@ describe("Professional Skill specialisations", () => {
   });
 
   test.each([
+    ["Binding (Cult, Totem or Tradition)", "Binding", "Cult, Totem or Tradition", "Bear Totem"],
     ["Devotion (Pantheon, Cult or God)", "Devotion", "Pantheon, Cult or God", "Orlanth"],
     ["Invocation (Cult, School or Grimoire)", "Invocation", "Cult, School or Grimoire", "College of Pyromancy"],
   ])("uses shared metadata to resolve %s", (template, name, prompt, value) => {
