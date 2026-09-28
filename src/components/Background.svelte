@@ -1,6 +1,6 @@
 <script lang="ts">
   import StepHead from "./StepHead.svelte";
-  import { char, availableMoney, eventCount, moneyMultiplier, resolveSocialClass, roll4d6, rollDie, rollPercentile, socialClassReady, startingMoney } from "../lib/store.svelte";
+  import { char, eventCount, moneyMultiplier, resolveSocialClass, roll4d6, rollDie, rollPercentile, setStartingMoneyRoll, socialClassReady, startingMoney } from "../lib/store.svelte";
   import { chooseBackgroundEvent, CONNECTIONS, CONNECTION_TYPES, EXTENDED_FAMILY, FAMILY_STANDING, PARENTS, SIBLINGS, resolveBackgroundEvent, rollUniqueBackgroundResult, setBackgroundEventResult, SOCIAL_CLASSES, socialClassForRoll, tableResult } from "../lib/background-rules";
   import { CORE_BACKGROUND_EVENTS } from "../lib/background-events";
   import { ALL_RELATIONSHIP_TYPES, reconcileFamilyRelationships, resolveFamilyRelationshipCount } from "../lib/family-relationships";
@@ -8,8 +8,6 @@
   import { cultures } from "../lib/content";
   import { AGE_CATEGORIES } from "../lib/rules";
 
-  let purchaseName = $state("");
-  let purchaseCost = $state(0);
   let socialClassDialog: HTMLDialogElement;
   let chooserFor: number | null = $state(null);
   let filter = $state("");
@@ -90,13 +88,6 @@
   function closeEventChooser() {
     chooserFor = null;
     filter = "";
-  }
-  function addPurchase() {
-    const name = purchaseName.trim();
-    const cost = Math.max(0, Number(purchaseCost) || 0);
-    if (!name || cost > availableMoney()) return;
-    background.purchases.push({ name, cost });
-    purchaseName = ""; purchaseCost = 0;
   }
 </script>
 
@@ -237,25 +228,17 @@
 </section>
 
 <section class="card">
-  <h3>Starting money &amp; equipment</h3>
-  <p class="mute">Starting money base follows {cultures[char.culture]?.name}: {moneyMultiplier()} sp per 4d6 result.</p>
-  <div class="field-row">
-    <label class="field"><span>4d6 roll · reroll any time</span><input type="number" min="4" max="24" bind:value={background.startingMoneyRoll} /></label>
-    <button type="button" onclick={() => background.startingMoneyRoll = roll4d6()}>Roll 4d6</button>
+  <h3>Starting Money</h3>
+  <p class="mute">Starting money uses the {char.moneyTable} culture rate of {moneyMultiplier()} sp per 4d6 result, modified by Social Class.</p>
+  <div class="starting-money-roll">
+    <label class="field"><span>4d6</span><input aria-label="4d6 starting money roll" type="number" min="4" max="24" value={background.startingMoneyRoll} onchange={e => setStartingMoneyRoll(+e.currentTarget.value)} /></label>
+    <button type="button" onclick={() => setStartingMoneyRoll(roll4d6())}>Reroll</button>
   </div>
-  <p><b>{background.startingMoneyRoll} × {moneyMultiplier()} sp × {socialClassReady() ? background.socialClassMoney : "pending"} social-class modifier = {startingMoney()} sp</b></p>
-  <p class="label">Starting equipment and possessions</p>
-  <label class="field"><span>Edit or add campaign-specific details</span><textarea rows="3" bind:value={background.equipment}></textarea></label>
-  <p class="mute">The class table gives broad starting resources. Add setting-specific choices here; this tool does not replace them with fixed weapons or gear.</p>
-  <h4>Additional purchases · {availableMoney()} sp remaining</h4>
-  <div class="field-row">
-    <label class="field"><span>Item or service</span><input bind:value={purchaseName} placeholder="Name the item" /></label>
-    <label class="field"><span>Cost (sp)</span><input type="number" min="0" bind:value={purchaseCost} /></label>
-    <button type="button" disabled={!socialClassReady() || !purchaseName.trim() || purchaseCost > availableMoney()} onclick={addPurchase}>Add purchase</button>
+  <div class="starting-money-total" role="status">
+    <span>Starting Money</span>
+    <strong>{startingMoney()} sp</strong>
+    <small>{background.startingMoneyRoll} × {moneyMultiplier()} sp × {socialClassReady() ? `Social Class modifier (×${background.socialClassMoney})` : "pending Social Class modifier"}</small>
   </div>
-  {#if background.purchases.length}
-    <ul class="leaders">{#each background.purchases as item, i}<li><span>{item.name}</span><i></i><b>{item.cost} sp</b><button type="button" class="ghost" aria-label="Remove {item.name}" onclick={() => background.purchases.splice(i, 1)}>Remove</button></li>{/each}</ul>
-  {:else}<p class="mute">No additional purchases.</p>{/if}
 </section>
 
 {#if chooserFor != null}
@@ -297,4 +280,10 @@
   .mtext { color: var(--fg); }
   .small { font-size: 0.9rem; }
   .pad { padding: 12px; }
+  .starting-money-roll { display: flex; align-items: end; gap: 10px; max-width: 320px; }
+  .starting-money-roll .field { flex: 1; }
+  .starting-money-total { display: grid; gap: 2px; margin-top: 14px; padding: 12px 14px; border: 1px solid var(--line2); background: var(--card2); }
+  .starting-money-total > span { font-family: var(--display); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--bronze); font-weight: 700; }
+  .starting-money-total strong { font-family: var(--display); font-size: 1.65rem; line-height: 1.2; }
+  .starting-money-total small { color: var(--muted); }
 </style>

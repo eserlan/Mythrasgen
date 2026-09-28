@@ -1,7 +1,7 @@
 <script lang="ts">
   import { deriveStats, passionStartingValue } from "../lib/calc";
   import { AGE_CATEGORIES, RESISTANCES, STATS, STAT_NAMES } from "../lib/rules";
-  import { allSkills, availableMoney, career, char, culture, skillDefinition, socialClassReady, startingMoney, total } from "../lib/store.svelte";
+  import { allSkills, career, char, culture, skillDefinition, socialClassReady, startingMoney, total } from "../lib/store.svelte";
   import Derived from "./Derived.svelte";
   import HitLocations from "./HitLocations.svelte";
   import StepHead from "./StepHead.svelte";
@@ -55,8 +55,7 @@
     <p><b>Family standing:</b> {standing[2]} · ties: {formatFamilyRelationships(char.background.relationships, "reputation")} · <b>Connections:</b> {connectionTier[2]} — {formatFamilyRelationships(char.background.relationships, "connections")}</p>
     {#each resolvedBackgroundEvents(char.background.events) as { event, index }}{@const resolvedEvent = resolveBackgroundEvent(event)}<p><b>Background event {index + 1} ({event.source === "rolled" ? `rolled ${event.roll}; ` : ""}{resolvedEvent?.range}):</b> {resolvedEvent?.text}</p>{/each}
     <p><b>Starting equipment:</b> {socialClassReady() ? char.background.equipment || "Unrecorded" : "Pending Social Class reconciliation"}</p>
-    <p><b>Starting money:</b> {socialClassReady() ? `${startingMoney()} sp` : "Pending Social Class"} · <b>Remaining:</b> {availableMoney()} sp</p>
-    {#if char.background.purchases.length}<ul>{#each char.background.purchases as item}<li>{item.name} · {item.cost} sp</li>{/each}</ul>{/if}
+    <p><b>Starting money:</b> {socialClassReady() ? `${startingMoney()} sp` : "Pending Social Class"} · <b>Current funds:</b> {char.background.currentMoney} sp</p>
   </div>
   <div class="two sheet-body">
     <div class="card"><h3>Hit locations</h3><HitLocations {loc} /></div>

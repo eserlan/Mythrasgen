@@ -31,6 +31,9 @@ export interface BackgroundData {
   connections: string[];
   relationships: FamilyRelationship[];
   startingMoneyRoll: number;
+  startingMoneyKey: string;
+  startingMoneyTotal: number;
+  currentMoney: number;
   equipment: string;
   purchases: { name: string; cost: number }[];
 }
@@ -160,6 +163,9 @@ export function normalizeBackground(value: unknown, fallback: BackgroundData): B
     connectionsResolved: typeof saved.connectionsResolved === "boolean" ? saved.connectionsResolved
       : (Number.isFinite(saved.connectionsRoll) && saved.connectionsRoll !== 50) || legacyConnections.length > 0,
     startingMoneyRoll: Number.isFinite(saved.startingMoneyRoll) ? saved.startingMoneyRoll! : fallback.startingMoneyRoll,
+    startingMoneyKey: typeof saved.startingMoneyKey === "string" ? saved.startingMoneyKey : fallback.startingMoneyKey,
+    startingMoneyTotal: Number.isFinite(saved.startingMoneyTotal) ? saved.startingMoneyTotal! : fallback.startingMoneyTotal,
+    currentMoney: Number.isFinite(saved.currentMoney) && saved.currentMoney! >= 0 ? saved.currentMoney! : fallback.currentMoney,
     equipment: typeof saved.equipment === "string" ? saved.equipment : fallback.equipment,
     events: events(saved.events, fallback.events),
     archivedEvents: events(saved.archivedEvents, fallback.archivedEvents),
