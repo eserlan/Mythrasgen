@@ -20,3 +20,25 @@ describe("Combat Style preset resolution view", () => {
     expect(picker).toContain("onclick={backToBrowse}");
   });
 });
+
+describe("Core Combat Style trait details", () => {
+  test("keeps rules text collapsed and exposes it through an associated disclosure button", () => {
+    expect(picker).toContain("let expandedTraits = $state<string[]>([])");
+    expect(picker).toContain('aria-expanded={expandedTraits.includes(trait.id)}');
+    expect(picker).toContain('aria-controls={`core-trait-description-${trait.id}`}');
+    expect(picker).toContain('hidden={!expandedTraits.includes(trait.id)}');
+    expect(picker).toContain('onclick={() => toggleTraitDetails(trait.id)}');
+    expect(picker.match(/\{trait\.description\}/g)).toHaveLength(1);
+    expect(picker).toContain('<div class="trait-picker-heading">');
+    expect(picker).toContain('<div class="trait-picker-description" id={`core-trait-description-${trait.id}`}');
+    expect(picker).not.toContain("<details>");
+    expect(picker).not.toContain("<small>{trait.description}</small>");
+  });
+
+  test("search includes descriptions while collapsed and details do not change selection", () => {
+    expect(picker).toContain('`${trait.displayName} ${trait.description ?? ""}`');
+    expect(picker).toContain("function toggleTraitDetails(id: string)");
+    expect(picker).toContain("expandedTraits = expandedTraits.includes(id)");
+    expect(picker).not.toContain("expandedTraits = pickedTraits");
+  });
+});

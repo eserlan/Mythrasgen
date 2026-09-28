@@ -13,6 +13,7 @@
   let weapons = $state("");
   let notes = $state("");
   let pickedTraits = $state<string[]>([]);
+  let expandedTraits = $state<string[]>([]);
   let traitQuery = $state("");
   let customTraitName = $state("");
   let customTraitDescription = $state("");
@@ -24,6 +25,11 @@
   const filteredTraits = $derived(knownTraits.filter(trait =>
     `${trait.displayName} ${trait.description ?? ""}`.toLocaleLowerCase().includes(traitQuery.trim().toLocaleLowerCase())));
   const pickedCoreTraits = $derived(knownTraits.filter(trait => pickedTraits.includes(trait.id)));
+  function toggleTraitDetails(id: string) {
+    expandedTraits = expandedTraits.includes(id)
+      ? expandedTraits.filter(traitId => traitId !== id)
+      : [...expandedTraits, id];
+  }
   const styleWeapons = (style: CombatStyleDefinition | CharacterCombatStyle) => [
     ...style.weapons.map(weapon => weapon.name),
     ...("weaponChoices" in style ? (style.weaponChoices ?? []).map(group => group.map(weapon => weapon.name).join(" or ")) : []),
@@ -143,8 +149,11 @@
         <div class="trait-picker-results" aria-label="Mythras Core Combat Style Traits">
           {#each filteredTraits as trait (trait.id)}
             <article class="trait-picker-result">
-              <label><input type="checkbox" checked={pickedTraits.includes(trait.id)} onchange={event => pickedTraits = event.currentTarget.checked ? [...pickedTraits, trait.id] : pickedTraits.filter(id => id !== trait.id)}><span><b>{trait.displayName}</b><small>{trait.description}</small></span></label>
-              <details><summary>Details</summary><p>{trait.description}</p></details>
+              <div class="trait-picker-heading">
+                <label><input type="checkbox" checked={pickedTraits.includes(trait.id)} onchange={event => pickedTraits = event.currentTarget.checked ? [...pickedTraits, trait.id] : pickedTraits.filter(id => id !== trait.id)}><span><b>{trait.displayName}</b></span></label>
+                <button type="button" class="ghost trait-picker-details" aria-expanded={expandedTraits.includes(trait.id)} aria-controls={`core-trait-description-${trait.id}`} onclick={() => toggleTraitDetails(trait.id)}>Details</button>
+              </div>
+              <div class="trait-picker-description" id={`core-trait-description-${trait.id}`} hidden={!expandedTraits.includes(trait.id)}>{trait.description}</div>
             </article>
           {:else}<p class="hint">No matching Mythras Core traits.</p>{/each}
         </div>
