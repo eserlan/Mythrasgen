@@ -1,0 +1,40 @@
+name: Notify Discord on production deploy
+
+on:
+  deployment_status:
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    if: >-
+      github.event.deployment_status.state == 'success' &&
+      github.event.deployment.environment == 'github-pages' &&
+      github.event.deployment.ref == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.deployment.sha }}
+
+      - name: Post deploy notification to Discord
+        env:
+          DISCORD_DEPLOY_WEBHOOK_URL: ${{ secrets.DISCORD_DEPLOY_WEBHOOK_URL }}
+          DEPLOYMENT_URL: ${{ github.event.deployment_status.environment_url || github.event.deployment_status.target_url }}
+          SHA: ${{ github.event.deployment.sha }}
+          REPO: ${{ github.repository }}
+        run: |
+          SHORT_SHA="${SHA:0:7}"
+          COMMIT_MESSAGE=$(git log -1 --format=%s "$SHA" 2>/dev/null || echo "")
+          PAYLOAD=$(jq -n \
+            --arg content "✅ **$REPO** deployed to production" \
+            --arg url "$DEPLOYMENT_URL" \
+            --arg sha "$SHORT_SHA" \
+            --arg msg "$COMMIT_MESSAGE" \
+            '{content: $content, embeds: [{description: ($msg + "\n`" + $sha + "`"), url: $url}], allowed_mentions: {parse: []}}')
+          curl --fail --silent --show-error \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD" \
+            "$DISCORD_DEPLOY_WEBHOOK_URL"
