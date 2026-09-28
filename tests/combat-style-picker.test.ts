@@ -56,7 +56,7 @@ describe("Core Combat Style trait choices and details", () => {
 
   test("aligns checkbox and wrapping trait label in a compact horizontal control", () => {
     const css = readFileSync(new URL("../src/app.css", import.meta.url), "utf8");
-    expect(css).toContain(".combat-style-editor fieldset .trait-picker-choice{display:flex;align-items:center;gap:8px;min-width:0;cursor:pointer}");
+    expect(css).toContain(".combat-style-editor .trait-picker-choice{display:flex;align-items:center;gap:8px;min-width:0;cursor:pointer}");
     expect(css).toContain(".trait-picker-result input{flex:none;margin:0}");
     expect(css).toContain(".trait-picker-result label span{display:block;min-width:0;overflow-wrap:anywhere}");
     expect(css).toContain("input:focus-visible");
