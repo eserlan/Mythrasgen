@@ -2,6 +2,7 @@
   import StepHead from "./StepHead.svelte";
   import { char, availableMoney, eventCount, moneyMultiplier, resolveSocialClass, roll4d6, rollDie, rollPercentile, socialClassReady, startingMoney } from "../lib/store.svelte";
   import { CONNECTIONS, CONNECTION_TYPES, EXTENDED_FAMILY, FAMILY_STANDING, PARENTS, SIBLINGS, SOCIAL_CLASSES, rollUniqueBackgroundResult, setBackgroundEventResult, socialClassForRoll, tableResult } from "../lib/background-rules";
+  import { coreBackgroundEventForRoll } from "../lib/background-events";
   import { cultures } from "../lib/content";
   import { AGE_CATEGORIES } from "../lib/rules";
 
@@ -86,7 +87,7 @@
 <StepHead step={5} title="Background" />
 <section class="card">
   <h3>Background events</h3>
-  <p class="mute">Age {char.age} ({AGE_CATEGORIES[char.ageCategory].label}) calls for {eventCount()} background event{eventCount() === 1 ? "" : "s"}. Roll a d100 result or choose one from the official Core Rules table (pp. 18–20), then record its event text below. Random rolls automatically avoid results already held; chosen results are unrestricted. Events are optional — clear a slot that does not fit your hero.</p>
+  <p class="mute">Age {char.age} ({AGE_CATEGORIES[char.ageCategory].label}) calls for {eventCount()} background event{eventCount() === 1 ? "" : "s"}. Roll a d100 result or choose one from the official Core Rules table (pp. 18–20); its event text appears below. Random rolls automatically avoid duplicate events; chosen results are unrestricted. Events are optional — clear a slot that does not fit your hero.</p>
   {#if eventCount() === 0}
     <p class="hint" role="status">No Background Events from age.</p>
   {/if}
@@ -99,8 +100,8 @@
         {#if event.roll || event.text.trim() || event.source}<button type="button" class="ghost" title="Clear this event (events are optional)" onclick={() => clearEvent(i)}>Clear</button>{/if}
       </div>
       {#if event.roll >= 1 && event.roll <= 100}
-        <p class="mute" role="status">{event.source === "chosen" ? "Chosen" : event.source === "rolled" ? "Rolled" : "Recorded"}: Core Rules table result {event.roll}. Use this result to find the event in your copy of the official table.</p>
-        <label class="field event-text"><span>Official event text</span><textarea rows="2" bind:value={event.text} placeholder="Record the event text from your Core Rules"></textarea></label>
+        <p class="mute" role="status">{event.source === "chosen" ? "Chosen" : event.source === "rolled" ? "Rolled" : "Recorded"}: Core Rules table result {event.roll} ({coreBackgroundEventForRoll(event.roll)?.range}).</p>
+        <label class="field event-text"><span>Official event text</span><textarea rows="2" bind:value={event.text} placeholder="Official event text is filled in automatically"></textarea></label>
       {:else}<p class="mute">Choose or roll a result to resolve this slot.</p>{/if}
     </div>
   {/each}
