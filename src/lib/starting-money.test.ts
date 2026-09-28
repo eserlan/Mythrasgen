@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { socialClassForRoll } from "./background-rules";
 import { cultures } from "./content";
 
-(globalThis as typeof globalThis & { $state: <T>(value: T) => T }).$state = value => value;
+Object.defineProperty(globalThis, "$state", { value: <T>(value: T) => value, configurable: true });
 const { char, recalculateStartingMoney, replace, resolveSocialClass, setStartingMoneyRoll } = await import("./store.svelte");
 
 const original = {
