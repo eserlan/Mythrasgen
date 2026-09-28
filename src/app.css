@@ -166,6 +166,8 @@ main{padding:8px 16px 70px}
 button.char.swap-card{width:100%;min-height:104px;color:var(--fg);cursor:pointer;text-transform:none;letter-spacing:normal}
 button.char.swap-card:hover:not(:disabled){border-color:var(--bronze2);transform:translateY(-1px)}
 button.char.swap-card.selected{border:2px solid var(--bronze2);box-shadow:0 0 0 3px color-mix(in srgb,var(--bronze2) 28%,transparent),var(--shadow)}
+button.char.swap-card.swap-target{border:2px solid var(--ok);outline:2px solid var(--line2);outline-offset:1px}
+button.char.swap-card.swap-unavailable:disabled{border-style:dashed;opacity:.62;cursor:not-allowed;box-shadow:none}
 .swap-state,.swap-prompt{font-family:var(--display);font-size:.65rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--bronze2)}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 .char.spin .stepper input{animation:tumble .12s linear infinite;color:var(--bronze2)}
