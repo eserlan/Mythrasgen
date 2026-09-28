@@ -1,10 +1,10 @@
 <script lang="ts">
   import { canFinishPointBuy, pointBuyTotal, rollStat } from "../lib/calc";
   import { canSwapCharacteristics, swapCancellationAnnouncement } from "../lib/characteristics";
-  import { CHAR_ROLL, POINT_BUY, STATS, STAT_NAMES, pointBuyMin, type Stat } from "../lib/rules";
+  import { CHAR_ROLL, POINT_BUY, RESISTANCES, STATS, STAT_NAMES, pointBuyMin, type Stat } from "../lib/rules";
   import { availableFrames, bodyRanges, isInRange, type Frame } from "../lib/body";
   import { characteristicsActionLabel, characteristicsRerollConfirmationMessage, confirmCharacteristicsRoll } from "../lib/creation";
-  import { char, setCharacteristic, setFrame, setHeight, setRollResults, setWeight, swapCharacteristics } from "../lib/store.svelte";
+  import { base, char, setCharacteristic, setFrame, setHeight, setRollResults, setWeight, swapCharacteristics } from "../lib/store.svelte";
   import Derived from "./Derived.svelte";
   import StepHead from "./StepHead.svelte";
   import Stepper from "./Stepper.svelte";
@@ -123,6 +123,14 @@
     {/if}
   {/each}
 </div>
+<section class="card resistance-summary" aria-label="Resistances">
+  <h3>Resistances</h3>
+  <div class="resistance-values">
+    {#each RESISTANCES as name}
+      <div><span>{name}</span><b>{base(name)}%</b></div>
+    {/each}
+  </div>
+</section>
 <div class="card body-card">
   <h3>Frame, height &amp; weight</h3>
   <div class="body-fields">

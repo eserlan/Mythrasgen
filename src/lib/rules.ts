@@ -24,6 +24,8 @@ export const POOLS = { culture: 100, career: 100, bonus: 150 } as const;
 export type Kind = keyof typeof POOLS;
 /** Max points added to a single skill in each step. */
 export const PER_SKILL_CAP = 15;
+/** Standard Skills grouped as Resistances on the character sheet. */
+export const RESISTANCES = ["Brawn", "Endurance", "Evade", "Willpower"] as const;
 
 export const AGE_CATEGORIES = {
   young: { label: "Young", roll: "1d6+10", bonus: 100, maxPerSkill: 10, backgroundEvents: 0, ageing: false },

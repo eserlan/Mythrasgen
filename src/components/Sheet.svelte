@@ -1,6 +1,6 @@
 <script lang="ts">
   import { deriveStats, passionStartingValue } from "../lib/calc";
-  import { AGE_CATEGORIES, STATS, STAT_NAMES } from "../lib/rules";
+  import { AGE_CATEGORIES, RESISTANCES, STATS, STAT_NAMES } from "../lib/rules";
   import { allSkills, availableMoney, career, char, culture, skillDefinition, socialClassReady, startingMoney, total } from "../lib/store.svelte";
   import Derived from "./Derived.svelte";
   import HitLocations from "./HitLocations.svelte";
@@ -9,7 +9,7 @@
   import { CONNECTIONS, FAMILY_STANDING, resolvedBackgroundEvents, tableResult } from "../lib/background-rules";
   const loc = $derived(deriveStats(char.chars).loc);
   const skills = $derived(allSkills().sort());
-  const std = $derived(skills.filter(n => !skillDefinition(n).pro));
+  const std = $derived(skills.filter(n => !skillDefinition(n).pro && !RESISTANCES.includes(n as typeof RESISTANCES[number])));
   const pro = $derived(skills.filter(n => skillDefinition(n).pro));
   const standing = $derived(tableResult(FAMILY_STANDING, char.background.standingRoll));
   const connectionTier = $derived(tableResult(CONNECTIONS, char.background.connectionsRoll));
@@ -64,6 +64,10 @@
     </div>
   </div>
   <div class="sheet-combat"><h2>Combat</h2><CombatStyles /></div>
+  <div class="card">
+    <h3>Resistances</h3>
+    <ul class="leaders cols">{#each RESISTANCES as n}<li><span>{n}</span><i></i><b>{total(n)}%</b></li>{/each}</ul>
+  </div>
   <div class="card">
     <h3>Standard skills</h3>
     <ul class="leaders cols">{#each std as n}<li><span>{n}</span><i></i><b>{total(n)}%</b></li>{/each}</ul>
