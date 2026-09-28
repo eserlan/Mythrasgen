@@ -49,12 +49,55 @@ export type CombatStyleSelection = Omit<CombatStyleDefinition, "searchable" | "w
 type StyleInput = CombatStyleSelection;
 
 const core = { libraryId: "mythras-core", libraryName: "Mythras Core" };
-const coreTrait = (name: string): CombatStyleTrait => ({
-  id: `mythras-core:trait:${name.toLowerCase().replaceAll(" ", "-")}`,
-  name,
-  displayName: name,
-  source: core,
+const coreTraitReference = "Mythras Core Rules, 3rd edition: Combat Style Traits, p. 89";
+const traitId = (name: string) => `mythras-core:trait:${name.toLowerCase().replaceAll(" ", "-")}`;
+const coreTrait = (name: string, description: string): CombatStyleTrait => ({
+  id: traitId(name), name, displayName: name, description,
+  source: { ...core, reference: coreTraitReference },
 });
+function freezePreset<T>(value: T): T {
+  if (value && typeof value === "object" && !Object.isFrozen(value)) {
+    Object.freeze(value);
+    Object.values(value).forEach(freezePreset);
+  }
+  return value;
+}
+
+/** Canonical catalogue from the Mythras Core Rules 3rd edition Combat Style Traits table. */
+export const CORE_COMBAT_TRAITS: readonly CombatStyleTrait[] = Object.freeze([
+  coreTrait("Assassination", "Lets the user choose the normally restricted Kill Silently special effect."),
+  coreTrait("Batter Aside", "When your Damage Modifier is at least two steps above your opponent’s, your weapon counts as one size larger when bypassing parries."),
+  coreTrait("Beast-back Lancer", "A mounted charge with this style does not take the usual one-grade difficulty penalty to hit."),
+  coreTrait("Blind Fighting", "Ignore penalties caused by poor lighting or temporary blindness."),
+  coreTrait("Cautious Fighter", "Use Change Range to withdraw from engagement automatically, without a roll."),
+  coreTrait("Chariot Fighting", "When riding in a chariot, ignore the driver’s Drive skill cap on your combat rolls."),
+  coreTrait("Daredevil", "Use Evade to dodge blows in hand-to-hand combat without falling prone."),
+  coreTrait("Defensive Minded", "Your weapon counts as one size larger when parrying if you take no offensive action that round."),
+  coreTrait("Do or Die", "Dual-wielding weapons can use Flurry if each follow-up attack alternates between the weapons."),
+  coreTrait("Excellent Footwork", "On slippery or unsteady surfaces, ignore the Acrobatics skill cap on combat rolls."),
+  coreTrait("Formation Fighting", "Three or more trained warriors can form up to hinder open or disordered opponents, reducing an engaged foe’s Action Points by one when the formation cannot be outflanked."),
+  coreTrait("Hidden Weapons", "Use innocuous objects named in the style as effective weapons, without them breaking despite their delicate appearance."),
+  coreTrait("Intimidating Scream", "Your battle cries make psychological resistance rolls you cause one difficulty grade harder."),
+  coreTrait("Knockout Blow", "When attacking by surprise, a Stun Location lasts minutes instead of turns."),
+  coreTrait("Mancatcher", "Opponents have one difficulty grade more trouble evading or breaking free when you entangle or immobilise them."),
+  coreTrait("Mounted Combat", "Ignore the Ride skill cap on combat rolls while mounted."),
+  coreTrait("Ranged Marksman", "When using a ranged weapon, shift a random Hit Location result to an adjoining body location."),
+  coreTrait("Shield Splitter", "When using Damage Weapon against a shield, clubs and axes roll damage twice and keep the higher result."),
+  coreTrait("Shield Wall", "Three or more trained shield users can overlap passive protection to cover one extra location; they also resist Knockback, Leaping Attacks, and Bash as if braced."),
+  coreTrait("Siege Warfare", "Ignore the Athletics skill cap on combat rolls when assaulting while scaling walls or crawling through tunnels."),
+  coreTrait("Skirmishing", "Make ranged attacks while running, but not while sprinting."),
+  coreTrait("Swashbuckling", "Ignore the Athletics skill cap for attacks and evades while jumping or swinging into or out of combat."),
+  coreTrait("Throw Weapons", "Throw a melee weapon in this style without a skill penalty; its damage roll is halved when thrown."),
+  coreTrait("Trained Beast", "Use your Action Points to defend an animal companion from attacks when the style trains you to fight alongside it."),
+  coreTrait("Unarmed Prowess", "Your unarmed blocks and parries count as Medium-sized, improving your defence against armed opponents."),
+  coreTrait("Water Combat", "Ignore the Swim skill cap on combat rolls."),
+].map(freezePreset));
+const coreTraitsByName = new Map(CORE_COMBAT_TRAITS.map(trait => [trait.name, trait]));
+const coreTraitByName = (name: string): CombatStyleTrait => {
+  const trait = coreTraitsByName.get(name);
+  if (!trait) throw new Error(`Unknown Mythras Core Combat Style Trait: ${name}`);
+  return trait;
+};
 const cloneValue = <T>(value: T): T => Array.isArray(value)
   ? value.map(cloneValue) as T
   : value && typeof value === "object"
@@ -72,21 +115,13 @@ const sampleStyle = (id: string, name: string, fixedWeapons: string[], traits: s
   ...(options.aliases ? { aliases: options.aliases } : {}),
   baseFormula: ["STR", "DEX"],
   weapons: weapons(...fixedWeapons),
-  traits: traits.map(coreTrait),
+  traits: traits.map(coreTraitByName),
   ...(options.weaponChoices ? { weaponChoices: options.weaponChoices.map(group => weapons(...group)) } : {}),
-  ...(options.traitChoices ? { traitChoices: options.traitChoices.map(group => group.map(coreTrait)) } : {}),
+  ...(options.traitChoices ? { traitChoices: options.traitChoices.map(group => group.map(coreTraitByName)) } : {}),
   source: { ...core, reference: "Mythras Core Rules, 3rd edition: Sample Combat Styles (Characters, p. 12)" },
   status: "preset",
   searchable: searchable(...search),
 });
-
-const freezePreset = <T>(value: T): T => {
-  if (value && typeof value === "object" && !Object.isFrozen(value)) {
-    Object.freeze(value);
-    Object.values(value).forEach(freezePreset);
-  }
-  return value;
-};
 
 /** Mythras Core 3rd edition, Characters p. 12. Additional combat-chapter examples are separate. */
 export const CORE_COMBAT_STYLES: readonly CombatStyleDefinition[] = Object.freeze([
@@ -96,7 +131,7 @@ export const CORE_COMBAT_STYLES: readonly CombatStyleDefinition[] = Object.freez
   sampleStyle("cavalry-mounted-knight", "Cavalry", ["Sword", "Long Spear/Lance", "Shield"], [], ["cavalry", "mounted knight", "beast-back lancer", "mounted combat"], { aliases: ["Mounted Knight"], traitChoices: [["Beast-back Lancer", "Mounted Combat"]] }),
   sampleStyle("city-watch-hoplite", "City Watch", ["Spear", "Shield", "Shortsword"], [], ["city watch", "hoplite", "cautious fighter", "formation fighting"], { aliases: ["Hoplite"], traitChoices: [["Cautious Fighter", "Formation Fighting"]] }),
   sampleStyle("gladiator", "Gladiator", ["Shortsword", "Buckler", "Net", "Trident"], [], ["gladiator", "daredevil", "mancatcher"], { traitChoices: [["Daredevil", "Mancatcher"]] }),
-  sampleStyle("marine-pirate", "Marine", ["Club", "Main Gauche"], [], ["marine", "pirate", "falchion", "rapier", "excellent footwork", "swashbuckler"], { aliases: ["Pirate"], weaponChoices: [["Falchion", "Rapier"]], traitChoices: [["Excellent Footwork", "Swashbuckler"]] }),
+  sampleStyle("marine-pirate", "Marine", ["Club", "Main Gauche"], [], ["marine", "pirate", "falchion", "rapier", "excellent footwork", "swashbuckling"], { aliases: ["Pirate"], weaponChoices: [["Falchion", "Rapier"]], traitChoices: [["Excellent Footwork", "Swashbuckling"]] }),
   sampleStyle("master-archer", "Master Archer", ["Dagger", "Shortsword", "Long Bow"], [], ["master archer", "ranged marksman", "skirmishing"], { traitChoices: [["Ranged Marksman", "Skirmishing"]] }),
   sampleStyle("meerish-slinger", "Meerish Slinger", ["Shortsword", "Shield", "Sling"], [], ["meeros", "slinger", "shortsword", "shield", "sling", "knockout blow", "shield wall"], { traitChoices: [["Knockout Blow", "Shield Wall"]] }),
   sampleStyle("noble-warrior", "Noble Warrior", ["Longsword", "Shield", "Main Gauche", "Bow"], ["Defensive Minded"], ["noble warrior", "defensive minded"]),
@@ -174,7 +209,7 @@ export function legacyCombatStyle(name: string, origin: CombatStyleOrigin = "leg
       name: "Meerish Infantry",
       baseFormula: ["STR", "DEX"],
       weapons: weapons("Spear", "Hoplite Shield", "Javelin"),
-      traits: [coreTrait("Formation Fighting")],
+      traits: [coreTraitByName("Formation Fighting")],
       source: { ...core, reference: "Mythras Core Rules: Meerish character example" },
       status: "preset",
     }, origin);
