@@ -153,18 +153,18 @@ describe("structured Combat Styles", () => {
     expect("traitChoices" in restored.getCharacter("character")!.combatStyles[1]).toBe(false);
     expect(normalizeCombatStyles([{ ...selectedAssassin, traitChoices: CORE_COMBAT_STYLES[1].traitChoices }])[0]).not.toHaveProperty("traitChoices");
   });
-  test("choosing an already learned bonus Combat Style preserves an unrelated hobby and its points", () => {
+  test("choosing an already learned Combat Style does not replace the selected hobby", () => {
     const { char, replace, chooseBonusCombatStyle } = store;
     replace({
       ...char,
       cultureSelections: { standard: [], professional: [], combatStyle: "Street Brawler" },
-      hobbySkill: "Craft (Carpentry)",
+      hobbySkill: { type: "professionalSkill", template: "Craft (any)", specialisation: "Carpentry", name: "Craft (Carpentry)" },
       alloc: { culture: {}, career: {}, bonus: { "Craft (Carpentry)": 8 } },
     });
 
     chooseBonusCombatStyle(resolveCoreCombatStyle(CORE_COMBAT_STYLES[0], [], [0])!);
 
-    expect(char.hobbySkill).toBe("Craft (Carpentry)");
+    expect(char.hobbySkill).toEqual({ type: "professionalSkill", template: "Craft (any)", specialisation: "Carpentry", name: "Craft (Carpentry)" });
     expect(char.alloc.bonus["Craft (Carpentry)"]).toBe(8);
   });
 });

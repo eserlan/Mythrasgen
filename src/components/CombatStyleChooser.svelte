@@ -123,7 +123,7 @@
     <p class="label">Combat Style (optional)</p>
     <div class="combat-style-actions">
       <button type="button" class="secondary" onclick={openPicker}>Choose Combat Style…</button>
-      <button type="button" class="secondary" onclick={() => { editingCustom = true; dialog.showModal(); }}>Create Custom</button>
+      <button type="button" class="secondary" onclick={() => { editingCustom = true; dialog.showModal(); }}>Create Custom Style</button>
     </div>
   {:else}
     <div class="combat-style-summary">
@@ -226,7 +226,7 @@
           {:else}<p class="hint">No matching combat styles.</p>{/each}
         </div>
         </div>
-        <div class="combat-style-dialog-footer"><button type="button" class="secondary" onclick={() => { editingCustom = true; }}>Create Custom</button><button type="button" class="secondary" onclick={() => dialog.close()}>Cancel</button></div>
+        <div class="combat-style-dialog-footer"><button type="button" class="secondary" onclick={() => { editingCustom = true; }}>Create Custom Style</button><button type="button" class="secondary" onclick={() => dialog.close()}>Cancel</button></div>
       {/if}
     </div>
   {/if}
