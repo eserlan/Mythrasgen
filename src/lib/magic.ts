@@ -74,7 +74,7 @@ export function detectMagicDisciplines(skills: readonly DetectedMagicSkill[]): M
   const relevant: Record<MagicDiscipline, (name: string) => boolean> = {
     "Folk Magic": name => name === "Folk Magic",
     Animism: name => name === "Trance" || isSpecialised(name, "Binding"),
-    Mysticism: name => name === "Mysticism",
+    Mysticism: name => name === "Mysticism" || isSpecialised(name, "Mysticism"),
     Sorcery: name => isSpecialised(name, "Invocation") || name === "Shaping",
     Theism: name => isSpecialised(name, "Devotion") || name === "Exhort",
   };
