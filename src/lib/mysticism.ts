@@ -16,8 +16,17 @@ export interface MysticismTalent {
   family?: MysticismTalentFamily;
   /** Canonical skill, characteristic, derived attribute, or named trait. */
   target?: string;
+  /** Structured trait data for specialised Invoke Talents such as Immunity (Disease). */
+  trait?: string;
+  specialisation?: string;
   description?: string;
   notes?: string;
+}
+
+export interface MysticismTalentDetails {
+  family: string;
+  cost: string;
+  effect: string;
 }
 
 export interface MysticismPath {
@@ -56,7 +65,13 @@ export interface MysticismState {
 
 const talentId = (family: string, name: string) => `core:mysticism:${family}:${name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}`;
 const augment = (target: string): MysticismTalent => ({ id: talentId("augment-skill", target), name: `Augment ${target}`, source: "core", family: "augment-skill", target });
-const invoke = (target: string): MysticismTalent => ({ id: talentId("invoke-trait", target), name: `Invoke ${target}`, source: "core", family: "invoke-trait", target });
+const invoke = (target: string): MysticismTalent => {
+  const specialised = /^(.*?) \((.*)\)$/.exec(target);
+  const immunity = /^(Disease|Poison) Immunity$/.exec(target);
+  return { id: talentId("invoke-trait", target), name: `Invoke ${target}`, source: "core", family: "invoke-trait", target,
+    ...(specialised ? { trait: specialised[1], specialisation: specialised[2] } : {}),
+    ...(immunity ? { trait: "Immunity", specialisation: immunity[1] } : {}) };
+};
 const enhance = (target: string): MysticismTalent => ({ id: talentId("enhance-attribute", target), name: `Enhance ${target}`, source: "core", family: "enhance-attribute", target });
 
 export const CORE_MYSTICISM_ORGANISATIONS: MysticismOrganisation[] = [
@@ -88,6 +103,76 @@ export const CORE_MYSTICISM_TALENTS: MysticismTalent[] = [...new Map(
 ).values()];
 export const CORE_MYSTICISM_PATHS: MysticismPath[] = corePathTalents.map(([id, name, organisationId, talents]) => path(id, name, organisationId, talents));
 
+const enhanceEffects: Record<string, string> = {
+  "Action Points": "Each level of Intensity adds 1 Action Point. These additional points can only be used for defensive combat actions such as Parry or Evade; they cannot provide extra attacks or extra magic casting.",
+  "Damage Modifier": "Each level of Intensity increases Damage Modifier by one step, following the standard Damage Modifier progression.",
+  Fatigue: "Each Intensity negates one level of Fatigue and can be used as a pre-emptive buffer. When the Talent ends, the negated Fatigue returns and may cause the mystic to collapse.",
+  "Healing Rate": "Each Intensity improves the speed of natural recovery by one step: Months → Weeks → Days → Hours → Minutes → Combat Rounds. The mystic may remain in a healing trance until recovered but cannot perform other tasks; this does not restore severed or maimed body parts.",
+  "Hit Points": "Each Intensity adds 1 temporary Hit Point to every Hit Location; these points absorb damage first. Serious and Major Wound thresholds do not change, and an already disabled location is not restored to function.",
+  Movement: "Each level of Intensity increases Movement by 2 metres.",
+  Initiative: "Each level of Intensity adds 2 to the Initiative roll.",
+};
+
+function invokeEffect(target: string, traitName?: string, traitSpecialisation?: string): string {
+  const specialised = /^(.*?) \((.*)\)$/.exec(target);
+  const trait = traitName ?? specialised?.[1] ?? target;
+  const specialisation = traitSpecialisation ?? specialised?.[2];
+  switch (trait) {
+    case "Adhesion":
+      return "Move freely on vertical surfaces and upside down across ceilings without special equipment. Movement while doing so is half normal Movement Rate.";
+    case "Aura":
+      return `Project an aura of ${specialisation ?? "the chosen quality"} within a radius equal to POW in metres. Someone attempting to overcome it makes an opposed Willpower vs the Mysticism roll used to invoke it.`;
+    case "Awareness":
+      return "Detect the presence of a chosen kind of emanation within POW metres (such as threat, love, danger, or magic); it reveals that the emanation is nearby, not precise details about it.";
+    case "Denial":
+      return specialisation === "Ignorance"
+        ? "Denial (Ignorance): deny the effects of the specifically defined condition, Ignorance."
+        : `Deny the normal effects or need associated with ${specialisation ?? "one specifically defined condition"} for the Talent's duration.`;
+    case "Magic Sense":
+      return "Detect magical emanations. By touching another, learn their current Magic Points, carried enchantments, and active spells.";
+    case "Immunity":
+      return `Gain immunity to ${specialisation ?? "the specified condition"} while the Talent is active.`;
+    case "Dark Sight":
+      return "See normally at any level of limited light, including complete darkness.";
+    case "Night Sight":
+      return "Treat partial darkness as illuminated, and darkness as partial darkness.";
+    case "Formidable Natural Weapons":
+      return "The mystic's hands and feet count as Size Large when attacking and parrying in combat.";
+    default:
+      return specialisation
+        ? `${trait} applies to ${specialisation}; use the Core ${trait} Trait rule for its effect.`
+        : `Invoke the ${target} Trait for the Talent's duration.`;
+  }
+}
+
+/** Resolve concise canonical rules for picker Details without copying them into character saves. */
+export function mysticismTalentDetails(talent: MysticismTalent): MysticismTalentDetails {
+  if (talent.source === "core") {
+    if (talent.family === "augment-skill" && talent.target) {
+      const target = talent.target === "Ranged Combat Style" ? "the applicable ranged Combat Style" : talent.target;
+      return { family: "Augment Skill", cost: "1 MP per Intensity", effect: `Each level of Intensity improves ${target} by one difficulty grade, to a maximum of Very Easy.` };
+    }
+    if (talent.family === "invoke-trait" && talent.target) {
+      return { family: "Invoke Trait", cost: "2 MP · Intensity 1", effect: invokeEffect(talent.target, talent.trait, talent.specialisation) };
+    }
+    if (talent.family === "enhance-attribute" && talent.target) {
+      return { family: "Enhance Attribute", cost: "3 MP per Intensity", effect: enhanceEffects[talent.target] ?? `Each level of Intensity enhances ${talent.target} according to its Core rule.` };
+    }
+  }
+
+  // Custom descriptions are player-authored and always take precedence over shared family help.
+  if (talent.description?.trim()) {
+    const family = talent.family === "augment-skill" ? "Augment Skill" : talent.family === "invoke-trait" ? "Invoke Trait" : talent.family === "enhance-attribute" ? "Enhance Attribute" : "Custom Talent";
+    const cost = talent.family === "augment-skill" ? "1 MP per Intensity" : talent.family === "invoke-trait" ? "2 MP · Intensity 1" : talent.family === "enhance-attribute" ? "3 MP per Intensity" : "";
+    return { family, cost, effect: talent.description };
+  }
+  if (talent.notes?.trim()) return { family: "Custom Talent", cost: "", effect: talent.notes };
+  if (talent.family === "augment-skill" && talent.target) return { family: "Augment Skill", cost: "1 MP per Intensity", effect: `Each level of Intensity improves ${talent.target} by one difficulty grade, to a maximum of Very Easy.` };
+  if (talent.family === "invoke-trait" && talent.target) return { family: "Invoke Trait", cost: "2 MP · Intensity 1", effect: invokeEffect(talent.target, talent.trait, talent.specialisation) };
+  if (talent.family === "enhance-attribute" && talent.target) return { family: "Enhance Attribute", cost: "3 MP per Intensity", effect: `Each level of Intensity enhances ${talent.target} according to its Core rule.` };
+  return { family: "Custom Talent", cost: "", effect: "Campaign-defined Mysticism Talent." };
+}
+
 export const emptyMysticismState = (): MysticismState => ({
   pathIds: [], startingTalentIds: [], knownTalents: [], customPaths: [], customTalents: [], organisations: [],
 });
@@ -100,7 +185,9 @@ const normalizeTalent = (value: unknown): MysticismTalent | null => {
   const families = new Set<MysticismTalentFamily>(["augment-skill", "invoke-trait", "enhance-attribute", "custom"]);
   const family = families.has(item.family as MysticismTalentFamily) ? item.family as MysticismTalentFamily : undefined;
   return { id: item.id, name: item.name, source: item.source as MysticismSource, ...(family ? { family } : {}),
-    ...(typeof item.target === "string" ? { target: item.target } : {}), ...(typeof item.description === "string" ? { description: item.description } : {}), ...(typeof item.notes === "string" ? { notes: item.notes } : {}) };
+    ...(typeof item.target === "string" ? { target: item.target } : {}), ...(typeof item.trait === "string" ? { trait: item.trait } : {}),
+    ...(typeof item.specialisation === "string" ? { specialisation: item.specialisation } : {}),
+    ...(typeof item.description === "string" ? { description: item.description } : {}), ...(typeof item.notes === "string" ? { notes: item.notes } : {}) };
 };
 const normalizePath = (value: unknown): MysticismPath | null => {
   const item = asRecord(value);

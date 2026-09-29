@@ -11,7 +11,7 @@
     folkMagicConfigurationStatus, resolveFolkMagicCareerSuggestion, type CustomFolkMagicSpell, type FolkMagicSpellReference,
   } from "../lib/folk-magic";
   import {
-    availableMysticismTalentIds, calculateMysticismStartingEntitlement, mysticismCatalogue,
+    availableMysticismTalentIds, calculateMysticismStartingEntitlement, mysticismCatalogue, mysticismTalentDetails as resolveMysticismTalentDetails,
     type MysticismPath, type MysticismTalent,
   } from "../lib/mysticism";
 
@@ -260,6 +260,10 @@
           <span class:complete={mysticismComplete} class="magic-status">{mysticismComplete ? "Complete" : "Action required"}</span>
         </div>
         <div class="folk-magic-entitlement"><div><b>Starting Talents — {mysticismEntitlement.count}</b><small>Mysticism {mysticismSkill?.value ?? 0}% gives you {mysticismEntitlement.count} starting {mysticismEntitlement.count === 1 ? "Talent" : "Talents"}.</small></div></div>
+        <details class="mysticism-details"><summary>How Mysticism Talents work</summary>
+          <p>The mystic must know a Talent and succeed at the relevant Mysticism check to use it. Preparation normally takes one turn per point of Intensity. Invoke Traits have default Intensity 1 and grant their Trait ability for the Talent's duration. Unless a Talent says otherwise, it lasts for its task and lapses when the mystic turns attention elsewhere.</p>
+          <p>Mysticism limits the maximum Intensity of an individual Talent; Meditation limits total simultaneous active Intensity.</p>
+        </details>
         <label class="mysticism-path">Path
           <select value={mysticismPathId} onchange={event => selectMysticismPath(event.currentTarget.value)}>
             <option value="">Choose your Path</option>
@@ -387,7 +391,7 @@
             <span class="folk-magic-check">{mysticismSelected.includes(talent.id) ? "✓" : "+"}</span><span><b>{talent.name}</b><small>{talent.source === "custom" ? "Custom Talent" : talent.family === "augment-skill" ? `Augments ${talent.target}` : talent.family === "invoke-trait" ? `Invokes ${talent.target}` : talent.family === "enhance-attribute" ? `Enhances ${talent.target}` : "Core Talent"}</small></span>
           </button>
           <button type="button" class="ghost folk-magic-details-button" onclick={() => mysticismTalentDetails = mysticismTalentDetails === talent.id ? null : talent.id}>{mysticismTalentDetails === talent.id ? "Hide details" : "Details"}</button>
-          {#if mysticismTalentDetails === talent.id}<p class="folk-magic-spell-details">{talent.description || talent.notes || (talent.family === "augment-skill" ? `Use this Talent to augment ${talent.target}.` : talent.family === "invoke-trait" ? `Invoke the ${talent.target} trait.` : talent.family === "enhance-attribute" ? `Enhance ${talent.target}.` : "Campaign-defined Mysticism Talent.")}</p>{/if}
+          {#if mysticismTalentDetails === talent.id}{@const detail = resolveMysticismTalentDetails(talent)}<div class="folk-magic-spell-details mysticism-talent-details"><b>{talent.name.toLocaleUpperCase()}</b><small>{detail.family}{#if detail.cost} · {detail.cost}{/if}</small><p>{detail.effect}</p></div>{/if}
         </li>
       {:else}<li class="mute folk-magic-no-results">No available Talents match this Path or search.</li>{/each}
     </ul>
@@ -405,7 +409,7 @@
             <span class="folk-magic-check">{customPathTalentIds.includes(talent.id) ? "✓" : "+"}</span><span><b>{talent.name}</b><small>{talent.family === "augment-skill" ? `Augments ${talent.target}` : talent.family === "invoke-trait" ? `Invokes ${talent.target}` : talent.family === "enhance-attribute" ? `Enhances ${talent.target}` : "Core Talent"}</small></span>
           </button>
           <button type="button" class="ghost folk-magic-details-button" onclick={() => customPathTalentDetails = customPathTalentDetails === talent.id ? null : talent.id}>{customPathTalentDetails === talent.id ? "Hide details" : "Details"}</button>
-          {#if customPathTalentDetails === talent.id}<p class="folk-magic-spell-details">{talent.description || talent.notes || (talent.family === "augment-skill" ? `Use this Talent to augment ${talent.target}.` : talent.family === "invoke-trait" ? `Invoke the ${talent.target} trait.` : talent.family === "enhance-attribute" ? `Enhance ${talent.target}.` : "Core Mysticism Talent.")}</p>{/if}
+          {#if customPathTalentDetails === talent.id}{@const detail = resolveMysticismTalentDetails(talent)}<div class="folk-magic-spell-details mysticism-talent-details"><b>{talent.name.toLocaleUpperCase()}</b><small>{detail.family}{#if detail.cost} · {detail.cost}{/if}</small><p>{detail.effect}</p></div>{/if}
         </li>
       {:else}<li class="mute folk-magic-no-results">No Talents match your search.</li>{/each}
     </ul>
