@@ -51,6 +51,8 @@ test("binding capacity remains independent of allies and zero bindings remain va
   const state = { chars: { CHA: 18 } };
   expect(source).toContain('animismState.bindings.filter(item => item.countsAgainstCapacity)');
   expect(source).toContain('...animismState.bindings.map(binding =>');
+  expect(source).toContain('key: `binding:${binding.id}`');
+  expect(source).toContain('{#each animismRelationshipRows as row (row.key)}');
   expect(source).toContain('animismState.allies.filter(ally => !animismBindingFor(ally.spiritId))');
   expect(getBoundSpiritCapacity(state, "Shaman")).toBe(14);
   expect(source).toContain('animismBound.length > animismCapacity');

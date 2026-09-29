@@ -98,8 +98,8 @@
   const animismVisibleTypes = $derived([...new Set([...animismFriendlyTypes, ...animismNeutralTypes, ...animismHostileTypes,
     ...(animismTradition?.startingGrants.flatMap(grant => grant.spiritTypeId ? [grant.spiritTypeId] : []) ?? [])])]);
   const animismPickerTypes = $derived(animismSpiritTypes.filter(item => `${item.name} ${item.description ?? ""}`.toLowerCase().includes(animismQuery.trim().toLowerCase())));
-  const animismRelationshipRows = $derived([...animismAllies.map(ally => ({ spirit: animismSpirit(ally.spiritId), kind: "ALLY" as const, vessel: undefined as string | undefined })),
-    ...animismState.bindings.map(binding => ({ spirit: animismSpirit(binding.spiritId), kind: "BOUND" as const, vessel: binding.objectName || (binding.vessel === "fetish/object" ? undefined : binding.vessel) }))].filter(row => !!row.spirit));
+  const animismRelationshipRows = $derived([...animismAllies.map(ally => ({ key: `ally:${ally.spiritId}`, spirit: animismSpirit(ally.spiritId), kind: "ALLY" as const, vessel: undefined as string | undefined })),
+    ...animismState.bindings.map(binding => ({ key: `binding:${binding.id}`, spirit: animismSpirit(binding.spiritId), kind: "BOUND" as const, vessel: binding.objectName || (binding.vessel === "fetish/object" ? undefined : binding.vessel) }))].filter(row => !!row.spirit));
   const animismUnresolvedGrant = $derived(hasUnresolvedAnimismGrant());
   const animismNeedsSetup = $derived(!animismTradition || !animismRank || animismBound.length > animismCapacity || animismState.reconciliationIssues.length > 0 || animismUnresolvedGrant);
   const sorceryState = $derived(char.magic.sorcery);
@@ -581,7 +581,7 @@
         <section class="animism-relations">
           <h5>Your Spirits</h5>
           {#if animismBound.length > animismCapacity}<p class="folk-magic-error" role="alert">Binding Capacity — {animismBound.length} / {animismCapacity} · Action required. Resolve the excess; no spirits have been removed.</p>{/if}
-          {#each animismRelationshipRows as row (row.spirit!.id)}
+          {#each animismRelationshipRows as row (row.key)}
             {@const spirit = row.spirit!}
             <div class="animism-row"><div><b>{spirit.name}</b><small>{animismTypeName(spirit.spiritTypeId)}{#if spirit.intensity !== undefined} · Intensity {spirit.intensity}{/if} · <strong>{row.kind}</strong>{#if row.vessel} · {row.vessel}{/if}</small></div><button type="button" class="ghost" onclick={() => animismDetailsId = animismDetailsId === spirit.id ? null : spirit.id}>Details</button>
               {#if animismDetailsId === spirit.id}<p>{spirit.notes || "No additional notes."}{#if spirit.pow !== undefined} · POW {spirit.pow}{/if}{#if spirit.abilities.length} · {spirit.abilities.join(", ")}{/if}{#if animismBindingFor(spirit.id)?.description} · {animismBindingFor(spirit.id)?.description}{/if}</p>{/if}</div>
@@ -619,7 +619,7 @@
       <dialog class="folk-magic-picker animism-workflow" bind:this={animismManageDialog} aria-labelledby="animism-manage-title">
         <div class="folk-magic-picker-content">
           <header><div><h2 id="animism-manage-title">Manage Spirits</h2><p>{animismBound.length} / {animismCapacity} spirits bound</p></div><button type="button" class="ghost" onclick={() => animismManageDialog?.close()}>Close</button></header>
-          {#if animismRelationshipRows.length}<section class="animism-config-section"><h3>Your Spirits</h3>{#each animismRelationshipRows as row (row.spirit!.id)}{@const spirit = row.spirit!}<div class="animism-row"><div><b>{spirit.name}</b><small>{animismTypeName(spirit.spiritTypeId)} · {row.kind}{#if row.vessel} · {row.vessel}{/if}</small></div><button type="button" class="ghost" aria-label="Remove {spirit.name}" onclick={() => removeAnimismRelationship(spirit.id)}>{row.kind === "BOUND" ? "Release" : "Remove"}</button></div>{/each}</section>{/if}
+          {#if animismRelationshipRows.length}<section class="animism-config-section"><h3>Your Spirits</h3>{#each animismRelationshipRows as row (row.key)}{@const spirit = row.spirit!}<div class="animism-row"><div><b>{spirit.name}</b><small>{animismTypeName(spirit.spiritTypeId)} · {row.kind}{#if row.vessel} · {row.vessel}{/if}</small></div><button type="button" class="ghost" aria-label="Remove {spirit.name}" onclick={() => removeAnimismRelationship(spirit.id)}>{row.kind === "BOUND" ? "Release" : "Remove"}</button></div>{/each}</section>{/if}
           <form class="folk-magic-custom-form animism-form" onsubmit={event => { event.preventDefault(); addAnimismSpirit(); }}>
             <h5>Add Spirit</h5>
             <label>Spirit type<select bind:value={animismSpiritTypeId} required><option value="">Choose a Tradition type</option>{#each animismVisibleTypes as id}<option value={id}>{animismTypeName(id)}</option>{/each}{#each animismSpiritTypes.filter(type => !animismVisibleTypes.includes(type.id)) as type}<option value={type.id}>{type.name} · Other</option>{/each}</select></label>
