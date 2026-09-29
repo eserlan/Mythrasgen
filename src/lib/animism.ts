@@ -281,7 +281,7 @@ export function reconcileAnimism(state: AnimismState, rank: AnimismRank | undefi
     ? [...tradition.friendlySpiritTypeIds, ...tradition.neutralSpiritTypeIds, ...tradition.hostileSpiritTypeIds]
     : state.accessibleSpiritTypeIds);
   for (const spirit of state.spirits) {
-    if (tradition && !available.has(spirit.spiritTypeId)) issues.push({ code: "unavailable-spirit-type", spiritId: spirit.id, message: `Spirit type ${spirit.spiritTypeId} is not listed by the current tradition; the spirit is preserved.` });
+    if ((tradition || state.accessibleSpiritTypeIds.length > 0) && !available.has(spirit.spiritTypeId)) issues.push({ code: "unavailable-spirit-type", spiritId: spirit.id, message: `Spirit type ${spirit.spiritTypeId} is not listed by the current tradition; the spirit is preserved.` });
   }
   const ids = new Set(state.spirits.map(spirit => spirit.id));
   for (const binding of state.bindings) if (!ids.has(binding.spiritId)) issues.push({ code: "missing-bound-spirit", spiritId: binding.spiritId, message: `Binding ${binding.id} refers to a spirit record that is missing; binding is preserved.` });

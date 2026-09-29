@@ -127,6 +127,16 @@ describe("Animism rules and persistent spirit relationships", () => {
     expect(state.reconciliationIssues).toContainEqual(expect.objectContaining({ code: "exceeds-binding-limit", spiritId: "sp1" }));
   });
 
+  test("explicit spirit access is enforced when no tradition is selected", () => {
+    const state = normalizeAnimismState({
+      accessibleSpiritTypeIds: ["core:animism:nature"],
+      spirits: [{ id: "bane", name: "Bane", spiritTypeId: "core:animism:bane", source: "campaign", abilities: [] }],
+    });
+    expect(reconcileAnimism(state, undefined, 10)).toContainEqual(expect.objectContaining({
+      code: "unavailable-spirit-type", spiritId: "bane",
+    }));
+  });
+
   test("Animism save defaults and normalization preserve other disciplines", () => {
     const old = normalizeMagicState({ folkMagic: { knownSpells: [] }, mysticism: { pathIds: ["p"] }, sorcery: { schoolIds: ["s"] } });
     expect(old.animism).toEqual(emptyAnimismState());
