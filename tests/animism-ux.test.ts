@@ -50,6 +50,7 @@ test("Animism explanations derive from canonical rank and Intensity metadata", (
 test("binding capacity remains independent of allies and zero bindings remain valid", () => {
   const state = { chars: { CHA: 18 } };
   expect(source).toContain('animismState.bindings.filter(item => item.countsAgainstCapacity)');
+  expect(source).toContain('...animismState.bindings.map(binding =>');
   expect(source).toContain('animismState.allies.filter(ally => !animismBindingFor(ally.spiritId))');
   expect(getBoundSpiritCapacity(state, "Shaman")).toBe(14);
   expect(source).toContain('animismBound.length > animismCapacity');

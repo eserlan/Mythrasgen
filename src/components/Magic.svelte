@@ -99,7 +99,7 @@
     ...(animismTradition?.startingGrants.flatMap(grant => grant.spiritTypeId ? [grant.spiritTypeId] : []) ?? [])])]);
   const animismPickerTypes = $derived(animismSpiritTypes.filter(item => `${item.name} ${item.description ?? ""}`.toLowerCase().includes(animismQuery.trim().toLowerCase())));
   const animismRelationshipRows = $derived([...animismAllies.map(ally => ({ spirit: animismSpirit(ally.spiritId), kind: "ALLY" as const, vessel: undefined as string | undefined })),
-    ...animismBound.map(binding => ({ spirit: animismSpirit(binding.spiritId), kind: "BOUND" as const, vessel: binding.objectName || (binding.vessel === "fetish/object" ? undefined : binding.vessel) }))].filter(row => !!row.spirit));
+    ...animismState.bindings.map(binding => ({ spirit: animismSpirit(binding.spiritId), kind: "BOUND" as const, vessel: binding.objectName || (binding.vessel === "fetish/object" ? undefined : binding.vessel) }))].filter(row => !!row.spirit));
   const animismUnresolvedGrant = $derived(hasUnresolvedAnimismGrant());
   const animismNeedsSetup = $derived(!animismTradition || !animismRank || animismBound.length > animismCapacity || animismState.reconciliationIssues.length > 0 || animismUnresolvedGrant);
   const sorceryState = $derived(char.magic.sorcery);
