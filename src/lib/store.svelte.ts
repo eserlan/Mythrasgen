@@ -15,6 +15,7 @@ import { hasMeaningfulSpecialisation, requiresSpecialisation, resolveSkillTempla
 import { hobbySkillName, restoreHobbySkill, type HobbySkill } from "./hobby-skills";
 import type { FamilyRelationship } from "./family-relationships";
 import { detectMagicDisciplines, emptyMagicState, normalizeMagicState, normalizeMemberships, reconcileMagicState, type MagicState, type OrganisationMembership } from "./magic";
+import { reconcileAnimism } from "./animism";
 
 export interface Passion {
   type: "Loyalty" | "Love" | "Hate";
@@ -246,6 +247,8 @@ function normalize(value: Partial<Character> | null, home = true): Character {
     learned.has(name) || unresolvedProfessionalTemplates.has(name) || name === hobbyName && !!normalized.hobbySkill));
   if (normalized.step === STEPS.length - 1 && sum(Object.values(normalized.alloc.bonus)) < bonusPool(normalized.ageCategory)) normalized.step = 4;
   normalized.magic = reconcileMagicState(normalized.magic, detectMagicDisciplines(magicSkillsFor(normalized)));
+  const animismBinding = magicSkillsFor(normalized).find(skill => skill.name === "Binding" || skill.name.startsWith("Binding ("));
+  reconcileAnimism(normalized.magic.animism, normalized.magic.animism.rank, normalized.chars.CHA, normalized.magic.animism.traditionId, animismBinding?.value);
   return normalized;
 }
 
@@ -299,6 +302,8 @@ function refreshLibrary() { characterLibrary.characters = repository.listCharact
 export function persist() { recalculateStartingMoney(); repository.saveCharacter({ ...char }); refreshLibrary(); }
 export function reconcileMagic() {
   char.magic = reconcileMagicState(char.magic, detectMagicDisciplines(magicSkillsFor(char)));
+  const binding = magicSkillsFor(char).find(skill => skill.name === "Binding" || skill.name.startsWith("Binding ("));
+  reconcileAnimism(char.magic.animism, char.magic.animism.rank, char.chars.CHA, char.magic.animism.traditionId, binding?.value);
 }
 export const reset = (home = true) => Object.assign(char, blank(), { id: char.id, home });
 export const replace = (c: Partial<Character>) => Object.assign(char, normalize({ ...c, id: char.id }, false));

@@ -25,6 +25,9 @@ export function formulaVal(f: Term[], c: Chars): number {
   return sum(f.map(t => typeof t === "number" ? t : Array.isArray(t) ? c[t[0]] * t[1] : c[t]));
 }
 
+/** Mythras critical range: one tenth of a skill, rounded up. */
+export const criticalRange = (skillValue: number): number => Math.ceil(Math.max(0, Number.isFinite(skillValue) ? skillValue : 0) / 10);
+
 /** Workbook p.4 starting Passion value, including the subject's stats when needed. */
 export function passionStartingValue(category: PassionCategory, chars: Chars, subject: { pow?: number; cha?: number } = {}): number | null {
   const { POW, INT } = chars;

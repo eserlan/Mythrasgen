@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { detectMagicDisciplines, emptyMagicState, normalizeMagicState, reconcileMagicState } from "../src/lib/magic";
+import { CORE_SPIRIT_DAMAGE, CORE_SPIRIT_INTENSITY, CORE_SPIRIT_TYPES, emptyAnimismState, getBoundSpiritCapacity, getMaximumControllableSpiritPow, getSpiritDamage, getTranceCapabilities, normalizeAnimismState, reconcileAnimism, spiritIntensityBand, type SpiritTradition } from "../src/lib/animism";
 import { availableMysticismTalentIds, calculateMysticismStartingEntitlement, CORE_MYSTICISM_ORGANISATIONS, CORE_MYSTICISM_PATHS, CORE_MYSTICISM_TALENTS, mysticismCatalogue, reconcileMysticismTalents } from "../src/lib/mysticism";
 import { careers } from "../src/lib/content";
 import {
@@ -38,13 +39,102 @@ describe("magical discipline detection", () => {
   test("Shaping alone does not activate Sorcery; Invocation does", () => {
     expect(detectMagicDisciplines([
       { name: "Meditation", value: 45, origins: ["career"] },
-      { name: "Binding", value: 45, origins: ["career"] },
       { name: "Devotion", value: 45, origins: ["career"] },
     ])).toEqual([]);
+    expect(detectMagicDisciplines([{ name: "Trance", value: 45, origins: ["career"] }])).toEqual([]);
+    expect(detectMagicDisciplines([{ name: "Binding (Wolf Totem)", value: 45, origins: ["career"] }])).toEqual([
+      expect.objectContaining({ discipline: "Animism", missingSkills: ["Trance"], skills: [expect.objectContaining({ name: "Binding (Wolf Totem)" })] }),
+    ]);
     expect(detectMagicDisciplines([{ name: "Shaping", value: 45, origins: ["career"] }])).toEqual([]);
     expect(detectMagicDisciplines([{ name: "Invocation", value: 45, origins: ["career"] }]).map(item => item.discipline)).toEqual(["Sorcery"]);
     expect(detectMagicDisciplines([{ name: "Mysticism (Path of Shadows)", value: 45, origins: ["career"] }]))
       .toContainEqual(expect.objectContaining({ discipline: "Mysticism", skills: [expect.objectContaining({ name: "Mysticism (Path of Shadows)" })] }));
+  });
+});
+
+describe("Animism rules and persistent spirit relationships", () => {
+  test("Binding activates Animism, while Trance remains its own companion skill", () => {
+    const found = detectMagicDisciplines([
+      { name: "Binding (Wolf Totem)", value: 58, origins: ["career"] },
+      { name: "Trance", value: 42, origins: ["bonus"] },
+    ]);
+    expect(found).toHaveLength(1);
+    expect(found[0]).toMatchObject({ discipline: "Animism", skills: [{ name: "Binding (Wolf Totem)" }, { name: "Trance" }] });
+    expect(found[0].missingSkills).toBeUndefined();
+  });
+
+  test("rank metadata provides cumulative Trance capability and preparation time", () => {
+    expect(getTranceCapabilities("Follower")).toMatchObject({ canObserve: true, canConverse: false, canProjectIntoSpiritWorld: false });
+    expect(getTranceCapabilities("Spirit Worshipper")).toMatchObject({ canObserve: true, canConverse: true, canDragOtherSouls: false });
+    expect(getTranceCapabilities("Shaman")).toMatchObject({ canProjectIntoSpiritWorld: true, preparation: { "project-or-draw": "1 hour" } });
+    expect(getTranceCapabilities("High Shaman")).toMatchObject({ canDragOtherSouls: true, preparation: { "drag-souls": "1 hour" } });
+  });
+
+  test("capacity, POW limit, Spirit Damage and Intensity use separate Core rules", () => {
+    expect(getBoundSpiritCapacity({ chars: { CHA: 24 } }, "Follower")).toBe(6);
+    expect(getBoundSpiritCapacity({ CHA: 23 }, "Spirit Worshipper")).toBe(12);
+    expect(getBoundSpiritCapacity({ CHA: 24 }, "Shaman")).toBe(18);
+    expect(getBoundSpiritCapacity({ CHA: 24 }, "High Shaman")).toBe(24);
+    expect(getBoundSpiritCapacity({ CHA: 24 })).toBe(0);
+    expect(getMaximumControllableSpiritPow(45)).toBe(15);
+    expect(getSpiritDamage(56)).toBe("1d6");
+    expect(getSpiritDamage(120)).toBe("2d6");
+    expect(getSpiritDamage(121)).toBe("1d8+1d6");
+    expect(getSpiritDamage(301)).toBe("3d10+1d2");
+    expect(CORE_SPIRIT_DAMAGE.at(-1)?.damage).toBe("3d10");
+    expect(CORE_SPIRIT_INTENSITY.slice(1, 4)).toEqual([
+      { intensity: 1, minPow: 7, maxPow: 12, formula: "1d6+6" },
+      { intensity: 2, minPow: 13, maxPow: 18, formula: "1d6+12" },
+      { intensity: 3, minPow: 19, maxPow: 24, formula: "1d6+18" },
+    ]);
+    expect(spiritIntensityBand(8)).toMatchObject({ minPow: 49, maxPow: 54 });
+  });
+
+  test("tradition access, allies and bindings are separate and survive save normalization", () => {
+    const nature = CORE_SPIRIT_TYPES.find(type => type.id === "core:animism:nature")!;
+    const tradition: SpiritTradition = {
+      id: "custom:great-bear", name: "Great Bear", source: "custom", friendlySpiritTypeIds: [nature.id, "custom:spirit:bear"],
+      neutralSpiritTypeIds: ["core:animism:ancestor"], hostileSpiritTypeIds: ["core:animism:predator"], hostileTraditionIds: ["campaign:wolf-clan"],
+      startingGrants: [], customSpiritTypes: [{ id: "custom:spirit:bear", name: "Bear spirit", source: "custom" }], customSpiritTemplates: [],
+    };
+    const state = normalizeAnimismState({ traditionId: tradition.id, bindingSpecialisation: { skillName: "Binding (Great Bear)", traditionId: tradition.id }, traditions: [tradition], accessibleSpiritTypeIds: [nature.id],
+      spirits: [{ id: "bear-ally", name: "Grandfather Bear", spiritTypeId: "custom:spirit:bear", templateId: "custom:bear-template", source: "campaign", attitude: "friendly", intensity: 2, powRange: [13, 18], abilities: ["Bless"] }],
+      allies: [{ spiritId: "bear-ally", attitude: "friendly", source: "campaign grant" }],
+      bindings: [{ id: "bear-fetish", spiritId: "bear-ally", vessel: "fetish/object", objectName: "Bear claw", countsAgainstCapacity: true, source: "shaman's gift" }],
+    });
+    expect(state.traditions[0]).toMatchObject({ friendlySpiritTypeIds: [nature.id, "custom:spirit:bear"], neutralSpiritTypeIds: ["core:animism:ancestor"] });
+    expect(state.spirits[0]).toMatchObject({ templateId: "custom:bear-template", powRange: [13, 18] });
+    expect(state.bindingSpecialisation).toEqual({ skillName: "Binding (Great Bear)", traditionId: tradition.id });
+    expect(state.allies).toHaveLength(1);
+    expect(state.bindings[0]).toMatchObject({ spiritId: "bear-ally", vessel: "fetish/object" });
+    expect(state.spirits).toHaveLength(1);
+  });
+
+  test("zero grants are valid and over-capacity reconciliation preserves every binding", () => {
+    const tradition: SpiritTradition = { id: "core:empty", name: "No gifts", source: "core", friendlySpiritTypeIds: [], neutralSpiritTypeIds: [], hostileSpiritTypeIds: [], hostileTraditionIds: [], startingGrants: [], customSpiritTypes: [], customSpiritTemplates: [] };
+    const state = normalizeAnimismState({ traditions: [tradition], traditionId: tradition.id, spirits: [
+      { id: "sp1", name: "Spirit", spiritTypeId: "core:animism:nature", source: "campaign", pow: 12, abilities: [] },
+    ], bindings: [
+      { id: "b1", spiritId: "sp1", vessel: "place", countsAgainstCapacity: true, source: "campaign" },
+      { id: "b2", spiritId: "sp1", vessel: "campaign-defined", countsAgainstCapacity: true, source: "campaign" },
+    ] });
+    expect(state.traditions[0].startingGrants).toEqual([]);
+    expect(normalizeAnimismState(emptyAnimismState()).spirits).toEqual([]);
+    expect(reconcileAnimism(state, "Follower", 4, tradition.id, 10)).toContainEqual(expect.objectContaining({ code: "over-capacity" }));
+    expect(state.bindings).toHaveLength(2);
+    expect(state.reconciliationIssues).toContainEqual(expect.objectContaining({ code: "over-capacity" }));
+    expect(state.reconciliationIssues).toContainEqual(expect.objectContaining({ code: "unavailable-spirit-type", spiritId: "sp1" }));
+    expect(state.reconciliationIssues).toContainEqual(expect.objectContaining({ code: "exceeds-binding-limit", spiritId: "sp1" }));
+  });
+
+  test("Animism save defaults and normalization preserve other disciplines", () => {
+    const old = normalizeMagicState({ folkMagic: { knownSpells: [] }, mysticism: { pathIds: ["p"] }, sorcery: { schoolIds: ["s"] } });
+    expect(old.animism).toEqual(emptyAnimismState());
+    const roundTrip = normalizeMagicState(JSON.parse(JSON.stringify({ ...old, animism: { traditionId: "t", rank: "Shaman", spirits: [] } })));
+    expect(roundTrip.animism).toMatchObject({ traditionId: "t", rank: "Shaman" });
+    expect(roundTrip.folkMagic).toEqual(old.folkMagic);
+    expect(roundTrip.mysticism).toEqual(old.mysticism);
+    expect(roundTrip.sorcery).toEqual(old.sorcery);
   });
 });
 
