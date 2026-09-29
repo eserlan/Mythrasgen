@@ -35,8 +35,9 @@ describe("magical discipline detection", () => {
       { name: "Binding", value: 45, origins: ["career"] },
       { name: "Invocation", value: 45, origins: ["career"] },
       { name: "Devotion", value: 45, origins: ["career"] },
-      { name: "Mysticism (Path of the Wind)", value: 45, origins: ["career"] },
     ])).toEqual([]);
+    expect(detectMagicDisciplines([{ name: "Mysticism (Path of Shadows)", value: 45, origins: ["career"] }]))
+      .toContainEqual(expect.objectContaining({ discipline: "Mysticism", skills: [expect.objectContaining({ name: "Mysticism (Path of Shadows)" })] }));
   });
 });
 

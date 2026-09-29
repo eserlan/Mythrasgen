@@ -10,6 +10,10 @@
     FOLK_MAGIC_SPECIALIST_ENTITLEMENT, FOLK_MAGIC_STANDARD_ENTITLEMENT,
     folkMagicConfigurationStatus, resolveFolkMagicCareerSuggestion, type CustomFolkMagicSpell, type FolkMagicSpellReference,
   } from "../lib/folk-magic";
+  import {
+    availableMysticismTalentIds, calculateMysticismStartingEntitlement, mysticismCatalogue,
+    type MysticismPath, type MysticismTalent,
+  } from "../lib/mysticism";
 
   const originName: Record<MagicSkillOrigin, string> = { culture: "Culture", career: "Career", bonus: "Bonus / Hobby Skill" };
   let picker: HTMLDialogElement;
@@ -20,8 +24,33 @@
   let customEditor = $state(false);
   let findSubject = $state("");
   let detailsSpellId = $state<string | null>(null);
+  let mysticismPicker: HTMLDialogElement;
+  let mysticismPathQuery = $state("");
+  let customPathEditor = $state(false);
+  let customPathName = $state("");
+  let customPathOrganisation = $state("");
+  let customPathTeacher = $state("");
+  let customPathNotes = $state("");
+  let customTalentName = $state("");
+  let customTalentDescription = $state("");
+  let customPathTalentIds = $state<string[]>([]);
+  let mysticismTalentDetails = $state<string | null>(null);
 
   const capability = $derived(char.magic.disciplines.find(item => item.discipline === "Folk Magic"));
+  const mysticismCapability = $derived(char.magic.disciplines.find(item => item.discipline === "Mysticism"));
+  const mysticismState = $derived(char.magic.mysticism);
+  const mysticismData = $derived(mysticismCatalogue(mysticismState));
+  const mysticismSkill = $derived(mysticismCapability?.skills.find(item => item.name === "Mysticism") ?? mysticismCapability?.skills[0]);
+  const mysticismPathId = $derived(mysticismState.startingPathId ?? "");
+  const mysticismPath = $derived(mysticismData.paths.find(path => path.id === mysticismPathId));
+  const mysticismOrganisation = $derived(mysticismPath?.organisationId ? mysticismData.organisations.find(item => item.id === mysticismPath.organisationId) : undefined);
+  const mysticismEntitlement = $derived(calculateMysticismStartingEntitlement(mysticismSkill?.value, mysticismPathId));
+  const mysticismAvailableIds = $derived(mysticismPath ? availableMysticismTalentIds(mysticismState, [mysticismPath.id]) : []);
+  const mysticismAvailable = $derived(mysticismAvailableIds.map(id => mysticismData.talents.find(talent => talent.id === id)).filter((talent): talent is MysticismTalent => !!talent));
+  const mysticismSelected = $derived(mysticismState.startingTalentIds);
+  const mysticismInvalidSelected = $derived(mysticismSelected.filter(id => !mysticismAvailableIds.includes(id)));
+  const mysticismComplete = $derived(!!mysticismPath && mysticismSelected.length === mysticismEntitlement.count && mysticismInvalidSelected.length === 0);
+  const mysticismPickerTalents = $derived(mysticismAvailable.filter(talent => talent.name.toLowerCase().includes(mysticismPathQuery.trim().toLowerCase())));
   const folkState = $derived(char.magic.folkMagic);
   const specialist = $derived(capability?.configuration?.entitlementRuleId === FOLK_MAGIC_SPECIALIST_ENTITLEMENT.id);
   const entitlementRule = $derived(specialist ? FOLK_MAGIC_SPECIALIST_ENTITLEMENT : FOLK_MAGIC_STANDARD_ENTITLEMENT);
@@ -55,13 +84,66 @@
     return spell.name.toLowerCase().includes(query.trim().toLowerCase());
   }));
 
-  onMount(() => { reconcileMagic(); updateStatus(); });
+  onMount(() => { reconcileMagic(); inferStartingMysticismPath(); updateStatus(); });
 
   function updateStatus() {
-    if (!capability) return;
-    capability.status = complete ? "complete" : "action-required";
+    if (capability) capability.status = complete ? "complete" : "action-required";
+    if (mysticismCapability) mysticismCapability.status = mysticismComplete ? "complete" : "action-required";
     persist();
   }
+  function inferStartingMysticismPath() {
+    if (!mysticismCapability || mysticismState.startingPathId) return;
+    const specialisedName = mysticismCapability.skills.find(item => item.name.startsWith("Mysticism ("))?.name;
+    const specialisation = specialisedName?.slice("Mysticism (".length, -1).trim().toLocaleLowerCase();
+    const match = mysticismData.paths.find(path => path.name.toLocaleLowerCase() === specialisation);
+    if (match) mysticismState.startingPathId = match.id;
+  }
+  function selectMysticismPath(id: string) {
+    const previousId = mysticismState.startingPathId;
+    mysticismState.startingPathId = id || undefined;
+    mysticismState.pathIds = [...new Set([...mysticismState.pathIds.filter(pathId => pathId !== previousId), ...(id ? [id] : [])])];
+    updateStatus();
+  }
+  function toggleMysticismTalent(id: string) {
+    const index = mysticismState.startingTalentIds.indexOf(id);
+    if (index >= 0) mysticismState.startingTalentIds.splice(index, 1);
+    else if (mysticismState.startingTalentIds.length < mysticismEntitlement.count && mysticismAvailableIds.includes(id)) mysticismState.startingTalentIds.push(id);
+    updateStatus();
+  }
+  function createCustomPath() {
+    const name = customPathName.trim();
+    if (!name) return;
+    const id = `custom:mysticism-path:${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`}`;
+    const organisationName = customPathOrganisation.trim();
+    const organisationId = organisationName ? `${id}:organisation` : undefined;
+    const customTalent = customTalentName.trim() ? {
+      id: `custom:mysticism-talent:${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`}`,
+      name: customTalentName.trim(), source: "custom" as const, family: "custom" as const, description: customTalentDescription.trim(),
+    } : undefined;
+    const talentIds = [...customPathTalentIds, ...(customTalent ? [customTalent.id] : [])];
+    const path: MysticismPath = { id, name, source: "custom", talentIds,
+      ...(organisationId ? { organisationId } : {}), ...(customPathTeacher.trim() ? { teacher: customPathTeacher.trim() } : {}),
+      ...(customPathNotes.trim() ? { notes: customPathNotes.trim() } : {}) };
+    mysticismState.customPaths.push(path);
+    if (customTalent) mysticismState.customTalents.push(customTalent);
+    if (organisationId) mysticismState.organisations.push({ id: organisationId, name: organisationName, source: "custom" });
+    mysticismState.startingPathId = id;
+    mysticismState.pathIds = [...new Set([...mysticismState.pathIds, id])];
+    customPathName = ""; customPathOrganisation = ""; customPathTeacher = ""; customPathNotes = ""; customPathTalentIds = []; customPathEditor = false;
+    updateStatus();
+  }
+  function createCustomMysticismTalent() {
+    const name = customTalentName.trim();
+    if (!name || !mysticismPath || mysticismPath.source !== "custom") return;
+    const id = `custom:mysticism-talent:${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`}`;
+    const talent: MysticismTalent = { id, name, source: "custom", family: "custom", description: customTalentDescription.trim() };
+    mysticismState.customTalents.push(talent);
+    mysticismPath.talentIds.push(id);
+    customTalentName = ""; customTalentDescription = "";
+    updateStatus();
+  }
+  function talentFor(id: string) { return mysticismData.talents.find(talent => talent.id === id); }
+  function talentName(id: string) { return talentFor(id)?.name ?? id; }
   function setSpecialist(enabled: boolean) {
     if (!capability) return;
     capability.configuration = { ...capability.configuration, entitlementRuleId: enabled
@@ -140,7 +222,7 @@
     <h3>Magical Capabilities</h3>
     <div class="magic-capabilities">
       {#each char.magic.disciplines as item (item.discipline)}
-        {#if item.discipline !== "Folk Magic"}
+        {#if item.discipline !== "Folk Magic" && item.discipline !== "Mysticism"}
           <article class="magic-capability">
             <div class="magic-capability-heading">
               <h4>{item.discipline}</h4>
@@ -157,6 +239,64 @@
         {/if}
       {/each}
     </div>
+    {#if mysticismCapability}
+      <article class="folk-magic-discipline mysticism-discipline">
+        <div class="folk-magic-heading">
+          <div><h4>Mysticism</h4>
+            <p class="folk-magic-skill">Mysticism {mysticismSkill?.value ?? 0}%{#if mysticismCapability.skills.some(item => item.name === "Meditation")} · Meditation {mysticismCapability.skills.find(item => item.name === "Meditation")?.value ?? 0}%{/if}</p>
+            {#if mysticismSkill?.origins.length}<p class="mute folk-magic-provenance">Acquired through {mysticismSkill.origins.map(origin => originName[origin]).join(", ")}</p>{/if}
+          </div>
+          <span class:complete={mysticismComplete} class="magic-status">{mysticismComplete ? "Complete" : "Action required"}</span>
+        </div>
+        <div class="folk-magic-entitlement"><div><b>Starting Talents — {mysticismEntitlement.count}</b><small>Mysticism {mysticismSkill?.value ?? 0}% gives you {mysticismEntitlement.count} starting {mysticismEntitlement.count === 1 ? "Talent" : "Talents"}.</small></div></div>
+        <label class="mysticism-path">Path
+          <select value={mysticismPathId} onchange={event => selectMysticismPath(event.currentTarget.value)}>
+            <option value="">Choose your Path</option>
+            {#each mysticismData.paths as path (path.id)}<option value={path.id}>{path.name}{path.source === "custom" ? " · Custom" : ""}</option>{/each}
+          </select>
+        </label>
+        {#if mysticismPath}
+          <p class="mysticism-path-info"><b>{mysticismPath.name}</b>{#if mysticismOrganisation} — {mysticismOrganisation.name}{:else if mysticismPath.teacher} — {mysticismPath.teacher}{/if}</p>
+          <div class="folk-magic-count" aria-live="polite">{mysticismSelected.length} / {mysticismEntitlement.count} selected</div>
+          {#if mysticismInvalidSelected.length}<p class="folk-magic-error">Some selected Talents are no longer available on this Path. Deselect or resolve: {mysticismInvalidSelected.map(talentName).join(", ")}.</p>{/if}
+          {#if mysticismSelected.length < mysticismEntitlement.count}<p class="folk-magic-error">Choose {mysticismEntitlement.count - mysticismSelected.length} more starting {mysticismEntitlement.count - mysticismSelected.length === 1 ? "Talent" : "Talents"}.</p>{/if}
+          {#if mysticismSelected.length > mysticismEntitlement.count}<p class="folk-magic-error">You have more starting Talents than your current entitlement. Deselect {mysticismSelected.length - mysticismEntitlement.count} to continue.</p>{/if}
+          <div class="folk-magic-known">
+            {#each mysticismSelected as id (id)}<div class="folk-magic-known-row"><div><b>{talentName(id)}</b><small>{talentFor(id)?.source === "custom" ? "Custom Talent" : "Core Talent"}</small></div><button type="button" class="ghost" aria-label="Deselect {talentName(id)}" onclick={() => toggleMysticismTalent(id)}>Deselect</button></div>{/each}
+            {#if mysticismSelected.length === 0}<p class="mute">No starting Talents selected yet.</p>{/if}
+          </div>
+          <button type="button" class="primary" disabled={mysticismSelected.length >= mysticismEntitlement.count && mysticismInvalidSelected.length === 0} onclick={() => { mysticismPathQuery = ""; mysticismPicker.showModal(); }}>Choose starting Talents</button>
+          {#if mysticismPath.description || mysticismPath.notes}<details class="mysticism-details"><summary>Path details</summary><p>{mysticismPath.description || mysticismPath.notes}</p></details>{/if}
+          {#if mysticismPath.source === "custom"}
+            <details class="mysticism-details"><summary>Add a custom Talent</summary>
+              <form class="folk-magic-custom-form" onsubmit={event => { event.preventDefault(); createCustomMysticismTalent(); }}>
+                <label>Name<input bind:value={customTalentName} required maxlength="100" /></label>
+                <label>Description<textarea bind:value={customTalentDescription} rows="3"></textarea></label>
+                <button type="submit" class="primary" disabled={!customTalentName.trim()}>Save custom Talent</button>
+              </form>
+            </details>
+          {/if}
+        {:else}<p class="mute">Choose a Path to see its available starting Talents.</p>{/if}
+        <details class="mysticism-details" open={customPathEditor} ontoggle={event => customPathEditor = event.currentTarget.open}>
+          <summary>Create custom Path</summary>
+          <form class="folk-magic-custom-form" onsubmit={event => { event.preventDefault(); createCustomPath(); }}>
+            <label>Path name<input bind:value={customPathName} required maxlength="100" /></label>
+            <label>Organisation or teacher (optional)<input bind:value={customPathOrganisation} maxlength="100" /></label>
+            <label>Teacher / source (optional)<input bind:value={customPathTeacher} maxlength="100" /></label>
+            <label>Notes (optional)<textarea bind:value={customPathNotes} rows="2"></textarea></label>
+            <fieldset class="mysticism-core-talents"><legend>Add existing Core Talents</legend>
+              {#each mysticismData.talents.filter(talent => talent.source === "core") as talent (talent.id)}
+                <label><input type="checkbox" checked={customPathTalentIds.includes(talent.id)} onchange={event => customPathTalentIds = event.currentTarget.checked ? [...customPathTalentIds, talent.id] : customPathTalentIds.filter(id => id !== talent.id)} />{talent.name}</label>
+              {/each}
+            </fieldset>
+            <label>Custom Talent name (optional)<input bind:value={customTalentName} maxlength="100" /></label>
+            <label>Custom Talent description<textarea bind:value={customTalentDescription} rows="2"></textarea></label>
+            <p class="mute">A custom Talent can be added to this Path when you save it.</p>
+            <button type="submit" class="primary" disabled={!customPathName.trim()}>Create Path</button>
+          </form>
+        </details>
+      </article>
+    {/if}
     {#if capability}
       <article class="folk-magic-discipline">
         <div class="folk-magic-heading">
@@ -215,6 +355,24 @@
     {/if}
   {/if}
 </section>
+
+<dialog class="folk-magic-picker" bind:this={mysticismPicker} aria-labelledby="mysticism-picker-title">
+  <div class="folk-magic-picker-content">
+    <header><div><h2 id="mysticism-picker-title">Choose starting Talents</h2><p>{mysticismSelected.length} / {mysticismEntitlement.count} selected · {mysticismPath?.name}</p></div><button type="button" class="ghost" onclick={() => mysticismPicker.close()}>Close ✕</button></header>
+    <input class="folk-magic-search" bind:value={mysticismPathQuery} placeholder="Search this Path’s Talents…" aria-label="Search available Mysticism Talents" />
+    <ul class="folk-magic-picker-list">
+      {#each mysticismPickerTalents as talent (talent.id)}
+        <li class:selected={mysticismSelected.includes(talent.id)}>
+          <button type="button" class="folk-magic-spell-choice" disabled={!mysticismSelected.includes(talent.id) && mysticismSelected.length >= mysticismEntitlement.count} onclick={() => toggleMysticismTalent(talent.id)}>
+            <span class="folk-magic-check">{mysticismSelected.includes(talent.id) ? "✓" : "+"}</span><span><b>{talent.name}</b><small>{talent.source === "custom" ? "Custom Talent" : talent.family === "augment-skill" ? `Augments ${talent.target}` : talent.family === "invoke-trait" ? `Invokes ${talent.target}` : talent.family === "enhance-attribute" ? `Enhances ${talent.target}` : "Core Talent"}</small></span>
+          </button>
+          <button type="button" class="ghost folk-magic-details-button" onclick={() => mysticismTalentDetails = mysticismTalentDetails === talent.id ? null : talent.id}>{mysticismTalentDetails === talent.id ? "Hide details" : "Details"}</button>
+          {#if mysticismTalentDetails === talent.id}<p class="folk-magic-spell-details">{talent.description || talent.notes || (talent.family === "augment-skill" ? `Use this Talent to augment ${talent.target}.` : talent.family === "invoke-trait" ? `Invoke the ${talent.target} trait.` : talent.family === "enhance-attribute" ? `Enhance ${talent.target}.` : "Campaign-defined Mysticism Talent.")}</p>{/if}
+        </li>
+      {:else}<li class="mute folk-magic-no-results">No available Talents match this Path or search.</li>{/each}
+    </ul>
+  </div>
+</dialog>
 
 <dialog class="folk-magic-picker" bind:this={picker} aria-labelledby="folk-magic-picker-title">
   <div class="folk-magic-picker-content">
@@ -289,6 +447,11 @@
   .folk-magic-known-row>div{min-width:0}.folk-magic-find{display:flex;align-items:center;gap:8px;margin-top:5px;font-size:.8rem}.folk-magic-find input{padding:5px 8px;font-size:.9rem}
   .folk-magic-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
   .folk-magic-suggestion-note{margin:7px 0 0;color:var(--mute);font-size:.8rem;font-style:italic}
+  .mysticism-path{display:grid;gap:5px;margin:12px 0 5px;font-size:.85rem}.mysticism-path select{width:100%}
+  .mysticism-path-info{margin:5px 0 10px;color:var(--mute);font-size:.88rem}.mysticism-path-info b{color:var(--fg)}
+  .mysticism-details{margin-top:10px;border-top:1px solid var(--line);padding-top:8px}.mysticism-details summary{cursor:pointer;color:var(--bronze);font-size:.82rem}
+  .mysticism-details>p{color:var(--mute);font-size:.84rem}.mysticism-core-talents{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:4px;border:1px solid var(--line);padding:8px}
+  .mysticism-core-talents legend{color:var(--bronze);font-size:.8rem}.mysticism-core-talents label{display:flex;align-items:center;gap:6px}.mysticism-core-talents input{width:auto}
   .folk-magic-custom-form{display:grid;gap:8px;margin-top:12px;padding:12px;background:var(--card);border:1px solid var(--line)}
   .folk-magic-custom-form h5{margin:0;color:var(--bronze);font:700 .72rem var(--display);letter-spacing:.1em;text-transform:uppercase}
   .folk-magic-custom-form label{display:grid;gap:3px;font-size:.85rem}.folk-magic-custom-form input{width:100%}
