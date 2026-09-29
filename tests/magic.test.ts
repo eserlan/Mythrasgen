@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { detectMagicDisciplines, emptyMagicState, normalizeMagicState, reconcileMagicState } from "../src/lib/magic";
+import { availableMysticismTalentIds, calculateMysticismStartingEntitlement, CORE_MYSTICISM_ORGANISATIONS, CORE_MYSTICISM_PATHS, CORE_MYSTICISM_TALENTS, mysticismCatalogue, reconcileMysticismTalents } from "../src/lib/mysticism";
 import { careers } from "../src/lib/content";
 import {
   calculateFolkMagicStartingEntitlement, CORE_FOLK_MAGIC_CAREER_SUGGESTIONS, CORE_FOLK_MAGIC_SPELLS,
@@ -15,7 +16,7 @@ describe("magical discipline detection", () => {
       { name: "Trance", value: 51, origins: ["career"] },
       { name: "Binding (Wolf Totem)", value: 58, origins: ["career", "bonus"] },
       { name: "Meditation", value: 49, origins: ["bonus"] },
-      { name: "Mysticism (Path of the Wind)", value: 62, origins: ["career"] },
+      { name: "Mysticism", value: 62, origins: ["career"] },
       { name: "Invocation (Ash School)", value: 54, origins: ["career"] },
       { name: "Shaping", value: 47, origins: ["career"] },
       { name: "Devotion (Orlanth)", value: 60, origins: ["career"] },
@@ -25,16 +26,60 @@ describe("magical discipline detection", () => {
     expect(found.map(item => item.discipline)).toEqual(["Folk Magic", "Animism", "Mysticism", "Sorcery", "Theism"]);
     expect(found.find(item => item.discipline === "Animism")?.skills.map(skill => skill.name))
       .toEqual(["Trance", "Binding (Wolf Totem)"]);
-    expect(found.find(item => item.discipline === "Mysticism")?.skills[1].name).toBe("Mysticism (Path of the Wind)");
+    expect(found.find(item => item.discipline === "Mysticism")?.skills[0].name).toBe("Mysticism");
   });
 
-  test("does not detect a discipline from unrelated or generic specialised skills", () => {
+  test("Meditation alone and unrelated generic skills do not activate Mysticism", () => {
     expect(detectMagicDisciplines([
       { name: "Meditation", value: 45, origins: ["career"] },
       { name: "Binding", value: 45, origins: ["career"] },
       { name: "Invocation", value: 45, origins: ["career"] },
       { name: "Devotion", value: 45, origins: ["career"] },
-    ]).map(item => item.discipline)).toEqual(["Mysticism"]);
+      { name: "Mysticism (Path of the Wind)", value: 45, origins: ["career"] },
+    ])).toEqual([]);
+  });
+});
+
+describe("Mysticism rules and structured Core data", () => {
+  test.each([[0, 0], [1, 1], [20, 1], [21, 2], [40, 2], [41, 3], [57, 3], [60, 3], [61, 4], [80, 4], [81, 5], [100, 5]])
+  ("starting entitlement at Mysticism %i%% is %i", (skill, count) => {
+    expect(calculateMysticismStartingEntitlement(skill).count).toBe(count);
+    expect(calculateMysticismStartingEntitlement(skill).rule).toBe("1 Talent per 20% or part thereof");
+  });
+
+  test("no Mysticism is inactive, and detected Mysticism awaits Path configuration", () => {
+    expect(calculateMysticismStartingEntitlement(undefined)).toMatchObject({ active: false, skillValue: 0, count: 0, pathConfigured: false });
+    expect(calculateMysticismStartingEntitlement(57)).toMatchObject({ active: true, skillValue: 57, count: 3, pathConfigured: false });
+    expect(calculateMysticismStartingEntitlement(57, "core:path-of-shadows").pathConfigured).toBe(true);
+  });
+
+  test("seven Core Paths have valid Talent and separate organisation references", () => {
+    const talents = new Set(CORE_MYSTICISM_TALENTS.map(talent => talent.id));
+    const organisations = new Set(CORE_MYSTICISM_ORGANISATIONS.map(organisation => organisation.id));
+    expect(CORE_MYSTICISM_PATHS).toHaveLength(7);
+    for (const path of CORE_MYSTICISM_PATHS) {
+      expect(path.talentIds).toHaveLength(7);
+      expect(path.talentIds.every(id => talents.has(id))).toBe(true);
+      expect(organisations.has(path.organisationId!)).toBe(true);
+      expect(path.id).not.toBe(path.organisationId);
+    }
+    expect(CORE_MYSTICISM_PATHS.find(path => path.name === "Path of Shadows")?.organisationId).toBe("core:school-of-impenetrable-silence");
+    expect(CORE_MYSTICISM_TALENTS.find(talent => talent.name === "Augment Perception")).toMatchObject({ family: "augment-skill", target: "Perception", source: "core" });
+    expect(CORE_MYSTICISM_TALENTS.find(talent => talent.name === "Enhance Action Points")).toMatchObject({ family: "enhance-attribute", target: "Action Points" });
+    expect(CORE_MYSTICISM_TALENTS.find(talent => talent.name === "Invoke Dark Sight")).toMatchObject({ family: "invoke-trait", target: "Dark Sight" });
+  });
+
+  test("custom Paths and Talents coexist with Core records and can mix their references", () => {
+    const coreTalent = CORE_MYSTICISM_TALENTS.find(talent => talent.name === "Augment Insight")!;
+    const customTalent = { id: "custom:insight", name: coreTalent.name, source: "custom" as const, family: "custom" as const, description: "Campaign interpretation." };
+    const customPath = { id: "custom:scholar", name: "Scholar's Path", source: "custom" as const, talentIds: [coreTalent.id, customTalent.id] };
+    const state = normalizeMagicState({ mysticism: { customTalents: [customTalent], customPaths: [customPath], pathIds: [customPath.id], knownTalents: [{ talentId: coreTalent.id }] } }).mysticism;
+    expect(mysticismCatalogue(state).talents.filter(talent => talent.name === coreTalent.name).map(talent => talent.id)).toEqual([coreTalent.id, customTalent.id]);
+    expect(availableMysticismTalentIds(state)).toEqual([coreTalent.id, customTalent.id]);
+    const restricted = normalizeMagicState({ mysticism: { ...state, availableTalentIds: [customTalent.id] } }).mysticism;
+    expect(availableMysticismTalentIds(restricted)).toEqual([customTalent.id]);
+    expect(reconcileMysticismTalents(restricted)).toMatchObject({ knownTalents: state.knownTalents, unavailableTalentIds: [coreTalent.id] });
+    expect(CORE_MYSTICISM_PATHS.map(path => path.name)).toContain("Way of All Knowledge");
   });
 });
 
@@ -128,6 +173,22 @@ describe("magic state reconciliation and migration", () => {
     expect(state.disciplines).toHaveLength(1);
     expect(state.traditions[0].disciplines).toEqual(["Animism", "Folk Magic"]);
     expect(state.startingAbilityEntitlements[0]).toMatchObject({ sourceSkill: "Binding (Wolf Totem)", sourceSkillValue: 58, ruleId: "binding-rate" });
+    expect(state.mysticism).toEqual(emptyMagicState().mysticism);
+  });
+
+  test("round trips Mysticism while preserving Folk Magic and other disciplines", () => {
+    const state = normalizeMagicState({
+      disciplines: [{ discipline: "Mysticism", skills: [{ name: "Mysticism", value: 57, origins: ["career"] }], status: "needs-configuration" },
+        { discipline: "Folk Magic", skills: [{ name: "Folk Magic", value: 46, origins: ["culture"] }], status: "complete" }],
+      folkMagic: { knownSpells: [{ spell: { spellId: "folk-magic:heal" } }] },
+      mysticism: { pathIds: ["core:path-of-shadows"], startingPathId: "core:path-of-shadows",
+        startingTalentIds: [CORE_MYSTICISM_TALENTS[0].id], knownTalents: [{ talentId: CORE_MYSTICISM_TALENTS[0].id }],
+        availableTalentIds: [CORE_MYSTICISM_TALENTS[0].id] },
+    });
+    const restored = normalizeMagicState(JSON.parse(JSON.stringify(state)));
+    expect(restored.mysticism).toMatchObject({ pathIds: ["core:path-of-shadows"], startingPathId: "core:path-of-shadows", startingTalentIds: [CORE_MYSTICISM_TALENTS[0].id] });
+    expect(restored.folkMagic.knownSpells).toHaveLength(1);
+    expect(restored.disciplines.map(item => item.discipline)).toEqual(["Mysticism", "Folk Magic"]);
   });
 });
 
