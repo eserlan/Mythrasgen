@@ -262,7 +262,7 @@
         <div class="folk-magic-entitlement"><div><b>Starting Talents — {mysticismEntitlement.count}</b><small>Mysticism {mysticismSkill?.value ?? 0}% gives you {mysticismEntitlement.count} starting {mysticismEntitlement.count === 1 ? "Talent" : "Talents"}.</small></div></div>
         <details class="mysticism-details"><summary>How Mysticism Talents work</summary>
           <p>The mystic must know a Talent and succeed at the relevant Mysticism check to use it. Preparation normally takes one turn per point of Intensity. Invoke Traits have default Intensity 1 and grant their Trait ability for the Talent's duration. Unless a Talent says otherwise, it lasts for its task and lapses when the mystic turns attention elsewhere.</p>
-          <p>Mysticism limits the maximum Intensity of an individual Talent; Meditation limits total simultaneous active Intensity.</p>
+          <p>Mysticism limits the maximum Intensity of an individual Talent; Meditation limits total simultaneous active Intensity; POW limits how many Talents the mystic can keep practiced.</p>
         </details>
         <label class="mysticism-path">Path
           <select value={mysticismPathId} onchange={event => selectMysticismPath(event.currentTarget.value)}>

@@ -23,7 +23,7 @@ describe("Core Mysticism Talent details", () => {
   test("derives Augment rules and costs from the canonical target", () => {
     expect(detailFor("Augment Influence")).toEqual({
       family: "Augment Skill", cost: "1 MP per Intensity",
-      effect: "Each level of Intensity improves Influence by one difficulty grade, to a maximum of Very Easy.",
+      effect: "Each level of Intensity improves Influence by one difficulty grade, to a maximum of Very Easy. Further Intensity can offset later penalties.",
     });
     expect(detailFor("Augment Ranged Combat Style").effect).toContain("applicable ranged Combat Style");
   });
@@ -32,7 +32,8 @@ describe("Core Mysticism Talent details", () => {
     expect(detailFor("Invoke Adhesion").cost).toBe("2 MP · Intensity 1");
     expect(detailFor("Invoke Aura (Wisdom)").effect).toContain("POW in metres");
     expect(detailFor("Invoke Denial (Ignorance)").effect).toContain("specifically defined condition, Ignorance");
-    expect(detailFor("Invoke Disease Immunity").effect).toContain("immunity to Disease");
+    expect(detailFor("Invoke Disease Immunity").effect).toContain("immunity to one narrowly defined source of disease");
+    expect(detailFor("Invoke Poison Immunity").effect).toContain("one narrowly defined source of poison");
     expect(CORE_MYSTICISM_TALENTS.find(talent => talent.name === "Invoke Disease Immunity")).toMatchObject({ trait: "Immunity", specialisation: "Disease" });
     expect(detailFor("Invoke Dark Sight").effect).toContain("complete darkness");
     expect(detailFor("Invoke Night Sight").effect).toContain("darkness as partial darkness");

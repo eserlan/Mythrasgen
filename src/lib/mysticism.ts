@@ -131,7 +131,7 @@ function invokeEffect(target: string, traitName?: string, traitSpecialisation?: 
     case "Magic Sense":
       return "Detect magical emanations. By touching another, learn their current Magic Points, carried enchantments, and active spells.";
     case "Immunity":
-      return `Gain immunity to ${specialisation ?? "the specified condition"} while the Talent is active.`;
+      return `Gain immunity to one narrowly defined source of ${specialisation?.toLowerCase() ?? "the specified condition"} while the Talent is active.`;
     case "Dark Sight":
       return "See normally at any level of limited light, including complete darkness.";
     case "Night Sight":
@@ -150,7 +150,7 @@ export function mysticismTalentDetails(talent: MysticismTalent): MysticismTalent
   if (talent.source === "core") {
     if (talent.family === "augment-skill" && talent.target) {
       const target = talent.target === "Ranged Combat Style" ? "the applicable ranged Combat Style" : talent.target;
-      return { family: "Augment Skill", cost: "1 MP per Intensity", effect: `Each level of Intensity improves ${target} by one difficulty grade, to a maximum of Very Easy.` };
+      return { family: "Augment Skill", cost: "1 MP per Intensity", effect: `Each level of Intensity improves ${target} by one difficulty grade, to a maximum of Very Easy. Further Intensity can offset later penalties.` };
     }
     if (talent.family === "invoke-trait" && talent.target) {
       return { family: "Invoke Trait", cost: "2 MP · Intensity 1", effect: invokeEffect(talent.target, talent.trait, talent.specialisation) };
@@ -167,7 +167,7 @@ export function mysticismTalentDetails(talent: MysticismTalent): MysticismTalent
     return { family, cost, effect: talent.description };
   }
   if (talent.notes?.trim()) return { family: "Custom Talent", cost: "", effect: talent.notes };
-  if (talent.family === "augment-skill" && talent.target) return { family: "Augment Skill", cost: "1 MP per Intensity", effect: `Each level of Intensity improves ${talent.target} by one difficulty grade, to a maximum of Very Easy.` };
+  if (talent.family === "augment-skill" && talent.target) return { family: "Augment Skill", cost: "1 MP per Intensity", effect: `Each level of Intensity improves ${talent.target} by one difficulty grade, to a maximum of Very Easy. Further Intensity can offset later penalties.` };
   if (talent.family === "invoke-trait" && talent.target) return { family: "Invoke Trait", cost: "2 MP · Intensity 1", effect: invokeEffect(talent.target, talent.trait, talent.specialisation) };
   if (talent.family === "enhance-attribute" && talent.target) return { family: "Enhance Attribute", cost: "3 MP per Intensity", effect: `Each level of Intensity enhances ${talent.target} according to its Core rule.` };
   return { family: "Custom Talent", cost: "", effect: "Campaign-defined Mysticism Talent." };
