@@ -7,9 +7,9 @@ import {
   FOLK_MAGIC_SPECIALIST_ENTITLEMENT, folkMagicConfigurationStatus, resolveFolkMagicCareerSuggestion,
 } from "../src/lib/folk-magic";
 import {
-  availableSorcerySpellIds, calculateShapingPoints, calculateSorceryDerivedStatistics, calculateSorceryIntensity,
+  availableSorcerySpellIds, calculateShapingPoints, calculateSorceryDerivedStatistics, calculateSorceryIntensity, configureCoreSorcerySpell,
   calculateSorceryStartingEntitlement, CORE_SHAPING_COMPONENTS, CORE_SORCERY_ORDERS, CORE_SORCERY_SCHOOLS,
-  CORE_SORCERY_SPELLS, effectiveShapingComponents, emptySorceryState, normalizeSorceryState, sorceryCatalogue,
+  CORE_SORCERY_BASE_SPELLS, CORE_SORCERY_SPELLS, effectiveShapingComponents, emptySorceryState, normalizeSorceryState, sorceryCatalogue,
   sorcerySpellDetails, withStartingSorcerySchool,
 } from "../src/lib/sorcery";
 
@@ -74,6 +74,46 @@ describe("Sorcery rules and structured Core data", () => {
     expect(CORE_SORCERY_ORDERS).toHaveLength(9);
     expect(CORE_SORCERY_ORDERS.every(item => item.spellIds.length === 7 && item.spellIds.every(id => ids.has(id)))).toBe(true);
     expect(CORE_SORCERY_SCHOOLS.every(item => item.organisationId === undefined)).toBe(true);
+  });
+
+  test("the canonical catalogue has all 52 audited base spells with stable unique records", () => {
+    const expected = [
+      "Abjure", "Animate", "Attract", "Banish", "Bypass Armour", "Castback", "Damage Enhancement", "Damage Resistance",
+      "Diminish", "Dominate", "Draw", "Enchant", "Enhance", "Enlarge", "Enslave", "Evoke", "Fly", "Hide Life", "Hinder",
+      "Holdfast", "Imprison", "Intuition", "Mark", "Mystic", "Neutralise Magic", "Palsy", "Perceive", "Phantom", "Portal",
+      "Project", "Protective Ward", "Regenerate", "Repulse", "Revivify", "Sculpt", "Sense", "Shapechange", "Shrink", "Smother",
+      "Spell Resistance", "Spirit Resistance", "Store Manna", "Summon", "Switch Body", "Tap", "Telepathy", "Teleport",
+      "Transfer Wound", "Transmogrify", "Trap Soul", "Undeath", "Wrack",
+    ];
+    expect(CORE_SORCERY_BASE_SPELLS).toHaveLength(52);
+    expect(CORE_SORCERY_BASE_SPELLS.map(item => item.baseFamily)).toEqual(expected);
+    expect(new Set(CORE_SORCERY_SPELLS.map(item => item.id)).size).toBe(CORE_SORCERY_SPELLS.length);
+    for (const name of ["Enchant", "Hide Life", "Hinder", "Mark", "Portal", "Store Manna", "Summon"]) {
+      expect(CORE_SORCERY_SPELLS.some(item => item.name === name)).toBe(true);
+    }
+    expect(CORE_SORCERY_BASE_SPELLS.every(item => !!item.id && !!item.baseFamily && sorcerySpellDetails(item)?.effect)).toBe(true);
+  });
+
+  test("configured Core subjects persist separately and do not grant starting knowledge", () => {
+    const diminish = CORE_SORCERY_BASE_SPELLS.find(item => item.name === "Diminish")!;
+    const instance = configureCoreSorcerySpell(diminish, "Charisma");
+    const customSchool = { id: "custom:school:arcane", name: "Arcane School", source: "custom" as const, spellIds: [instance.id] };
+    const state = normalizeSorceryState({ customSchools: [customSchool], configuredSpells: [instance], schoolIds: [customSchool.id], knownSpells: [] });
+    expect(state.configuredSpells[0]).toMatchObject({ id: instance.id, baseFamily: "Diminish", specialisation: { kind: "subject", value: "Charisma" } });
+    expect(availableSorcerySpellIds(state)).toEqual([instance.id]);
+    expect(state.knownSpells).toEqual([]);
+    expect(sorcerySpellDetails(state.configuredSpells[0])?.effect).toContain("Charisma");
+    expect(configureCoreSorcerySpell(diminish, "Charisma").id).toBe(instance.id);
+  });
+
+  test("example Schools expose only their configured seven spell IDs", () => {
+    expect(CORE_SORCERY_SCHOOLS.map(item => item.spellIds)).toEqual([
+      ["core:sorcery:animate:darkness", "core:sorcery:dominate:reptiles", "core:sorcery:palsy", "core:sorcery:sculpt:darkness", "core:sorcery:smother", "core:sorcery:teleport:via-shadows", "core:sorcery:wrack:darkness"],
+      ["core:sorcery:abjure", "core:sorcery:diminish", "core:sorcery:enhance", "core:sorcery:haste", "core:sorcery:regenerate", "core:sorcery:shapechange", "core:sorcery:transmogrify"],
+    ]);
+    for (const school of CORE_SORCERY_SCHOOLS) {
+      expect(availableSorcerySpellIds({ ...emptySorceryState(), startingSchoolId: school.id })).toEqual(school.spellIds);
+    }
   });
 
   test("every Core School and Order Sorcery spell has concise details with specialisations preserved", () => {
