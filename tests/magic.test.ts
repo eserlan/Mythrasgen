@@ -10,6 +10,7 @@ import {
   availableSorcerySpellIds, calculateShapingPoints, calculateSorceryDerivedStatistics, calculateSorceryIntensity,
   calculateSorceryStartingEntitlement, CORE_SHAPING_COMPONENTS, CORE_SORCERY_ORDERS, CORE_SORCERY_SCHOOLS,
   CORE_SORCERY_SPELLS, effectiveShapingComponents, emptySorceryState, normalizeSorceryState, sorceryCatalogue,
+  withStartingSorcerySchool,
 } from "../src/lib/sorcery";
 
 (globalThis as typeof globalThis & { $state: <T>(value: T) => T }).$state = value => value;
@@ -83,6 +84,19 @@ describe("Sorcery rules and structured Core data", () => {
     expect(state.knownSpells).toEqual([{ spellId: dominate.id }]);
     expect(CORE_SORCERY_SPELLS.find(spell => spell.id === state.knownSpells[0].spellId)?.specialisation).toEqual({ kind: "subject", value: "Reptiles" });
     expect(availableSorcerySpellIds({ ...state, organisationAvailability: { order: ["core:sorcery:palsy"] } })).not.toContain(dominate.id);
+  });
+
+  test("changing the starting School does not retain the previous selection as acquired", () => {
+    const first = CORE_SORCERY_SCHOOLS[0];
+    const second = CORE_SORCERY_SCHOOLS[1];
+    const acquired = { id: "custom:acquired-school", name: "Acquired School", source: "custom" as const, spellIds: [first.spellIds[0]] };
+    const state = { ...emptySorceryState(), customSchools: [acquired], schoolIds: [first.id, acquired.id], startingSchoolId: first.id };
+
+    const changed = withStartingSorcerySchool(state, second.id);
+    expect(changed.startingSchoolId).toBe(second.id);
+    expect(changed.schoolIds).toEqual([acquired.id, second.id]);
+    expect(availableSorcerySpellIds(changed)).toEqual([...acquired.spellIds, ...second.spellIds]);
+    expect(state.schoolIds).toEqual([first.id, acquired.id]);
   });
 
   test("custom Schools may mix Core and custom spells without changing Core records", () => {

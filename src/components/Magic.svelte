@@ -16,7 +16,7 @@
   } from "../lib/mysticism";
   import {
     availableSorcerySpellIds, calculateSorceryDerivedStatistics, calculateSorceryStartingEntitlement, sorceryCatalogue, sorcerySchoolCatalogue,
-    type SorcerySchool, type SorcerySpell,
+    withStartingSorcerySchool, type SorcerySchool, type SorcerySpell,
   } from "../lib/sorcery";
 
   const originName: Record<MagicSkillOrigin, string> = { culture: "Culture", career: "Career", bonus: "Bonus / Hobby Skill" };
@@ -144,8 +144,9 @@
     }
   }
   function selectSorcerySchool(id: string) {
-    sorceryState.startingSchoolId = id || undefined;
-    if (id) sorceryState.schoolIds = [...new Set([...sorceryState.schoolIds, id])];
+    const next = withStartingSorcerySchool(sorceryState, id);
+    sorceryState.startingSchoolId = next.startingSchoolId;
+    sorceryState.schoolIds = next.schoolIds;
     updateStatus();
   }
   function sorceryAccess() { return sorceryState.schoolAccess.find(item => item.schoolId === sorcerySchoolId); }
