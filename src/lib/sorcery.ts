@@ -225,6 +225,15 @@ export function availableSorcerySpellIds(state: SorceryState): string[] {
   const rankPools = Object.values(state.organisationAvailability ?? {});
   return rankPools.length ? explicit.filter(id => rankPools.some(pool => pool.includes(id))) : explicit;
 }
+/** Replace the character-creation School while preserving any other acquired Schools. */
+export function withStartingSorcerySchool(state: SorceryState, schoolId: string | undefined): SorceryState {
+  const previousId = state.startingSchoolId;
+  return {
+    ...state,
+    startingSchoolId: schoolId || undefined,
+    schoolIds: [...new Set([...state.schoolIds.filter(id => id !== previousId), ...(schoolId ? [schoolId] : [])])],
+  };
+}
 export function effectiveShapingComponents(rules?: SorceryShapingRules): ShapingComponent[] {
   const added = rules?.addComponents ?? [];
   const removed = new Set(rules?.removeComponents ?? []);

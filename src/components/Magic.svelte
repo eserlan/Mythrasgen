@@ -14,6 +14,10 @@
     availableMysticismTalentIds, calculateMysticismStartingEntitlement, mysticismCatalogue, mysticismTalentDetails as resolveMysticismTalentDetails,
     type MysticismPath, type MysticismTalent,
   } from "../lib/mysticism";
+  import {
+    availableSorcerySpellIds, calculateSorceryDerivedStatistics, calculateSorceryStartingEntitlement, sorceryCatalogue, sorcerySchoolCatalogue,
+    withStartingSorcerySchool, type SorcerySchool, type SorcerySpell,
+  } from "../lib/sorcery";
 
   const originName: Record<MagicSkillOrigin, string> = { culture: "Culture", career: "Career", bonus: "Bonus / Hobby Skill" };
   let picker: HTMLDialogElement;
@@ -38,9 +42,39 @@
   let customPathTalentIds = $state<string[]>([]);
   let mysticismTalentDetails = $state<string | null>(null);
   let customPathTalentDetails = $state<string | null>(null);
+  let sorceryPicker: HTMLDialogElement;
+  let sorceryPickerMode = $state<"starting" | "school">("starting");
+  let sorceryQuery = $state("");
+  let sorceryDetailsId = $state<string | null>(null);
+  let sorceryCustomSchoolEditor = $state(false);
+  let sorceryCustomSpellEditor = $state(false);
+  let sorceryCustomSchoolName = $state("");
+  let sorceryCustomSchoolSource = $state("");
+  let sorceryCustomSpellName = $state("");
+  let sorceryCustomSpellDescription = $state("");
+  let sorceryCustomSpellSpecialisation = $state("");
+  let sorcerySchoolSpellIds = $state<string[]>([]);
 
   const capability = $derived(char.magic.disciplines.find(item => item.discipline === "Folk Magic"));
   const mysticismCapability = $derived(char.magic.disciplines.find(item => item.discipline === "Mysticism"));
+  const sorceryCapability = $derived(char.magic.disciplines.find(item => item.discipline === "Sorcery"));
+  const sorceryState = $derived(char.magic.sorcery);
+  const sorcerySkills = $derived(sorceryCapability?.skills ?? []);
+  const invocationSkill = $derived(sorcerySkills.find(item => item.name === "Invocation") ?? sorcerySkills.find(item => item.name.startsWith("Invocation (")));
+  const shapingSkill = $derived(sorcerySkills.find(item => item.name === "Shaping"));
+  const sorceryEntitlement = $derived(calculateSorceryStartingEntitlement(invocationSkill?.value));
+  const sorceryDerived = $derived(calculateSorceryDerivedStatistics(invocationSkill?.value, shapingSkill?.value, char.chars.INT));
+  const sorcerySchools = $derived(sorcerySchoolCatalogue(sorceryState));
+  const sorcerySpells = $derived(sorceryCatalogue(sorceryState));
+  const sorcerySchoolId = $derived(sorceryState.startingSchoolId ?? "");
+  const sorcerySchool = $derived(sorcerySchools.find(item => item.id === sorcerySchoolId));
+  const sorceryAvailableIds = $derived(sorcerySchool ? availableSorcerySpellIds({ ...sorceryState, schoolIds: [sorcerySchool.id], startingSchoolId: sorcerySchool.id }) : []);
+  const sorcerySelected = $derived(sorceryState.knownSpells.filter(item => item.starting));
+  const sorceryInvalidSelected = $derived(sorcerySelected.filter(item => !sorceryAvailableIds.includes(item.spellId)));
+  const sorceryComplete = $derived(!!sorcerySchool && sorcerySelected.length === sorceryEntitlement.count && sorceryInvalidSelected.length === 0);
+  const sorceryPickerSpells = $derived(sorceryAvailableIds.map(id => sorcerySpells.find(spell => spell.id === id)).filter((spell): spell is SorcerySpell => !!spell)
+    .filter(spell => `${spell.name} ${spell.description ?? ""} ${spell.notes ?? ""}`.toLowerCase().includes(sorceryQuery.trim().toLowerCase())));
+  const sorcerySchoolPickerSpells = $derived(sorcerySpells.filter(spell => `${spell.name} ${spell.description ?? ""} ${spell.notes ?? ""}`.toLowerCase().includes(sorceryQuery.trim().toLowerCase())));
   const mysticismState = $derived(char.magic.mysticism);
   const mysticismData = $derived(mysticismCatalogue(mysticismState));
   const mysticismSkill = $derived(mysticismCapability?.skills.find(item => item.name === "Mysticism") ?? mysticismCapability?.skills[0]);
@@ -90,12 +124,92 @@
     return spell.name.toLowerCase().includes(query.trim().toLowerCase());
   }));
 
-  onMount(() => { reconcileMagic(); inferStartingMysticismPath(); updateStatus(); });
+  onMount(() => { reconcileMagic(); inferStartingMysticismPath(); inferStartingSorcerySchool(); updateStatus(); });
 
   function updateStatus() {
     if (capability) capability.status = complete ? "complete" : "action-required";
     if (mysticismCapability) mysticismCapability.status = mysticismComplete ? "complete" : "action-required";
+    if (sorceryCapability) sorceryCapability.status = sorceryComplete ? "complete" : "action-required";
     persist();
+  }
+  function inferStartingSorcerySchool() {
+    if (!sorceryCapability || sorceryState.startingSchoolId) return;
+    const validLearned = sorceryState.schoolIds.find(id => sorcerySchools.some(item => item.id === id));
+    const specialised = sorcerySkills.find(item => item.name.startsWith("Invocation ("))?.name.slice("Invocation (".length, -1).trim().toLocaleLowerCase();
+    const inferred = sorcerySchools.find(item => item.name.toLocaleLowerCase() === specialised);
+    const school = sorcerySchools.find(item => item.id === validLearned) ?? inferred;
+    if (school) {
+      sorceryState.startingSchoolId = school.id;
+      sorceryState.schoolIds = [...new Set([...sorceryState.schoolIds, school.id])];
+    }
+  }
+  function selectSorcerySchool(id: string) {
+    const next = withStartingSorcerySchool(sorceryState, id);
+    sorceryState.startingSchoolId = next.startingSchoolId;
+    sorceryState.schoolIds = next.schoolIds;
+    updateStatus();
+  }
+  function sorceryAccess() { return sorceryState.schoolAccess.find(item => item.schoolId === sorcerySchoolId); }
+  function updateSorceryAccess(field: "sourceType" | "sourceDescription" | "organisationId", value: string) {
+    if (!sorcerySchoolId) return;
+    const current = sorceryAccess() ?? { schoolId: sorcerySchoolId };
+    const next = { ...current, [field]: value || undefined };
+    sorceryState.schoolAccess = [...sorceryState.schoolAccess.filter(item => item.schoolId !== sorcerySchoolId), next];
+    if (sorcerySchool?.source === "custom" && field === "sourceDescription") sorcerySchool.sourceDescription = value || undefined;
+    updateStatus();
+  }
+  function sorcerySpell(id: string) { return sorcerySpells.find(item => item.id === id); }
+  function sorcerySpellName(id: string) { return sorcerySpell(id)?.name ?? id; }
+  function toggleSorcerySpell(id: string) {
+    const index = sorceryState.knownSpells.findIndex(item => item.starting && item.spellId === id);
+    if (index >= 0) sorceryState.knownSpells.splice(index, 1);
+    else if (sorceryState.knownSpells.filter(item => item.starting).length < sorceryEntitlement.count && sorceryAvailableIds.includes(id)) sorceryState.knownSpells.push({ spellId: id, starting: true });
+    updateStatus();
+  }
+  function createSorcerySchool() {
+    const name = sorceryCustomSchoolName.trim();
+    if (!name) return;
+    const id = `custom:sorcery-school:${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`}`;
+    const school: SorcerySchool = { id, name, source: "custom", spellIds: [...new Set(sorcerySchoolSpellIds)], ...(sorceryCustomSchoolSource.trim() ? { sourceDescription: sorceryCustomSchoolSource.trim() } : {}) };
+    sorceryState.customSchools.push(school);
+    const next = withStartingSorcerySchool(sorceryState, id);
+    sorceryState.startingSchoolId = next.startingSchoolId;
+    sorceryState.schoolIds = next.schoolIds;
+    sorceryState.schoolAccess = [...sorceryState.schoolAccess.filter(item => item.schoolId !== id), { schoolId: id, sourceType: "custom", ...(sorceryCustomSchoolSource.trim() ? { sourceDescription: sorceryCustomSchoolSource.trim() } : {}) }];
+    sorceryCustomSchoolName = ""; sorceryCustomSchoolSource = ""; sorcerySchoolSpellIds = []; sorceryCustomSchoolEditor = false;
+    updateStatus();
+  }
+  function toggleSorcerySchoolSpell(id: string) {
+    sorcerySchoolSpellIds = sorcerySchoolSpellIds.includes(id) ? sorcerySchoolSpellIds.filter(item => item !== id) : [...sorcerySchoolSpellIds, id];
+  }
+  function openSorcerySchoolPicker() {
+    sorcerySchoolSpellIds = [...(sorcerySchool?.source === "custom" ? sorcerySchool.spellIds : [])];
+    sorceryPickerMode = "school";
+    sorceryQuery = "";
+    sorceryPicker.showModal();
+  }
+  function saveSorcerySchoolSpells() {
+    if (sorceryCustomSchoolEditor) { sorceryPicker.close(); return; }
+    if (sorcerySchool?.source !== "custom") return;
+    sorcerySchool.spellIds = [...new Set(sorcerySchoolSpellIds)];
+    sorceryPicker.close();
+    updateStatus();
+  }
+  function removeSorcerySchoolSpell(id: string) {
+    if (sorcerySchool?.source !== "custom") return;
+    sorcerySchool.spellIds = sorcerySchool.spellIds.filter(item => item !== id);
+    updateStatus();
+  }
+  function createSorcerySpell() {
+    const name = sorceryCustomSpellName.trim();
+    if (!name) return;
+    const id = `custom:sorcery-spell:${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`}`;
+    const subject = sorceryCustomSpellSpecialisation.trim();
+    const spell: SorcerySpell = { id, name: subject ? `${name} (${subject})` : name, source: "custom", ...(subject ? { baseFamily: name, specialisation: { kind: "subject", value: subject } } : {}), ...(sorceryCustomSpellDescription.trim() ? { description: sorceryCustomSpellDescription.trim() } : {}) };
+    sorceryState.customSpells.push(spell);
+    if (sorcerySchool?.source === "custom") sorcerySchool.spellIds.push(id);
+    sorceryCustomSpellName = ""; sorceryCustomSpellDescription = ""; sorceryCustomSpellSpecialisation = ""; sorceryCustomSpellEditor = false;
+    updateStatus();
   }
   function inferStartingMysticismPath() {
     if (!mysticismCapability || mysticismState.startingPathId) return;
@@ -233,7 +347,7 @@
     <h3>Magical Capabilities</h3>
     <div class="magic-capabilities">
       {#each char.magic.disciplines as item (item.discipline)}
-        {#if item.discipline !== "Folk Magic" && item.discipline !== "Mysticism"}
+        {#if item.discipline !== "Folk Magic" && item.discipline !== "Mysticism" && item.discipline !== "Sorcery"}
           <article class="magic-capability">
             <div class="magic-capability-heading">
               <h4>{item.discipline}</h4>
@@ -321,6 +435,82 @@
         </details>
       </article>
     {/if}
+    {#if sorceryCapability}
+      <article class="folk-magic-discipline sorcery-discipline">
+        <div class="folk-magic-heading">
+          <div><h4>Sorcery</h4>
+            <p class="folk-magic-skill">Invocation {invocationSkill?.value ?? 0}%{#if shapingSkill} · Shaping {shapingSkill.value}%{/if}</p>
+            {#if invocationSkill?.origins.length}<p class="mute folk-magic-provenance">Acquired through {invocationSkill.origins.map(origin => originName[origin]).join(", ")}</p>{/if}
+          </div>
+          <span class:complete={sorceryComplete} class="magic-status">{sorceryComplete ? "Complete" : "Action required"}</span>
+        </div>
+        <div class="folk-magic-entitlement"><div><b>Starting spells — {sorceryEntitlement.count}</b><small>Invocation {invocationSkill?.value ?? 0}% gives you {sorceryEntitlement.count} starting {sorceryEntitlement.count === 1 ? "spell" : "spells"}.</small></div>
+          <small class="sorcery-derived">Intensity {sorceryDerived.intensity} · {sorceryDerived.shapingPoints} Shaping Points</small>
+        </div>
+        <details class="mysticism-details sorcery-help"><summary>Sorcery details</summary>
+          <p>Intensity is based on Invocation. Shaping Points are based on Shaping and modify casting parameters during play; you do not allocate them during character creation.</p>
+          <p>Memorised spell capacity: INT {sorceryDerived.memorisedSpellCapacity}. Starting entitlement and memorisation capacity are separate.</p>
+        </details>
+        <label class="mysticism-path">Choose your School
+          <select value={sorcerySchoolId} onchange={event => { if (event.currentTarget.value === "__custom_school__") { sorceryCustomSchoolName = ""; sorceryCustomSchoolSource = ""; sorcerySchoolSpellIds = []; sorceryCustomSchoolEditor = true; } else selectSorcerySchool(event.currentTarget.value); }}>
+            <option value="">Choose your School</option>
+            {#each sorcerySchools as school (school.id)}<option value={school.id}>{school.name}{school.source === "custom" ? " · Custom" : ""}</option>{/each}
+            <option value="__custom_school__">Custom School…</option>
+          </select>
+        </label>
+        <button type="button" class="ghost sorcery-create-school" onclick={() => { sorceryCustomSchoolName = ""; sorceryCustomSchoolSource = ""; sorcerySchoolSpellIds = []; sorceryCustomSchoolEditor = !sorceryCustomSchoolEditor; }}>Create custom School</button>
+        {#if sorceryCustomSchoolEditor}
+          <form class="folk-magic-custom-form" onsubmit={event => { event.preventDefault(); createSorcerySchool(); }}>
+            <h5>Create custom School</h5>
+            <label>School name<input bind:value={sorceryCustomSchoolName} required maxlength="100" /></label>
+            <label>Source<input bind:value={sorceryCustomSchoolSource} maxlength="120" placeholder="Mentor, Grimoire, Cult / Order…" /></label>
+            <div class="custom-path-talents">
+              <div class="custom-path-talents-heading"><div><h5>Spells</h5><small>{sorcerySchoolSpellIds.length} spells</small></div></div>
+              {#if sorcerySchoolSpellIds.length}<ul class="custom-path-selected-talents">{#each sorcerySchoolSpellIds as id (id)}<li><span>{sorcerySpellName(id)}<small>{sorcerySpell(id)?.source === "custom" ? "Custom spell" : "Core spell"}</small></span><button type="button" class="ghost" onclick={() => toggleSorcerySchoolSpell(id)}>Remove</button></li>{/each}</ul>{:else}<p class="mute custom-path-no-talents">No spells added yet.</p>{/if}
+              <button type="button" class="primary" onclick={openSorcerySchoolPicker}>Add Spells</button>
+            </div>
+            <button type="submit" class="primary" disabled={!sorceryCustomSchoolName.trim()}>Create custom School</button>
+          </form>
+        {/if}
+        {#if sorcerySchool}
+          <p class="mysticism-path-info"><b>{sorcerySchool.name}</b>{#if sorcerySchool.sourceDescription} · {sorcerySchool.sourceDescription}{/if}</p>
+          <div class="sorcery-access-fields">
+            <label>Source
+              <select value={sorceryAccess()?.sourceType ?? ""} onchange={event => updateSorceryAccess("sourceType", event.currentTarget.value)}>
+                <option value="">Choose source (optional)</option><option>Mentor</option><option>Grimoire</option><option>Cult/Order</option><option>Artefact</option><option>Demon/Spirit</option><option>Location</option><option>Self-taught</option><option>Custom</option>
+              </select>
+            </label>
+            <label>Source details<input value={sorceryAccess()?.sourceDescription ?? sorcerySchool.sourceDescription ?? ""} maxlength="120" placeholder="Name or short note" onchange={event => updateSorceryAccess("sourceDescription", event.currentTarget.value)} /></label>
+            <label>Organisation (optional)
+              <select value={sorceryAccess()?.organisationId ?? ""} onchange={event => updateSorceryAccess("organisationId", event.currentTarget.value)}>
+                <option value="">None</option>{#each char.memberships as membership (membership.id)}<option value={membership.id}>{membership.name}</option>{/each}
+              </select>
+            </label>
+          </div>
+          <div class="folk-magic-count" aria-live="polite">{sorcerySelected.length} / {sorceryEntitlement.count} selected</div>
+          {#if sorceryInvalidSelected.length}<p class="folk-magic-error">Some starting spells are no longer available from this School. Resolve or remove: {sorceryInvalidSelected.map(item => sorcerySpellName(item.spellId)).join(", ")}.</p>{/if}
+          {#if sorcerySelected.length < sorceryEntitlement.count}<p class="folk-magic-error">Choose {sorceryEntitlement.count - sorcerySelected.length} more starting {sorceryEntitlement.count - sorcerySelected.length === 1 ? "spell" : "spells"}.</p>{/if}
+          {#if sorcerySelected.length > sorceryEntitlement.count}<p class="folk-magic-error">You have more starting spells than your current entitlement. Deselect {sorcerySelected.length - sorceryEntitlement.count} to continue.</p>{/if}
+          <div class="folk-magic-known">
+            {#each sorcerySelected as known (known.spellId)}<div class="folk-magic-known-row"><div><b>{sorcerySpellName(known.spellId)}</b><small>{sorcerySpell(known.spellId)?.source === "custom" ? "Custom spell" : "Core Sorcery"}</small></div><button type="button" class="ghost" aria-label="Deselect {sorcerySpellName(known.spellId)}" onclick={() => toggleSorcerySpell(known.spellId)}>Deselect</button></div>{:else}<p class="mute">No starting spells selected yet.</p>{/each}
+          </div>
+          <button type="button" class="primary" disabled={sorcerySelected.length >= sorceryEntitlement.count && sorceryInvalidSelected.length === 0} onclick={() => { sorceryQuery = ""; sorceryPickerMode = "starting"; sorceryPicker.showModal(); }}>Choose starting spells</button>
+          {#if sorcerySchool.source === "custom"}
+            <details class="mysticism-details"><summary>Custom School spells</summary>
+              {#if sorcerySchool.spellIds.length}<ul class="custom-path-selected-talents">{#each sorcerySchool.spellIds as id (id)}<li><span>{sorcerySpellName(id)}<small>{sorcerySpell(id)?.source === "custom" ? "Custom spell" : "Core spell"}</small></span><button type="button" class="ghost" aria-label="Remove {sorcerySpellName(id)} from School" onclick={() => removeSorcerySchoolSpell(id)}>Remove</button></li>{/each}</ul>{:else}<p class="mute">This School has no spells yet.</p>{/if}
+              <button type="button" class="primary" onclick={openSorcerySchoolPicker}>Add Spells</button>
+              <button type="button" class="ghost" onclick={() => sorceryCustomSpellEditor = !sorceryCustomSpellEditor}>+ Create custom spell</button>
+              {#if sorceryCustomSpellEditor}<form class="folk-magic-custom-form" onsubmit={event => { event.preventDefault(); createSorcerySpell(); }}>
+                <h5>Create custom spell</h5><label>Name<input bind:value={sorceryCustomSpellName} required maxlength="100" /></label>
+                <label>Description / notes<textarea bind:value={sorceryCustomSpellDescription} rows="2"></textarea></label>
+                <label>Specialisation / subject (optional)<input bind:value={sorceryCustomSpellSpecialisation} maxlength="100" /></label>
+                <button type="submit" class="primary" disabled={!sorceryCustomSpellName.trim()}>Save custom spell</button>
+              </form>{/if}
+            </details>
+          {/if}
+        {:else}<p class="mute">Choose a School to see available starting spells.</p>{/if}
+      </article>
+    {/if}
     {#if capability}
       <article class="folk-magic-discipline">
         <div class="folk-magic-heading">
@@ -379,6 +569,26 @@
     {/if}
   {/if}
 </section>
+
+<dialog class="folk-magic-picker" bind:this={sorceryPicker} aria-labelledby="sorcery-picker-title">
+  <div class="folk-magic-picker-content">
+    <header><div><h2 id="sorcery-picker-title">{sorceryPickerMode === "school" ? "Add spells to School" : "Choose starting spells"}</h2><p>{sorceryPickerMode === "school" ? `${sorcerySchoolSpellIds.length} spells in School` : `${sorcerySelected.length} / ${sorceryEntitlement.count} selected`}</p></div><button type="button" class="ghost" onclick={() => sorceryPicker.close()}>Close ✕</button></header>
+    <input class="folk-magic-search" bind:value={sorceryQuery} placeholder="Search Sorcery spells…" aria-label="Search Sorcery spells" />
+    <ul class="folk-magic-picker-list">
+      {#each sorceryPickerMode === "school" ? sorcerySchoolPickerSpells : sorceryPickerSpells as spell (spell.id)}
+        {@const chosen = sorceryPickerMode === "school" ? sorcerySchoolSpellIds.includes(spell.id) : sorcerySelected.some(item => item.spellId === spell.id)}
+        <li class:selected={chosen}>
+          <button type="button" class="folk-magic-spell-choice" disabled={sorceryPickerMode === "starting" && !chosen && sorcerySelected.length >= sorceryEntitlement.count} onclick={() => sorceryPickerMode === "school" ? toggleSorcerySchoolSpell(spell.id) : toggleSorcerySpell(spell.id)}>
+            <span class="folk-magic-check">{chosen ? "✓" : "+"}</span><span><b>{spell.name}</b><small>{spell.source === "custom" ? "Custom spell" : "Core Sorcery"}{#if spell.specialisation} · {spell.specialisation.kind === "subject" ? "Subject" : "Form"}: {spell.specialisation.value}{/if}</small></span>
+          </button>
+          <button type="button" class="ghost folk-magic-details-button" onclick={() => sorceryDetailsId = sorceryDetailsId === spell.id ? null : spell.id}>{sorceryDetailsId === spell.id ? "Hide details" : "Details"}</button>
+          {#if sorceryDetailsId === spell.id}<div class="folk-magic-spell-details"><b>{spell.name}</b>{#if spell.description}<p>{spell.description}</p>{/if}{#if spell.notes}<p>{spell.notes}</p>{/if}{#if spell.specialisation}<small>{spell.specialisation.kind === "subject" ? "Subject" : "Form"} specialisation: {spell.specialisation.value}</small>{/if}{#if !spell.description && !spell.notes}<small>Canonical spell name and specialisation.</small>{/if}</div>{/if}
+        </li>
+      {:else}<li class="mute folk-magic-no-results">No Sorcery spells match this search or availability.</li>{/each}
+    </ul>
+    {#if sorceryPickerMode === "school"}<button type="button" class="primary sorcery-save-school-spells" onclick={saveSorcerySchoolSpells}>Save School spells</button>{/if}
+  </div>
+</dialog>
 
 <dialog class="folk-magic-picker" bind:this={mysticismPicker} aria-labelledby="mysticism-picker-title">
   <div class="folk-magic-picker-content">
@@ -493,6 +703,7 @@
   .mysticism-path-info{margin:5px 0 10px;color:var(--mute);font-size:.88rem}.mysticism-path-info b{color:var(--fg)}
   .mysticism-details{margin-top:10px;border-top:1px solid var(--line);padding-top:8px}.mysticism-details summary{cursor:pointer;color:var(--bronze);font-size:.82rem}
   .mysticism-details>p{color:var(--mute);font-size:.84rem}
+  .sorcery-derived{color:var(--mute);text-align:right}.sorcery-help{margin-bottom:8px}.sorcery-access-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;margin:8px 0}.sorcery-access-fields label{display:grid;gap:4px;font-size:.8rem}.sorcery-access-fields input,.sorcery-access-fields select{width:100%;min-width:0}.sorcery-create-school{margin:3px 0}.sorcery-save-school-spells{align-self:flex-start;margin-top:10px}
   .custom-path-talents{display:grid;gap:8px;margin-top:6px;padding-top:10px;border-top:1px solid var(--line)}
   .custom-path-talents-heading{display:flex;align-items:center;justify-content:space-between}.custom-path-talents-heading h5{margin:0;color:var(--bronze);font:700 .72rem var(--display);letter-spacing:.1em;text-transform:uppercase}
   .custom-path-talents-heading small,.custom-path-selected-talents small{display:block;color:var(--mute);font-size:.8rem}
@@ -511,7 +722,7 @@
   .folk-magic-tabs{display:flex;flex-wrap:wrap;gap:4px;margin:12px 0 8px}.folk-magic-tabs button{white-space:nowrap;font-size:.65rem;padding:6px 9px}.folk-magic-tabs button.active{border-color:var(--bronze);color:var(--bronze)}
   .folk-magic-search{width:100%;margin-bottom:8px}.folk-magic-picker-list{flex:none;list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
   .folk-magic-picker-list>li{display:flex;align-items:center;gap:4px;border-bottom:1px solid var(--line);padding:5px 0;flex-wrap:wrap}.folk-magic-picker-list>li.selected{background:color-mix(in srgb,var(--ok) 9%,transparent)}
-  .folk-magic-spell-choice{display:flex;align-items:center;gap:10px;flex:1;text-align:left;background:none;border:0;padding:7px 5px;text-transform:none;letter-spacing:0;font:inherit}.folk-magic-spell-choice:hover:not(:disabled){transform:none}.folk-magic-spell-choice:disabled{opacity:.5}
+  .folk-magic-spell-choice{display:flex;align-items:center;gap:10px;flex:1;text-align:left;background:none;border:0;padding:7px 5px;text-transform:none;letter-spacing:0;font:inherit}.folk-magic-spell-choice:hover:not(:disabled){transform:none}.folk-magic-spell-choice:disabled{opacity:.5}.folk-magic-spell-choice>span:last-child{min-width:0;overflow-wrap:anywhere}
   .folk-magic-check{width:24px;height:24px;display:grid;place-items:center;border:1px solid var(--line2);color:var(--bronze);font-weight:bold}.selected .folk-magic-check{color:var(--ok);border-color:var(--ok)}
   .folk-magic-details-button{font-size:.65rem}.folk-magic-spell-details{width:100%;margin:0 6px 6px 39px;color:var(--mute);font-size:.86rem}
   .folk-magic-traits{display:flex;flex-wrap:wrap;gap:5px;margin:0 0 7px}.folk-magic-traits span{padding:2px 6px;border:1px solid var(--line2);color:var(--bronze);font-size:.74rem}.folk-magic-spell-details p{margin:0 0 6px}.folk-magic-spell-details small{display:block;margin-top:4px}.folk-magic-spell-details .folk-magic-gap{color:var(--acc)}
