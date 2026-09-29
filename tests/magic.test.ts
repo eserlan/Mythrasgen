@@ -6,6 +6,11 @@ import {
   calculateFolkMagicStartingEntitlement, CORE_FOLK_MAGIC_CAREER_SUGGESTIONS, CORE_FOLK_MAGIC_SPELLS,
   FOLK_MAGIC_SPECIALIST_ENTITLEMENT, folkMagicConfigurationStatus, resolveFolkMagicCareerSuggestion,
 } from "../src/lib/folk-magic";
+import {
+  availableSorcerySpellIds, calculateShapingPoints, calculateSorceryDerivedStatistics, calculateSorceryIntensity,
+  calculateSorceryStartingEntitlement, CORE_SHAPING_COMPONENTS, CORE_SORCERY_ORDERS, CORE_SORCERY_SCHOOLS,
+  CORE_SORCERY_SPELLS, effectiveShapingComponents, emptySorceryState, normalizeSorceryState, sorceryCatalogue,
+} from "../src/lib/sorcery";
 
 (globalThis as typeof globalThis & { $state: <T>(value: T) => T }).$state = value => value;
 
@@ -29,15 +34,76 @@ describe("magical discipline detection", () => {
     expect(found.find(item => item.discipline === "Mysticism")?.skills[0].name).toBe("Mysticism");
   });
 
-  test("Meditation alone and unrelated generic skills do not activate Mysticism", () => {
+  test("Shaping alone does not activate Sorcery; Invocation does", () => {
     expect(detectMagicDisciplines([
       { name: "Meditation", value: 45, origins: ["career"] },
       { name: "Binding", value: 45, origins: ["career"] },
-      { name: "Invocation", value: 45, origins: ["career"] },
       { name: "Devotion", value: 45, origins: ["career"] },
     ])).toEqual([]);
+    expect(detectMagicDisciplines([{ name: "Shaping", value: 45, origins: ["career"] }])).toEqual([]);
+    expect(detectMagicDisciplines([{ name: "Invocation", value: 45, origins: ["career"] }]).map(item => item.discipline)).toEqual(["Sorcery"]);
     expect(detectMagicDisciplines([{ name: "Mysticism (Path of Shadows)", value: 45, origins: ["career"] }]))
       .toContainEqual(expect.objectContaining({ discipline: "Mysticism", skills: [expect.objectContaining({ name: "Mysticism (Path of Shadows)" })] }));
+  });
+});
+
+describe("Sorcery rules and structured Core data", () => {
+  test.each([[0, 0], [1, 1], [20, 1], [21, 2], [40, 2], [41, 3], [57, 3], [60, 3], [61, 4], [80, 4], [81, 5], [100, 5]])
+  ("starting entitlement at Invocation %i%% is %i", (skill, count) => {
+    expect(calculateSorceryStartingEntitlement(skill).count).toBe(count);
+  });
+
+  test.each([[0, 0], [1, 1], [10, 1], [11, 2], [57, 6], [60, 6], [61, 7]])
+  ("Intensity at Invocation %i%% is %i", (skill, intensity) => expect(calculateSorceryIntensity(skill)).toBe(intensity));
+
+  test.each([[0, 0], [1, 1], [10, 1], [11, 2], [48, 5], [50, 5], [51, 6]])
+  ("Shaping Points at Shaping %i%% is %i", (skill, points) => expect(calculateShapingPoints(skill)).toBe(points));
+
+  test("starting entitlement, derived statistics, and INT memorisation capacity are separate", () => {
+    expect(calculateSorceryStartingEntitlement(undefined)).toMatchObject({ active: false, count: 0 });
+    expect(calculateSorceryDerivedStatistics(57, 48, 13)).toEqual({ intensity: 6, shapingPoints: 5, memorisedSpellCapacity: 13 });
+    expect(calculateSorceryStartingEntitlement(57).count).toBe(3);
+    expect(emptySorceryState()).toMatchObject({ schoolIds: [], knownSpells: [] });
+  });
+
+  test("Core Schools and all nine Order portfolios resolve to canonical Sorcery spell IDs", () => {
+    const ids = new Set(CORE_SORCERY_SPELLS.map(item => item.id));
+    expect(CORE_SORCERY_SCHOOLS.map(item => item.name)).toEqual(["Stygian Path", "Masters of Metamorphosis"]);
+    expect(CORE_SORCERY_SCHOOLS.every(item => item.spellIds.every(id => ids.has(id)))).toBe(true);
+    expect(CORE_SORCERY_ORDERS).toHaveLength(9);
+    expect(CORE_SORCERY_ORDERS.every(item => item.spellIds.length === 7 && item.spellIds.every(id => ids.has(id)))).toBe(true);
+    expect(CORE_SORCERY_SCHOOLS.every(item => item.organisationId === undefined)).toBe(true);
+  });
+
+  test("specialisations are structured and availability differs from known spells", () => {
+    const dominate = CORE_SORCERY_SPELLS.find(item => item.name === "Dominate (Reptiles)")!;
+    expect(dominate).toMatchObject({ baseFamily: "Dominate", specialisation: { kind: "subject", value: "Reptiles" } });
+    const state = normalizeSorceryState({ startingSchoolId: "core:school:stygian-path", knownSpells: [{ spellId: dominate.id }] });
+    expect(availableSorcerySpellIds(state)).toContain(dominate.id);
+    expect(state.knownSpells).toEqual([{ spellId: dominate.id }]);
+    expect(CORE_SORCERY_SPELLS.find(spell => spell.id === state.knownSpells[0].spellId)?.specialisation).toEqual({ kind: "subject", value: "Reptiles" });
+    expect(availableSorcerySpellIds({ ...state, organisationAvailability: { order: ["core:sorcery:palsy"] } })).not.toContain(dominate.id);
+  });
+
+  test("custom Schools may mix Core and custom spells without changing Core records", () => {
+    const original = structuredClone(CORE_SORCERY_SCHOOLS);
+    const coreSpell = CORE_SORCERY_SPELLS[0];
+    const customSpell = { id: "custom:sorcery:abjure", name: coreSpell.name, source: "custom" as const, baseFamily: "Abjure", description: "Campaign variant." };
+    const customSchool = { id: "campaign:school:twilight", name: "Twilight School", source: "campaign" as const, organisationId: "campaign:order:circle", sourceDescription: "Taught by a mentor", spellIds: [coreSpell.id, customSpell.id] };
+    const state = normalizeSorceryState({ customSchools: [customSchool], customSpells: [customSpell], schoolIds: [customSchool.id],
+      schoolAccess: [{ schoolId: customSchool.id, sourceType: "mentor", sourceDescription: "Elder Sable", organisationId: "campaign:order:circle" }],
+      knownSpells: [{ spellId: customSpell.id, starting: true }] });
+    const restored = normalizeSorceryState(JSON.parse(JSON.stringify(state)));
+    expect(availableSorcerySpellIds(restored)).toEqual([coreSpell.id, customSpell.id]);
+    expect(sorceryCatalogue(restored).filter(item => item.name === coreSpell.name).map(item => [item.id, item.source])).toContainEqual([customSpell.id, "custom"]);
+    expect(restored.customSchools[0]).toMatchObject({ organisationId: "campaign:order:circle", sourceDescription: "Taught by a mentor" });
+    expect(restored.schoolAccess).toEqual([{ schoolId: customSchool.id, sourceType: "mentor", sourceDescription: "Elder Sable", organisationId: "campaign:order:circle" }]);
+    expect(CORE_SORCERY_SCHOOLS).toEqual(original);
+  });
+
+  test("Shaping components have a Core default and configurable overrides", () => {
+    expect(effectiveShapingComponents()).toEqual(CORE_SHAPING_COMPONENTS);
+    expect(effectiveShapingComponents({ addComponents: ["Focus"], removeComponents: ["Range"] })).toEqual(["Combine", "Duration", "Magnitude", "Targets", "Focus"]);
   });
 });
 
@@ -185,11 +251,20 @@ describe("magic state reconciliation and migration", () => {
       mysticism: { pathIds: ["core:path-of-shadows"], startingPathId: "core:path-of-shadows",
         startingTalentIds: [CORE_MYSTICISM_TALENTS[0].id], knownTalents: [{ talentId: CORE_MYSTICISM_TALENTS[0].id }],
         availableTalentIds: [CORE_MYSTICISM_TALENTS[0].id] },
+      sorcery: { schoolIds: ["core:school:stygian-path"], knownSpells: [{ spellId: "core:sorcery:palsy", starting: true }] },
     });
     const restored = normalizeMagicState(JSON.parse(JSON.stringify(state)));
     expect(restored.mysticism).toMatchObject({ pathIds: ["core:path-of-shadows"], startingPathId: "core:path-of-shadows", startingTalentIds: [CORE_MYSTICISM_TALENTS[0].id] });
     expect(restored.folkMagic.knownSpells).toHaveLength(1);
+    expect(restored.sorcery).toMatchObject({ schoolIds: ["core:school:stygian-path"], knownSpells: [{ spellId: "core:sorcery:palsy", starting: true }] });
     expect(restored.disciplines.map(item => item.discipline)).toEqual(["Mysticism", "Folk Magic"]);
+  });
+
+  test("old saves default Sorcery to empty without affecting other disciplines", () => {
+    const restored = normalizeMagicState({ folkMagic: { knownSpells: [{ spell: { spellId: "folk-magic:heal" } }] }, mysticism: { pathIds: ["path"] } });
+    expect(restored.sorcery).toEqual(emptySorceryState());
+    expect(restored.folkMagic.knownSpells).toHaveLength(1);
+    expect(restored.mysticism.pathIds).toEqual(["path"]);
   });
 });
 

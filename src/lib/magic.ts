@@ -1,5 +1,6 @@
 import { emptyFolkMagicState, normalizeFolkMagicState, type FolkMagicState } from "./folk-magic";
 import { emptyMysticismState, normalizeMysticismState, type MysticismState } from "./mysticism";
+import { emptySorceryState, normalizeSorceryState, type SorceryState } from "./sorcery";
 
 export const MAGIC_DISCIPLINES = ["Folk Magic", "Animism", "Mysticism", "Sorcery", "Theism"] as const;
 export type MagicDiscipline = typeof MAGIC_DISCIPLINES[number];
@@ -55,10 +56,12 @@ export interface MagicState {
   folkMagic: FolkMagicState;
   /** Mysticism paths and Talent knowledge are independent from other disciplines. */
   mysticism: MysticismState;
+  /** Sorcery schools, availability, and known spells remain separate from other disciplines. */
+  sorcery: SorceryState;
 }
 
 export const emptyMagicState = (): MagicState => ({
-  disciplines: [], archivedDisciplines: [], traditions: [], startingAbilityEntitlements: [], folkMagic: emptyFolkMagicState(), mysticism: emptyMysticismState(),
+  disciplines: [], archivedDisciplines: [], traditions: [], startingAbilityEntitlements: [], folkMagic: emptyFolkMagicState(), mysticism: emptyMysticismState(), sorcery: emptySorceryState(),
 });
 
 export interface DetectedMagicSkill {
@@ -75,7 +78,7 @@ export function detectMagicDisciplines(skills: readonly DetectedMagicSkill[]): M
     "Folk Magic": name => name === "Folk Magic",
     Animism: name => name === "Trance" || isSpecialised(name, "Binding"),
     Mysticism: name => name === "Mysticism" || isSpecialised(name, "Mysticism"),
-    Sorcery: name => isSpecialised(name, "Invocation") || name === "Shaping",
+    Sorcery: name => isSpecialised(name, "Invocation") || name === "Invocation",
     Theism: name => isSpecialised(name, "Devotion") || name === "Exhort",
   };
   return MAGIC_DISCIPLINES.flatMap(discipline => {
@@ -130,7 +133,7 @@ export function normalizeMagicState(value: unknown): MagicState {
         rate: entitlement.rate as number, count: entitlement.count as number }];
     }) : [];
   return { disciplines: normalizeStates(source.disciplines), archivedDisciplines: normalizeStates(source.archivedDisciplines), traditions, startingAbilityEntitlements,
-    folkMagic: normalizeFolkMagicState(source.folkMagic), mysticism: normalizeMysticismState(source.mysticism) };
+    folkMagic: normalizeFolkMagicState(source.folkMagic), mysticism: normalizeMysticismState(source.mysticism), sorcery: normalizeSorceryState(source.sorcery) };
 }
 
 /** Reconcile detected skills while preserving configuration and explicitly archiving lost capabilities. */
