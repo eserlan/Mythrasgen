@@ -15,7 +15,7 @@
     type MysticismPath, type MysticismTalent,
   } from "../lib/mysticism";
   import {
-    availableSorcerySpellIds, calculateSorceryDerivedStatistics, calculateSorceryStartingEntitlement, sorceryCatalogue, sorcerySchoolCatalogue, sorcerySpellDetails as resolveSorcerySpellDetails,
+    availableSorcerySpellIds, calculateSorceryDerivedStatistics, calculateSorceryStartingEntitlement, configureCoreSorcerySpell, sorceryCatalogue, sorcerySchoolCatalogue, sorcerySpellDetails as resolveSorcerySpellDetails,
     withStartingSorcerySchool, type SorcerySchool, type SorcerySpell,
   } from "../lib/sorcery";
 
@@ -54,6 +54,8 @@
   let sorceryCustomSpellDescription = $state("");
   let sorceryCustomSpellSpecialisation = $state("");
   let sorcerySchoolSpellIds = $state<string[]>([]);
+  let sorceryConfigureId = $state<string | null>(null);
+  let sorceryConfigureSubject = $state("");
 
   const capability = $derived(char.magic.disciplines.find(item => item.discipline === "Folk Magic"));
   const mysticismCapability = $derived(char.magic.disciplines.find(item => item.discipline === "Mysticism"));
@@ -74,7 +76,7 @@
   const sorceryComplete = $derived(!!sorcerySchool && sorcerySelected.length === sorceryEntitlement.count && sorceryInvalidSelected.length === 0);
   const sorceryPickerSpells = $derived(sorceryAvailableIds.map(id => sorcerySpells.find(spell => spell.id === id)).filter((spell): spell is SorcerySpell => !!spell)
     .filter(spell => `${spell.name} ${spell.description ?? ""} ${spell.notes ?? ""}`.toLowerCase().includes(sorceryQuery.trim().toLowerCase())));
-  const sorcerySchoolPickerSpells = $derived(sorcerySpells.filter(spell => `${spell.name} ${spell.description ?? ""} ${spell.notes ?? ""}`.toLowerCase().includes(sorceryQuery.trim().toLowerCase())));
+  const sorcerySchoolPickerSpells = $derived(sorcerySpells.filter(spell => `${spell.name} ${spell.specialisationPrompt ?? ""} ${spell.description ?? ""} ${spell.notes ?? ""}`.toLowerCase().includes(sorceryQuery.trim().toLowerCase())));
   const mysticismState = $derived(char.magic.mysticism);
   const mysticismData = $derived(mysticismCatalogue(mysticismState));
   const mysticismSkill = $derived(mysticismCapability?.skills.find(item => item.name === "Mysticism") ?? mysticismCapability?.skills[0]);
@@ -182,8 +184,17 @@
   function toggleSorcerySchoolSpell(id: string) {
     sorcerySchoolSpellIds = sorcerySchoolSpellIds.includes(id) ? sorcerySchoolSpellIds.filter(item => item !== id) : [...sorcerySchoolSpellIds, id];
   }
+  function addConfiguredSorcerySpell(base: SorcerySpell) {
+    const subject = sorceryConfigureSubject.trim();
+    if (!subject || !base.specialisationPrompt) return;
+    const configured = configureCoreSorcerySpell(base, subject);
+    if (!sorceryState.configuredSpells.some(item => item.id === configured.id)) sorceryState.configuredSpells.push(configured);
+    if (!sorcerySchoolSpellIds.includes(configured.id)) sorcerySchoolSpellIds = [...sorcerySchoolSpellIds, configured.id];
+    sorceryConfigureId = null;
+    sorceryConfigureSubject = "";
+  }
   function openSorcerySchoolPicker() {
-    sorcerySchoolSpellIds = [...(sorcerySchool?.source === "custom" ? sorcerySchool.spellIds : [])];
+    if (!sorceryCustomSchoolEditor) sorcerySchoolSpellIds = [...(sorcerySchool?.source === "custom" ? sorcerySchool.spellIds : [])];
     sorceryPickerMode = "school";
     sorceryQuery = "";
     sorceryPicker.showModal();
@@ -578,11 +589,14 @@
       {#each sorceryPickerMode === "school" ? sorcerySchoolPickerSpells : sorceryPickerSpells as spell (spell.id)}
         {@const chosen = sorceryPickerMode === "school" ? sorcerySchoolSpellIds.includes(spell.id) : sorcerySelected.some(item => item.spellId === spell.id)}
         <li class:selected={chosen}>
-          <button type="button" class="folk-magic-spell-choice" disabled={sorceryPickerMode === "starting" && !chosen && sorcerySelected.length >= sorceryEntitlement.count} onclick={() => sorceryPickerMode === "school" ? toggleSorcerySchoolSpell(spell.id) : toggleSorcerySpell(spell.id)}>
+          <button type="button" class="folk-magic-spell-choice" disabled={sorceryPickerMode === "starting" && !chosen && sorcerySelected.length >= sorceryEntitlement.count} onclick={() => sorceryPickerMode === "school" ? (spell.specialisationPrompt ? (sorceryConfigureId = sorceryConfigureId === spell.id ? null : spell.id, sorceryConfigureSubject = "") : toggleSorcerySchoolSpell(spell.id)) : toggleSorcerySpell(spell.id)}>
             <span class="folk-magic-check">{chosen ? "✓" : "+"}</span><span><b>{spell.name}</b><small>{spell.source === "custom" ? "Custom spell" : "Core Sorcery"}{#if spell.specialisation} · {spell.specialisation.kind === "subject" ? "Subject" : "Form"}: {spell.specialisation.value}{/if}</small></span>
           </button>
+          {#if sorceryPickerMode === "school" && spell.specialisationPrompt && sorceryConfigureId === spell.id}
+            <div class="folk-magic-spell-details"><label>{spell.specialisationPrompt}<input bind:value={sorceryConfigureSubject} maxlength="100" placeholder="Enter a subject" /></label><button type="button" class="primary" disabled={!sorceryConfigureSubject.trim()} onclick={() => addConfiguredSorcerySpell(spell)}>Add configured spell</button></div>
+          {/if}
           <button type="button" class="ghost folk-magic-details-button" onclick={() => sorceryDetailsId = sorceryDetailsId === spell.id ? null : spell.id}>{sorceryDetailsId === spell.id ? "Hide details" : "Details"}</button>
-          {#if sorceryDetailsId === spell.id}{@const details = resolveSorcerySpellDetails(spell)}<div class="folk-magic-spell-details"><b>{spell.name}</b><small>Sorcery{#if details?.traits.length} · {details.traits.join(" · ")}{/if}</small>{#if details?.effect}<p>{details.effect}</p>{/if}{#if spell.notes}<p>{spell.notes}</p>{/if}{#if spell.specialisation}<small>{spell.specialisation.kind === "subject" ? "Subject" : "Form"} specialisation: {spell.specialisation.value}</small>{/if}{#if !details?.effect && !spell.notes}<p>Custom spell; no Core rules description is available.</p>{/if}</div>{/if}
+          {#if sorceryDetailsId === spell.id}{@const details = resolveSorcerySpellDetails(spell)}<div class="folk-magic-spell-details"><b>{spell.name}</b><small>Sorcery{#if details?.traits.length} · {details.traits.join(" · ")}{/if}</small>{#if details?.effect}<p>{details.effect}</p>{/if}{#if spell.notes}<p>{spell.notes}</p>{/if}{#if spell.specialisation}<small>{spell.specialisation.kind === "subject" ? "Subject" : "Form"} specialisation: {spell.specialisation.value}</small>{:else if spell.specialisationPrompt}<small>Choose a {spell.specialisationPrompt.toLowerCase()} before adding this spell to a School.</small>{/if}{#if spell.availability && spell.availability !== "normal"}<small>Availability: {spell.availability}</small>{/if}{#if !details?.effect && !spell.notes}<p>{spell.source === "custom" ? "Custom spell; no Core rules description is available." : "No Core rules details have been entered."}</p>{/if}</div>{/if}
         </li>
       {:else}<li class="mute folk-magic-no-results">No Sorcery spells match this search or availability.</li>{/each}
     </ul>
