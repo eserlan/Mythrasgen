@@ -95,14 +95,14 @@ describe("Animism rules and persistent spirit relationships", () => {
     const tradition: SpiritTradition = {
       id: "custom:great-bear", name: "Great Bear", source: "custom", friendlySpiritTypeIds: [nature.id, "custom:spirit:bear"],
       neutralSpiritTypeIds: ["core:animism:ancestor"], hostileSpiritTypeIds: ["core:animism:predator"], hostileTraditionIds: ["campaign:wolf-clan"],
-      startingGrants: [], customSpiritTypes: [{ id: "custom:spirit:bear", name: "Bear spirit", source: "custom" }], customSpiritTemplates: [],
+      startingGrants: [], customSpiritTypes: [{ id: "custom:spirit:bear", name: "Bear spirit", source: "custom", provenance: "Great Bear oral tradition" }], customSpiritTemplates: [],
     };
     const state = normalizeAnimismState({ traditionId: tradition.id, bindingSpecialisation: { skillName: "Binding (Great Bear)", traditionId: tradition.id }, traditions: [tradition], accessibleSpiritTypeIds: [nature.id],
       spirits: [{ id: "bear-ally", name: "Grandfather Bear", spiritTypeId: "custom:spirit:bear", templateId: "custom:bear-template", source: "campaign", attitude: "friendly", intensity: 2, powRange: [13, 18], abilities: ["Bless"] }],
       allies: [{ spiritId: "bear-ally", attitude: "friendly", source: "campaign grant" }],
       bindings: [{ id: "bear-fetish", spiritId: "bear-ally", vessel: "fetish/object", objectName: "Bear claw", countsAgainstCapacity: true, source: "shaman's gift" }],
     });
-    expect(state.traditions[0]).toMatchObject({ friendlySpiritTypeIds: [nature.id, "custom:spirit:bear"], neutralSpiritTypeIds: ["core:animism:ancestor"] });
+    expect(state.traditions[0]).toMatchObject({ friendlySpiritTypeIds: [nature.id, "custom:spirit:bear"], neutralSpiritTypeIds: ["core:animism:ancestor"], customSpiritTypes: [{ provenance: "Great Bear oral tradition" }] });
     expect(state.spirits[0]).toMatchObject({ templateId: "custom:bear-template", powRange: [13, 18] });
     expect(state.bindingSpecialisation).toEqual({ skillName: "Binding (Great Bear)", traditionId: tradition.id });
     expect(state.allies).toHaveLength(1);

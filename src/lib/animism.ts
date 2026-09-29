@@ -9,6 +9,7 @@ export interface SpiritType {
   id: string;
   name: string;
   source: AnimismSource;
+  provenance?: string;
   description?: string;
 }
 
@@ -201,7 +202,7 @@ const source = (value: unknown): AnimismSource => value === "core" || value === 
 function normalizeSpiritType(value: unknown): SpiritType | null {
   const item = record(value);
   return item && typeof item.id === "string" && typeof item.name === "string"
-    ? { id: item.id, name: item.name, source: source(item.source), ...(typeof item.description === "string" ? { description: item.description } : {}) } : null;
+    ? { id: item.id, name: item.name, source: source(item.source), ...(typeof item.provenance === "string" ? { provenance: item.provenance } : {}), ...(typeof item.description === "string" ? { description: item.description } : {}) } : null;
 }
 function normalizeTemplate(value: unknown): SpiritTemplate | null {
   const item = record(value);
