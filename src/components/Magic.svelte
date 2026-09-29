@@ -454,7 +454,7 @@
   .mysticism-details{margin-top:10px;border-top:1px solid var(--line);padding-top:8px}.mysticism-details summary{cursor:pointer;color:var(--bronze);font-size:.82rem}
   .mysticism-details>p{color:var(--mute);font-size:.84rem}.mysticism-core-talents{min-width:0;border:1px solid var(--line);padding:8px}
   .mysticism-core-talents legend{color:var(--bronze);font-size:.8rem}.mysticism-core-talents-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:4px}
-  .mysticism-core-talent-option{display:flex;align-items:center;gap:7px;min-width:0;border:1px solid transparent;padding:4px;cursor:pointer}
+  .folk-magic-custom-form .mysticism-core-talent-option{display:flex;align-items:center;gap:7px;min-width:0;border:1px solid transparent;padding:4px;cursor:pointer}
   .mysticism-core-talent-option:has(input:checked){border-color:var(--ok);background:color-mix(in srgb,var(--ok) 9%,transparent)}
   .mysticism-core-talent-option:focus-within{outline:2px solid var(--bronze);outline-offset:1px}
   .mysticism-core-talent-option input{flex:none;width:18px;height:18px;margin:0;accent-color:var(--bronze)}
