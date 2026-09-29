@@ -15,7 +15,7 @@
     type MysticismPath, type MysticismTalent,
   } from "../lib/mysticism";
   import {
-    availableSorcerySpellIds, calculateSorceryDerivedStatistics, calculateSorceryStartingEntitlement, sorceryCatalogue, sorcerySchoolCatalogue,
+    availableSorcerySpellIds, calculateSorceryDerivedStatistics, calculateSorceryStartingEntitlement, sorceryCatalogue, sorcerySchoolCatalogue, sorcerySpellDetails as resolveSorcerySpellDetails,
     withStartingSorcerySchool, type SorcerySchool, type SorcerySpell,
   } from "../lib/sorcery";
 
@@ -445,11 +445,11 @@
           <span class:complete={sorceryComplete} class="magic-status">{sorceryComplete ? "Complete" : "Action required"}</span>
         </div>
         <div class="folk-magic-entitlement"><div><b>Starting spells — {sorceryEntitlement.count}</b><small>Invocation {invocationSkill?.value ?? 0}% gives you {sorceryEntitlement.count} starting {sorceryEntitlement.count === 1 ? "spell" : "spells"}.</small></div>
-          <small class="sorcery-derived">Intensity {sorceryDerived.intensity} · {sorceryDerived.shapingPoints} Shaping Points</small>
+          <small class="sorcery-derived">Intensity {sorceryDerived.intensity} · {sorceryDerived.shapingPoints} Shaping Points · Memorisation limit {sorceryDerived.memorisedSpellCapacity} spells</small>
         </div>
         <details class="mysticism-details sorcery-help"><summary>Sorcery details</summary>
           <p>Intensity is based on Invocation. Shaping Points are based on Shaping and modify casting parameters during play; you do not allocate them during character creation.</p>
-          <p>Memorised spell capacity: INT {sorceryDerived.memorisedSpellCapacity}. Starting entitlement and memorisation capacity are separate.</p>
+          <p>A sorcerer can keep up to their INT ({sorceryDerived.memorisedSpellCapacity}) spells memorised at one time. This is separate from the {sorceryEntitlement.count} starting {sorceryEntitlement.count === 1 ? "spell" : "spells"} granted by Invocation. Changing memorised spells later is a study and learning concern, not another character-creation allocation.</p>
         </details>
         <label class="mysticism-path">Choose your School
           <select value={sorcerySchoolId} onchange={event => { if (event.currentTarget.value === "__custom_school__") { sorceryCustomSchoolName = ""; sorceryCustomSchoolSource = ""; sorcerySchoolSpellIds = []; sorceryCustomSchoolEditor = true; } else selectSorcerySchool(event.currentTarget.value); }}>
@@ -582,7 +582,7 @@
             <span class="folk-magic-check">{chosen ? "✓" : "+"}</span><span><b>{spell.name}</b><small>{spell.source === "custom" ? "Custom spell" : "Core Sorcery"}{#if spell.specialisation} · {spell.specialisation.kind === "subject" ? "Subject" : "Form"}: {spell.specialisation.value}{/if}</small></span>
           </button>
           <button type="button" class="ghost folk-magic-details-button" onclick={() => sorceryDetailsId = sorceryDetailsId === spell.id ? null : spell.id}>{sorceryDetailsId === spell.id ? "Hide details" : "Details"}</button>
-          {#if sorceryDetailsId === spell.id}<div class="folk-magic-spell-details"><b>{spell.name}</b>{#if spell.description}<p>{spell.description}</p>{/if}{#if spell.notes}<p>{spell.notes}</p>{/if}{#if spell.specialisation}<small>{spell.specialisation.kind === "subject" ? "Subject" : "Form"} specialisation: {spell.specialisation.value}</small>{/if}{#if !spell.description && !spell.notes}<small>Canonical spell name and specialisation.</small>{/if}</div>{/if}
+          {#if sorceryDetailsId === spell.id}{@const details = resolveSorcerySpellDetails(spell)}<div class="folk-magic-spell-details"><b>{spell.name}</b><small>Sorcery{#if details?.traits.length} · {details.traits.join(" · ")}{/if}</small>{#if details?.effect}<p>{details.effect}</p>{/if}{#if spell.notes}<p>{spell.notes}</p>{/if}{#if spell.specialisation}<small>{spell.specialisation.kind === "subject" ? "Subject" : "Form"} specialisation: {spell.specialisation.value}</small>{/if}{#if !details?.effect && !spell.notes}<p>Custom spell; no Core rules description is available.</p>{/if}</div>{/if}
         </li>
       {:else}<li class="mute folk-magic-no-results">No Sorcery spells match this search or availability.</li>{/each}
     </ul>
