@@ -13,6 +13,11 @@ export interface SorcerySpell {
   notes?: string;
 }
 
+export interface SorcerySpellDetails {
+  traits: string[];
+  effect: string;
+}
+
 export interface SorceryShapingRules {
   addComponents?: ShapingComponent[];
   removeComponents?: ShapingComponent[];
@@ -114,6 +119,69 @@ const coreSpellRows: CoreSpellRow[] = [
 
 export const CORE_SORCERY_SPELLS: readonly SorcerySpell[] = coreSpellRows.map(([family, subject, kind]) => spell(family, subject, kind));
 const coreSpellId = (family: string, subject?: string) => `core:sorcery:${spellKey(family)}${subject ? `:${spellKey(subject)}` : ""}`;
+
+/** Concise Core spell effects shared by every Sorcery picker and reference view. */
+const CORE_SORCERY_EFFECTS: Record<string, SorcerySpellDetails> = {
+  Abjure: { traits: [], effect: "Suppresses or removes the target's need for, or susceptibility to, {subject} while the spell lasts." },
+  Animate: { traits: ["Concentration"], effect: "Animates non-living {subject} so it can move under your control. Complex movement or manipulation needs concentration. A living bearer can resist with Endurance; the spell cannot directly harm them." },
+  "Attract Missile": { traits: ["Resist: Willpower"], effect: "Draws qualifying missiles that pass close to the recipient. Attacks with maximum damage no greater than Intensity can be redirected to them." },
+  Banish: { traits: ["Resist: Willpower"], effect: "Dismisses a spiritual or demonic entity to its originating plane if its POW is no more than 3 × Intensity. It does not simply free a spirit safely bound in a fetish or possessing a host." },
+  "Bypass Armour": { traits: [], effect: "Affected weapons, natural weapons and traps ignore Armour Points equal to Intensity, including magical protection such as Damage Resistance or Shield." },
+  Castback: { traits: [], effect: "Reflects a resisted spell with the Resist trait back at its caster if its Magnitude is no greater than Castback's. The protected target must first successfully resist it. Maximum recipient SIZ is 3 × Intensity." },
+  "Damage Enhancement": { traits: [], effect: "On a successful attack, raises rolled physical damage below Intensity to Intensity, without exceeding the weapon's normal maximum damage." },
+  "Damage Resistance": { traits: [], effect: "Gives the whole target Armour Points equal to Intensity against physical damage. It does not stack with other physical protection; use the highest value. Maximum target SIZ is 3 × Intensity." },
+  Diminish: { traits: ["Resist: Willpower / Endurance"], effect: "Reduces {subject} by 2 points per Intensity, to a minimum of 1. Physical Characteristics resist with Endurance; mental Characteristics resist with Willpower." },
+  Dominate: { traits: ["Concentration", "Resist: Willpower"], effect: "Gives psychic control over a creature of the specified type: {subject}." },
+  Draw: { traits: ["Resist: Willpower"], effect: "Attracts creatures of the specified type ({subject}) toward the target or affected area; it is the counterpart to Repulse." },
+  Enlarge: { traits: [], effect: "Expands a non-living object with initial SIZ no greater than 3 × Intensity, multiplying its dimensions and weight by Intensity. A living bearer can resist with Endurance; it cannot simply crush them." },
+  Enslave: { traits: ["Resist: Willpower"], effect: "Instils a powerful artificial Passion, rated at the caster's Invocation, in creatures of type {subject}; it does not make automatons. Intensity/Targets and INT/INS limit the victims." },
+  Enhance: { traits: ["Resist: Willpower / Endurance when used malevolently"], effect: "Increases {subject} by 2 points per Intensity, up to twice its original value. When resistance applies, physical Characteristics use Endurance and mental ones Willpower." },
+  Evoke: { traits: [], effect: "Calls or summons the specified supernatural entity type: {subject}. The Core summoning rules govern the entity and its interaction with the caster." },
+  Fly: { traits: [], effect: "Lets the target fly for the spell's duration. Sorcery's movement rules determine how far and how quickly they can travel." },
+  Haste: { traits: [], effect: "Accelerates the recipient, improving movement and action speed according to the spell's Intensity." },
+  Holdfast: { traits: [], effect: "Magically fastens affected objects together, such as sealing a door, fixing a weapon in its scabbard, or attaching a person or object to something." },
+  Imprison: { traits: ["Resist: Willpower"], effect: "Creates an invisible barrier that prevents a corporeal creature leaving an area. Target POW and SIZ must each be no more than 3 × Intensity; the target may resist. Some campaigns require a prepared glyph, powder or geometric design." },
+  Intuition: { traits: ["Concentration", "Resist: Willpower"], effect: "Reveals the target's emotions and motives as a successful Insight, but not memories or guarded thoughts. Target INT is limited to 2 × Intensity; an aware target may resist again to conceal feelings." },
+  Mystic: { traits: ["Concentration"], effect: "Perceives magic through the specified sense ({subject}), including into other planes where appropriate. It can roughly judge Magic Points and identify sufficiently weak or equal effects by type, function and signature." },
+  "Neutralise Magic": { traits: [], effect: "Suppresses one spell or miracle whose Magnitude is no greater than this spell's for the Neutralise duration. Long-running magic resumes afterwards. It can also counter a spell defensively. Maximum target SIZ is 3 × Intensity." },
+  Palsy: { traits: ["Resist: Endurance"], effect: "Disables one random Hit Location whose normal Hit Points do not exceed Intensity. A head can incapacitate, chest paralyses below the neck, abdomen below the waist, and a limb stops functioning." },
+  Perceive: { traits: ["Resist: Endurance if unwilling"], effect: "Grants the recipient the unusual sensory perception {subject} (for example, Echolocation or X-Ray Vision). Maximum recipient SIZ is 3 × Intensity." },
+  Phantom: { traits: [], effect: "Creates a sensory phantom for the specified sense ({subject}), following the Core Sorcery targeting and resistance rules." },
+  Project: { traits: [], effect: "Projects the specified sense ({subject}) away from the caster or recipient so perception can occur from another point under the Core spell's limits." },
+  "Protective Ward": { traits: ["Combined"], effect: "Creates an extended ward for combined Sorcery protections, allowing effects such as Damage, Spell or Spirit Resistance to protect an area. Inscribe it on a solid surface before casting; it can cover up to 1 metre per Intensity in each dimension." },
+  Regenerate: { traits: ["Concentration"], effect: "Accelerates natural healing, stops bleeding and stabilises a dying target, but cannot repair Major Wounds. Restores Intensity Hit Points per hour among locations chosen by the caster while concentration continues." },
+  Repulse: { traits: ["Resist: Willpower"], effect: "Drives away creatures of type {subject} through an emotional response such as disgust, nervousness or fear; it is the opposite of Draw." },
+  Revivify: { traits: ["Concentration"], effect: "Animates a sufficiently intact corpse as a mindless undead automaton. Maximum corpse SIZ is 3 × Intensity; it gains STR and CON equal to Intensity and depends on its creator for direction." },
+  Sculpt: { traits: [], effect: "Shapes and manipulates the specified substance ({subject}) according to the Core Sculpt spell." },
+  Sense: { traits: [], effect: "Detects the thing, state or knowledge defined by this spell's specialisation: {subject}, following the Core Sorcery Sense rules." },
+  Shapechange: { traits: [], effect: "Transforms the target into the specified creature or form ({subject}), within the Core spell's limits." },
+  Shrink: { traits: [], effect: "Reduces the size of an affected non-living object under the Core spell's SIZ and resistance limits. It does not reduce a Characteristic; Diminish (SIZ) is separate." },
+  Smother: { traits: ["Resist: Endurance"], effect: "Suppresses the target's ability to breathe or obtain air under the Core Sorcery resistance and Intensity limits." },
+  "Spell Resistance": { traits: [], effect: "Protects against spells according to its Magnitude and Intensity rules; this is magical protection against spells, not spirits or physical damage." },
+  "Spirit Resistance": { traits: [], effect: "Protects against spirits and spiritual effects under the Core Sorcery rules; it is distinct from Spell Resistance and physical protection." },
+  "Switch Body": { traits: ["Resist: Willpower"], effect: "Switches body occupancy by transferring consciousness between valid targets, subject to the Core spell's target and resistance limits." },
+  Tap: { traits: ["Resist: Endurance"], effect: "Drains {subject} from a target and converts or uses the stolen energy as the Core spell allows." },
+  Telepathy: { traits: [], effect: "Enables mental communication under the Core Sorcery target and range rules." },
+  Teleport: { traits: [], effect: "Moves the target instantaneously using the configured form ({subject}) under the Core Sorcery Teleport rules." },
+  Transmogrify: { traits: [], effect: "Transforms the target's substance into {subject} according to the Core spell's limits." },
+  "Transfer Wound": { traits: [], effect: "Transfers a wound from one valid target to another under the Core spell's direction, target and injury limits; it is not simply a healing effect." },
+  "Trap Soul": { traits: ["Resist: Willpower"], effect: "Traps a soul or spirit in a suitable container under the Core spell's target, container and resistance restrictions; this is distinct from general spirit binding." },
+  Undeath: { traits: [], effect: "Creates or maintains an undead state under the Core Sorcery rules; it is distinct from Revivify, which animates a mindless corpse." },
+  Wrack: { traits: ["Resist: Endurance"], effect: "Inflicts direct magical harm using {subject} as its source, under the Core Wrack damage, resistance and target limits." },
+};
+
+/** Resolve a Core spell's canonical effect with its configured specialisation. */
+export function sorcerySpellDetails(spellRecord: SorcerySpell): SorcerySpellDetails | undefined {
+  if (spellRecord.source !== "core") {
+    return spellRecord.description ? { traits: [], effect: spellRecord.description } : undefined;
+  }
+  const family = spellRecord.baseFamily ?? spellRecord.name;
+  const detail = CORE_SORCERY_EFFECTS[family];
+  if (!detail) return undefined;
+  const subject = spellRecord.specialisation?.value ?? (family === "Attract Missile" ? "Missile" : family === "Teleport" ? "standard form" : "the specified subject");
+  return { traits: [...detail.traits], effect: detail.effect.replaceAll("{subject}", subject) };
+}
+
 const school = (id: string, name: string, spellIds: string[]): SorcerySchool => ({ id: `core:${id}`, name, source: "core", spellIds });
 
 export const CORE_SORCERY_SCHOOLS: readonly SorcerySchool[] = [

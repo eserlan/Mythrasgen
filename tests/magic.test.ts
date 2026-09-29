@@ -10,7 +10,7 @@ import {
   availableSorcerySpellIds, calculateShapingPoints, calculateSorceryDerivedStatistics, calculateSorceryIntensity,
   calculateSorceryStartingEntitlement, CORE_SHAPING_COMPONENTS, CORE_SORCERY_ORDERS, CORE_SORCERY_SCHOOLS,
   CORE_SORCERY_SPELLS, effectiveShapingComponents, emptySorceryState, normalizeSorceryState, sorceryCatalogue,
-  withStartingSorcerySchool,
+  sorcerySpellDetails, withStartingSorcerySchool,
 } from "../src/lib/sorcery";
 
 (globalThis as typeof globalThis & { $state: <T>(value: T) => T }).$state = value => value;
@@ -74,6 +74,27 @@ describe("Sorcery rules and structured Core data", () => {
     expect(CORE_SORCERY_ORDERS).toHaveLength(9);
     expect(CORE_SORCERY_ORDERS.every(item => item.spellIds.length === 7 && item.spellIds.every(id => ids.has(id)))).toBe(true);
     expect(CORE_SORCERY_SCHOOLS.every(item => item.organisationId === undefined)).toBe(true);
+  });
+
+  test("every Core School and Order Sorcery spell has concise details with specialisations preserved", () => {
+    const referenced = new Set([...CORE_SORCERY_SCHOOLS, ...CORE_SORCERY_ORDERS].flatMap(portfolio => portfolio.spellIds));
+    const spells = CORE_SORCERY_SPELLS.filter(item => referenced.has(item.id));
+    expect(spells.length).toBeGreaterThan(0);
+    for (const item of spells) {
+      const details = sorcerySpellDetails(item);
+      expect(details?.effect.length, item.name).toBeGreaterThan(20);
+      expect(details?.effect, item.name).not.toMatch(/canonical spell name|consult the manual/i);
+      if (item.specialisation) expect(details?.effect, item.name).toContain(item.specialisation.value);
+    }
+    expect(sorcerySpellDetails(CORE_SORCERY_SPELLS.find(item => item.name === "Diminish (Characteristic)")!)?.traits)
+      .toContain("Resist: Willpower / Endurance");
+    expect(sorcerySpellDetails(CORE_SORCERY_SPELLS.find(item => item.name === "Regenerate")!)?.effect)
+      .toContain("Intensity Hit Points per hour");
+  });
+
+  test("custom Sorcery descriptions remain user-owned", () => {
+    const custom = { id: "custom:spell", name: "Custom", source: "custom" as const, description: "Campaign description." };
+    expect(sorcerySpellDetails(custom)).toEqual({ traits: [], effect: "Campaign description." });
   });
 
   test("specialisations are structured and availability differs from known spells", () => {
