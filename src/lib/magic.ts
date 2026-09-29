@@ -1,6 +1,7 @@
 import { emptyFolkMagicState, normalizeFolkMagicState, type FolkMagicState } from "./folk-magic";
 import { emptyMysticismState, normalizeMysticismState, type MysticismState } from "./mysticism";
 import { emptySorceryState, normalizeSorceryState, type SorceryState } from "./sorcery";
+import { emptyAnimismState, normalizeAnimismState, type AnimismState } from "./animism";
 
 export const MAGIC_DISCIPLINES = ["Folk Magic", "Animism", "Mysticism", "Sorcery", "Theism"] as const;
 export type MagicDiscipline = typeof MAGIC_DISCIPLINES[number];
@@ -17,6 +18,8 @@ export interface MagicDisciplineState {
   discipline: MagicDiscipline;
   skills: MagicSkillRecord[];
   status: MagicStatus;
+  /** Companion magic skills that are absent; no score is fabricated. */
+  missingSkills?: string[];
   /** Reserved for follow-up discipline configuration; preserved during reconciliation. */
   configuration?: Record<string, unknown>;
 }
@@ -58,10 +61,12 @@ export interface MagicState {
   mysticism: MysticismState;
   /** Sorcery schools, availability, and known spells remain separate from other disciplines. */
   sorcery: SorceryState;
+  /** Traditions, spirit relationships and bindings remain distinct from equipment. */
+  animism: AnimismState;
 }
 
 export const emptyMagicState = (): MagicState => ({
-  disciplines: [], archivedDisciplines: [], traditions: [], startingAbilityEntitlements: [], folkMagic: emptyFolkMagicState(), mysticism: emptyMysticismState(), sorcery: emptySorceryState(),
+  disciplines: [], archivedDisciplines: [], traditions: [], startingAbilityEntitlements: [], folkMagic: emptyFolkMagicState(), mysticism: emptyMysticismState(), sorcery: emptySorceryState(), animism: emptyAnimismState(),
 });
 
 export interface DetectedMagicSkill {
@@ -76,14 +81,17 @@ const isSpecialised = (skill: string, base: string) => skill.startsWith(`${base}
 export function detectMagicDisciplines(skills: readonly DetectedMagicSkill[]): MagicDisciplineState[] {
   const relevant: Record<MagicDiscipline, (name: string) => boolean> = {
     "Folk Magic": name => name === "Folk Magic",
-    Animism: name => name === "Trance" || isSpecialised(name, "Binding"),
+    Animism: name => name === "Binding" || isSpecialised(name, "Binding"),
     Mysticism: name => name === "Mysticism" || isSpecialised(name, "Mysticism"),
     Sorcery: name => isSpecialised(name, "Invocation") || name === "Invocation",
     Theism: name => isSpecialised(name, "Devotion") || name === "Exhort",
   };
   return MAGIC_DISCIPLINES.flatMap(discipline => {
     const matched = skills.filter(skill => relevant[discipline](skill.name));
-    return matched.length ? [{ discipline, skills: matched, status: "needs-configuration" as const }] : [];
+    if (!matched.length) return [];
+    const included = discipline === "Animism" ? skills.filter(skill => relevant[discipline](skill.name) || skill.name === "Trance") : matched;
+    return [{ discipline, skills: included, status: "needs-configuration" as const,
+      ...(discipline === "Animism" && !included.some(skill => skill.name === "Trance") ? { missingSkills: ["Trance"] } : {}) }];
   });
 }
 
@@ -104,8 +112,9 @@ function normalizeDisciplineState(value: unknown): MagicDisciplineState | null {
     return [{ name: skill.name, value: skill.value, origins }];
   }) : [];
   const status = VALID_STATUSES.has(source.status as MagicStatus) ? source.status as MagicStatus : "needs-configuration";
+  const missingSkills = Array.isArray(source.missingSkills) ? source.missingSkills.filter((name): name is string => typeof name === "string") : [];
   const configuration = record(source.configuration);
-  return { discipline: source.discipline, skills, status, ...(configuration ? { configuration } : {}) };
+  return { discipline: source.discipline, skills, status, ...(missingSkills.length ? { missingSkills } : {}), ...(configuration ? { configuration } : {}) };
 }
 
 /** Safely restore the plural magic model from current or legacy character saves. */
@@ -133,7 +142,7 @@ export function normalizeMagicState(value: unknown): MagicState {
         rate: entitlement.rate as number, count: entitlement.count as number }];
     }) : [];
   return { disciplines: normalizeStates(source.disciplines), archivedDisciplines: normalizeStates(source.archivedDisciplines), traditions, startingAbilityEntitlements,
-    folkMagic: normalizeFolkMagicState(source.folkMagic), mysticism: normalizeMysticismState(source.mysticism), sorcery: normalizeSorceryState(source.sorcery) };
+    folkMagic: normalizeFolkMagicState(source.folkMagic), mysticism: normalizeMysticismState(source.mysticism), sorcery: normalizeSorceryState(source.sorcery), animism: normalizeAnimismState(source.animism) };
 }
 
 /** Reconcile detected skills while preserving configuration and explicitly archiving lost capabilities. */
@@ -146,7 +155,7 @@ export function reconcileMagicState(current: MagicState, detected: MagicDiscipli
     ...current,
     disciplines: detected.map(state => {
       const previous = existing.get(state.discipline);
-      return previous ? { ...state, status: previous.status, ...(previous.configuration ? { configuration: previous.configuration } : {}) } : state;
+      return previous ? { ...state, status: previous.status, ...(state.missingSkills ? { missingSkills: state.missingSkills } : {}), ...(previous.configuration ? { configuration: previous.configuration } : {}) } : state;
     }),
     archivedDisciplines,
   };
