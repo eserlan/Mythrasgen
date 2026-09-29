@@ -285,9 +285,11 @@
             <label>Teacher / source (optional)<input bind:value={customPathTeacher} maxlength="100" /></label>
             <label>Notes (optional)<textarea bind:value={customPathNotes} rows="2"></textarea></label>
             <fieldset class="mysticism-core-talents"><legend>Add existing Core Talents</legend>
-              {#each mysticismData.talents.filter(talent => talent.source === "core") as talent (talent.id)}
-                <label><input type="checkbox" checked={customPathTalentIds.includes(talent.id)} onchange={event => customPathTalentIds = event.currentTarget.checked ? [...customPathTalentIds, talent.id] : customPathTalentIds.filter(id => id !== talent.id)} />{talent.name}</label>
-              {/each}
+              <div class="mysticism-core-talents-options">
+                {#each mysticismData.talents.filter(talent => talent.source === "core") as talent (talent.id)}
+                  <label class="mysticism-core-talent-option"><input type="checkbox" checked={customPathTalentIds.includes(talent.id)} onchange={event => customPathTalentIds = event.currentTarget.checked ? [...customPathTalentIds, talent.id] : customPathTalentIds.filter(id => id !== talent.id)} /><span>{talent.name}</span></label>
+                {/each}
+              </div>
             </fieldset>
             <label>Custom Talent name (optional)<input bind:value={customTalentName} maxlength="100" /></label>
             <label>Custom Talent description<textarea bind:value={customTalentDescription} rows="2"></textarea></label>
@@ -450,8 +452,13 @@
   .mysticism-path{display:grid;gap:5px;margin:12px 0 5px;font-size:.85rem}.mysticism-path select{width:100%}
   .mysticism-path-info{margin:5px 0 10px;color:var(--mute);font-size:.88rem}.mysticism-path-info b{color:var(--fg)}
   .mysticism-details{margin-top:10px;border-top:1px solid var(--line);padding-top:8px}.mysticism-details summary{cursor:pointer;color:var(--bronze);font-size:.82rem}
-  .mysticism-details>p{color:var(--mute);font-size:.84rem}.mysticism-core-talents{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:4px;border:1px solid var(--line);padding:8px}
-  .mysticism-core-talents legend{color:var(--bronze);font-size:.8rem}.mysticism-core-talents label{display:flex;align-items:center;gap:6px}.mysticism-core-talents input{width:auto}
+  .mysticism-details>p{color:var(--mute);font-size:.84rem}.mysticism-core-talents{min-width:0;border:1px solid var(--line);padding:8px}
+  .mysticism-core-talents legend{color:var(--bronze);font-size:.8rem}.mysticism-core-talents-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:4px}
+  .folk-magic-custom-form .mysticism-core-talent-option{display:flex;align-items:center;gap:7px;min-width:0;border:1px solid transparent;padding:4px;cursor:pointer}
+  .mysticism-core-talent-option:has(input:checked){border-color:var(--ok);background:color-mix(in srgb,var(--ok) 9%,transparent)}
+  .mysticism-core-talent-option:focus-within{outline:2px solid var(--bronze);outline-offset:1px}
+  .mysticism-core-talent-option input{flex:none;width:18px;height:18px;margin:0;accent-color:var(--bronze)}
+  .mysticism-core-talent-option span{min-width:0}
   .folk-magic-custom-form{display:grid;gap:8px;margin-top:12px;padding:12px;background:var(--card);border:1px solid var(--line)}
   .folk-magic-custom-form h5{margin:0;color:var(--bronze);font:700 .72rem var(--display);letter-spacing:.1em;text-transform:uppercase}
   .folk-magic-custom-form label{display:grid;gap:3px;font-size:.85rem}.folk-magic-custom-form input{width:100%}
