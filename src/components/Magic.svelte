@@ -25,7 +25,9 @@
   let findSubject = $state("");
   let detailsSpellId = $state<string | null>(null);
   let mysticismPicker: HTMLDialogElement;
+  let customPathTalentPicker: HTMLDialogElement;
   let mysticismPathQuery = $state("");
+  let customPathTalentQuery = $state("");
   let customPathEditor = $state(false);
   let customPathName = $state("");
   let customPathOrganisation = $state("");
@@ -35,6 +37,7 @@
   let customTalentDescription = $state("");
   let customPathTalentIds = $state<string[]>([]);
   let mysticismTalentDetails = $state<string | null>(null);
+  let customPathTalentDetails = $state<string | null>(null);
 
   const capability = $derived(char.magic.disciplines.find(item => item.discipline === "Folk Magic"));
   const mysticismCapability = $derived(char.magic.disciplines.find(item => item.discipline === "Mysticism"));
@@ -51,6 +54,9 @@
   const mysticismInvalidSelected = $derived(mysticismSelected.filter(id => !mysticismAvailableIds.includes(id)));
   const mysticismComplete = $derived(!!mysticismPath && mysticismSelected.length === mysticismEntitlement.count && mysticismInvalidSelected.length === 0);
   const mysticismPickerTalents = $derived(mysticismAvailable.filter(talent => talent.name.toLowerCase().includes(mysticismPathQuery.trim().toLowerCase())));
+  const customPathCoreTalents = $derived(mysticismData.talents.filter(talent => talent.source === "core"));
+  const customPathPickerTalents = $derived(customPathCoreTalents.filter(talent => `${talent.name} ${talent.target ?? ""} ${talent.description ?? ""}`.toLowerCase().includes(customPathTalentQuery.trim().toLowerCase())));
+  const customPathSelectedTalents = $derived(customPathTalentIds.map(id => customPathCoreTalents.find(talent => talent.id === id)).filter((talent): talent is MysticismTalent => !!talent));
   const folkState = $derived(char.magic.folkMagic);
   const specialist = $derived(capability?.configuration?.entitlementRuleId === FOLK_MAGIC_SPECIALIST_ENTITLEMENT.id);
   const entitlementRule = $derived(specialist ? FOLK_MAGIC_SPECIALIST_ENTITLEMENT : FOLK_MAGIC_STANDARD_ENTITLEMENT);
@@ -131,6 +137,11 @@
     mysticismState.pathIds = [...new Set([...mysticismState.pathIds, id])];
     customPathName = ""; customPathOrganisation = ""; customPathTeacher = ""; customPathNotes = ""; customPathTalentIds = []; customPathEditor = false;
     updateStatus();
+  }
+  function toggleCustomPathTalent(id: string) {
+    customPathTalentIds = customPathTalentIds.includes(id)
+      ? customPathTalentIds.filter(selectedId => selectedId !== id)
+      : [...customPathTalentIds, id];
   }
   function createCustomMysticismTalent() {
     const name = customTalentName.trim();
@@ -284,16 +295,23 @@
             <label>Organisation or teacher (optional)<input bind:value={customPathOrganisation} maxlength="100" /></label>
             <label>Teacher / source (optional)<input bind:value={customPathTeacher} maxlength="100" /></label>
             <label>Notes (optional)<textarea bind:value={customPathNotes} rows="2"></textarea></label>
-            <fieldset class="mysticism-core-talents"><legend>Add existing Core Talents</legend>
-              <div class="mysticism-core-talents-options">
-                {#each mysticismData.talents.filter(talent => talent.source === "core") as talent (talent.id)}
-                  <label class="mysticism-core-talent-option"><input type="checkbox" checked={customPathTalentIds.includes(talent.id)} onchange={event => customPathTalentIds = event.currentTarget.checked ? [...customPathTalentIds, talent.id] : customPathTalentIds.filter(id => id !== talent.id)} /><span>{talent.name}</span></label>
-                {/each}
-              </div>
-            </fieldset>
-            <label>Custom Talent name (optional)<input bind:value={customTalentName} maxlength="100" /></label>
-            <label>Custom Talent description<textarea bind:value={customTalentDescription} rows="2"></textarea></label>
-            <p class="mute">A custom Talent can be added to this Path when you save it.</p>
+            <section class="custom-path-talents" aria-labelledby="custom-path-talents-heading">
+              <div class="custom-path-talents-heading"><div><h5 id="custom-path-talents-heading">Talents</h5><small>{customPathSelectedTalents.length + (customTalentName.trim() ? 1 : 0)} Talents added</small></div></div>
+              {#if customPathSelectedTalents.length || customTalentName.trim()}
+                <ul class="custom-path-selected-talents">
+                  {#each customPathSelectedTalents as talent (talent.id)}
+                    <li><span>{talent.name}<small>Core Talent</small></span><button type="button" class="ghost" aria-label="Remove {talent.name}" onclick={() => toggleCustomPathTalent(talent.id)}>Remove</button></li>
+                  {/each}
+                  {#if customTalentName.trim()}<li><span>{customTalentName.trim()}<small>Custom Talent · added when Path is created</small></span><button type="button" class="ghost" aria-label="Clear custom Talent {customTalentName.trim()}" onclick={() => { customTalentName = ""; customTalentDescription = ""; }}>Remove</button></li>{/if}
+                </ul>
+              {:else}<p class="mute custom-path-no-talents">No Talents added yet.</p>{/if}
+              <button type="button" class="primary" onclick={() => { customPathTalentQuery = ""; customPathTalentPicker.showModal(); }}>Add Talents</button>
+            </section>
+            <details class="mysticism-details custom-path-advanced"><summary>Create Custom Talent</summary>
+              <label>Name<input bind:value={customTalentName} maxlength="100" /></label>
+              <label>Description<textarea bind:value={customTalentDescription} rows="2"></textarea></label>
+              <p class="mute">This Talent will be created and added to the Path when you save it.</p>
+            </details>
             <button type="submit" class="primary" disabled={!customPathName.trim()}>Create Path</button>
           </form>
         </details>
@@ -376,6 +394,24 @@
   </div>
 </dialog>
 
+<dialog class="folk-magic-picker custom-path-talent-picker" bind:this={customPathTalentPicker} aria-labelledby="custom-path-talent-picker-title">
+  <div class="folk-magic-picker-content">
+    <header><div><h2 id="custom-path-talent-picker-title">Add Talents</h2><p>{customPathTalentIds.length} Talents selected for this Path</p></div><button type="button" class="ghost" onclick={() => customPathTalentPicker.close()}>Close ✕</button></header>
+    <input class="folk-magic-search" bind:value={customPathTalentQuery} placeholder="Search Talents…" aria-label="Search Core Talents" />
+    <ul class="folk-magic-picker-list custom-path-talent-list">
+      {#each customPathPickerTalents as talent (talent.id)}
+        <li class:selected={customPathTalentIds.includes(talent.id)}>
+          <button type="button" class="folk-magic-spell-choice" onclick={() => toggleCustomPathTalent(talent.id)}>
+            <span class="folk-magic-check">{customPathTalentIds.includes(talent.id) ? "✓" : "+"}</span><span><b>{talent.name}</b><small>{talent.family === "augment-skill" ? `Augments ${talent.target}` : talent.family === "invoke-trait" ? `Invokes ${talent.target}` : talent.family === "enhance-attribute" ? `Enhances ${talent.target}` : "Core Talent"}</small></span>
+          </button>
+          <button type="button" class="ghost folk-magic-details-button" onclick={() => customPathTalentDetails = customPathTalentDetails === talent.id ? null : talent.id}>{customPathTalentDetails === talent.id ? "Hide details" : "Details"}</button>
+          {#if customPathTalentDetails === talent.id}<p class="folk-magic-spell-details">{talent.description || talent.notes || (talent.family === "augment-skill" ? `Use this Talent to augment ${talent.target}.` : talent.family === "invoke-trait" ? `Invoke the ${talent.target} trait.` : talent.family === "enhance-attribute" ? `Enhance ${talent.target}.` : "Core Mysticism Talent.")}</p>{/if}
+        </li>
+      {:else}<li class="mute folk-magic-no-results">No Talents match your search.</li>{/each}
+    </ul>
+  </div>
+</dialog>
+
 <dialog class="folk-magic-picker" bind:this={picker} aria-labelledby="folk-magic-picker-title">
   <div class="folk-magic-picker-content">
     <header><div><h2 id="folk-magic-picker-title">Choose a starting spell</h2><p>{selectedCount} / {entitlement.count} selected</p></div><button type="button" class="ghost" onclick={() => picker.close()}>Close ✕</button></header>
@@ -452,13 +488,13 @@
   .mysticism-path{display:grid;gap:5px;margin:12px 0 5px;font-size:.85rem}.mysticism-path select{width:100%}
   .mysticism-path-info{margin:5px 0 10px;color:var(--mute);font-size:.88rem}.mysticism-path-info b{color:var(--fg)}
   .mysticism-details{margin-top:10px;border-top:1px solid var(--line);padding-top:8px}.mysticism-details summary{cursor:pointer;color:var(--bronze);font-size:.82rem}
-  .mysticism-details>p{color:var(--mute);font-size:.84rem}.mysticism-core-talents{min-width:0;border:1px solid var(--line);padding:8px}
-  .mysticism-core-talents legend{color:var(--bronze);font-size:.8rem}.mysticism-core-talents-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:4px}
-  .folk-magic-custom-form .mysticism-core-talent-option{display:flex;align-items:center;gap:7px;min-width:0;border:1px solid transparent;padding:4px;cursor:pointer}
-  .mysticism-core-talent-option:has(input:checked){border-color:var(--ok);background:color-mix(in srgb,var(--ok) 9%,transparent)}
-  .mysticism-core-talent-option:focus-within{outline:2px solid var(--bronze);outline-offset:1px}
-  .mysticism-core-talent-option input{flex:none;width:18px;height:18px;margin:0;accent-color:var(--bronze)}
-  .mysticism-core-talent-option span{min-width:0}
+  .mysticism-details>p{color:var(--mute);font-size:.84rem}
+  .custom-path-talents{display:grid;gap:8px;margin-top:6px;padding-top:10px;border-top:1px solid var(--line)}
+  .custom-path-talents-heading{display:flex;align-items:center;justify-content:space-between}.custom-path-talents-heading h5{margin:0;color:var(--bronze);font:700 .72rem var(--display);letter-spacing:.1em;text-transform:uppercase}
+  .custom-path-talents-heading small,.custom-path-selected-talents small{display:block;color:var(--mute);font-size:.8rem}
+  .custom-path-selected-talents{list-style:none;margin:0;padding:0}.custom-path-selected-talents li{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid var(--line)}
+  .custom-path-selected-talents li>span{min-width:0}.custom-path-selected-talents button{flex:none;font-size:.65rem}.custom-path-no-talents{margin:0;font-size:.85rem}
+  .custom-path-advanced{margin-top:8px}.custom-path-talent-list>li{flex-wrap:nowrap}.custom-path-talent-list .folk-magic-spell-choice{min-width:0;overflow-wrap:normal;word-break:normal}.custom-path-talent-list .folk-magic-spell-choice>span:last-child{min-width:0;white-space:normal}
   .folk-magic-custom-form{display:grid;gap:8px;margin-top:12px;padding:12px;background:var(--card);border:1px solid var(--line)}
   .folk-magic-custom-form h5{margin:0;color:var(--bronze);font:700 .72rem var(--display);letter-spacing:.1em;text-transform:uppercase}
   .folk-magic-custom-form label{display:grid;gap:3px;font-size:.85rem}.folk-magic-custom-form input{width:100%}
@@ -476,5 +512,5 @@
   .folk-magic-details-button{font-size:.65rem}.folk-magic-spell-details{width:100%;margin:0 6px 6px 39px;color:var(--mute);font-size:.86rem}
   .folk-magic-traits{display:flex;flex-wrap:wrap;gap:5px;margin:0 0 7px}.folk-magic-traits span{padding:2px 6px;border:1px solid var(--line2);color:var(--bronze);font-size:.74rem}.folk-magic-spell-details p{margin:0 0 6px}.folk-magic-spell-details small{display:block;margin-top:4px}.folk-magic-spell-details .folk-magic-gap{color:var(--acc)}
   .folk-magic-no-results{padding:12px}
-  @media(max-width:520px){.folk-magic-entitlement{align-items:flex-start;flex-direction:column}.folk-magic-known-row{align-items:flex-start}.folk-magic-actions>*{flex:1}}
+  @media(max-width:520px){.folk-magic-entitlement{align-items:flex-start;flex-direction:column}.folk-magic-known-row{align-items:flex-start}.folk-magic-actions>*{flex:1}.custom-path-selected-talents li{align-items:flex-start}}
 </style>
