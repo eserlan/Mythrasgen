@@ -172,8 +172,9 @@
     const id = `custom:sorcery-school:${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`}`;
     const school: SorcerySchool = { id, name, source: "custom", spellIds: [...new Set(sorcerySchoolSpellIds)], ...(sorceryCustomSchoolSource.trim() ? { sourceDescription: sorceryCustomSchoolSource.trim() } : {}) };
     sorceryState.customSchools.push(school);
-    sorceryState.startingSchoolId = id;
-    sorceryState.schoolIds = [...new Set([...sorceryState.schoolIds, id])];
+    const next = withStartingSorcerySchool(sorceryState, id);
+    sorceryState.startingSchoolId = next.startingSchoolId;
+    sorceryState.schoolIds = next.schoolIds;
     sorceryState.schoolAccess = [...sorceryState.schoolAccess.filter(item => item.schoolId !== id), { schoolId: id, sourceType: "custom", ...(sorceryCustomSchoolSource.trim() ? { sourceDescription: sorceryCustomSchoolSource.trim() } : {}) }];
     sorceryCustomSchoolName = ""; sorceryCustomSchoolSource = ""; sorcerySchoolSpellIds = []; sorceryCustomSchoolEditor = false;
     updateStatus();

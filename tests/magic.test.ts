@@ -90,6 +90,8 @@ describe("Sorcery rules and structured Core data", () => {
     const first = CORE_SORCERY_SCHOOLS[0];
     const second = CORE_SORCERY_SCHOOLS[1];
     const acquired = { id: "custom:acquired-school", name: "Acquired School", source: "custom" as const, spellIds: [first.spellIds[0]] };
+    const newSpell = { id: "custom:new-spell", name: "New Spell", source: "custom" as const };
+    const newlyCreated = { id: "custom:new-school", name: "New School", source: "custom" as const, spellIds: [newSpell.id] };
     const state = { ...emptySorceryState(), customSchools: [acquired], schoolIds: [first.id, acquired.id], startingSchoolId: first.id };
 
     const changed = withStartingSorcerySchool(state, second.id);
@@ -97,6 +99,10 @@ describe("Sorcery rules and structured Core data", () => {
     expect(changed.schoolIds).toEqual([acquired.id, second.id]);
     expect(availableSorcerySpellIds(changed)).toEqual([...acquired.spellIds, ...second.spellIds]);
     expect(state.schoolIds).toEqual([first.id, acquired.id]);
+
+    const created = withStartingSorcerySchool({ ...state, customSchools: [...state.customSchools, newlyCreated], customSpells: [newSpell] }, newlyCreated.id);
+    expect(created.schoolIds).toEqual([acquired.id, newlyCreated.id]);
+    expect(availableSorcerySpellIds(created)).toEqual([...acquired.spellIds, ...newlyCreated.spellIds]);
   });
 
   test("custom Schools may mix Core and custom spells without changing Core records", () => {
