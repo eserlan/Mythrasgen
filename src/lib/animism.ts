@@ -9,6 +9,7 @@ export interface SpiritType {
   id: string;
   name: string;
   source: AnimismSource;
+  provenance?: string;
   description?: string;
 }
 
@@ -117,6 +118,15 @@ export const CORE_SPIRIT_TYPES: readonly SpiritType[] = [
   ["predator", "Predator spirits"], ["sickness", "Sickness spirits"], ["fetch", "Fetches"],
 ].map(([id, name]) => ({ id: `core:animism:${id}`, name, source: "core" as const }));
 
+/** Combines spirit type sources by ID so keyed UI lists never receive duplicate records. */
+export function listAnimismSpiritTypes(state: Pick<AnimismState, "customSpiritTypes" | "traditions">): SpiritType[] {
+  const types = new Map<string, SpiritType>();
+  for (const type of [...CORE_SPIRIT_TYPES, ...state.customSpiritTypes, ...state.traditions.flatMap(tradition => tradition.customSpiritTypes)]) {
+    if (!types.has(type.id)) types.set(type.id, type);
+  }
+  return [...types.values()];
+}
+
 export const CORE_ANIMISM_RANKS: readonly AnimismRank[] = ["Follower", "Spirit Worshipper", "Shaman", "High Shaman"];
 export type TranceTask = "observe" | "converse" | "project-or-draw" | "drag-souls";
 export type TrancePreparation = "1 hour" | "1 minute" | "1 round" | "1 action";
@@ -201,7 +211,7 @@ const source = (value: unknown): AnimismSource => value === "core" || value === 
 function normalizeSpiritType(value: unknown): SpiritType | null {
   const item = record(value);
   return item && typeof item.id === "string" && typeof item.name === "string"
-    ? { id: item.id, name: item.name, source: source(item.source), ...(typeof item.description === "string" ? { description: item.description } : {}) } : null;
+    ? { id: item.id, name: item.name, source: source(item.source), ...(typeof item.provenance === "string" ? { provenance: item.provenance } : {}), ...(typeof item.description === "string" ? { description: item.description } : {}) } : null;
 }
 function normalizeTemplate(value: unknown): SpiritTemplate | null {
   const item = record(value);

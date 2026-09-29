@@ -18,6 +18,7 @@
     availableSorcerySpellIds, calculateSorceryDerivedStatistics, calculateSorceryStartingEntitlement, configureCoreSorcerySpell, sorceryCatalogue, sorcerySchoolCatalogue, sorcerySpellDetails as resolveSorcerySpellDetails,
     withStartingSorcerySchool, type SorcerySchool, type SorcerySpell,
   } from "../lib/sorcery";
+  import { CORE_ANIMISM_RANKS, listAnimismSpiritTypes, getBoundSpiritCapacity, getMaximumControllableSpiritPow, getSpiritDamage, getTranceCapabilities, reconcileAnimism, type AnimismRank, type AnimismStartingGrant, type SpiritAttitude, type SpiritBindingVessel, type SpiritRecord, type SpiritTradition, type SpiritType } from "../lib/animism";
 
   const originName: Record<MagicSkillOrigin, string> = { culture: "Culture", career: "Career", bonus: "Bonus / Hobby Skill" };
   let picker: HTMLDialogElement;
@@ -56,10 +57,48 @@
   let sorcerySchoolSpellIds = $state<string[]>([]);
   let sorceryConfigureId = $state<string | null>(null);
   let sorceryConfigureSubject = $state("");
+  let animismPicker: HTMLDialogElement;
+  let animismQuery = $state("");
+  let animismPickerAttitude = $state<"friendly" | "neutral" | "hostile">("friendly");
+  let animismTraditionName = $state("");
+  let animismHostileTradition = $state("");
+  let animismCustomTypeName = $state("");
+  let animismCustomTypeDescription = $state("");
+  let animismCustomTypeNotes = $state("");
+  let animismCustomTypeProvenance = $state("");
+  let animismSpiritName = $state("");
+  let animismSpiritTypeId = $state("");
+  let animismSpiritIntensity = $state(1);
+  let animismSpiritAttitude = $state<SpiritAttitude>("friendly");
+  let animismSpiritBound = $state(false);
+  let animismVessel = $state<SpiritBindingVessel>("fetish/object");
+  let animismVesselName = $state("");
+  let animismVesselDescription = $state("");
+  let animismSpiritNotes = $state("");
+  let animismSpiritSource = $state("character creation");
+  let animismDetailsId = $state<string | null>(null);
 
   const capability = $derived(char.magic.disciplines.find(item => item.discipline === "Folk Magic"));
   const mysticismCapability = $derived(char.magic.disciplines.find(item => item.discipline === "Mysticism"));
   const sorceryCapability = $derived(char.magic.disciplines.find(item => item.discipline === "Sorcery"));
+  const animismCapability = $derived(char.magic.disciplines.find(item => item.discipline === "Animism"));
+  const animismState = $derived(char.magic.animism);
+  const animismBinding = $derived(animismCapability?.skills.find(item => item.name === "Binding" || item.name.startsWith("Binding (")));
+  const animismTrance = $derived(animismCapability?.skills.find(item => item.name === "Trance"));
+  const animismTraditions = $derived(animismState.traditions);
+  const animismTradition = $derived(animismTraditions.find(item => item.id === animismState.traditionId));
+  const animismRank = $derived(animismState.rank ?? animismTradition?.rank);
+  const animismSpiritTypes = $derived(listAnimismSpiritTypes(animismState));
+  const animismCapacity = $derived(getBoundSpiritCapacity(char, animismRank));
+  const animismBound = $derived(animismState.bindings.filter(item => item.countsAgainstCapacity));
+  const animismFriendlyTypes = $derived(animismTradition?.friendlySpiritTypeIds ?? animismState.accessibleSpiritTypeIds);
+  const animismNeutralTypes = $derived(animismTradition?.neutralSpiritTypeIds ?? []);
+  const animismHostileTypes = $derived(animismTradition?.hostileSpiritTypeIds ?? []);
+  const animismVisibleTypes = $derived([...new Set([...animismFriendlyTypes, ...animismNeutralTypes, ...animismHostileTypes,
+    ...(animismTradition?.startingGrants.flatMap(grant => grant.spiritTypeId ? [grant.spiritTypeId] : []) ?? [])])]);
+  const animismPickerTypes = $derived(animismSpiritTypes.filter(item => `${item.name} ${item.description ?? ""}`.toLowerCase().includes(animismQuery.trim().toLowerCase())));
+  const animismUnresolvedGrant = $derived(hasUnresolvedAnimismGrant());
+  const animismNeedsSetup = $derived(!animismTradition || !animismRank || animismBound.length > animismCapacity || animismState.reconciliationIssues.length > 0 || animismUnresolvedGrant);
   const sorceryState = $derived(char.magic.sorcery);
   const sorcerySkills = $derived(sorceryCapability?.skills ?? []);
   const invocationSkill = $derived(sorcerySkills.find(item => item.name === "Invocation") ?? sorcerySkills.find(item => item.name.startsWith("Invocation (")));
@@ -126,13 +165,129 @@
     return spell.name.toLowerCase().includes(query.trim().toLowerCase());
   }));
 
-  onMount(() => { reconcileMagic(); inferStartingMysticismPath(); inferStartingSorcerySchool(); updateStatus(); });
+  onMount(() => { reconcileMagic(); inferStartingMysticismPath(); inferStartingSorcerySchool(); inferAnimismTradition(); updateStatus(); });
 
   function updateStatus() {
     if (capability) capability.status = complete ? "complete" : "action-required";
     if (mysticismCapability) mysticismCapability.status = mysticismComplete ? "complete" : "action-required";
     if (sorceryCapability) sorceryCapability.status = sorceryComplete ? "complete" : "action-required";
+    if (animismCapability) {
+      reconcileAnimism(animismState, animismRank, char.chars.CHA, animismState.traditionId, animismBinding?.value);
+      animismCapability.status = animismNeedsSetup ? "action-required" : "complete";
+    }
     persist();
+  }
+  function inferAnimismTradition() {
+    if (!animismCapability || animismState.traditionId) return;
+    const specialisation = animismBinding?.name.startsWith("Binding (") ? animismBinding.name.slice("Binding (".length, -1).trim().toLocaleLowerCase() : "";
+    let found = animismTraditions.find(item => item.name.toLocaleLowerCase() === specialisation);
+    if (!found) {
+      const existing = char.magic.traditions.find(item => item.name.toLocaleLowerCase() === specialisation
+        && (item.disciplines.includes("Animism") || item.sourceType.toLocaleLowerCase().includes("animist")));
+      if (existing) {
+        found = { id: existing.id, name: existing.name, source: existing.sourceType.toLocaleLowerCase().includes("custom") ? "custom" : "campaign",
+          friendlySpiritTypeIds: [], neutralSpiritTypeIds: [], hostileSpiritTypeIds: [], hostileTraditionIds: [], startingGrants: [], customSpiritTypes: [], customSpiritTemplates: [] };
+        animismState.traditions.push(found);
+      }
+    }
+    if (found) { animismState.traditionId = found.id; animismState.bindingSpecialisation = { skillName: animismBinding!.name, traditionId: found.id }; }
+  }
+  function animismTypeName(id: string) { return animismSpiritTypes.find(item => item.id === id)?.name ?? id; }
+  function animismSpirit(id: string) { return animismState.spirits.find(item => item.id === id); }
+  function animismBindingFor(id: string) { return animismState.bindings.find(item => item.spiritId === id); }
+  function hasUnresolvedAnimismGrant() {
+    return !!animismTradition?.startingGrants.some(grant => {
+      if (grant.kind !== "spirit-ally" && grant.kind !== "bound-spirit") return false;
+      return !animismGrantHasSpirit(grant);
+    });
+  }
+  function animismGrantHasSpirit(grant: AnimismStartingGrant) {
+    return animismState.spirits.some(spirit => {
+      const relationship = grant.kind === "bound-spirit" ? animismBindingFor(spirit.id)?.source
+        : animismState.allies.find(ally => ally.spiritId === spirit.id)?.source;
+      const matches = grant.spiritId ? spirit.id === grant.spiritId
+        : grant.spiritTypeId ? spirit.spiritTypeId === grant.spiritTypeId : relationship === grant.source;
+      return matches && (grant.kind !== "bound-spirit" || !!animismBindingFor(spirit.id))
+        && (grant.kind !== "spirit-ally" || animismState.allies.some(ally => ally.spiritId === spirit.id));
+    });
+  }
+  function animismId(kind: string) { return `custom:animism-${kind}:${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`}`; }
+  function selectAnimismTradition(id: string) {
+    animismState.traditionId = id || undefined;
+    const selected = animismTraditions.find(item => item.id === id);
+    const specialised = animismBinding?.name.startsWith("Binding (") ? animismBinding.name.slice("Binding (".length, -1).trim().toLocaleLowerCase() : "";
+    if (selected && specialised === selected.name.toLocaleLowerCase()) animismState.bindingSpecialisation = { skillName: animismBinding!.name, traditionId: id };
+    updateStatus();
+  }
+  function createAnimismTradition() {
+    const name = animismTraditionName.trim(); if (!name) return;
+    const id = animismId("tradition");
+    const tradition: SpiritTradition = { id, name, source: "custom", friendlySpiritTypeIds: [], neutralSpiritTypeIds: [], hostileSpiritTypeIds: [], hostileTraditionIds: [], startingGrants: [], customSpiritTypes: [], customSpiritTemplates: [] };
+    animismState.traditions.push(tradition);
+    animismState.traditionId = id;
+    if (animismBinding?.name.toLocaleLowerCase() === `binding (${name.toLocaleLowerCase()})`) animismState.bindingSpecialisation = { skillName: animismBinding.name, traditionId: id };
+    animismTraditionName = "";
+    updateStatus();
+  }
+  function updateAnimismRank(value: string) { animismState.rank = (CORE_ANIMISM_RANKS as readonly string[]).includes(value) ? value as AnimismRank : undefined; updateStatus(); }
+  function animismTypeIds(attitude: "friendly" | "neutral" | "hostile") {
+    if (!animismTradition) return animismState.accessibleSpiritTypeIds;
+    return attitude === "friendly" ? animismTradition.friendlySpiritTypeIds : attitude === "neutral" ? animismTradition.neutralSpiritTypeIds : animismTradition.hostileSpiritTypeIds;
+  }
+  function openAnimismPicker(attitude: "friendly" | "neutral" | "hostile") {
+    animismPickerAttitude = attitude; animismQuery = ""; animismPicker.showModal();
+  }
+  function toggleAnimismAccess(id: string) {
+    const list = animismTypeIds(animismPickerAttitude);
+    const next = list.includes(id) ? list.filter(item => item !== id) : [...list, id];
+    if (!animismTradition) animismState.accessibleSpiritTypeIds = next;
+    else if (animismPickerAttitude === "friendly") animismTradition.friendlySpiritTypeIds = next;
+    else if (animismPickerAttitude === "neutral") animismTradition.neutralSpiritTypeIds = next;
+    else animismTradition.hostileSpiritTypeIds = next;
+    updateStatus();
+  }
+  function addAnimismHostileTradition() {
+    const name = animismHostileTradition.trim();
+    if (!name || !animismTradition || animismTradition.hostileTraditionIds.includes(name)) return;
+    animismTradition.hostileTraditionIds = [...animismTradition.hostileTraditionIds, name];
+    animismHostileTradition = "";
+    updateStatus();
+  }
+  function createAnimismSpiritType() {
+    const name = animismCustomTypeName.trim(); if (!name) return;
+    const type: SpiritType = { id: animismId("spirit-type"), name, source: "custom", ...(animismCustomTypeProvenance.trim() ? { provenance: animismCustomTypeProvenance.trim() } : {}), ...(animismCustomTypeDescription.trim() ? { description: animismCustomTypeDescription.trim() } : {}) };
+    animismState.customSpiritTypes.push(type);
+    if (animismTradition) animismTradition.customSpiritTypes.push(type);
+    if (animismCustomTypeNotes.trim()) animismState.spiritTemplates.push({ id: `${type.id}:notes`, name, spiritTypeId: type.id, source: "custom", notes: animismCustomTypeNotes.trim() });
+    const list = animismTypeIds(animismPickerAttitude); const next = [...new Set([...list, type.id])];
+    if (!animismTradition) animismState.accessibleSpiritTypeIds = next;
+    else if (animismPickerAttitude === "friendly") animismTradition.friendlySpiritTypeIds = next;
+    else if (animismPickerAttitude === "neutral") animismTradition.neutralSpiritTypeIds = next;
+    else animismTradition.hostileSpiritTypeIds = next;
+    animismCustomTypeName = ""; animismCustomTypeDescription = ""; animismCustomTypeNotes = ""; animismCustomTypeProvenance = "";
+    updateStatus();
+  }
+  function addAnimismSpirit() {
+    if (!animismSpiritTypeId) return;
+    const grant = animismTradition?.startingGrants.find(item => (item.kind === "spirit-ally" || item.kind === "bound-spirit")
+      && !animismGrantHasSpirit(item)
+      && (!item.spiritTypeId || item.spiritTypeId === animismSpiritTypeId)
+      && (item.kind !== "bound-spirit" || animismSpiritBound)
+      && (item.kind !== "spirit-ally" || !animismSpiritBound));
+    const id = grant?.spiritId ?? animismId("spirit");
+    const spirit: SpiritRecord = { id, name: animismSpiritName.trim() || animismTypeName(animismSpiritTypeId), spiritTypeId: animismSpiritTypeId, source: "custom", attitude: animismSpiritAttitude, intensity: Math.max(0, Number(animismSpiritIntensity) || 0), abilities: [], ...(animismSpiritNotes.trim() ? { notes: animismSpiritNotes.trim() } : {}) };
+    animismState.spirits.push(spirit);
+    const provenance = (grant?.source ?? animismSpiritSource.trim()) || "character creation";
+    if (animismSpiritBound) animismState.bindings.push({ id: animismId("binding"), spiritId: id, vessel: animismVessel, countsAgainstCapacity: true, source: provenance, ...(animismVesselName.trim() ? { objectName: animismVesselName.trim() } : {}), ...(animismVesselDescription.trim() ? { description: animismVesselDescription.trim() } : {}) });
+    else animismState.allies.push({ spiritId: id, attitude: animismSpiritAttitude, source: provenance });
+    animismSpiritName = ""; animismSpiritNotes = ""; animismVesselName = ""; animismVesselDescription = "";
+    updateStatus();
+  }
+  function removeAnimismRelationship(id: string) {
+    animismState.bindings = animismState.bindings.filter(item => item.spiritId !== id);
+    animismState.allies = animismState.allies.filter(item => item.spiritId !== id);
+    animismState.spirits = animismState.spirits.filter(item => item.id !== id);
+    updateStatus();
   }
   function inferStartingSorcerySchool() {
     if (!sorceryCapability || sorceryState.startingSchoolId) return;
@@ -358,7 +513,7 @@
     <h3>Magical Capabilities</h3>
     <div class="magic-capabilities">
       {#each char.magic.disciplines as item (item.discipline)}
-        {#if item.discipline !== "Folk Magic" && item.discipline !== "Mysticism" && item.discipline !== "Sorcery"}
+        {#if item.discipline !== "Folk Magic" && item.discipline !== "Animism" && item.discipline !== "Mysticism" && item.discipline !== "Sorcery"}
           <article class="magic-capability">
             <div class="magic-capability-heading">
               <h4>{item.discipline}</h4>
@@ -375,6 +530,101 @@
         {/if}
       {/each}
     </div>
+    {#if animismCapability}
+      <article class="folk-magic-discipline animism-discipline">
+        <div class="folk-magic-heading"><div><h4>Animism</h4>
+          <p class="folk-magic-skill">Binding {animismBinding?.value ?? 0}%{#if animismTrance} · Trance {animismTrance.value}%{/if}</p>
+          {#if animismBinding?.origins.length}<p class="mute folk-magic-provenance">Binding acquired through {animismBinding.origins.map(origin => originName[origin]).join(", ")}</p>{/if}
+        </div><span class:complete={!animismNeedsSetup} class="magic-status">{animismNeedsSetup ? "Action required" : "Complete"}</span></div>
+        <div class="animism-derived">
+          <div><b>Spirit Damage</b><span>{getSpiritDamage(animismBinding?.value ?? 0) ?? "—"}</span></div>
+          <div><b>Maximum controllable spirit</b><span>POW {animismBinding ? getMaximumControllableSpiritPow(animismBinding.value) : "—"}</span></div>
+          <div><b>Bound-spirit capacity</b><span>{animismCapacity}</span></div>
+        </div>
+        <details class="mysticism-details"><summary>Animism details</summary>
+          {#if animismRank}
+            {@const trance = getTranceCapabilities(animismRank)}
+            <p>{animismRank} — {trance.canProjectIntoSpiritWorld ? "can project into the Spirit World and use the additional Trance capabilities granted at this rank." : trance.canConverse ? "can observe, identify and converse with spirits." : "can observe and identify spirits."}</p>
+          {:else}<p>Choose a rank to resolve Trance capabilities and bound-spirit capacity.</p>{/if}
+          <p>Your rank and CHA determine how many spirits you can have bound at once. Capacity does not grant free starting spirits.</p>
+          <p>Spirit Damage follows Binding; maximum controllable spirit POW is three times your Binding critical range.</p>
+        </details>
+        <label class="mysticism-path">Tradition
+          <select value={animismState.traditionId ?? ""} onchange={event => selectAnimismTradition(event.currentTarget.value)}>
+            <option value="">Choose a campaign or custom Tradition</option>
+            {#each animismTraditions as tradition (tradition.id)}<option value={tradition.id}>{tradition.name}{tradition.source === "custom" ? " · Custom" : ""}</option>{/each}
+          </select>
+        </label>
+        {#if animismBinding?.name.startsWith("Binding (") && animismTradition}
+          <p class="mysticism-path-info">Binding specialisation: {animismBinding.name}</p>
+        {/if}
+        {#if !animismTradition}
+          <p class="folk-magic-error">Binding is present, but its Tradition has not been resolved.</p>
+          <form class="folk-magic-custom-form animism-form" onsubmit={event => { event.preventDefault(); createAnimismTradition(); }}>
+            <h5>Create custom Tradition</h5><label>Tradition name<input bind:value={animismTraditionName} maxlength="100" required /></label>
+            <button type="submit" class="primary" disabled={!animismTraditionName.trim()}>Create custom Tradition</button>
+          </form>
+        {/if}
+        <label class="mysticism-path">Rank
+          <select value={animismRank ?? ""} onchange={event => updateAnimismRank(event.currentTarget.value)}>
+            <option value="">Choose rank</option>{#each CORE_ANIMISM_RANKS as rank}<option value={rank}>{rank}</option>{/each}
+          </select>
+        </label>
+        {#if animismTradition?.description || animismTradition?.notes}<p class="mysticism-path-info">{animismTradition.description ?? animismTradition.notes}</p>{/if}
+        {#if animismTradition?.startingGrants.some(grant => grant.kind === "spirit-ally" || grant.kind === "bound-spirit")}
+          <p class="folk-magic-suggestion-note">Starting spirit relationships are shown below when recorded. No spirits are granted by Binding or capacity alone.</p>
+        {/if}
+        {#if animismState.reconciliationIssues.length}
+          <div class="animism-issues" role="alert"><b>Action required</b>{#each animismState.reconciliationIssues as issue}<p>{issue.message}</p>{/each}</div>
+        {/if}
+        {#if animismUnresolvedGrant}<p class="folk-magic-error" role="alert">This Tradition grants a starting spirit relationship. Record the granted spirit under Manage spirits to finish setup.</p>{/if}
+        <section class="animism-access">
+          <h5>Spirit access</h5>
+          <p>{animismFriendlyTypes.length} friendly · {animismNeutralTypes.length} known neutral{#if animismHostileTypes.length} · {animismHostileTypes.length} hostile{/if}</p>
+          {#if animismVisibleTypes.length}<details class="mysticism-details"><summary>View spirit access</summary>
+            {#if animismFriendlyTypes.length}<b>Friendly / allied</b><ul>{#each animismFriendlyTypes as id}<li>{animismTypeName(id)}</li>{/each}</ul>{/if}
+            {#if animismNeutralTypes.length}<b>Known neutral</b><ul>{#each animismNeutralTypes as id}<li>{animismTypeName(id)}</li>{/each}</ul>{/if}
+          {#if animismHostileTypes.length}<b>Hostile / enemy</b><ul>{#each animismHostileTypes as id}<li>{animismTypeName(id)}</li>{/each}</ul>{/if}
+          {#if animismTradition?.hostileTraditionIds.length}<p>Hostile traditions: {animismTradition.hostileTraditionIds.join(", ")}</p>{/if}
+          </details>{:else}<p class="mute">No spirit access types are configured.</p>{/if}
+          {#if animismTradition?.source === "custom" || !animismTradition}
+            <div class="folk-magic-actions"><button type="button" class="ghost" onclick={() => openAnimismPicker("friendly")}>Add friendly types</button><button type="button" class="ghost" onclick={() => openAnimismPicker("neutral")}>Add neutral types</button><button type="button" class="ghost" onclick={() => openAnimismPicker("hostile")}>Add hostile types</button></div>
+            {#if animismTradition}<form class="animism-hostile-form" onsubmit={event => { event.preventDefault(); addAnimismHostileTradition(); }}><label>Hostile tradition<input bind:value={animismHostileTradition} maxlength="100" placeholder="Tradition or clan name" /></label><button type="submit" class="ghost" disabled={!animismHostileTradition.trim()}>Add</button></form>{/if}
+          {/if}
+        </section>
+        <section class="animism-relations">
+          <h5>Allies / contacts — {animismState.allies.filter(ally => !animismBindingFor(ally.spiritId)).length}</h5>
+          {#each animismState.allies.filter(ally => !animismBindingFor(ally.spiritId)) as ally (ally.spiritId)}
+            {@const spirit = animismSpirit(ally.spiritId)}
+            {#if spirit}<div class="animism-row"><div><b>{spirit.name}</b><small>{animismTypeName(spirit.spiritTypeId)} · {ally.attitude}</small></div><button type="button" class="ghost" onclick={() => animismDetailsId = animismDetailsId === spirit.id ? null : spirit.id}>Details</button><button type="button" class="ghost" aria-label="Remove {spirit.name}" onclick={() => removeAnimismRelationship(spirit.id)}>Remove</button>
+              {#if animismDetailsId === spirit.id}<p>{spirit.notes || "No additional notes."}</p>{/if}</div>{/if}
+          {:else}<p class="mute">No spirit allies or contacts recorded.</p>{/each}
+        </section>
+        <section class="animism-relations">
+          <h5>Bound spirits — {animismBound.length} / {animismCapacity}</h5>
+          {#if animismBound.length > animismCapacity}<p class="folk-magic-error" role="alert">Over capacity. Resolve the bindings; no spirits have been removed.</p>{/if}
+          {#each animismBound as binding (binding.id)}
+            {@const spirit = animismSpirit(binding.spiritId)}
+            {#if spirit}<div class="animism-row"><div><b>{spirit.name} · Intensity {spirit.intensity ?? "—"}</b><small>{animismTypeName(spirit.spiritTypeId)} · Bound{#if binding.objectName} · {binding.objectName}{:else if binding.vessel !== "fetish/object"} · {binding.vessel}{/if}</small></div><button type="button" class="ghost" onclick={() => animismDetailsId = animismDetailsId === spirit.id ? null : spirit.id}>Details</button><button type="button" class="ghost" aria-label="Release {spirit.name}" onclick={() => removeAnimismRelationship(spirit.id)}>Release</button>
+              {#if animismDetailsId === spirit.id}<p>{spirit.notes || "No additional notes."}{#if spirit.pow !== undefined} · POW {spirit.pow}{/if}{#if spirit.abilities.length} · {spirit.abilities.join(", ")}{/if}</p>{/if}</div>{/if}
+          {:else}<p class="mute">Your tradition grants access to spirits, but no starting binding has been assigned.</p>{/each}
+        </section>
+        <details class="mysticism-details"><summary>Manage spirits</summary>
+          <form class="folk-magic-custom-form animism-form" onsubmit={event => { event.preventDefault(); addAnimismSpirit(); }}>
+            <h5>Record a granted spirit</h5>
+            <label>Spirit type<select bind:value={animismSpiritTypeId} required><option value="">Choose an accessible type</option>{#each animismVisibleTypes as id}<option value={id}>{animismTypeName(id)}</option>{/each}</select></label>
+            <label>Name (optional)<input bind:value={animismSpiritName} maxlength="100" /></label>
+            <div class="animism-form-grid"><label>Intensity<input type="number" min="0" max="99" bind:value={animismSpiritIntensity} /></label><label>Relationship<select bind:value={animismSpiritAttitude}><option value="friendly">Friendly</option><option value="neutral">Neutral</option><option value="hostile">Hostile</option></select></label></div>
+            <label class="animism-check"><input type="checkbox" bind:checked={animismSpiritBound} /> Bound spirit</label>
+            {#if animismSpiritBound}<div class="animism-form-grid"><label>Vessel<select bind:value={animismVessel}><option value="fetish/object">Fetish / object</option><option value="place">Place</option><option value="creature">Creature</option><option value="campaign-defined">Campaign-defined</option></select></label><label>Object name<input bind:value={animismVesselName} maxlength="100" placeholder="e.g. Bear-claw necklace" /></label></div><label>Vessel description<input bind:value={animismVesselDescription} maxlength="160" placeholder="Optional description" /></label>{/if}
+            <label>Source / provenance<input bind:value={animismSpiritSource} maxlength="120" placeholder="Campaign, career grant, tradition…" /></label>
+            <label>Notes<textarea bind:value={animismSpiritNotes} rows="2"></textarea></label>
+            <button type="submit" class="primary" disabled={!animismSpiritTypeId}>Record spirit</button>
+          </form>
+          {#if !animismBound.length}<p class="folk-magic-suggestion-note">Capacity is not a starting spirit allowance. Zero bound spirits is valid.</p>{/if}
+        </details>
+      </article>
+    {/if}
     {#if mysticismCapability}
       <article class="folk-magic-discipline mysticism-discipline">
         <div class="folk-magic-heading">
@@ -581,6 +831,26 @@
   {/if}
 </section>
 
+<dialog class="folk-magic-picker" bind:this={animismPicker} aria-labelledby="animism-picker-title">
+  <div class="folk-magic-picker-content">
+    <header><div><h2 id="animism-picker-title">Add {animismPickerAttitude} spirit types</h2><p>Choose spirit types for this Tradition’s access.</p></div><button type="button" class="ghost" onclick={() => animismPicker.close()}>Close</button></header>
+    <input class="folk-magic-search" bind:value={animismQuery} placeholder="Search spirit types…" aria-label="Search spirit types" />
+    <ul class="folk-magic-picker-list">
+      {#each animismPickerTypes as type (type.id)}
+        {@const chosen = animismTypeIds(animismPickerAttitude).includes(type.id)}
+        <li class:selected={chosen}><button type="button" class="folk-magic-spell-choice" onclick={() => toggleAnimismAccess(type.id)}><span class="folk-magic-check">{chosen ? "✓" : "+"}</span><span><b>{type.name}</b><small>{type.source === "custom" ? "Custom type" : "Core spirit type"}{#if type.provenance} · {type.provenance}{/if}{#if type.description} · {type.description}{/if}</small></span></button></li>
+      {:else}<li class="mute folk-magic-no-results">No spirit types match this search.</li>{/each}
+    </ul>
+    <form class="folk-magic-custom-form animism-form" onsubmit={event => { event.preventDefault(); createAnimismSpiritType(); }}>
+      <h5>Create custom spirit type</h5><label>Name<input bind:value={animismCustomTypeName} maxlength="100" required /></label>
+      <label>Category / description<textarea bind:value={animismCustomTypeDescription} rows="2" maxlength="300" placeholder="Optional"></textarea></label>
+      <label>Typical abilities / notes<textarea bind:value={animismCustomTypeNotes} rows="2" maxlength="300" placeholder="Optional"></textarea></label>
+      <label>Source / provenance<input bind:value={animismCustomTypeProvenance} maxlength="120" placeholder="Campaign book, clan lore…" /></label>
+      <button type="submit" class="primary" disabled={!animismCustomTypeName.trim()}>Create and add type</button>
+    </form>
+  </div>
+</dialog>
+
 <dialog class="folk-magic-picker" bind:this={sorceryPicker} aria-labelledby="sorcery-picker-title">
   <div class="folk-magic-picker-content">
     <header><div><h2 id="sorcery-picker-title">{sorceryPickerMode === "school" ? "Add spells to School" : "Choose starting spells"}</h2><p>{sorceryPickerMode === "school" ? `${sorcerySchoolSpellIds.length} spells in School` : `${sorcerySelected.length} / ${sorceryEntitlement.count} selected`}</p></div><button type="button" class="ghost" onclick={() => sorceryPicker.close()}>Close ✕</button></header>
@@ -718,6 +988,12 @@
   .mysticism-details{margin-top:10px;border-top:1px solid var(--line);padding-top:8px}.mysticism-details summary{cursor:pointer;color:var(--bronze);font-size:.82rem}
   .mysticism-details>p{color:var(--mute);font-size:.84rem}
   .sorcery-derived{color:var(--mute);text-align:right}.sorcery-help{margin-bottom:8px}.sorcery-access-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;margin:8px 0}.sorcery-access-fields label{display:grid;gap:4px;font-size:.8rem}.sorcery-access-fields input,.sorcery-access-fields select{width:100%;min-width:0}.sorcery-create-school{margin:3px 0}.sorcery-save-school-spells{align-self:flex-start;margin-top:10px}
+  .animism-derived{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:8px;margin:14px 0 8px;padding:10px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .animism-derived div{display:grid;gap:3px}.animism-derived b,.animism-access h5,.animism-relations h5{font:700 .7rem var(--display);letter-spacing:.08em;text-transform:uppercase;color:var(--bronze)}.animism-derived span{font-weight:700}
+  .animism-access,.animism-relations{margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}.animism-access h5,.animism-relations h5{margin:0 0 5px}.animism-access>p,.animism-relations>p{margin:4px 0;color:var(--mute);font-size:.86rem}.animism-access details ul{margin:4px 0 10px}.animism-access details b{font-size:.84rem}
+  .animism-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}.animism-row>div{min-width:0}.animism-row small{display:block;color:var(--mute);font-size:.8rem}.animism-row>p{grid-column:1/-1;margin:0;color:var(--mute);font-size:.85rem}.animism-row button{font-size:.64rem}
+  .animism-issues{margin:10px 0;padding:8px 10px;border-left:3px solid var(--acc);background:color-mix(in srgb,var(--acc) 8%,transparent);font-size:.85rem}.animism-issues p{margin:4px 0}.animism-form{margin:9px 0}.animism-form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}.animism-check{display:flex!important;align-items:center;gap:7px}.animism-check input{width:auto!important;accent-color:var(--bronze)}
+  .animism-hostile-form{display:flex;align-items:flex-end;gap:8px;margin-top:8px}.animism-hostile-form label{display:grid;flex:1;gap:4px;font-size:.8rem}.animism-hostile-form input{width:100%;min-width:0}
   .custom-path-talents{display:grid;gap:8px;margin-top:6px;padding-top:10px;border-top:1px solid var(--line)}
   .custom-path-talents-heading{display:flex;align-items:center;justify-content:space-between}.custom-path-talents-heading h5{margin:0;color:var(--bronze);font:700 .72rem var(--display);letter-spacing:.1em;text-transform:uppercase}
   .custom-path-talents-heading small,.custom-path-selected-talents small{display:block;color:var(--mute);font-size:.8rem}
@@ -741,5 +1017,5 @@
   .folk-magic-details-button{font-size:.65rem}.folk-magic-spell-details{width:100%;margin:0 6px 6px 39px;color:var(--mute);font-size:.86rem}
   .folk-magic-traits{display:flex;flex-wrap:wrap;gap:5px;margin:0 0 7px}.folk-magic-traits span{padding:2px 6px;border:1px solid var(--line2);color:var(--bronze);font-size:.74rem}.folk-magic-spell-details p{margin:0 0 6px}.folk-magic-spell-details small{display:block;margin-top:4px}.folk-magic-spell-details .folk-magic-gap{color:var(--acc)}
   .folk-magic-no-results{padding:12px}
-  @media(max-width:520px){.folk-magic-entitlement{align-items:flex-start;flex-direction:column}.folk-magic-known-row{align-items:flex-start}.folk-magic-actions>*{flex:1}.custom-path-selected-talents li{align-items:flex-start}}
+  @media(max-width:520px){.folk-magic-entitlement{align-items:flex-start;flex-direction:column}.folk-magic-known-row{align-items:flex-start}.folk-magic-actions>*{flex:1}.custom-path-selected-talents li{align-items:flex-start}.animism-row{grid-template-columns:minmax(0,1fr) auto}.animism-row>button:last-of-type{grid-column:2}}
 </style>

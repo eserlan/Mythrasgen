@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { detectMagicDisciplines, emptyMagicState, normalizeMagicState, reconcileMagicState } from "../src/lib/magic";
-import { CORE_SPIRIT_DAMAGE, CORE_SPIRIT_INTENSITY, CORE_SPIRIT_TYPES, emptyAnimismState, getBoundSpiritCapacity, getMaximumControllableSpiritPow, getSpiritDamage, getTranceCapabilities, normalizeAnimismState, reconcileAnimism, spiritIntensityBand, type SpiritTradition } from "../src/lib/animism";
+import { CORE_SPIRIT_DAMAGE, CORE_SPIRIT_INTENSITY, CORE_SPIRIT_TYPES, emptyAnimismState, getBoundSpiritCapacity, getMaximumControllableSpiritPow, getSpiritDamage, getTranceCapabilities, listAnimismSpiritTypes, normalizeAnimismState, reconcileAnimism, spiritIntensityBand, type SpiritTradition } from "../src/lib/animism";
 import { availableMysticismTalentIds, calculateMysticismStartingEntitlement, CORE_MYSTICISM_ORGANISATIONS, CORE_MYSTICISM_PATHS, CORE_MYSTICISM_TALENTS, mysticismCatalogue, reconcileMysticismTalents } from "../src/lib/mysticism";
 import { careers } from "../src/lib/content";
 import {
@@ -53,6 +53,20 @@ describe("magical discipline detection", () => {
 });
 
 describe("Animism rules and persistent spirit relationships", () => {
+  test("deduplicates custom spirit types shared by state and tradition", () => {
+    const custom = { id: "custom:bear", name: "Bear spirits", source: "custom" as const };
+    const state = emptyAnimismState();
+    state.customSpiritTypes.push(custom);
+    state.traditions.push({
+      id: "custom:tradition", name: "Bear", source: "custom", friendlySpiritTypeIds: [], neutralSpiritTypeIds: [],
+      hostileSpiritTypeIds: [], hostileTraditionIds: [], startingGrants: [], customSpiritTypes: [custom], customSpiritTemplates: [],
+    });
+
+    const types = listAnimismSpiritTypes(state);
+    expect(types.filter(type => type.id === custom.id)).toEqual([custom]);
+    expect(types).toHaveLength(CORE_SPIRIT_TYPES.length + 1);
+  });
+
   test("Binding activates Animism, while Trance remains its own companion skill", () => {
     const found = detectMagicDisciplines([
       { name: "Binding (Wolf Totem)", value: 58, origins: ["career"] },
@@ -95,14 +109,14 @@ describe("Animism rules and persistent spirit relationships", () => {
     const tradition: SpiritTradition = {
       id: "custom:great-bear", name: "Great Bear", source: "custom", friendlySpiritTypeIds: [nature.id, "custom:spirit:bear"],
       neutralSpiritTypeIds: ["core:animism:ancestor"], hostileSpiritTypeIds: ["core:animism:predator"], hostileTraditionIds: ["campaign:wolf-clan"],
-      startingGrants: [], customSpiritTypes: [{ id: "custom:spirit:bear", name: "Bear spirit", source: "custom" }], customSpiritTemplates: [],
+      startingGrants: [], customSpiritTypes: [{ id: "custom:spirit:bear", name: "Bear spirit", source: "custom", provenance: "Great Bear oral tradition" }], customSpiritTemplates: [],
     };
     const state = normalizeAnimismState({ traditionId: tradition.id, bindingSpecialisation: { skillName: "Binding (Great Bear)", traditionId: tradition.id }, traditions: [tradition], accessibleSpiritTypeIds: [nature.id],
       spirits: [{ id: "bear-ally", name: "Grandfather Bear", spiritTypeId: "custom:spirit:bear", templateId: "custom:bear-template", source: "campaign", attitude: "friendly", intensity: 2, powRange: [13, 18], abilities: ["Bless"] }],
       allies: [{ spiritId: "bear-ally", attitude: "friendly", source: "campaign grant" }],
       bindings: [{ id: "bear-fetish", spiritId: "bear-ally", vessel: "fetish/object", objectName: "Bear claw", countsAgainstCapacity: true, source: "shaman's gift" }],
     });
-    expect(state.traditions[0]).toMatchObject({ friendlySpiritTypeIds: [nature.id, "custom:spirit:bear"], neutralSpiritTypeIds: ["core:animism:ancestor"] });
+    expect(state.traditions[0]).toMatchObject({ friendlySpiritTypeIds: [nature.id, "custom:spirit:bear"], neutralSpiritTypeIds: ["core:animism:ancestor"], customSpiritTypes: [{ provenance: "Great Bear oral tradition" }] });
     expect(state.spirits[0]).toMatchObject({ templateId: "custom:bear-template", powRange: [13, 18] });
     expect(state.bindingSpecialisation).toEqual({ skillName: "Binding (Great Bear)", traditionId: tradition.id });
     expect(state.allies).toHaveLength(1);
