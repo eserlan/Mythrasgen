@@ -118,6 +118,15 @@ export const CORE_SPIRIT_TYPES: readonly SpiritType[] = [
   ["predator", "Predator spirits"], ["sickness", "Sickness spirits"], ["fetch", "Fetches"],
 ].map(([id, name]) => ({ id: `core:animism:${id}`, name, source: "core" as const }));
 
+/** Combines spirit type sources by ID so keyed UI lists never receive duplicate records. */
+export function listAnimismSpiritTypes(state: Pick<AnimismState, "customSpiritTypes" | "traditions">): SpiritType[] {
+  const types = new Map<string, SpiritType>();
+  for (const type of [...CORE_SPIRIT_TYPES, ...state.customSpiritTypes, ...state.traditions.flatMap(tradition => tradition.customSpiritTypes)]) {
+    if (!types.has(type.id)) types.set(type.id, type);
+  }
+  return [...types.values()];
+}
+
 export const CORE_ANIMISM_RANKS: readonly AnimismRank[] = ["Follower", "Spirit Worshipper", "Shaman", "High Shaman"];
 export type TranceTask = "observe" | "converse" | "project-or-draw" | "drag-souls";
 export type TrancePreparation = "1 hour" | "1 minute" | "1 round" | "1 action";

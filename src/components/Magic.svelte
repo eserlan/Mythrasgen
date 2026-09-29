@@ -18,7 +18,7 @@
     availableSorcerySpellIds, calculateSorceryDerivedStatistics, calculateSorceryStartingEntitlement, configureCoreSorcerySpell, sorceryCatalogue, sorcerySchoolCatalogue, sorcerySpellDetails as resolveSorcerySpellDetails,
     withStartingSorcerySchool, type SorcerySchool, type SorcerySpell,
   } from "../lib/sorcery";
-  import { CORE_ANIMISM_RANKS, CORE_SPIRIT_TYPES, getBoundSpiritCapacity, getMaximumControllableSpiritPow, getSpiritDamage, getTranceCapabilities, reconcileAnimism, type AnimismRank, type AnimismStartingGrant, type SpiritAttitude, type SpiritBindingVessel, type SpiritRecord, type SpiritTradition, type SpiritType } from "../lib/animism";
+  import { CORE_ANIMISM_RANKS, listAnimismSpiritTypes, getBoundSpiritCapacity, getMaximumControllableSpiritPow, getSpiritDamage, getTranceCapabilities, reconcileAnimism, type AnimismRank, type AnimismStartingGrant, type SpiritAttitude, type SpiritBindingVessel, type SpiritRecord, type SpiritTradition, type SpiritType } from "../lib/animism";
 
   const originName: Record<MagicSkillOrigin, string> = { culture: "Culture", career: "Career", bonus: "Bonus / Hobby Skill" };
   let picker: HTMLDialogElement;
@@ -88,7 +88,7 @@
   const animismTraditions = $derived(animismState.traditions);
   const animismTradition = $derived(animismTraditions.find(item => item.id === animismState.traditionId));
   const animismRank = $derived(animismState.rank ?? animismTradition?.rank);
-  const animismSpiritTypes = $derived([...CORE_SPIRIT_TYPES, ...animismState.customSpiritTypes, ...animismTraditions.flatMap(item => item.customSpiritTypes)]);
+  const animismSpiritTypes = $derived(listAnimismSpiritTypes(animismState));
   const animismCapacity = $derived(getBoundSpiritCapacity(char, animismRank));
   const animismBound = $derived(animismState.bindings.filter(item => item.countsAgainstCapacity));
   const animismFriendlyTypes = $derived(animismTradition?.friendlySpiritTypeIds ?? animismState.accessibleSpiritTypeIds);

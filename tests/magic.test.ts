@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { detectMagicDisciplines, emptyMagicState, normalizeMagicState, reconcileMagicState } from "../src/lib/magic";
-import { CORE_SPIRIT_DAMAGE, CORE_SPIRIT_INTENSITY, CORE_SPIRIT_TYPES, emptyAnimismState, getBoundSpiritCapacity, getMaximumControllableSpiritPow, getSpiritDamage, getTranceCapabilities, normalizeAnimismState, reconcileAnimism, spiritIntensityBand, type SpiritTradition } from "../src/lib/animism";
+import { CORE_SPIRIT_DAMAGE, CORE_SPIRIT_INTENSITY, CORE_SPIRIT_TYPES, emptyAnimismState, getBoundSpiritCapacity, getMaximumControllableSpiritPow, getSpiritDamage, getTranceCapabilities, listAnimismSpiritTypes, normalizeAnimismState, reconcileAnimism, spiritIntensityBand, type SpiritTradition } from "../src/lib/animism";
 import { availableMysticismTalentIds, calculateMysticismStartingEntitlement, CORE_MYSTICISM_ORGANISATIONS, CORE_MYSTICISM_PATHS, CORE_MYSTICISM_TALENTS, mysticismCatalogue, reconcileMysticismTalents } from "../src/lib/mysticism";
 import { careers } from "../src/lib/content";
 import {
@@ -53,6 +53,20 @@ describe("magical discipline detection", () => {
 });
 
 describe("Animism rules and persistent spirit relationships", () => {
+  test("deduplicates custom spirit types shared by state and tradition", () => {
+    const custom = { id: "custom:bear", name: "Bear spirits", source: "custom" as const };
+    const state = emptyAnimismState();
+    state.customSpiritTypes.push(custom);
+    state.traditions.push({
+      id: "custom:tradition", name: "Bear", source: "custom", friendlySpiritTypeIds: [], neutralSpiritTypeIds: [],
+      hostileSpiritTypeIds: [], hostileTraditionIds: [], startingGrants: [], customSpiritTypes: [custom], customSpiritTemplates: [],
+    });
+
+    const types = listAnimismSpiritTypes(state);
+    expect(types.filter(type => type.id === custom.id)).toEqual([custom]);
+    expect(types).toHaveLength(CORE_SPIRIT_TYPES.length + 1);
+  });
+
   test("Binding activates Animism, while Trance remains its own companion skill", () => {
     const found = detectMagicDisciplines([
       { name: "Binding (Wolf Totem)", value: 58, origins: ["career"] },
