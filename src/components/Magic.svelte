@@ -494,7 +494,7 @@
   .custom-path-talents-heading small,.custom-path-selected-talents small{display:block;color:var(--mute);font-size:.8rem}
   .custom-path-selected-talents{list-style:none;margin:0;padding:0}.custom-path-selected-talents li{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid var(--line)}
   .custom-path-selected-talents li>span{min-width:0}.custom-path-selected-talents button{flex:none;font-size:.65rem}.custom-path-no-talents{margin:0;font-size:.85rem}
-  .custom-path-advanced{margin-top:8px}.custom-path-talent-list>li{flex-wrap:nowrap}.custom-path-talent-list .folk-magic-spell-choice{min-width:0;overflow-wrap:normal;word-break:normal}.custom-path-talent-list .folk-magic-spell-choice>span:last-child{min-width:0;white-space:normal}
+  .custom-path-advanced{margin-top:8px}.custom-path-talent-list .folk-magic-spell-choice{min-width:0;overflow-wrap:normal;word-break:normal}.custom-path-talent-list .folk-magic-spell-choice>span:last-child{min-width:0;white-space:normal}
   .folk-magic-custom-form{display:grid;gap:8px;margin-top:12px;padding:12px;background:var(--card);border:1px solid var(--line)}
   .folk-magic-custom-form h5{margin:0;color:var(--bronze);font:700 .72rem var(--display);letter-spacing:.1em;text-transform:uppercase}
   .folk-magic-custom-form label{display:grid;gap:3px;font-size:.85rem}.folk-magic-custom-form input{width:100%}

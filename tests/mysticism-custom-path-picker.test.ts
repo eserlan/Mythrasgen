@@ -16,5 +16,5 @@ test("custom Path Talents use a searchable picker and compact removable summary"
   expect(source).toContain("<summary>Create Custom Talent</summary>");
   expect(css).toMatch(/\.folk-magic-picker[^\{]*\{[^}]*overflow:\s*hidden/);
   expect(css).toMatch(/\.folk-magic-picker-content[^\{]*\{[^}]*overflow-y:\s*auto/);
-  expect(css).toMatch(/\.custom-path-talent-list[^\{]*>li[^\{]*\{[^}]*flex-wrap:\s*nowrap/);
+  expect(css).toMatch(/\.folk-magic-picker-list[^\{]*>li[^\{]*\{[^}]*flex-wrap:\s*wrap/);
 });
