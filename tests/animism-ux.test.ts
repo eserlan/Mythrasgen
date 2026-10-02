@@ -62,6 +62,20 @@ test("Manage Spirits explains Tradition attitude separately and exposes canonica
   expect(manage).toContain("animismRecordIssues(spirit)");
 });
 
+test("editing generated spirit choices invalidates the stale preview", () => {
+  const manage = source.slice(source.indexOf('aria-labelledby="animism-manage-title"'), source.indexOf("{/if}\n    {#if mysticismCapability}"));
+  expect(manage).toContain('bind:value={animismTypeChoice} oninput={() => animismGeneratedSpirit = null} placeholder="e.g. wolf or oak"');
+  expect(manage).toContain('bind:value={animismSpiritIns} oninput={() => animismGeneratedSpirit = null}');
+  expect(manage).toContain('bind:value={animismSpiritCha} oninput={() => animismGeneratedSpirit = null}');
+  expect(manage).toContain('bind:value={animismTypeChoice} onchange={() => animismGeneratedSpirit = null}><option value="">Choose element</option>');
+  expect(manage).toContain('bind:value={animismTypeChoice} onchange={() => animismGeneratedSpirit = null}><option value="">Choose kind</option>');
+});
+
+test("Awakened Fetch generation uses the entered inherited POW", () => {
+  const generate = source.slice(source.indexOf("function generateAnimismSpirit()"), source.indexOf("function animismSpirit(id:"));
+  expect(generate).toContain('animismSelectedRule?.id === "fetch" && animismTypeChoice === "Awakened Fetch" ? { pow: Number(animismSpiritPow) } : {}');
+});
+
 test("Animism explanations derive from canonical rank and Intensity metadata", () => {
   expect(source).toContain("getTranceCapabilities(rank)");
   expect(source).toContain("spiritIntensityBand(Number(animismSpiritIntensity)");
