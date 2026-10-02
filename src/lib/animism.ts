@@ -1,5 +1,5 @@
 /** Structured Core and campaign data for the Animism rules foundation. */
-import { criticalRange } from "./calc";
+import { criticalRange, roll as rollDice } from "./calc";
 
 export type AnimismSource = "core" | "campaign" | "custom";
 export type AnimismRank = "Follower" | "Spirit Worshipper" | "Shaman" | "High Shaman";
@@ -45,6 +45,7 @@ export interface SpiritTemplate {
   name: string;
   spiritTypeId: string;
   source: AnimismSource;
+  provenance?: string;
   intensity?: number;
   pow?: number;
   powRange?: [number, number];
@@ -53,6 +54,13 @@ export interface SpiritTemplate {
   cha?: number;
   magicPoints?: number;
   spectralCombat?: number;
+  willpower?: number;
+  stealth?: number;
+  actionPoints?: number;
+  initiative?: number;
+  skills?: SpiritSkill[];
+  typeData?: Record<string, unknown>;
+  generation?: SpiritGeneration;
   abilities?: string[];
   notes?: string;
 }
@@ -63,6 +71,7 @@ export interface SpiritRecord {
   spiritTypeId: string;
   templateId?: string;
   source: AnimismSource;
+  provenance?: string;
   attitude?: SpiritAttitude;
   intensity?: number;
   pow?: number;
@@ -72,8 +81,42 @@ export interface SpiritRecord {
   cha?: number;
   magicPoints?: number;
   spectralCombat?: number;
+  willpower?: number;
+  stealth?: number;
+  actionPoints?: number;
+  initiative?: number;
+  skills?: SpiritSkill[];
+  typeData?: Record<string, unknown>;
+  generation?: SpiritGeneration;
   abilities: string[];
   notes?: string;
+}
+
+export interface SpiritSkill { name: string; value: number }
+export interface SpiritChoiceRequirement { id: string; count?: number; maximumCount?: number; options?: string[]; description: string }
+export interface SpiritGeneration {
+  method: "core-generated" | "manual" | "legacy";
+  pendingChoices: SpiritChoiceRequirement[];
+  rolls?: Record<string, number[]>;
+}
+export interface SpiritDerivedStatistics {
+  magicPoints?: number;
+  spectralCombat?: number;
+  willpower?: number;
+  stealth?: number;
+  actionPoints?: number;
+  initiative?: number;
+}
+
+type SpiritRoll = { dice: number; sides: number; modifier?: number };
+type SpiritCharacteristicRule = SpiritRoll | "species" | "host" | "shaman" | "intensity-pow" | "same-as-ins";
+export interface CoreSpiritRule {
+  id: string;
+  characteristics: Partial<Record<"int" | "ins" | "cha", SpiritCharacteristicRule>>;
+  inherentAbilities: readonly string[];
+  choices?: readonly SpiritChoiceRequirement[];
+  selectableAbilities?: readonly string[];
+  abilityCount?: "intensity" | "up-to-intensity" | "1d3+intensity" | "one-or-more";
 }
 
 export interface SpiritAlly {
@@ -117,6 +160,28 @@ export const CORE_SPIRIT_TYPES: readonly SpiritType[] = [
   ["haunt", "Haunts"], ["medicine", "Medicine spirits"], ["nature", "Nature spirits"],
   ["predator", "Predator spirits"], ["sickness", "Sickness spirits"], ["fetch", "Fetches"],
 ].map(([id, name]) => ({ id: `core:animism:${id}`, name, source: "core" as const }));
+
+const choice = (id: string, description: string, options?: string[]): SpiritChoiceRequirement => ({ id, description, ...(options ? { options } : {}) });
+const d = (dice: number, sides: number, modifier = 0): SpiritRoll => ({ dice, sides, ...(modifier ? { modifier } : {}) });
+const FETCH_ABILITIES = ["Animate", "Autonomy", "Cannibalistic", "Comprehension", "Conjugate", "Covert", "Deadly", "Discorporate", "Domination", "Healing", "Eternal", "Mana", "Manifestation", "Perceptive", "Persistent", "Sagacity", "Shapechange", "Spellcasting", "Subjugate", "Warding"] as const;
+const HAUNT_ABILITIES = ["Glamour", "Miasma", "Spellcasting", "Telekinesis", "Wither"] as const;
+const ANCESTOR_ABILITIES = ["Discorporate", "Sagacity", "Spellcasting", "Subjugate"] as const;
+
+/** Core spirit creation profiles. Characteristics marked species/host/shaman need an explicit campaign input. */
+export const CORE_SPIRIT_RULES: Readonly<Record<string, CoreSpiritRule>> = {
+  "core:animism:ancestor": { id: "ancestor", characteristics: { int: "species", cha: "species" }, inherentAbilities: ["Eternal"], selectableAbilities: ANCESTOR_ABILITIES, abilityCount: "1d3+intensity", choices: [choice("ancestor-species", "Use the mortal species' INT and CHA; record the deceased's species and values."), choice("ancestor-abilities", "Choose the ancestor's ability selections.", [...ANCESTOR_ABILITIES])] },
+  "core:animism:bane": { id: "bane", characteristics: { ins: d(1, 6), cha: d(1, 6) }, inherentAbilities: ["Cannibalistic", "Deadly"] },
+  "core:animism:curse": { id: "curse", characteristics: { ins: d(2, 6), cha: d(2, 6) }, inherentAbilities: ["Curse", "Covert", "Manifestation"], choices: [choice("curse-effects", "Choose the curse effects / conditions this spirit inflicts.")] },
+  "core:animism:death": { id: "death", characteristics: { ins: d(3, 6), cha: d(3, 6) }, inherentAbilities: ["Deadly", "Manifestation"] },
+  "core:animism:elemental": { id: "elemental", characteristics: {}, inherentAbilities: ["Animate", "Demesne"], choices: [choice("element", "Choose the element or natural force represented by this spirit.", ["Earth", "Air", "Fire", "Water", "Darkness", "Other natural force"])] },
+  "core:animism:guardian": { id: "guardian", characteristics: { ins: d(1, 6, 6), cha: d(1, 6, 6) }, inherentAbilities: ["Warding"] },
+  "core:animism:haunt": { id: "haunt", characteristics: { int: "species", cha: "species" }, inherentAbilities: ["Eternal", "Manifestation"], selectableAbilities: HAUNT_ABILITIES, abilityCount: "intensity", choices: [choice("haunt-characteristics", "Use the deceased mortal's characteristics or generate suitable values."), choice("haunt-abilities", "Select abilities equal to Intensity.", [...HAUNT_ABILITIES]), choice("haunt-anchor", "Record the place, object, or event that anchors the haunt.")] },
+  "core:animism:medicine": { id: "medicine", characteristics: { ins: d(1, 6, 6), cha: d(1, 6, 6) }, inherentAbilities: ["Healing"] },
+  "core:animism:nature": { id: "nature", characteristics: {}, inherentAbilities: [], selectableAbilities: ["Bless", "Demesne", "Domination", "Endowment"], abilityCount: "up-to-intensity", choices: [choice("nature-kind", "Choose the animal, plant, or region represented by this spirit.", ["animal", "regional"]), choice("nature-characteristics", "Use the associated species' characteristics, or the regional spirit's Core characteristic rolls."), choice("nature-abilities", "Choose up to Intensity abilities that express the represented species or plant-life.", ["Bless", "Demesne", "Domination", "Endowment"])] },
+  "core:animism:predator": { id: "predator", characteristics: { ins: d(2, 6, 6), cha: d(1, 6, 6) }, inherentAbilities: ["Persistent", "Puppeteer"], selectableAbilities: ["Bless"], abilityCount: "intensity", choices: [choice("predator-host", "Choose and record the host creature; STR, CON, SIZ and DEX use the host's values."), choice("predator-blessings", "Choose one Bless target for each Intensity level.", ["Armour Points", "Damage Modifier", "Movement", "Other relevant attribute"])] },
+  "core:animism:sickness": { id: "sickness", characteristics: { ins: d(2, 6), cha: d(2, 6) }, inherentAbilities: ["Covert", "Disease", "Manifestation"], choices: [choice("disease", "Choose the specific disease carried by this spirit.")] },
+  "core:animism:fetch": { id: "fetch", characteristics: { int: "shaman", cha: "shaman" }, inherentAbilities: [], selectableAbilities: FETCH_ABILITIES, abilityCount: "1d3+intensity", choices: [choice("fetch-kind", "Choose Awakened Fetch or Allied Fetch.", ["Awakened Fetch", "Allied Fetch"]), choice("fetch-abilities", "Select or roll 1d3 + Intensity abilities.", [...FETCH_ABILITIES])] },
+};
 
 /** Combines spirit type sources by ID so keyed UI lists never receive duplicate records. */
 export function listAnimismSpiritTypes(state: Pick<AnimismState, "customSpiritTypes" | "traditions">): SpiritType[] {
@@ -212,6 +277,174 @@ export function spiritPowMatchesIntensity(pow: number, intensity: number): boole
   return Number.isInteger(pow) && pow >= band.minPow && pow <= band.maxPow;
 }
 
+export function deriveSpiritStatistics(spirit: Pick<SpiritRecord, "pow" | "cha" | "ins" | "int" | "typeData">): SpiritDerivedStatistics {
+  const result: SpiritDerivedStatistics = {};
+  const mentalCharacteristic = spirit.int ?? spirit.ins;
+  if (Number.isFinite(spirit.pow) && spirit.pow! >= 0) result.magicPoints = spirit.pow;
+  if (Number.isFinite(spirit.pow) && Number.isFinite(spirit.cha)) result.spectralCombat = 50 + spirit.pow! + spirit.cha!;
+  if (Number.isFinite(spirit.pow)) result.willpower = 50 + spirit.pow! * 2;
+  if (Number.isFinite(spirit.pow) && Number.isFinite(mentalCharacteristic)) result.actionPoints = Math.max(1, Math.ceil((mentalCharacteristic! + spirit.pow!) / 12));
+  if (Number.isFinite(mentalCharacteristic) && Number.isFinite(spirit.cha)) result.initiative = Math.ceil((mentalCharacteristic! + spirit.cha!) / 2);
+  if (Number.isFinite(spirit.pow) && Number.isFinite(spirit.ins) && Number.isFinite(spirit.cha)
+      && ["core:animism:curse", "core:animism:sickness", "core:animism:predator"].some(id => spirit.typeData?.ruleId === CORE_SPIRIT_RULES[id].id)) {
+    result.stealth = 50 + spirit.ins! + spirit.cha!;
+  }
+  return result;
+}
+export function recalculateSpiritStatistics(spirit: SpiritRecord): SpiritDerivedStatistics {
+  for (const key of ["magicPoints", "spectralCombat", "willpower", "stealth", "actionPoints", "initiative"] as const) delete spirit[key];
+  const derived = deriveSpiritStatistics(spirit);
+  Object.assign(spirit, derived);
+  return derived;
+}
+
+export interface GenerateCoreSpiritOptions {
+  id: string;
+  name?: string;
+  spiritTypeId: string;
+  intensity: number;
+  source?: AnimismSource;
+  random?: () => number;
+  characteristics?: Partial<Pick<SpiritRecord, "pow" | "int" | "ins" | "cha">>;
+  /** Explicit values such as species, host, element, or type-specific selections. */
+  typeData?: Record<string, unknown>;
+  abilities?: string[];
+  notes?: string;
+}
+
+/** Deterministic when a random source is supplied; unresolved GM choices remain in generation.pendingChoices. */
+export function generateCoreSpirit(options: GenerateCoreSpiritOptions): SpiritRecord {
+  const random = options.random ?? Math.random;
+  const profile = CORE_SPIRIT_RULES[options.spiritTypeId];
+  const band = spiritIntensityBand(options.intensity);
+  const typeData: Record<string, unknown> = { ...(options.typeData ?? {}), ...(profile ? { ruleId: profile.id } : {}) };
+  const fetchVariant = profile?.id === "fetch" ? typeData.variant : undefined;
+  const alliedFetch = fetchVariant === "allied";
+  const awakenedFetch = fetchVariant === "awakened";
+  const fetchUnresolved = profile?.id === "fetch" && !alliedFetch && !awakenedFetch;
+  const inheritedPow = Number.isFinite(typeData.pow) ? typeData.pow as number : undefined;
+  const pow = options.characteristics?.pow ?? (awakenedFetch ? inheritedPow : fetchUnresolved ? undefined : rollDice(alliedFetch ? "1d6+12" : band.formula, random));
+  const rolls: Record<string, number[]> = pow === undefined ? {} : { ...(options.characteristics?.pow === undefined && !awakenedFetch ? { pow: [pow] } : {}) };
+  const stats: Partial<Pick<SpiritRecord, "int" | "ins" | "cha">> = {};
+  const characteristics = profile?.characteristics ?? {};
+  for (const key of ["int", "ins", "cha"] as const) {
+    const rule = characteristics[key];
+    const supplied = options.characteristics?.[key];
+    if (supplied !== undefined) { stats[key] = supplied; continue; }
+    if (typeof rule === "object") {
+      const value = rollDice(`${rule.dice}d${rule.sides}${rule.modifier ? `+${rule.modifier}` : ""}`, random);
+      stats[key] = value;
+      rolls[key] = [value];
+    } else if (rule === "same-as-ins" && stats.ins !== undefined) stats[key] = stats.ins;
+    else if (rule === "species" && Number.isFinite(typeData[key])) stats[key] = typeData[key] as number;
+    else if (rule === "host" && Number.isFinite(typeData[key])) stats[key] = typeData[key] as number;
+    else if (rule === "shaman" && Number.isFinite(typeData[key])) stats[key] = typeData[key] as number;
+  }
+  if (typeData.variant === "regional" && profile?.id === "nature") {
+    stats.ins ??= rollDice("1d6", random);
+    stats.cha ??= rollDice("3d6", random);
+    rolls.ins ??= [stats.ins]; rolls.cha ??= [stats.cha];
+  }
+  if (profile?.id === "nature" && typeData.variant !== "regional") {
+    if (stats.ins === undefined && Number.isFinite(typeData.ins)) stats.ins = typeData.ins as number;
+    if (stats.cha === undefined && stats.ins !== undefined) stats.cha = stats.ins;
+  }
+  if (alliedFetch) {
+    stats.int ??= rollDice("2d6+6", random);
+    stats.cha ??= rollDice("2d6+6", random);
+    if (options.characteristics?.pow === undefined && pow !== undefined) rolls.pow = [pow];
+  }
+  if (awakenedFetch) {
+    stats.int ??= Number.isFinite(typeData.int) ? typeData.int as number : undefined;
+    stats.cha ??= Number.isFinite(typeData.cha) ? typeData.cha as number : undefined;
+  }
+  const exactPow = rolls.pow?.at(-1) ?? pow;
+  const exactIntensity = alliedFetch || awakenedFetch ? (exactPow === undefined ? undefined : spiritIntensityForPow(exactPow)) : fetchUnresolved ? undefined : options.intensity;
+  const knownSelections = options.abilities ?? [];
+  const abilityCountRoll = profile?.abilityCount === "1d3+intensity" && exactIntensity !== undefined ? 1 + Math.floor(random() * 3) + exactIntensity
+    : (profile?.abilityCount === "intensity" || profile?.abilityCount === "up-to-intensity") ? exactIntensity : undefined;
+  if (abilityCountRoll !== undefined) rolls.abilityCount = [abilityCountRoll];
+  const choiceRequirements = [...(profile?.choices ?? [])];
+  if (profile?.id === "ancestor" && knownSelections.some(value => ["Sagacity", "Spellcasting", "Subjugate"].includes(value))) {
+    choiceRequirements.push(choice("ancestor-ability-details", "Record the Sagacity skill, known Folk Magic spells, or lesser-Intensity ally for each selected ability."));
+  }
+  if (profile?.id === "nature" && knownSelections.some(value => ["Bless", "Endowment"].includes(value))) {
+    choiceRequirements.push(choice("nature-ability-details", "Record the Attribute or Skill blessed, or the creature trait granted, for each selected ability."));
+  }
+  if (profile?.id === "predator" && knownSelections.includes("Bless")) {
+    choiceRequirements.push(choice("predator-bless-targets", "Record the Attribute or creature value targeted by each Bless."));
+  }
+  if (profile?.id === "haunt" && knownSelections.includes("Spellcasting")) {
+    choiceRequirements.push(choice("haunt-spells", "Record retained Folk Magic or the spells selected for this haunt."));
+  }
+  const pendingChoices = choiceRequirements.filter(item => {
+    if (item.id.endsWith("abilities") || item.id.endsWith("blessings")) {
+      return profile?.abilityCount === "up-to-intensity" ? knownSelections.length === 0 : knownSelections.length < (abilityCountRoll ?? 1);
+    }
+    if (item.id === "ancestor-species" || item.id === "haunt-characteristics") return !(typeData.species && stats.int !== undefined && stats.cha !== undefined);
+    if (item.id === "nature-characteristics") return typeData.variant !== "regional" && !(typeData.species && stats.ins !== undefined && stats.cha !== undefined);
+    if (item.id === "predator-host") return !typeData.host;
+    if (item.id === "fetch-kind") return typeData.variant !== "awakened" && typeData.variant !== "allied";
+    if (item.id.endsWith("ability-details") || item.id.endsWith("bless-targets") || item.id === "haunt-spells") return !Array.isArray(typeData.abilityDetails) || !typeData.abilityDetails.length;
+    return typeData[item.id] === undefined && !strings(typeData.completedChoices).includes(item.id);
+  }).map(item => ({ ...item, ...(item.id.endsWith("abilities") || item.id.endsWith("blessings")
+    ? (profile?.abilityCount === "up-to-intensity" ? { maximumCount: abilityCountRoll } : { count: abilityCountRoll }) : {}) }));
+  const allAbilities = [...(profile?.inherentAbilities ?? []), ...knownSelections];
+  const spirit: SpiritRecord = {
+    id: options.id, name: options.name ?? "", spiritTypeId: options.spiritTypeId, source: options.source ?? "core",
+    ...(exactIntensity !== undefined ? { intensity: exactIntensity } : {}), ...(exactPow !== undefined ? { pow: exactPow } : {}), ...stats, abilities: allAbilities,
+    typeData, generation: { method: "core-generated", pendingChoices, rolls },
+    ...(options.notes ? { notes: options.notes } : {}),
+  };
+  recalculateSpiritStatistics(spirit);
+  return spirit;
+}
+
+export interface SpiritValidationIssue { code: string; message: string }
+export function validateSpirit(spirit: Pick<SpiritRecord, "spiritTypeId" | "intensity" | "pow" | "int" | "ins" | "cha" | "abilities" | "typeData" | "generation">): SpiritValidationIssue[] {
+  const issues: SpiritValidationIssue[] = [];
+  if (spirit.intensity === undefined) issues.push({ code: "missing-intensity", message: "Intensity is required for this spirit." });
+  if (spirit.intensity !== undefined && (!Number.isInteger(spirit.intensity) || spirit.intensity < 0)) issues.push({ code: "invalid-intensity", message: "Intensity must be a non-negative integer." });
+  if (spirit.pow === undefined) issues.push({ code: "missing-pow", message: "POW is required for this spirit." });
+  if (spirit.pow !== undefined && (!Number.isInteger(spirit.pow) || spirit.pow < 1)) issues.push({ code: "invalid-pow", message: "POW must be a positive integer." });
+  if (spirit.pow !== undefined && spirit.intensity !== undefined && !spiritPowMatchesIntensity(spirit.pow, spirit.intensity)) issues.push({ code: "intensity-pow-mismatch", message: `POW ${spirit.pow} is outside the range for Intensity ${spirit.intensity}.` });
+  const profile = CORE_SPIRIT_RULES[spirit.spiritTypeId];
+  if (!profile) return issues;
+  for (const key of ["int", "ins", "cha"] as const) {
+    const rule = profile.characteristics[key];
+    const value = spirit[key];
+    if (rule && value === undefined) issues.push({ code: `missing-${key}`, message: `${key.toUpperCase()} is required for this spirit type.` });
+    if (value !== undefined && (!Number.isInteger(value) || value < (typeof rule === "object" ? rule.dice + (rule.modifier ?? 0) : 1) || (typeof rule === "object" && value > rule.dice * rule.sides + (rule.modifier ?? 0)))) issues.push({ code: `invalid-${key}`, message: `${key.toUpperCase()} is outside the allowed range for this spirit type.` });
+  }
+  if (profile.id === "nature") {
+    if (!spirit.typeData?.species && spirit.typeData?.variant !== "regional") issues.push({ code: "missing-nature-species", message: "Choose the nature spirit's animal, plant, or region." });
+    if (spirit.typeData?.variant === "regional") {
+      if (spirit.ins !== undefined && (spirit.ins < 1 || spirit.ins > 6)) issues.push({ code: "invalid-ins", message: "Regional nature spirit INS must be 1d6." });
+      if (spirit.cha !== undefined && (spirit.cha < 3 || spirit.cha > 18)) issues.push({ code: "invalid-cha", message: "Regional nature spirit CHA must be 3d6." });
+    } else if (spirit.ins !== undefined && spirit.cha !== undefined && spirit.cha !== spirit.ins) {
+      issues.push({ code: "nature-cha-mismatch", message: "An animal nature spirit's CHA equals its INS." });
+    }
+  }
+  if (profile.id === "predator" && !spirit.typeData?.host) issues.push({ code: "missing-host", message: "Choose the predator spirit's host creature." });
+  const selectable = new Set(profile.selectableAbilities ?? []);
+  for (const ability of spirit.abilities) if (!selectable.has(ability) && !profile.inherentAbilities.includes(ability)) issues.push({ code: "incompatible-ability", message: `${ability} is not an ability choice for this spirit type.` });
+  for (const ability of profile.inherentAbilities) if (!spirit.abilities.includes(ability)) issues.push({ code: "missing-inherent-ability", message: `${ability} is required for this spirit type.` });
+  const selectedAbilityCount = spirit.abilities.filter(ability => selectable.has(ability)).length;
+  const rolledAbilityCount = spirit.generation?.rolls?.abilityCount?.[0];
+  if (profile.abilityCount === "intensity" && spirit.intensity !== undefined && selectedAbilityCount !== spirit.intensity) {
+    issues.push({ code: "ability-count", message: `Select ${spirit.intensity} abilities for this spirit's Intensity.` });
+  } else if (profile.abilityCount === "1d3+intensity" && spirit.intensity !== undefined) {
+    const min = spirit.intensity + 1;
+    const max = spirit.intensity + 3;
+    if (rolledAbilityCount !== undefined ? selectedAbilityCount !== rolledAbilityCount : selectedAbilityCount < min || selectedAbilityCount > max) {
+      issues.push({ code: "ability-count", message: rolledAbilityCount !== undefined ? `Select ${rolledAbilityCount} abilities.` : `Select between ${min} and ${max} abilities.` });
+    }
+  } else if (profile.abilityCount === "up-to-intensity" && spirit.intensity !== undefined && selectedAbilityCount > spirit.intensity) {
+    issues.push({ code: "ability-count", message: `Nature spirits cannot have more than ${spirit.intensity} selectable abilities.` });
+  }
+  return issues;
+}
+
 export const emptyAnimismState = (): AnimismState => ({ traditions: [], customSpiritTypes: [], spiritTemplates: [], spirits: [], accessibleSpiritTypeIds: [], allies: [], bindings: [], reconciliationIssues: [] });
 
 const record = (value: unknown): Record<string, unknown> | undefined => value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : undefined;
@@ -225,17 +458,37 @@ function normalizeSpiritType(value: unknown): SpiritType | null {
 function normalizeTemplate(value: unknown): SpiritTemplate | null {
   const item = record(value);
   if (!item || typeof item.id !== "string" || typeof item.name !== "string" || typeof item.spiritTypeId !== "string") return null;
-  return { id: item.id, name: item.name, spiritTypeId: item.spiritTypeId, source: source(item.source),
-    ...(["intensity", "pow", "int", "ins", "cha", "magicPoints", "spectralCombat"].reduce((out, key) => { if (typeof item[key] === "number" && Number.isFinite(item[key])) out[key] = item[key] as number; return out; }, {} as Record<string, number>)),
+  return { id: item.id, name: item.name, spiritTypeId: item.spiritTypeId, source: source(item.source), ...(typeof item.provenance === "string" ? { provenance: item.provenance } : {}),
+    ...(["intensity", "pow", "int", "ins", "cha", "magicPoints", "spectralCombat", "willpower", "stealth", "actionPoints", "initiative"].reduce((out, key) => { if (typeof item[key] === "number" && Number.isFinite(item[key])) out[key] = item[key] as number; return out; }, {} as Record<string, number>)),
     ...(Array.isArray(item.powRange) && item.powRange.length === 2 && item.powRange.every(Number.isFinite) ? { powRange: item.powRange as [number, number] } : {}),
-    ...(strings(item.abilities).length ? { abilities: strings(item.abilities) } : {}), ...(typeof item.notes === "string" ? { notes: item.notes } : {}) };
+    ...(strings(item.abilities).length ? { abilities: strings(item.abilities) } : {}),
+    ...(Array.isArray(item.skills) ? { skills: item.skills.flatMap(skill => { const data = record(skill); return data && typeof data.name === "string" && Number.isFinite(data.value) ? [{ name: data.name, value: data.value as number }] : []; }) } : {}),
+    ...(record(item.typeData) ? { typeData: record(item.typeData) } : {}), ...(normalizeGeneration(item.generation) ? { generation: normalizeGeneration(item.generation)! } : {}),
+    ...(typeof item.notes === "string" ? { notes: item.notes } : {}) };
+}
+function normalizeGeneration(value: unknown): SpiritGeneration | undefined {
+  const item = record(value);
+  if (!item || !["core-generated", "manual", "legacy"].includes(item.method as string)) return undefined;
+  const pendingChoices = Array.isArray(item.pendingChoices) ? item.pendingChoices.flatMap(choiceValue => {
+    const pending = record(choiceValue);
+    if (!pending || typeof pending.id !== "string" || typeof pending.description !== "string") return [];
+    return [{ id: pending.id, description: pending.description, ...(Number.isInteger(pending.count) ? { count: pending.count as number } : {}), ...(Number.isInteger(pending.maximumCount) ? { maximumCount: pending.maximumCount as number } : {}), ...(strings(pending.options).length ? { options: strings(pending.options) } : {}) }];
+  }) : [];
+  const rolls = record(item.rolls);
+  return { method: item.method as SpiritGeneration["method"], pendingChoices, ...(rolls ? { rolls: Object.fromEntries(Object.entries(rolls).flatMap(([key, values]) => Array.isArray(values) && values.every(Number.isFinite) ? [[key, values as number[]]] : [])) } : {}) };
 }
 function normalizeSpirit(value: unknown): SpiritRecord | null {
   const item = normalizeTemplate(value);
   if (!item) return null;
   const data = record(value)!;
   const attitude = data.attitude === "friendly" || data.attitude === "neutral" || data.attitude === "hostile" ? data.attitude : undefined;
-  return { ...item, ...(typeof data.templateId === "string" ? { templateId: data.templateId } : {}), ...(attitude ? { attitude } : {}), abilities: item.abilities ?? [] };
+  const profile = CORE_SPIRIT_RULES[item.spiritTypeId];
+  const pendingChoices = profile?.choices?.map(requirement => ({ ...requirement })) ?? [];
+  const spirit: SpiritRecord = { ...item, ...(typeof data.templateId === "string" ? { templateId: data.templateId } : {}), ...(attitude ? { attitude } : {}), abilities: item.abilities ?? [],
+    ...(profile ? { typeData: { ruleId: profile.id, ...(item.typeData ?? {}) } } : {}),
+    generation: item.generation ?? { method: "legacy", pendingChoices: [{ id: "legacy-spirit-details", description: "Review this migrated spirit's type-specific characteristics, derived values, and abilities; no missing values were fabricated." }, ...pendingChoices] }, };
+  recalculateSpiritStatistics(spirit);
+  return spirit;
 }
 function normalizeTradition(value: unknown): SpiritTradition | null {
   const item = record(value);
@@ -300,6 +553,7 @@ export function reconcileAnimism(state: AnimismState, rank: AnimismRank | undefi
     ? [...tradition.friendlySpiritTypeIds, ...tradition.neutralSpiritTypeIds, ...tradition.hostileSpiritTypeIds]
     : state.accessibleSpiritTypeIds);
   for (const spirit of state.spirits) {
+    recalculateSpiritStatistics(spirit);
     if (spirit.pow !== undefined && spirit.intensity !== undefined && !spiritPowMatchesIntensity(spirit.pow, spirit.intensity)) {
       issues.push({ code: "intensity-pow-mismatch", spiritId: spirit.id, message: `${spirit.name} has POW ${spirit.pow}, outside the POW ${spiritIntensityBand(spirit.intensity).minPow}–${spiritIntensityBand(spirit.intensity).maxPow} range for Intensity ${spirit.intensity}; the spirit is preserved.` });
     }
