@@ -73,12 +73,19 @@ test("save/load preserves exact POW and recomputes control validation", () => {
 test("Intensity and exact POW map to canonical bands and mismatched imported data is reported", () => {
   expect(spiritIntensityBand(4)).toMatchObject({ minPow: 25, maxPow: 30 });
   expect(spiritIntensityForPow(27)).toBe(4);
+  expect(spiritIntensityForPow(27.5)).toBeUndefined();
   expect(spiritPowMatchesIntensity(27, 4)).toBe(true);
+  expect(spiritPowMatchesIntensity(27.5, 4)).toBe(false);
   expect(spiritPowMatchesIntensity(27, 2)).toBe(false);
   const { state } = setup(27, 2);
   expect(reconcileAnimism(state, "Shaman", 18, undefined, 57)).toMatchObject([
     { code: "exceeds-binding-limit" },
     { code: "intensity-pow-mismatch" },
+  ]);
+  const fractional = setup(27.5, 4).state;
+  expect(reconcileAnimism(fractional, "Shaman", 18, undefined, 57)).toMatchObject([
+    { code: "exceeds-binding-limit", spiritId: "tiny-tim" },
+    { code: "intensity-pow-mismatch", spiritId: "tiny-tim" },
   ]);
 });
 

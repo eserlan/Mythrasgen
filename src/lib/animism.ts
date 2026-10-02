@@ -204,12 +204,12 @@ export function spiritIntensityBand(intensity: number): SpiritIntensityBand {
 }
 /** Returns the canonical Intensity band for an exact individual spirit POW. */
 export function spiritIntensityForPow(pow: number): number | undefined {
-  if (!Number.isFinite(pow) || pow < 1) return undefined;
+  if (!Number.isInteger(pow) || pow < 1) return undefined;
   return Math.floor((pow - 1) / 6);
 }
 export function spiritPowMatchesIntensity(pow: number, intensity: number): boolean {
   const band = spiritIntensityBand(intensity);
-  return Number.isFinite(pow) && pow >= band.minPow && pow <= band.maxPow;
+  return Number.isInteger(pow) && pow >= band.minPow && pow <= band.maxPow;
 }
 
 export const emptyAnimismState = (): AnimismState => ({ traditions: [], customSpiritTypes: [], spiritTemplates: [], spirits: [], accessibleSpiritTypeIds: [], allies: [], bindings: [], reconciliationIssues: [] });
