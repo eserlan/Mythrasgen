@@ -9,12 +9,16 @@
   import Magic from "./components/Magic.svelte";
   import Combat from "./components/Combat.svelte";
   import Characters from "./components/Characters.svelte";
+  import Settings from "./components/Settings.svelte";
+  import { applyDisplaySettings, loadDisplaySettings, saveDisplaySettings } from "./lib/display-settings";
   import { canFinishPointBuy } from "./lib/calc";
   import { canVisitStep, isLandingView } from "./lib/navigation";
   import { canComplete, careerAllocationErrors, char, createCharacter, cultureAllocationErrors, persist, replace, ROMAN, STEPS } from "./lib/store.svelte";
 
   let open = $state(false);
   let showLibrary = $state(false);
+  let showSettings = $state(false);
+  let displaySettings = $state(loadDisplaySettings());
   const last = STEPS.length - 1;
   const canContinue = $derived(char.generation === "roll" || canFinishPointBuy(char.chars));
   const canVisit = (step: number) => canVisitStep(step, canContinue, cultureAllocationErrors().length === 0)
@@ -24,6 +28,10 @@
   // Persist on any change and scroll to top when the step changes.
   $effect(() => { JSON.stringify(char); persist(); });
   $effect(() => { char.step; scrollTo(0, 0); });
+  $effect(() => {
+    applyDisplaySettings(displaySettings);
+    saveDisplaySettings(displaySettings);
+  });
 
   function save() {
     const a = document.createElement("a");
@@ -43,22 +51,23 @@
   const newChar = () => { createCharacter(); char.home = false; showLibrary = false; };
 </script>
 
-{#if isLandingView(char.home, showLibrary)}
-  <Landing onLibrary={() => { showLibrary = true; }} />
+{#if isLandingView(char.home, showLibrary) && !showSettings}
+  <Landing onLibrary={() => { showLibrary = true; }} onSettings={() => { showSettings = true; }} />
 {:else}
 <header class="noprint" class:open>
   <div class="top">
-    <button class="brand" onclick={() => (char.home = true)} title="Back to the start"><span>◆</span> Mythras <em>Chargen</em></button>
+    <button class="brand" onclick={() => { char.home = true; showSettings = false; showLibrary = false; }} title="Back to the start"><span>◆</span> Mythras <em>Chargen</em></button>
     <button class="burger" aria-label="Menu" aria-expanded={open} onclick={() => (open = !open)}>☰</button>
     <div class="tools" role="presentation" onclick={() => (open = false)}>
-      <button onclick={() => (showLibrary = true)}>Characters</button>
+      <button onclick={() => { showLibrary = true; showSettings = false; }}>Characters</button>
+      <button aria-current={showSettings ? "page" : undefined} onclick={() => { showSettings = true; showLibrary = false; open = false; }}>Settings</button>
       <button onclick={save}>Save</button>
       <label class="btn">Load<input type="file" accept=".json" hidden onchange={loadFile}></label>
       <button onclick={print} disabled={!canVisit(last)}>Print</button>
       <button onclick={newChar}>New</button>
     </div>
   </div>
-  {#if !showLibrary}
+  {#if !showLibrary && !showSettings}
     <nav>
       {#each STEPS as s, i}
         <button class="step" class:on={i === char.step} class:done={i < char.step} disabled={!canVisit(i)} onclick={() => (char.step = i)}>
@@ -69,7 +78,9 @@
   {/if}
 </header>
 
-{#if showLibrary}
+{#if showSettings}
+  <main><Settings settings={displaySettings} onChange={value => displaySettings = value} onReset={() => displaySettings = { textSize: "standard", fontStyle: "classic" }} onBack={() => showSettings = false} /></main>
+{:else if showLibrary}
   <main><Characters onOpen={() => (showLibrary = false)} onBack={() => (showLibrary = false)} /></main>
 {:else}<main>
   {#key char.step}<div class="page">

@@ -33,7 +33,7 @@ describe("Combat Style preset resolution view", () => {
     expect(picker).toContain('<strong>{"searchable" in style ? (styleTraits(style).length === 1 ? "Suggested Trait" : "Suggested Traits") : (style.traits.length === 1 ? "Trait" : "Traits")}:</strong> <span>');
     expect(picker).not.toContain("<dl>");
     expect(css).not.toContain("grid-template-columns:132px minmax(0,1fr)");
-    expect(css).toContain("overflow-wrap:anywhere");
+    expect(css).toContain("overflow-wrap:break-word");
     expect(css).toContain("@media(max-width:560px)");
     expect(css).not.toContain(".combat-style-result dl div");
     expect(styles).toContain('Mythras Core Rules, 3rd edition: Sample Combat Styles (Characters, p. 12)');
@@ -77,7 +77,7 @@ describe("Core Combat Style trait choices and details", () => {
     const css = readFileSync(new URL("../src/app.css", import.meta.url), "utf8");
     expect(css).toContain(".combat-style-editor .trait-picker-choice{display:flex;align-items:center;gap:8px;min-width:0;cursor:pointer}");
     expect(css).toContain(".trait-picker-result input{flex:none;margin:0}");
-    expect(css).toContain(".trait-picker-result label span{display:block;min-width:0;overflow-wrap:anywhere}");
+    expect(css).toContain(".trait-picker-result label span{display:block;min-width:0;overflow-wrap:break-word}");
     expect(css).toContain("input:focus-visible");
   });
 
@@ -92,7 +92,7 @@ describe("Core Combat Style trait choices and details", () => {
     expect(picker).toContain('No traits selected.');
     expect(css).toContain('.picked-trait-chips{display:flex;flex-wrap:wrap;gap:8px;');
     expect(css).toContain('.picked-trait-chip{display:inline-flex;');
-    expect(css).toContain('.picked-trait-name{min-width:0;overflow-wrap:anywhere}');
+    expect(css).toContain('.picked-trait-name{min-width:0;overflow-wrap:break-word}');
     expect(css).toContain('button:focus-visible');
   });
 });

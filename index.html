@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mythras Chargen</title>
 <meta name="theme-color" content="#14110e">
+<script>
+try {
+  const settings = JSON.parse(localStorage.getItem("mythrasgen.display-settings") || "{}");
+  if (["small", "standard", "large", "extra-large"].includes(settings.textSize)) document.documentElement.dataset.textSize = settings.textSize;
+  if (["classic", "readable-serif", "readable-sans"].includes(settings.fontStyle)) document.documentElement.dataset.fontStyle = settings.fontStyle;
+} catch { /* Preferences may be unavailable or malformed. */ }
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
 </head>

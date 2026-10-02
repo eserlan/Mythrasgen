@@ -253,7 +253,7 @@
         {#each filteredEvents as entry (entry.range)}
           <li><button type="button" class="mitem" onclick={() => chooseEvent(chooserFor as number, entry.range)}>
             <span class="range">{entry.range}</span>
-            <span class="mtext">{entry.text.length > 110 ? `${entry.text.slice(0, 110)}…` : entry.text}</span>
+            <span class="mtext">{entry.text}</span>
           </button></li>
         {:else}<li class="mute small pad">No events match “{filter}”.</li>{/each}
       </ul>
