@@ -36,13 +36,30 @@ test("Tradition and spirit management are focused dialogs with relationship base
   expect(manage).toContain('{#if animismVessel === "fetish/object"}');
   expect(manage).toContain("Spirit POW");
   expect(manage).toContain("SPIRIT TOO POWERFUL TO BIND");
-  expect(manage).toContain("disabled={!animismSpiritTypeId || animismNewBoundInvalid}");
+  expect(manage).toContain("disabled={!animismSpiritTypeId || animismNewBoundInvalid || (!animismSelectedAttitude && !animismOtherAttitude) || animismSpiritMode === \"generated\" && !animismGeneratedSpirit}");
   const addSpirit = source.slice(source.indexOf("function addAnimismSpirit()"), source.indexOf("function removeAnimismRelationship"));
   expect(addSpirit).toContain("animismState.allies.push");
   expect(addSpirit).toContain("animismState.bindings.push");
-  expect(addSpirit).toContain("if (!animismSpiritTypeId || animismNewBoundInvalid) return");
+  expect(addSpirit).toContain("if (!animismSpiritTypeId || animismNewBoundInvalid || (!animismSelectedAttitude && !animismOtherAttitude) || animismSpiritMode === \"generated\" && !animismGeneratedSpirit) return");
   expect(source).toContain("function saveAnimismSpiritEdit(id: string)");
   expect(source).toContain("spirit.pow = animismEditPow");
+});
+
+test("Manage Spirits explains Tradition attitude separately and exposes canonical Core records", () => {
+  const manage = source.slice(source.indexOf('aria-labelledby="animism-manage-title"'), source.indexOf("{/if}\n    {#if mysticismCapability}"));
+  expect(manage).toContain("Friendly to your Tradition");
+  expect(manage).toContain("Known neutral");
+  expect(manage).toContain("Other spirit types — not known through this Tradition");
+  expect(manage).toContain("Tradition attitude/access");
+  expect(manage).toContain("significant under Core Animism.");
+  expect(manage).toContain("Your relationship");
+  expect(manage).toContain("Choose Friendly, Neutral, or Hostile");
+  expect(manage).toContain("Generate / Roll Spirit");
+  expect(source).toContain("CORE_SPIRIT_RULES");
+  expect(manage).toContain("Action Required");
+  expect(source).toContain("Spectral Combat");
+  expect(source).toContain("Willpower");
+  expect(manage).toContain("animismRecordIssues(spirit)");
 });
 
 test("Animism explanations derive from canonical rank and Intensity metadata", () => {
