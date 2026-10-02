@@ -18,7 +18,7 @@
     availableSorcerySpellIds, calculateSorceryDerivedStatistics, calculateSorceryStartingEntitlement, configureCoreSorcerySpell, sorceryCatalogue, sorcerySchoolCatalogue, sorcerySpellDetails as resolveSorcerySpellDetails,
     withStartingSorcerySchool, type SorcerySchool, type SorcerySpell,
   } from "../lib/sorcery";
-  import { CORE_ANIMISM_RANKS, listAnimismSpiritTypes, getBoundSpiritCapacity, getMaximumControllableSpiritPow, getSpiritDamage, getTranceCapabilities, reconcileAnimism, spiritIntensityBand, spiritIntensityForPow, spiritPowMatchesIntensity, type AnimismRank, type AnimismStartingGrant, type SpiritBindingVessel, type SpiritRecord, type SpiritTradition, type SpiritType } from "../lib/animism";
+  import { CORE_ANIMISM_RANKS, CORE_SPIRIT_RULES, generateCoreSpirit, listAnimismSpiritTypes, getBoundSpiritCapacity, getMaximumControllableSpiritPow, getSpiritDamage, getTranceCapabilities, reconcileAnimism, spiritIntensityBand, spiritIntensityForPow, spiritPowMatchesIntensity, validateSpirit, type AnimismRank, type AnimismStartingGrant, type SpiritAttitude, type SpiritBindingVessel, type SpiritRecord, type SpiritTradition, type SpiritType } from "../lib/animism";
 
   const originName: Record<MagicSkillOrigin, string> = { culture: "Culture", career: "Career", bonus: "Bonus / Hobby Skill" };
   let picker: HTMLDialogElement;
@@ -72,6 +72,16 @@
   let animismSpiritIntensity = $state(1);
   let animismSpiritPow = $state(7);
   let animismSpiritRelationship = $state<"ally" | "bound">("ally");
+  let animismOtherAttitude = $state<SpiritAttitude | "">("");
+  let animismSpiritMode = $state<"manual" | "generated">("manual");
+  let animismGeneratedSpirit = $state<SpiritRecord | null>(null);
+  let animismSpiritInt = $state<number | "">("");
+  let animismSpiritIns = $state<number | "">("");
+  let animismSpiritCha = $state<number | "">("");
+  let animismTypeChoice = $state("");
+  let animismNatureVariant = $state<"animal" | "regional">("animal");
+  let animismTypeDetail = $state("");
+  let animismSpiritAbilities = $state<string[]>([]);
   let animismVessel = $state<SpiritBindingVessel>("fetish/object");
   let animismVesselName = $state("");
   let animismVesselDescription = $state("");
@@ -81,6 +91,12 @@
   let animismEditingId = $state<string | null>(null);
   let animismEditIntensity = $state(1);
   let animismEditPow = $state<number | "">("");
+  let animismEditInt = $state<number | "">("");
+  let animismEditIns = $state<number | "">("");
+  let animismEditCha = $state<number | "">("");
+  let animismEditAbilities = $state<string[]>([]);
+  let animismEditTypeChoice = $state("");
+  let animismEditTypeDetail = $state("");
 
   const capability = $derived(char.magic.disciplines.find(item => item.discipline === "Folk Magic"));
   const mysticismCapability = $derived(char.magic.disciplines.find(item => item.discipline === "Mysticism"));
@@ -96,21 +112,26 @@
   const animismCapacity = $derived(getBoundSpiritCapacity(char, animismRank));
   const animismControlLimit = $derived(animismBinding ? getMaximumControllableSpiritPow(animismBinding.value) : 0);
   const animismSpiritPowBand = $derived(spiritIntensityBand(Number(animismSpiritIntensity) || 0));
-  const animismNewBoundInvalid = $derived(animismSpiritRelationship === "bound" && (!Number.isFinite(Number(animismSpiritPow))
-    || !spiritPowMatchesIntensity(Number(animismSpiritPow), Number(animismSpiritIntensity) || 0)
-    || Number(animismSpiritPow) > animismControlLimit));
+  const animismCandidatePow = $derived(animismSpiritMode === "generated" ? animismGeneratedSpirit?.pow : Number(animismSpiritPow));
+  const animismNewBoundInvalid = $derived(animismSpiritRelationship === "bound" && (!Number.isFinite(Number(animismCandidatePow))
+    || !spiritPowMatchesIntensity(Number(animismCandidatePow), Number(animismSpiritIntensity) || 0)
+    || Number(animismCandidatePow) > animismControlLimit));
   const animismBound = $derived(animismState.bindings.filter(item => item.countsAgainstCapacity));
   const animismAllies = $derived(animismState.allies.filter(ally => !animismBindingFor(ally.spiritId)));
   const animismFriendlyTypes = $derived(animismTradition?.friendlySpiritTypeIds ?? animismState.accessibleSpiritTypeIds);
   const animismNeutralTypes = $derived(animismTradition?.neutralSpiritTypeIds ?? []);
   const animismHostileTypes = $derived(animismTradition?.hostileSpiritTypeIds ?? []);
-  const animismVisibleTypes = $derived([...new Set([...animismFriendlyTypes, ...animismNeutralTypes, ...animismHostileTypes,
-    ...(animismTradition?.startingGrants.flatMap(grant => grant.spiritTypeId ? [grant.spiritTypeId] : []) ?? [])])]);
+  const animismVisibleTypes = $derived([...new Set([...animismFriendlyTypes, ...animismNeutralTypes, ...animismHostileTypes])]);
+  const animismSelectedAttitude = $derived(animismSpiritTypeId ? animismTypeAttitude(animismSpiritTypeId) : undefined);
+  const animismSelectedRule = $derived(CORE_SPIRIT_RULES[animismSpiritTypeId]);
+  const animismNewSpiritIssues = $derived(animismGeneratedSpirit ? validateSpirit(animismGeneratedSpirit) : []);
+  const animismNewSpiritIncomplete = $derived(animismNewSpiritIssues.length > 0 || !!animismGeneratedSpirit?.generation?.pendingChoices.length);
   const animismPickerTypes = $derived(animismSpiritTypes.filter(item => `${item.name} ${item.description ?? ""}`.toLowerCase().includes(animismQuery.trim().toLowerCase())));
   const animismRelationshipRows = $derived([...animismAllies.map(ally => ({ key: `ally:${ally.spiritId}`, spirit: animismSpirit(ally.spiritId), kind: "ALLY" as const, vessel: undefined as string | undefined })),
     ...animismState.bindings.map(binding => ({ key: `binding:${binding.id}`, spirit: animismSpirit(binding.spiritId), kind: "BOUND" as const, vessel: binding.objectName || (binding.vessel === "fetish/object" ? undefined : binding.vessel) }))].filter(row => !!row.spirit));
   const animismUnresolvedGrant = $derived(hasUnresolvedAnimismGrant());
-  const animismNeedsSetup = $derived(!animismTradition || !animismRank || animismBound.length > animismCapacity || animismState.reconciliationIssues.length > 0 || animismUnresolvedGrant);
+  const animismIncompleteSpirits = $derived(animismState.spirits.some(spirit => animismRecordIssues(spirit).length > 0));
+  const animismNeedsSetup = $derived(!animismTradition || !animismRank || animismBound.length > animismCapacity || animismState.reconciliationIssues.length > 0 || animismIncompleteSpirits || animismUnresolvedGrant);
   const sorceryState = $derived(char.magic.sorcery);
   const sorcerySkills = $derived(sorceryCapability?.skills ?? []);
   const invocationSkill = $derived(sorcerySkills.find(item => item.name === "Invocation") ?? sorcerySkills.find(item => item.name.startsWith("Invocation (")));
@@ -182,7 +203,7 @@
   $effect(() => {
     if (!animismCapability) return;
     const issues = reconcileAnimism(animismState, animismRank, char.chars.CHA, animismState.traditionId, animismBinding?.value);
-    animismCapability.status = !animismTradition || !animismRank || animismBound.length > animismCapacity || issues.length > 0 || animismUnresolvedGrant
+    animismCapability.status = !animismTradition || !animismRank || animismBound.length > animismCapacity || issues.length > 0 || animismIncompleteSpirits || animismUnresolvedGrant
       ? "action-required" : "complete";
   });
 
@@ -212,6 +233,83 @@
     if (found) { animismState.traditionId = found.id; animismState.bindingSpecialisation = { skillName: animismBinding!.name, traditionId: found.id }; }
   }
   function animismTypeName(id: string) { return animismSpiritTypes.find(item => item.id === id)?.name ?? id; }
+  function animismTypeAttitude(id: string): SpiritAttitude | undefined {
+    if (animismFriendlyTypes.includes(id)) return "friendly";
+    if (animismNeutralTypes.includes(id)) return "neutral";
+    if (animismHostileTypes.includes(id)) return "hostile";
+    return undefined;
+  }
+  function animismAttitudeLabel(attitude?: SpiritAttitude) { return attitude === "friendly" ? "Friendly" : attitude === "neutral" ? "Known neutral" : attitude === "hostile" ? "Hostile" : "Not known through this Tradition"; }
+  function animismRecordIssues(spirit: SpiritRecord) {
+    const issues = validateSpirit(spirit).map(issue => issue.message);
+    for (const choice of spirit.generation?.pendingChoices ?? []) issues.push(choice.description);
+    if (!spirit.generation) issues.push("Legacy spirit record: review and complete its Core characteristics and abilities.");
+    return [...new Set(issues)];
+  }
+  function animismChoiceResolved(spirit: SpiritRecord, choiceId: string) {
+    const data = spirit.typeData ?? {};
+    if (choiceId === "ancestor-species" || choiceId === "haunt-characteristics") return !!data.species && spirit.int !== undefined && spirit.cha !== undefined;
+    if (choiceId === "nature-kind") return !!data[choiceId];
+    if (choiceId === "nature-characteristics") return data.variant === "regional" || !!data.species && spirit.ins !== undefined && spirit.cha !== undefined;
+    if (choiceId === "predator-host") return !!data.host;
+    if (choiceId === "haunt-anchor") return !!data[choiceId];
+    if (choiceId === "fetch-kind") return data.variant === "awakened" || data.variant === "allied";
+    if (choiceId.endsWith("abilities") || choiceId.endsWith("blessings")) {
+      const profile = CORE_SPIRIT_RULES[spirit.spiritTypeId];
+      const choices = spirit.abilities.filter(ability => profile?.selectableAbilities?.includes(ability)).length;
+      const required = choiceId.endsWith("blessings") ? spirit.intensity ?? 0 : spirit.generation?.rolls?.abilityCount?.[0] ?? ((profile?.abilityCount === "1d3+intensity") ? (spirit.intensity ?? 0) + 1 : spirit.intensity ?? 0);
+      return profile?.abilityCount === "up-to-intensity" ? choices > 0 : choices >= required;
+    }
+    if (choiceId.endsWith("ability-details") || choiceId.endsWith("bless-targets") || choiceId === "haunt-spells") return Array.isArray(data.abilityDetails) && data.abilityDetails.length > 0;
+    return data[choiceId] !== undefined || (Array.isArray(data.completedChoices) && data.completedChoices.includes(choiceId));
+  }
+  function animismAttitudeForSpirit(spirit: SpiritRecord) { return animismAttitudeLabel(animismTypeAttitude(spirit.spiritTypeId)); }
+  function animismIndividualAttitudeSummary(spirit: SpiritRecord) { return !animismTypeAttitude(spirit.spiritTypeId) && spirit.attitude ? ` · Individual spirit attitude: ${animismAttitudeLabel(spirit.attitude)}` : ""; }
+  function animismStatisticSummary(spirit: SpiritRecord) {
+    return [spirit.pow !== undefined && `POW ${spirit.pow}`, spirit.int !== undefined && `INT ${spirit.int}`, spirit.ins !== undefined && `INS ${spirit.ins}`, spirit.cha !== undefined && `CHA ${spirit.cha}`, spirit.magicPoints !== undefined && `MP ${spirit.magicPoints}`, spirit.spectralCombat !== undefined && `Spectral Combat ${spirit.spectralCombat}%`, spirit.willpower !== undefined && `Willpower ${spirit.willpower}%`, spirit.stealth !== undefined && `Stealth ${spirit.stealth}%`].filter(Boolean).join(" · ");
+  }
+  function toggleAnimismAbility(ability: string) {
+    animismSpiritAbilities = animismSpiritAbilities.includes(ability) ? animismSpiritAbilities.filter(item => item !== ability) : [...animismSpiritAbilities, ability];
+    animismGeneratedSpirit = null;
+  }
+  function animismSelectedAbilityRecords() {
+    if (animismSelectedRule?.id === "predator" && animismSpiritAbilities.includes("Bless")) {
+      return Array.from({ length: Math.max(1, Number(animismSpiritIntensity) || 0) }, () => "Bless");
+    }
+    return [...animismSpiritAbilities];
+  }
+  function animismNewTypeData() {
+    const data: Record<string, unknown> = {};
+    if (animismSelectedRule) data.ruleId = animismSelectedRule.id;
+    if (animismSelectedRule?.id === "nature") {
+      data.variant = animismNatureVariant; data["nature-kind"] = animismNatureVariant;
+      if (animismTypeChoice && animismNatureVariant !== "regional") data.species = animismTypeChoice;
+      if (animismNatureVariant !== "regional") {
+        if (animismSpiritIns !== "") data.ins = Number(animismSpiritIns);
+        if (animismSpiritCha !== "") data.cha = Number(animismSpiritCha);
+      }
+    } else if (["ancestor", "haunt"].includes(animismSelectedRule?.id ?? "") && animismTypeChoice) data.species = animismTypeChoice;
+    else if (animismSelectedRule?.id === "elemental" && animismTypeChoice) data.element = animismTypeChoice;
+    else if (animismSelectedRule?.id === "curse" && animismTypeChoice) data["curse-effects"] = animismTypeChoice;
+    else if (animismSelectedRule?.id === "sickness" && animismTypeChoice) data.disease = animismTypeChoice;
+    else if (animismSelectedRule?.id === "predator" && animismTypeChoice) data.host = animismTypeChoice;
+    else if (animismSelectedRule?.id === "fetch" && animismTypeChoice) data.variant = animismTypeChoice === "Awakened Fetch" ? "awakened" : "allied";
+    if (animismSelectedRule?.id === "haunt" && animismTypeDetail) data["haunt-anchor"] = animismTypeDetail;
+    if (animismTypeDetail && ["ancestor", "nature", "predator", "haunt"].includes(animismSelectedRule?.id ?? "")) data.abilityDetails = [animismTypeDetail];
+    if (animismSpiritInt !== "") data.int = Number(animismSpiritInt);
+    if (animismSpiritIns !== "") data.ins = Number(animismSpiritIns);
+    if (animismSpiritCha !== "") data.cha = Number(animismSpiritCha);
+    return data;
+  }
+  function generateAnimismSpirit() {
+    if (!animismSpiritTypeId || !CORE_SPIRIT_RULES[animismSpiritTypeId]) return;
+    const typeData = animismNewTypeData();
+    animismGeneratedSpirit = generateCoreSpirit({ id: animismId("spirit"), name: animismSpiritName.trim() || animismTypeName(animismSpiritTypeId), spiritTypeId: animismSpiritTypeId, intensity: Number(animismSpiritIntensity) || 0, source: "core", characteristics: { ...(animismSelectedRule?.id === "fetch" && animismTypeChoice === "Awakened Fetch" ? { pow: Number(animismSpiritPow) } : {}), ...(animismSpiritInt !== "" ? { int: Number(animismSpiritInt) } : {}), ...(animismSpiritIns !== "" ? { ins: Number(animismSpiritIns) } : {}), ...(animismSpiritCha !== "" ? { cha: Number(animismSpiritCha) } : {}) }, typeData, abilities: animismSelectedAbilityRecords(), notes: animismSpiritNotes.trim() || undefined });
+    if (animismSelectedAttitude) animismGeneratedSpirit.attitude = animismSelectedAttitude;
+    else if (animismOtherAttitude) animismGeneratedSpirit.attitude = animismOtherAttitude;
+    animismSpiritPow = animismGeneratedSpirit.pow ?? animismSpiritPow;
+    animismSpiritInt = animismGeneratedSpirit.int ?? ""; animismSpiritIns = animismGeneratedSpirit.ins ?? ""; animismSpiritCha = animismGeneratedSpirit.cha ?? "";
+  }
   function animismSpirit(id: string) { return animismState.spirits.find(item => item.id === id); }
   function animismBindingFor(id: string) { return animismState.bindings.find(item => item.spiritId === id); }
   function setAnimismIntensity(value: number) {
@@ -232,6 +330,10 @@
     animismEditingId = id;
     animismEditIntensity = spirit.intensity ?? 1;
     animismEditPow = spirit.pow ?? "";
+    animismEditInt = spirit.int ?? ""; animismEditIns = spirit.ins ?? ""; animismEditCha = spirit.cha ?? ""; animismEditAbilities = [...spirit.abilities];
+    animismEditTypeChoice = String(spirit.typeData?.species ?? spirit.typeData?.element ?? spirit.typeData?.disease ?? spirit.typeData?.host ?? spirit.typeData?.variant ?? "");
+    const savedAbilityDetails = spirit.typeData?.abilityDetails;
+    animismEditTypeDetail = String(spirit.typeData?.["haunt-anchor"] ?? (Array.isArray(savedAbilityDetails) ? savedAbilityDetails[0] : "") ?? "");
   }
   function setAnimismEditIntensity(value: number) {
     animismEditIntensity = Math.max(0, Math.floor(Number.isFinite(value) ? value : 0));
@@ -253,11 +355,35 @@
     if (animismBindingFor(id) && animismEditPow > animismControlLimit) return;
     spirit.intensity = animismEditIntensity;
     spirit.pow = animismEditPow;
+    if (animismEditInt !== "") spirit.int = Number(animismEditInt);
+    if (animismEditIns !== "") spirit.ins = Number(animismEditIns);
+    if (animismEditCha !== "") spirit.cha = Number(animismEditCha);
+    spirit.abilities = [...new Set([...animismEditAbilities, ...(CORE_SPIRIT_RULES[spirit.spiritTypeId]?.inherentAbilities ?? [])])];
+    spirit.typeData ??= {};
+    const ruleId = CORE_SPIRIT_RULES[spirit.spiritTypeId]?.id;
+    if (ruleId) spirit.typeData.ruleId = ruleId;
+    if (animismEditTypeChoice) {
+      if (["ancestor", "haunt", "nature"].includes(ruleId ?? "")) spirit.typeData.species = animismEditTypeChoice;
+      if (ruleId === "nature") { spirit.typeData.variant = animismEditTypeChoice === "regional" ? "regional" : "animal"; spirit.typeData["nature-kind"] = animismEditTypeChoice === "regional" ? "regional" : "animal"; }
+      if (ruleId === "elemental") spirit.typeData.element = animismEditTypeChoice;
+      if (ruleId === "sickness") spirit.typeData.disease = animismEditTypeChoice;
+      if (ruleId === "curse") spirit.typeData["curse-effects"] = animismEditTypeChoice;
+      if (ruleId === "predator") spirit.typeData.host = animismEditTypeChoice;
+      if (ruleId === "fetch") spirit.typeData.variant = animismEditTypeChoice === "Awakened Fetch" ? "awakened" : "allied";
+    }
+    if (animismEditTypeDetail) {
+      if (ruleId === "haunt") spirit.typeData["haunt-anchor"] = animismEditTypeDetail;
+      spirit.typeData.abilityDetails = [animismEditTypeDetail];
+    }
+    if (spirit.generation) spirit.generation.pendingChoices = spirit.generation.pendingChoices.filter(choice => !animismChoiceResolved(spirit, choice.id));
+    spirit.generation ??= { method: "manual", pendingChoices: [] };
+    spirit.generation.method = "manual";
+    if (spirit.generation.pendingChoices.length === 0 && validateSpirit(spirit).length === 0) spirit.generation.method = "manual";
     animismEditingId = null;
     updateStatus();
   }
   function openAnimismConfigure() { animismQuery = ""; animismConfigureDialog?.showModal(); }
-  function openAnimismManage() { animismSpiritTypeId = ""; animismManageDialog?.showModal(); }
+  function openAnimismManage() { animismSpiritTypeId = ""; animismOtherAttitude = ""; animismSpiritMode = "manual"; animismGeneratedSpirit = null; animismManageDialog?.showModal(); }
   function animismRankSummary(rank?: AnimismRank) {
     if (!rank) return "Choose a rank to see what your Animist can do.";
     const abilities = getTranceCapabilities(rank);
@@ -314,9 +440,14 @@
     const list = animismTypeIds(animismPickerAttitude);
     const next = list.includes(id) ? list.filter(item => item !== id) : [...list, id];
     if (!animismTradition) animismState.accessibleSpiritTypeIds = next;
-    else if (animismPickerAttitude === "friendly") animismTradition.friendlySpiritTypeIds = next;
-    else if (animismPickerAttitude === "neutral") animismTradition.neutralSpiritTypeIds = next;
-    else animismTradition.hostileSpiritTypeIds = next;
+    else {
+      if (animismPickerAttitude !== "friendly") animismTradition.friendlySpiritTypeIds = animismTradition.friendlySpiritTypeIds.filter(typeId => typeId !== id);
+      if (animismPickerAttitude !== "neutral") animismTradition.neutralSpiritTypeIds = animismTradition.neutralSpiritTypeIds.filter(typeId => typeId !== id);
+      if (animismPickerAttitude !== "hostile") animismTradition.hostileSpiritTypeIds = animismTradition.hostileSpiritTypeIds.filter(typeId => typeId !== id);
+      if (animismPickerAttitude === "friendly") animismTradition.friendlySpiritTypeIds = next;
+      else if (animismPickerAttitude === "neutral") animismTradition.neutralSpiritTypeIds = next;
+      else animismTradition.hostileSpiritTypeIds = next;
+    }
     updateStatus();
   }
   function addAnimismHostileTradition() {
@@ -341,20 +472,26 @@
     updateStatus();
   }
   function addAnimismSpirit() {
-    if (!animismSpiritTypeId || animismNewBoundInvalid) return;
+    if (!animismSpiritTypeId || animismNewBoundInvalid || (!animismSelectedAttitude && !animismOtherAttitude) || animismSpiritMode === "generated" && !animismGeneratedSpirit) return;
     const grant = animismTradition?.startingGrants.find(item => (item.kind === "spirit-ally" || item.kind === "bound-spirit")
       && !animismGrantHasSpirit(item)
       && (!item.spiritTypeId || item.spiritTypeId === animismSpiritTypeId)
       && (item.kind !== "bound-spirit" || animismSpiritRelationship === "bound")
       && (item.kind !== "spirit-ally" || animismSpiritRelationship === "ally"));
     const id = grant?.spiritId ?? animismId("spirit");
-    const spirit: SpiritRecord = { id, name: animismSpiritName.trim() || animismTypeName(animismSpiritTypeId), spiritTypeId: animismSpiritTypeId, source: grant ? "campaign" : "custom", attitude: "friendly", intensity: Number(animismSpiritIntensity) || 0, pow: Number(animismSpiritPow), abilities: [], ...(animismSpiritNotes.trim() ? { notes: animismSpiritNotes.trim() } : {}) };
+    const attitude = animismSelectedAttitude ?? animismOtherAttitude as SpiritAttitude;
+    const spirit: SpiritRecord = animismSpiritMode === "generated" && animismGeneratedSpirit
+      ? { ...animismGeneratedSpirit, id, name: animismSpiritName.trim() || animismTypeName(animismSpiritTypeId), source: grant ? "campaign" : animismGeneratedSpirit.source, attitude, notes: animismSpiritNotes.trim() || undefined }
+      : { id, name: animismSpiritName.trim() || animismTypeName(animismSpiritTypeId), spiritTypeId: animismSpiritTypeId, source: grant ? "campaign" : "custom", attitude, intensity: Number(animismSpiritIntensity) || 0, pow: Number(animismSpiritPow), ...(animismSpiritInt !== "" ? { int: Number(animismSpiritInt) } : {}), ...(animismSpiritIns !== "" ? { ins: Number(animismSpiritIns) } : {}), ...(animismSpiritCha !== "" ? { cha: Number(animismSpiritCha) } : {}), abilities: animismSelectedAbilityRecords(), typeData: animismNewTypeData(), ...(animismSpiritNotes.trim() ? { notes: animismSpiritNotes.trim() } : {}), generation: { method: "manual", pendingChoices: [] } };
+    if (animismSpiritMode === "manual" && animismSelectedRule?.choices) {
+      spirit.generation = { method: "manual", pendingChoices: animismSelectedRule.choices.filter(choice => !animismChoiceResolved(spirit, choice.id)).map(choice => ({ ...choice })) };
+    }
     animismState.spirits.push(spirit);
     const provenance = (grant?.source ?? animismSpiritSource.trim()) || "character creation";
     if (animismSpiritRelationship === "bound") animismState.bindings.push({ id: animismId("binding"), spiritId: id, vessel: animismVessel, countsAgainstCapacity: true, source: provenance, ...(animismVesselName.trim() ? { objectName: animismVesselName.trim() } : {}), ...(animismVesselDescription.trim() ? { description: animismVesselDescription.trim() } : {}) });
     else animismState.allies.push({ spiritId: id, attitude: "friendly", source: provenance });
     animismSpiritName = ""; animismSpiritNotes = ""; animismVesselName = ""; animismVesselDescription = "";
-    animismSpiritSource = "";
+    animismSpiritSource = ""; animismGeneratedSpirit = null; animismSpiritAbilities = []; animismSpiritInt = ""; animismSpiritIns = ""; animismSpiritCha = ""; animismTypeChoice = ""; animismTypeDetail = ""; animismOtherAttitude = "";
     updateStatus();
   }
   function removeAnimismRelationship(id: string) {
@@ -641,8 +778,8 @@
           {#if animismBound.length > animismCapacity}<p class="folk-magic-error" role="alert">Binding Capacity — {animismBound.length} / {animismCapacity} · Action required. Resolve the excess; no spirits have been removed.</p>{/if}
           {#each animismRelationshipRows as row (row.key)}
             {@const spirit = row.spirit!}
-            <div class="animism-row"><div><b>{spirit.name}</b><small>{animismTypeName(spirit.spiritTypeId)}{#if spirit.intensity !== undefined} · Intensity {spirit.intensity}{/if}{#if spirit.pow !== undefined} · POW {spirit.pow}{/if} · <strong>{row.kind}</strong>{#if row.vessel} · {row.vessel}{/if}</small>{#each animismState.reconciliationIssues.filter(issue => issue.spiritId === spirit.id) as issue}<small class="folk-magic-error" role="alert">⚠ {issue.message}</small>{/each}</div><div><button type="button" class="ghost" onclick={() => animismEditingId === spirit.id ? animismEditingId = null : editAnimismSpirit(spirit.id)}>{animismEditingId === spirit.id ? "Cancel edit" : "Edit"}</button> <button type="button" class="ghost" onclick={() => animismDetailsId = animismDetailsId === spirit.id ? null : spirit.id}>Details</button></div>
-              {#if animismEditingId === spirit.id}<div class="animism-spirit-editor"><label>Intensity<input type="number" min="0" max="99" value={animismEditIntensity} oninput={event => setAnimismEditIntensity(Number(event.currentTarget.value))} /></label><small>Intensity {animismEditIntensity} · POW {spiritIntensityBand(animismEditIntensity).minPow}–{spiritIntensityBand(animismEditIntensity).maxPow}</small><label>Spirit POW<input type="number" min={spiritIntensityBand(animismEditIntensity).minPow} max={spiritIntensityBand(animismEditIntensity).maxPow} value={animismEditPow} oninput={event => { const value = event.currentTarget.value; if (value === "") animismEditPow = ""; else setAnimismEditPow(Number(value)); }} /></label>{#if animismBindingFor(spirit.id) && animismEditPow !== "" && animismEditPow > animismControlLimit}<small class="folk-magic-error" role="alert">Bound spirits must be at or below the Spirit Control Limit (POW {animismControlLimit}).</small>{/if}<button type="button" class="primary" disabled={animismEditPow === "" || !spiritPowMatchesIntensity(Number(animismEditPow), animismEditIntensity) || !!animismBindingFor(spirit.id) && Number(animismEditPow) > animismControlLimit} onclick={() => saveAnimismSpiritEdit(spirit.id)}>Save spirit</button></div>{/if}
+            <div class="animism-row"><div><b>{spirit.name}</b><small>{animismTypeName(spirit.spiritTypeId)} · {row.kind === "BOUND" ? "Bound Spirit" : "Ally"} · Tradition attitude: {animismAttitudeForSpirit(spirit)}{animismIndividualAttitudeSummary(spirit)} · Intensity {spirit.intensity ?? "Action required"}</small><small>{animismStatisticSummary(spirit)}</small>{#if spirit.abilities.length}<small>Abilities: {spirit.abilities.join(", ")}</small>{/if}{#if row.vessel}<small>Binding: {row.vessel}</small>{/if}{#if animismRecordIssues(spirit).length}<small class="folk-magic-error" role="alert">Action Required — complete or review this spirit record.</small>{/if}{#each animismState.reconciliationIssues.filter(issue => issue.spiritId === spirit.id) as issue}<small class="folk-magic-error" role="alert">⚠ {issue.message}</small>{/each}</div><div><button type="button" class="ghost" onclick={() => animismEditingId === spirit.id ? animismEditingId = null : editAnimismSpirit(spirit.id)}>{animismEditingId === spirit.id ? "Cancel edit" : "Edit"}</button> <button type="button" class="ghost" onclick={() => animismDetailsId = animismDetailsId === spirit.id ? null : spirit.id}>Details</button></div>
+              {#if animismEditingId === spirit.id}<div class="animism-spirit-editor"><label>Intensity<input type="number" min="0" max="99" value={animismEditIntensity} oninput={event => setAnimismEditIntensity(Number(event.currentTarget.value))} /></label><small>Intensity {animismEditIntensity} · POW {spiritIntensityBand(animismEditIntensity).minPow}–{spiritIntensityBand(animismEditIntensity).maxPow}</small><label>Spirit POW<input type="number" min={spiritIntensityBand(animismEditIntensity).minPow} max={spiritIntensityBand(animismEditIntensity).maxPow} value={animismEditPow} oninput={event => { const value = event.currentTarget.value; if (value === "") animismEditPow = ""; else setAnimismEditPow(Number(value)); }} /></label><div class="animism-characteristics">{#if CORE_SPIRIT_RULES[spirit.spiritTypeId]?.characteristics.int}<label>INT<input type="number" min="1" max="30" bind:value={animismEditInt} /></label>{/if}{#if CORE_SPIRIT_RULES[spirit.spiritTypeId]?.characteristics.ins}<label>INS<input type="number" min="1" max="30" bind:value={animismEditIns} /></label>{/if}{#if CORE_SPIRIT_RULES[spirit.spiritTypeId]?.characteristics.cha}<label>CHA<input type="number" min="1" max="30" bind:value={animismEditCha} /></label>{/if}</div>{#if CORE_SPIRIT_RULES[spirit.spiritTypeId]?.choices?.length}<label>Type-specific choice<input bind:value={animismEditTypeChoice} placeholder="Species, regional, element, disease, or host" /></label><label>Choice details / anchor<input bind:value={animismEditTypeDetail} /></label>{/if}{#if CORE_SPIRIT_RULES[spirit.spiritTypeId]?.selectableAbilities?.length}<fieldset class="animism-ability-picker"><legend>Abilities</legend>{#each CORE_SPIRIT_RULES[spirit.spiritTypeId].selectableAbilities as ability}<label><input type="checkbox" checked={animismEditAbilities.includes(ability)} onchange={() => animismEditAbilities = animismEditAbilities.includes(ability) ? animismEditAbilities.filter(item => item !== ability) : [...animismEditAbilities, ability]} />{ability}</label>{/each}</fieldset>{/if}{#if animismBindingFor(spirit.id) && animismEditPow !== "" && animismEditPow > animismControlLimit}<small class="folk-magic-error" role="alert">Bound spirits must be at or below the Spirit Control Limit (POW {animismControlLimit}).</small>{/if}<button type="button" class="primary" disabled={animismEditPow === "" || !spiritPowMatchesIntensity(Number(animismEditPow), animismEditIntensity) || !!animismBindingFor(spirit.id) && Number(animismEditPow) > animismControlLimit} onclick={() => saveAnimismSpiritEdit(spirit.id)}>Save spirit</button></div>{/if}
               {#if animismDetailsId === spirit.id}<p>{spirit.notes || "No additional notes."}{#if spirit.pow !== undefined} · POW {spirit.pow}{/if}{#if spirit.abilities.length} · {spirit.abilities.join(", ")}{/if}{#if animismBindingFor(spirit.id)?.description} · {animismBindingFor(spirit.id)?.description}{/if}</p>{/if}</div>
           {:else}<p class="mute">No spirit allies or bound spirits.</p>{/each}
           <button type="button" class="ghost" onclick={openAnimismManage}>Manage Spirits</button>
@@ -678,18 +815,33 @@
       <dialog class="folk-magic-picker animism-workflow" bind:this={animismManageDialog} aria-labelledby="animism-manage-title">
         <div class="folk-magic-picker-content">
           <header><div><h2 id="animism-manage-title">Manage Spirits</h2><p>{animismBound.length} / {animismCapacity} spirits bound</p></div><button type="button" class="ghost" onclick={() => animismManageDialog?.close()}>Close</button></header>
-          {#if animismRelationshipRows.length}<section class="animism-config-section"><h3>Your Spirits</h3>{#each animismRelationshipRows as row (row.key)}{@const spirit = row.spirit!}<div class="animism-row"><div><b>{spirit.name}</b><small>{animismTypeName(spirit.spiritTypeId)}{#if spirit.intensity !== undefined} · Intensity {spirit.intensity}{/if}{#if spirit.pow !== undefined} · POW {spirit.pow}{/if} · {row.kind}{#if row.vessel} · {row.vessel}{/if}</small></div><button type="button" class="ghost" aria-label="Remove {spirit.name}" onclick={() => removeAnimismRelationship(spirit.id)}>{row.kind === "BOUND" ? "Release" : "Remove"}</button></div>{/each}</section>{/if}
+          {#if animismRelationshipRows.length}<section class="animism-config-section"><h3>Your Spirits</h3>{#each animismRelationshipRows as row (row.key)}{@const spirit = row.spirit!}{@const issues = animismRecordIssues(spirit)}<div class="animism-row"><div><b>{spirit.name}</b><small>{animismTypeName(spirit.spiritTypeId)} · {row.kind === "BOUND" ? "Bound Spirit" : "Ally"} · Tradition attitude: {animismAttitudeForSpirit(spirit)}{animismIndividualAttitudeSummary(spirit)} · Intensity {spirit.intensity ?? "Action required"}</small><small>{animismStatisticSummary(spirit) || "Core characteristics not recorded."}</small>{#if spirit.abilities.length}<small>Abilities: {spirit.abilities.join(", ")}</small>{/if}{#if row.vessel}<small>Binding: {row.vessel}{#if animismBindingFor(spirit.id)?.description} — {animismBindingFor(spirit.id)?.description}{/if}</small>{/if}{#if issues.length}<small class="folk-magic-error" role="alert">Action Required · {issues.join(" ")}</small>{/if}<details class="animism-spirit-details"><summary>Advanced details</summary><p>{spirit.notes || "No additional notes."}</p>{#if spirit.generation?.rolls}<p>Generation rolls: {Object.entries(spirit.generation.rolls).map(([key, values]) => `${key.toUpperCase()} ${values.join(", ")}`).join(" · ")}</p>{/if}</details></div><button type="button" class="ghost" aria-label="Remove {spirit.name}" onclick={() => removeAnimismRelationship(spirit.id)}>{row.kind === "BOUND" ? "Release" : "Remove"}</button></div>{/each}</section>{/if}
           <form class="folk-magic-custom-form animism-form" onsubmit={event => { event.preventDefault(); addAnimismSpirit(); }}>
             <h5>Add Spirit</h5>
-            <label>Spirit type<select bind:value={animismSpiritTypeId} required><option value="">Choose a Tradition type</option>{#each animismVisibleTypes as id}<option value={id}>{animismTypeName(id)}</option>{/each}{#each animismSpiritTypes.filter(type => !animismVisibleTypes.includes(type.id)) as type}<option value={type.id}>{type.name} · Other</option>{/each}</select></label>
-            <label>Relationship<select bind:value={animismSpiritRelationship}><option value="ally">Ally</option><option value="bound">Bound Spirit</option></select></label>
+            <label>Spirit type<select bind:value={animismSpiritTypeId} required onchange={() => { animismGeneratedSpirit = null; animismTypeChoice = ""; animismNatureVariant = "animal"; animismSpiritAbilities = []; animismOtherAttitude = ""; }}><option value="">Choose a spirit type</option><optgroup label="Friendly to your Tradition">{#each animismFriendlyTypes as id}<option value={id}>{animismTypeName(id)}</option>{/each}</optgroup><optgroup label="Known neutral">{#each animismNeutralTypes as id}<option value={id}>{animismTypeName(id)}</option>{/each}</optgroup><optgroup label="Hostile">{#each animismHostileTypes as id}<option value={id}>{animismTypeName(id)}</option>{/each}</optgroup><optgroup label="Other spirit types — not known through this Tradition">{#each animismSpiritTypes.filter(type => !animismVisibleTypes.includes(type.id)) as type}<option value={type.id}>{type.name}</option>{/each}</optgroup></select></label>
+            {#if animismSpiritTypeId}<p class:folk-magic-error={animismSelectedAttitude === "hostile"} class="animism-attitude-note"><b>Tradition attitude/access:</b> {animismAttitudeLabel(animismSelectedAttitude)}.{#if animismSelectedAttitude === "hostile"} This spirit type is hostile to your Tradition; that is significant under Core Animism.{:else if !animismSelectedAttitude} This type is outside your Tradition's known types. Core Animism permits it; choose its actual attitude explicitly.{:else} This describes how your Tradition regards the type, not your individual relationship with this spirit.{/if}</p>{/if}
+            {#if animismSpiritTypeId && !animismSelectedAttitude}<label>Actual attitude for this spirit<select bind:value={animismOtherAttitude} required><option value="">Choose Friendly, Neutral, or Hostile</option><option value="friendly">Friendly</option><option value="neutral">Neutral</option><option value="hostile">Hostile</option></select></label>{/if}
+            <label>Your relationship<select bind:value={animismSpiritRelationship}><option value="ally">Ally</option><option value="bound">Bound Spirit</option></select><small>Ally or Bound Spirit is your relationship with this individual; it is separate from Tradition attitude.</small></label>
             <label>Name (optional)<input bind:value={animismSpiritName} maxlength="100" /></label>
-            <label>Intensity<input type="number" min="0" max="99" value={animismSpiritIntensity} oninput={event => setAnimismIntensity(Number(event.currentTarget.value))} /><small>Intensity {animismSpiritIntensity} · typically POW {animismSpiritPowBand.minPow}–{animismSpiritPowBand.maxPow}</small></label>
-            <label>Spirit POW<input type="number" min={animismSpiritPowBand.minPow} max={animismSpiritPowBand.maxPow} value={animismSpiritPow} oninput={event => setAnimismPow(Number(event.currentTarget.value))} /></label>
-            {#if animismNewBoundInvalid}<div class="folk-magic-error" role="alert"><b>SPIRIT TOO POWERFUL TO BIND</b><p>Your Binding {animismBinding?.value ?? 0}% allows you to control spirits up to POW {animismControlLimit}. This spirit is POW {animismSpiritPow}.</p></div>{/if}
+            <label>Intensity<input type="number" min="0" max="99" value={animismSpiritIntensity} oninput={event => { setAnimismIntensity(Number(event.currentTarget.value)); animismGeneratedSpirit = null; }} /><small>Intensity {animismSpiritIntensity} · typically POW {animismSpiritPowBand.minPow}–{animismSpiritPowBand.maxPow}</small></label>
+            <label>Spirit POW<input type="number" min={animismSpiritPowBand.minPow} max={animismSpiritPowBand.maxPow} value={animismSpiritPow} oninput={event => { setAnimismPow(Number(event.currentTarget.value)); animismGeneratedSpirit = null; }} /></label>
+            {#if animismSelectedRule}<section class="animism-type-fields"><h6>{animismTypeName(animismSpiritTypeId)} choices</h6>
+              {#if animismSelectedRule.id === "nature"}<label>Nature spirit kind<select bind:value={animismNatureVariant} onchange={() => animismGeneratedSpirit = null}><option value="animal">Animal or plant species</option><option value="regional">Region (Core characteristic rolls apply)</option></select></label>{#if animismNatureVariant === "animal"}<label>Species<input bind:value={animismTypeChoice} oninput={() => animismGeneratedSpirit = null} placeholder="e.g. wolf or oak" /></label><div class="animism-characteristics"><label>Species INS<input type="number" min="1" max="30" bind:value={animismSpiritIns} oninput={() => animismGeneratedSpirit = null} /></label><label>Species CHA<input type="number" min="1" max="30" bind:value={animismSpiritCha} oninput={() => animismGeneratedSpirit = null} /></label></div>{/if}
+              {:else if ["ancestor", "haunt"].includes(animismSelectedRule.id)}<label>Deceased mortal's species<input bind:value={animismTypeChoice} oninput={() => animismGeneratedSpirit = null} placeholder="e.g. human" /></label>
+              {:else if animismSelectedRule.id === "elemental"}<label>Element or natural force<select bind:value={animismTypeChoice} onchange={() => animismGeneratedSpirit = null}><option value="">Choose element</option>{#each ["Earth", "Air", "Fire", "Water", "Darkness", "Other natural force"] as option}<option>{option}</option>{/each}</select></label>
+              {:else if ["curse", "sickness"].includes(animismSelectedRule.id)}<label>Disease or curse effects<input bind:value={animismTypeChoice} oninput={() => animismGeneratedSpirit = null} /></label>
+              {:else if animismSelectedRule.id === "predator"}<label>Host creature<input bind:value={animismTypeChoice} oninput={() => animismGeneratedSpirit = null} placeholder="Creature and relevant host characteristics" /></label>
+              {:else if animismSelectedRule.id === "fetch"}<label>Fetch kind<select bind:value={animismTypeChoice} onchange={() => animismGeneratedSpirit = null}><option value="">Choose kind</option><option>Awakened Fetch</option><option>Allied Fetch</option></select></label>{/if}
+              {#if ["ancestor", "nature", "haunt", "predator"].includes(animismSelectedRule.id)}<label>{animismSelectedRule.id === "haunt" ? "Haunt anchor" : "Ability details / targets"}<input bind:value={animismTypeDetail} oninput={() => animismGeneratedSpirit = null} placeholder={animismSelectedRule.id === "haunt" ? "Place, object, or event" : "Targets, skills, spells, or other required details"} /></label>{/if}
+              {#if animismSelectedRule.selectableAbilities?.length}<fieldset class="animism-ability-picker"><legend>Selected abilities</legend>{#if animismSelectedRule.abilityCount}<small>Core requirement: {animismSelectedRule.abilityCount === "intensity" ? `choose ${animismSpiritIntensity}` : animismSelectedRule.abilityCount === "up-to-intensity" ? `choose up to ${animismSpiritIntensity}` : animismSelectedRule.abilityCount === "1d3+intensity" ? "roll 1d3 + Intensity" : "choose as required"}.</small>{/if}{#each animismSelectedRule.selectableAbilities as ability}<label><input type="checkbox" checked={animismSpiritAbilities.includes(ability)} onchange={() => toggleAnimismAbility(ability)} />{ability}</label>{/each}</fieldset>{/if}
+              {#if animismSelectedRule.characteristics.int || animismSelectedRule.characteristics.ins || animismSelectedRule.characteristics.cha}<div class="animism-characteristics">{#if animismSelectedRule.characteristics.int}<label>INT<input type="number" min="1" max="30" bind:value={animismSpiritInt} oninput={() => animismGeneratedSpirit = null} /></label>{/if}{#if animismSelectedRule.characteristics.ins}<label>INS<input type="number" min="1" max="30" bind:value={animismSpiritIns} oninput={() => animismGeneratedSpirit = null} /></label>{/if}{#if animismSelectedRule.characteristics.cha}<label>CHA<input type="number" min="1" max="30" bind:value={animismSpiritCha} oninput={() => animismGeneratedSpirit = null} /></label>{/if}</div>{/if}
+            </section>{/if}
+            <div class="animism-generation"><label>Record entry<select bind:value={animismSpiritMode}><option value="manual">Enter manually</option><option value="generated" disabled={!animismSelectedRule}>Generate / Roll Core spirit</option></select></label>{#if animismSpiritMode === "generated"}<button type="button" class="ghost" disabled={!animismSelectedRule} onclick={generateAnimismSpirit}>Generate / Roll Spirit</button>{/if}</div>
+            {#if animismGeneratedSpirit}<div class="animism-generated-preview"><b>Generated Core record</b><p>{animismStatisticSummary(animismGeneratedSpirit) || "Characteristics pending."}</p><p>Abilities: {animismGeneratedSpirit.abilities.join(", ") || "None selected"}</p>{#if animismNewSpiritIncomplete}<div class="folk-magic-error" role="alert"><b>Action Required</b>{#each animismNewSpiritIssues as issue}<p>{issue}</p>{/each}{#each animismGeneratedSpirit.generation?.pendingChoices ?? [] as choice}<p>{choice.description}</p>{/each}</div>{/if}</div>{/if}
+            {#if animismNewBoundInvalid}<div class="folk-magic-error" role="alert"><b>SPIRIT TOO POWERFUL TO BIND</b><p>Your Binding {animismBinding?.value ?? 0}% allows you to control spirits up to POW {animismControlLimit}. This spirit is POW {animismCandidatePow ?? "unresolved"}.</p></div>{/if}
             {#if animismSpiritRelationship === "bound"}<fieldset class="animism-vessel"><legend>Where is the spirit bound?</legend><label>Vessel<select bind:value={animismVessel}><option value="fetish/object">Fetish / object</option><option value="place">Place</option><option value="creature">Creature</option><option value="campaign-defined">Custom / campaign-defined</option></select></label>{#if animismVessel === "fetish/object"}<label>Object<input bind:value={animismVesselName} maxlength="100" placeholder="e.g. Bear-claw necklace" /></label>{:else}<label>Vessel description<input bind:value={animismVesselDescription} maxlength="160" placeholder={animismVessel === "place" ? "Place where the spirit is bound" : animismVessel === "creature" ? "Creature carrying the spirit" : "Campaign-defined vessel"} /></label>{/if}</fieldset>{/if}
-            <details><summary>Details</summary><label>Source / provenance<input bind:value={animismSpiritSource} maxlength="120" placeholder="Campaign, career grant, tradition…" /></label><label>Notes<textarea bind:value={animismSpiritNotes} rows="2"></textarea></label></details>
-            <button type="submit" class="primary" disabled={!animismSpiritTypeId || animismNewBoundInvalid}>Add Spirit</button>
+            <details><summary>Optional provenance and notes</summary><label>Source / provenance<input bind:value={animismSpiritSource} maxlength="120" placeholder="Campaign, career grant, tradition…" /></label><label>Notes<textarea bind:value={animismSpiritNotes} rows="2"></textarea></label></details>
+            <button type="submit" class="primary" disabled={!animismSpiritTypeId || animismNewBoundInvalid || (!animismSelectedAttitude && !animismOtherAttitude) || animismSpiritMode === "generated" && !animismGeneratedSpirit}>Add Spirit</button>
           </form>
           <p class="folk-magic-suggestion-note">Zero bound spirits is valid. Allies do not use Binding Capacity.</p>
         </div>
@@ -1042,7 +1194,7 @@
   .animism-derived div{display:grid;gap:3px}.animism-derived b,.animism-access h5,.animism-relations h5{font:700 .7rem var(--display);letter-spacing:.08em;text-transform:uppercase;color:var(--bronze)}.animism-derived span{font-weight:700}.animism-derived small{color:var(--mute);font-size:.75rem}.animism-derived .over-capacity span{color:var(--acc)}
   .animism-access,.animism-relations{margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}.animism-access h5,.animism-relations h5{margin:0 0 5px}.animism-access>p,.animism-relations>p{margin:4px 0;color:var(--mute);font-size:.86rem}.animism-tradition-name{display:block;margin-top:5px}.animism-rank-summary{margin:8px 0;color:var(--mute);font-size:.86rem}.animism-rank-summary b{color:var(--fg)}
   .animism-spirit-editor{grid-column:1/-1;display:grid;gap:6px;padding:9px;border:1px solid var(--line);border-radius:8px}.animism-spirit-editor label{display:grid;gap:4px;font-size:.82rem}.animism-spirit-editor input{width:100%;min-width:0}
-  .animism-workflow{overscroll-behavior:contain}.animism-config-section{margin-top:14px;padding-top:10px;border-top:1px solid var(--line)}.animism-config-section h3{margin:0 0 7px;color:var(--bronze);font:700 .75rem var(--display);letter-spacing:.08em;text-transform:uppercase}.animism-config-section>p{margin:4px 0;color:var(--mute);font-size:.85rem}.animism-category-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}.animism-category-tabs .active{border-color:var(--bronze);color:var(--bronze)}.animism-vessel{display:grid;gap:8px;margin:5px 0;padding:10px;border:1px solid var(--line)}.animism-vessel legend{padding:0 4px;color:var(--bronze);font-weight:700;font-size:.82rem}.animism-vessel label{display:grid;gap:4px;font-size:.84rem}.animism-form details summary{cursor:pointer;color:var(--bronze);font-size:.82rem}.animism-form details[open]{display:grid;gap:8px}
+  .animism-workflow{overscroll-behavior:contain}.animism-config-section{margin-top:14px;padding-top:10px;border-top:1px solid var(--line)}.animism-config-section h3{margin:0 0 7px;color:var(--bronze);font:700 .75rem var(--display);letter-spacing:.08em;text-transform:uppercase}.animism-config-section>p{margin:4px 0;color:var(--mute);font-size:.85rem}.animism-category-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}.animism-category-tabs .active{border-color:var(--bronze);color:var(--bronze)}.animism-vessel{display:grid;gap:8px;margin:5px 0;padding:10px;border:1px solid var(--line)}.animism-vessel legend{padding:0 4px;color:var(--bronze);font-weight:700;font-size:.82rem}.animism-vessel label{display:grid;gap:4px;font-size:.84rem}.animism-form details summary{cursor:pointer;color:var(--bronze);font-size:.82rem}.animism-form details[open]{display:grid;gap:8px}.animism-attitude-note,.animism-generated-preview{margin:4px 0;padding:9px;border-left:3px solid var(--line2);background:color-mix(in srgb,var(--line) 18%,transparent);font-size:.86rem}.animism-attitude-note.folk-magic-error{border-color:var(--acc)}.animism-type-fields{display:grid;gap:8px;padding:9px;border:1px solid var(--line);border-radius:6px}.animism-type-fields h6{margin:0;color:var(--bronze);font-size:.8rem}.animism-type-fields>label,.animism-characteristics label,.animism-generation label{display:grid;gap:4px;font-size:.82rem}.animism-type-fields input,.animism-type-fields select{width:100%;min-width:0}.animism-characteristics{display:flex;flex-wrap:wrap;gap:8px}.animism-characteristics label{flex:1 1 100px}.animism-characteristics input{width:100%;min-width:0}.animism-ability-picker{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:6px;margin:0;padding:9px;border:1px solid var(--line)}.animism-ability-picker legend{padding:0 4px;font-size:.8rem}.animism-ability-picker small{grid-column:1/-1;color:var(--mute)}.animism-ability-picker label{display:flex;align-items:center;gap:6px;font-size:.82rem}.animism-ability-picker input{width:auto}.animism-generation{display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px}.animism-generation label{flex:1 1 180px}.animism-generated-preview p{margin:4px 0}.animism-spirit-details{grid-column:1/-1;font-size:.85rem}.animism-spirit-details summary{cursor:pointer;color:var(--bronze)}.animism-spirit-details p{margin:4px 0;color:var(--mute)}
   .animism-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}.animism-row>div{min-width:0}.animism-row small{display:block;color:var(--mute);font-size:.8rem}.animism-row>p{grid-column:1/-1;margin:0;color:var(--mute);font-size:.85rem}.animism-row button{font-size:.64rem}
   .animism-issues{margin:10px 0;padding:8px 10px;border-left:3px solid var(--acc);background:color-mix(in srgb,var(--acc) 8%,transparent);font-size:.85rem}.animism-issues p{margin:4px 0}.animism-form{margin:9px 0}
   .animism-hostile-form{display:flex;align-items:flex-end;gap:8px;margin-top:8px}.animism-hostile-form label{display:grid;flex:1;gap:4px;font-size:.8rem}.animism-hostile-form input{width:100%;min-width:0}
