@@ -202,6 +202,15 @@ export function spiritIntensityBand(intensity: number): SpiritIntensityBand {
   const level = Math.max(0, Math.floor(Number.isFinite(intensity) ? intensity : 0));
   return CORE_SPIRIT_INTENSITY[level] ?? { intensity: level, minPow: level * 6 + 1, maxPow: level * 6 + 6, formula: `1d6+${level * 6}` };
 }
+/** Returns the canonical Intensity band for an exact individual spirit POW. */
+export function spiritIntensityForPow(pow: number): number | undefined {
+  if (!Number.isInteger(pow) || pow < 1) return undefined;
+  return Math.floor((pow - 1) / 6);
+}
+export function spiritPowMatchesIntensity(pow: number, intensity: number): boolean {
+  const band = spiritIntensityBand(intensity);
+  return Number.isInteger(pow) && pow >= band.minPow && pow <= band.maxPow;
+}
 
 export const emptyAnimismState = (): AnimismState => ({ traditions: [], customSpiritTypes: [], spiritTemplates: [], spirits: [], accessibleSpiritTypeIds: [], allies: [], bindings: [], reconciliationIssues: [] });
 
@@ -263,13 +272,13 @@ export function normalizeAnimismState(value: unknown): AnimismState {
     bindings: Array.isArray(item.bindings) ? item.bindings.flatMap(binding => { const b = record(binding); return b && typeof b.id === "string" && typeof b.spiritId === "string" && typeof b.source === "string" && ["fetish/object", "place", "creature", "campaign-defined"].includes(b.vessel as string) ? [{ id: b.id, spiritId: b.spiritId, vessel: b.vessel as SpiritBindingVessel, countsAgainstCapacity: b.countsAgainstCapacity !== false, source: b.source, ...(typeof b.objectName === "string" ? { objectName: b.objectName } : {}), ...(typeof b.description === "string" ? { description: b.description } : {}), ...(typeof b.notes === "string" ? { notes: b.notes } : {}) }] : []; }) : [],
     reconciliationIssues: Array.isArray(item.reconciliationIssues) ? item.reconciliationIssues.flatMap(issue => {
       const data = record(issue);
-      if (!data || !["over-capacity", "unavailable-spirit-type", "missing-bound-spirit", "exceeds-binding-limit"].includes(data.code as string) || typeof data.message !== "string") return [];
+      if (!data || !["over-capacity", "unavailable-spirit-type", "missing-bound-spirit", "exceeds-binding-limit", "unresolved-spirit-pow", "intensity-pow-mismatch"].includes(data.code as string) || typeof data.message !== "string") return [];
       return [{ code: data.code as AnimismReconciliationIssue["code"], message: data.message, ...(typeof data.spiritId === "string" ? { spiritId: data.spiritId } : {}) }];
     }) : [],
   };
 }
 
-export interface AnimismReconciliationIssue { code: "over-capacity" | "unavailable-spirit-type" | "missing-bound-spirit" | "exceeds-binding-limit"; spiritId?: string; message: string }
+export interface AnimismReconciliationIssue { code: "over-capacity" | "unavailable-spirit-type" | "missing-bound-spirit" | "exceeds-binding-limit" | "unresolved-spirit-pow" | "intensity-pow-mismatch"; spiritId?: string; message: string }
 export function reconcileAnimism(state: AnimismState, rank: AnimismRank | undefined, cha: number, traditionId?: string, bindingValue?: number): AnimismReconciliationIssue[] {
   if (traditionId !== undefined) state.traditionId = traditionId;
   const tradition = state.traditions.find(entry => entry.id === state.traditionId);
@@ -280,17 +289,20 @@ export function reconcileAnimism(state: AnimismState, rank: AnimismRank | undefi
   const bound = state.bindings.filter(binding => binding.countsAgainstCapacity);
   const issues: AnimismReconciliationIssue[] = [];
   if (bound.length > capacity) issues.push({ code: "over-capacity", message: `${bound.length} bound spirits count against capacity ${capacity}; resolve without deleting bindings.` });
-  if (Number.isFinite(bindingValue)) {
-    const maximumPow = getMaximumControllableSpiritPow(bindingValue!);
-    for (const binding of bound) {
-      const spirit = state.spirits.find(item => item.id === binding.spiritId);
-      if (spirit?.pow !== undefined && spirit.pow > maximumPow) issues.push({ code: "exceeds-binding-limit", spiritId: spirit.id, message: `Spirit POW ${spirit.pow} exceeds current Binding control limit ${maximumPow}; binding is preserved.` });
-    }
+  const maximumPow = Number.isFinite(bindingValue) ? getMaximumControllableSpiritPow(bindingValue!) : undefined;
+  for (const binding of state.bindings) {
+    const spirit = state.spirits.find(item => item.id === binding.spiritId);
+    if (!spirit) continue;
+    if (spirit.pow === undefined) issues.push({ code: "unresolved-spirit-pow", spiritId: spirit.id, message: `${spirit.name} has no exact POW recorded; choose a POW within its Intensity band to validate this binding. The binding is preserved.` });
+    else if (maximumPow !== undefined && spirit.pow > maximumPow) issues.push({ code: "exceeds-binding-limit", spiritId: spirit.id, message: `${spirit.name} has POW ${spirit.pow}, exceeding the current Spirit Control Limit (POW ${maximumPow}); the binding is preserved.` });
   }
   const available = new Set(tradition
     ? [...tradition.friendlySpiritTypeIds, ...tradition.neutralSpiritTypeIds, ...tradition.hostileSpiritTypeIds]
     : state.accessibleSpiritTypeIds);
   for (const spirit of state.spirits) {
+    if (spirit.pow !== undefined && spirit.intensity !== undefined && !spiritPowMatchesIntensity(spirit.pow, spirit.intensity)) {
+      issues.push({ code: "intensity-pow-mismatch", spiritId: spirit.id, message: `${spirit.name} has POW ${spirit.pow}, outside the POW ${spiritIntensityBand(spirit.intensity).minPow}–${spiritIntensityBand(spirit.intensity).maxPow} range for Intensity ${spirit.intensity}; the spirit is preserved.` });
+    }
     if ((tradition || state.accessibleSpiritTypeIds.length > 0) && !available.has(spirit.spiritTypeId)) issues.push({ code: "unavailable-spirit-type", spiritId: spirit.id, message: `Spirit type ${spirit.spiritTypeId} is not listed by the current tradition; the spirit is preserved.` });
   }
   const ids = new Set(state.spirits.map(spirit => spirit.id));
