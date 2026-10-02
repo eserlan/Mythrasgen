@@ -43,6 +43,26 @@ describe("Core spirit records and generation", () => {
     expect(unresolvedFetch.generation?.pendingChoices.map(item => item.id)).toContain("fetch-kind");
   });
 
+  test("Ancestor d3 face and required count are explicit, validated, and saved without rerolling", () => {
+    const ancestor = generateCoreSpirit({ id: "ancestor-roll", spiritTypeId: "core:animism:ancestor", intensity: 0, abilityCountDie: 3, random: constant(0), typeData: { species: "human", int: 13, cha: 12, abilityDetails: ["Willpower skill and known Folk Magic"] }, abilities: ["Discorporate", "Sagacity", "Spellcasting"] });
+    expect(ancestor.generation?.rolls).toMatchObject({ abilityCountDie: [3], abilityCount: [3] });
+    expect(validateSpirit(ancestor)).toEqual([]);
+    const loaded = normalizeAnimismState(JSON.parse(JSON.stringify({ spirits: [ancestor] })));
+    expect(loaded.spirits[0].generation?.rolls).toMatchObject({ abilityCountDie: [3], abilityCount: [3] });
+    expect(validateSpirit(loaded.spirits[0])).toEqual([]);
+    expect(validateSpirit({ ...ancestor, abilities: ["Discorporate", "Sagacity"] })).toContainEqual(expect.objectContaining({ code: "ability-count", message: "Select 3 abilities." }));
+    expect(validateSpirit({ ...ancestor, typeData: { species: "human", int: 13, cha: 12 }, abilities: ["Discorporate", "Sagacity", "Spellcasting"] }))
+      .toContainEqual(expect.objectContaining({ code: "missing-ancestor-ability-details" }));
+  });
+
+  test("incomplete migrated Ancestors retain missing values and report concrete requirements", () => {
+    const loaded = normalizeAnimismState({ spirits: [{ id: "tiny-tim", name: "Tiny Tim", spiritTypeId: "core:animism:ancestor", source: "custom", intensity: 4, pow: 27, abilities: [] }] });
+    expect(loaded.spirits[0]).not.toHaveProperty("int");
+    expect(loaded.spirits[0]).not.toHaveProperty("cha");
+    expect(loaded.spirits[0].generation?.rolls).toBeUndefined();
+    expect(validateSpirit(loaded.spirits[0]).map(issue => issue.code)).toEqual(expect.arrayContaining(["missing-int", "missing-cha", "missing-ancestor-species"]));
+  });
+
   test("all catalogue types have type-specific generation metadata and core abilities", () => {
     expect(Object.keys(CORE_SPIRIT_RULES)).toHaveLength(12);
     expect(CORE_SPIRIT_RULES["core:animism:bane"].inherentAbilities).toEqual(["Cannibalistic", "Deadly"]);

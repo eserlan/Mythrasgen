@@ -36,11 +36,11 @@ test("Tradition and spirit management are focused dialogs with relationship base
   expect(manage).toContain('{#if animismVessel === "fetish/object"}');
   expect(manage).toContain("Spirit POW");
   expect(manage).toContain("SPIRIT TOO POWERFUL TO BIND");
-  expect(manage).toContain("disabled={!animismSpiritTypeId || animismNewBoundInvalid || (!animismSelectedAttitude && !animismOtherAttitude) || animismSpiritMode === \"generated\" && !animismGeneratedSpirit}");
+  expect(manage).toContain("animismSpiritMode === \"generated\" && (!animismGeneratedSpirit || animismNewSpiritIncomplete)");
   const addSpirit = source.slice(source.indexOf("function addAnimismSpirit()"), source.indexOf("function removeAnimismRelationship"));
   expect(addSpirit).toContain("animismState.allies.push");
   expect(addSpirit).toContain("animismState.bindings.push");
-  expect(addSpirit).toContain("if (!animismSpiritTypeId || animismNewBoundInvalid || (!animismSelectedAttitude && !animismOtherAttitude) || animismSpiritMode === \"generated\" && !animismGeneratedSpirit) return");
+  expect(addSpirit).toContain("animismSpiritMode === \"generated\" && (!animismGeneratedSpirit || animismNewSpiritIncomplete)");
   expect(source).toContain("function saveAnimismSpiritEdit(id: string)");
   expect(source).toContain("spirit.pow = animismEditPow");
 });
@@ -54,12 +54,18 @@ test("Manage Spirits explains Tradition attitude separately and exposes canonica
   expect(manage).toContain("significant under Core Animism.");
   expect(manage).toContain("Your relationship");
   expect(manage).toContain("Choose Friendly, Neutral, or Hostile");
-  expect(manage).toContain("Generate / Roll Spirit");
+  expect(manage).toContain("Generate using Core rules");
+  expect(manage).toContain("Roll 1d3");
+  expect(manage).toContain("Reroll ability count");
+  expect(manage).toContain("1d3 + Intensity");
   expect(source).toContain("CORE_SPIRIT_RULES");
   expect(manage).toContain("Action Required");
   expect(source).toContain("Spectral Combat");
   expect(source).toContain("Willpower");
   expect(manage).toContain("animismRecordIssues(spirit)");
+  expect(manage).toContain("Deceased mortal's species");
+  expect(source).toContain("Ancestor INT (from species)");
+  expect(source).toContain("Ancestor CHA (from species)");
 });
 
 test("editing generated spirit choices invalidates the stale preview", () => {
@@ -69,6 +75,16 @@ test("editing generated spirit choices invalidates the stale preview", () => {
   expect(manage).toContain('bind:value={animismSpiritCha} oninput={() => animismGeneratedSpirit = null}');
   expect(manage).toContain('bind:value={animismTypeChoice} onchange={() => animismGeneratedSpirit = null}><option value="">Choose element</option>');
   expect(manage).toContain('bind:value={animismTypeChoice} onchange={() => animismGeneratedSpirit = null}><option value="">Choose kind</option>');
+});
+
+test("Ancestor edits retain historical rolls and gate Core saves on the current validation", () => {
+  const edit = source.slice(source.indexOf("function editAnimismSpirit(id: string)"), source.indexOf("function setAnimismEditIntensity"));
+  const save = source.slice(source.indexOf("function saveAnimismSpiritEdit(id: string)"), source.indexOf("function openAnimismConfigure"));
+  expect(edit).toContain("spirit.generation?.rolls?.abilityCountDie?.[0] ?? null");
+  expect(save).toContain("animismEditAbilityCountDie + animismEditIntensity");
+  expect(save).not.toContain('spirit.generation.method = "manual"');
+  expect(source).toContain('spirit.generation?.method === "core-generated" && animismEditIssues(spirit).length > 0');
+  expect(source).toContain('choiceId === "legacy-spirit-details"');
 });
 
 test("Awakened Fetch generation uses the entered inherited POW", () => {
