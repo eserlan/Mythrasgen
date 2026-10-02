@@ -87,6 +87,13 @@ test("Ancestor edits retain historical rolls and gate Core saves on the current 
   expect(source).toContain('choiceId === "legacy-spirit-details"');
 });
 
+test("Ancestor editor status reports every validation issue", () => {
+  const summary = source.slice(source.indexOf("function animismEditAncestorSummary"), source.indexOf("function saveAnimismSpiritEdit"));
+  expect(summary).toContain("const issues = animismEditIssues(spirit)");
+  expect(summary).toContain("!issues.length");
+  expect(summary).toContain("...issues");
+});
+
 test("Awakened Fetch generation uses the entered inherited POW", () => {
   const generate = source.slice(source.indexOf("function generateAnimismSpirit()"), source.indexOf("function animismSpirit(id:"));
   expect(generate).toContain('animismSelectedRule?.id === "fetch" && animismTypeChoice === "Awakened Fetch" ? { pow: Number(animismSpiritPow) } : {}');

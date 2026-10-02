@@ -400,6 +400,7 @@
     return [...new Set(issues)];
   }
   function animismEditAncestorSummary(spirit: SpiritRecord): string {
+    const issues = animismEditIssues(spirit);
     const missing = [!animismEditTypeChoice.trim() && "species", animismEditInt === "" && "INT", animismEditCha === "" && "CHA"].filter((item): item is string => !!item);
     const detailsMissing = animismEditAbilities.some(ability => ["Sagacity", "Spellcasting", "Subjugate"].includes(ability)) && !animismEditTypeDetail.trim();
     const data = missing.length ? `Complete the deceased mortal's ${missing.length === 1 ? missing[0] : `${missing.slice(0, -1).join(", ")} and ${missing.at(-1)}`}` : "";
@@ -413,8 +414,9 @@
       if (selected !== required) actions.push(`select ${required} ${required === 1 ? "ability" : "abilities"}`);
     }
     if (detailsMissing) actions.push("record details for the selected abilities");
-    if (!data && !actions.length) return "All required values are complete.";
-    return `${data}${data && actions.length ? ", then " : ""}${actions.join(" and ")}.`;
+    if (!data && !actions.length && !issues.length) return "All required values are complete.";
+    const guidance = `${data}${data && actions.length ? ", then " : ""}${actions.join(" and ")}`;
+    return [...new Set([guidance, ...issues].filter(Boolean))].join(" ");
   }
   function saveAnimismSpiritEdit(id: string) {
     const spirit = animismSpirit(id);
