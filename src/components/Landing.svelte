@@ -1,7 +1,7 @@
 <script lang="ts">
   import { STEPS, ROMAN, char, createCharacter, hasProgress, replace } from "../lib/store.svelte";
 
-  let { onLibrary }: { onLibrary: () => void } = $props();
+  let { onLibrary, onSettings }: { onLibrary: () => void; onSettings: () => void } = $props();
   const progress = $derived(hasProgress());
   const ticks = Array.from({ length: 24 }, (_, i) => i * 15);
 
@@ -40,6 +40,7 @@
       {/if}
       <label class="btn big">Load a saved hero<input type="file" accept=".json" hidden onchange={loadFile}></label>
       <button class="big" onclick={onLibrary}>Characters</button>
+      <button class="big" onclick={onSettings}>Settings</button>
     </div>
 
     <ol class="path">
