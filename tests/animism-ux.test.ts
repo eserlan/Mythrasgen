@@ -34,9 +34,15 @@ test("Tradition and spirit management are focused dialogs with relationship base
   expect(manage).toContain("Where is the spirit bound?");
   expect(manage).toContain('bind:value={animismVessel}');
   expect(manage).toContain('{#if animismVessel === "fetish/object"}');
+  expect(manage).toContain("Spirit POW");
+  expect(manage).toContain("SPIRIT TOO POWERFUL TO BIND");
+  expect(manage).toContain("disabled={!animismSpiritTypeId || animismNewBoundInvalid}");
   const addSpirit = source.slice(source.indexOf("function addAnimismSpirit()"), source.indexOf("function removeAnimismRelationship"));
   expect(addSpirit).toContain("animismState.allies.push");
   expect(addSpirit).toContain("animismState.bindings.push");
+  expect(addSpirit).toContain("if (!animismSpiritTypeId || animismNewBoundInvalid) return");
+  expect(source).toContain("function saveAnimismSpiritEdit(id: string)");
+  expect(source).toContain("spirit.pow = animismEditPow");
 });
 
 test("Animism explanations derive from canonical rank and Intensity metadata", () => {
