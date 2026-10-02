@@ -309,6 +309,8 @@ export interface GenerateCoreSpiritOptions {
   /** Explicit values such as species, host, element, or type-specific selections. */
   typeData?: Record<string, unknown>;
   abilities?: string[];
+  /** Explicit d3 face for rules workflows that persist the roll separately from later edits. */
+  abilityCountDie?: number;
   notes?: string;
 }
 
@@ -361,9 +363,14 @@ export function generateCoreSpirit(options: GenerateCoreSpiritOptions): SpiritRe
   const exactPow = rolls.pow?.at(-1) ?? pow;
   const exactIntensity = alliedFetch || awakenedFetch ? (exactPow === undefined ? undefined : spiritIntensityForPow(exactPow)) : fetchUnresolved ? undefined : options.intensity;
   const knownSelections = options.abilities ?? [];
-  const abilityCountRoll = profile?.abilityCount === "1d3+intensity" && exactIntensity !== undefined ? 1 + Math.floor(random() * 3) + exactIntensity
+  const abilityCountDie = profile?.abilityCount === "1d3+intensity" && exactIntensity !== undefined
+    ? options.abilityCountDie ?? 1 + Math.floor(random() * 3) : undefined;
+  const abilityCountRoll = profile?.abilityCount === "1d3+intensity" && exactIntensity !== undefined ? abilityCountDie! + exactIntensity
     : (profile?.abilityCount === "intensity" || profile?.abilityCount === "up-to-intensity") ? exactIntensity : undefined;
-  if (abilityCountRoll !== undefined) rolls.abilityCount = [abilityCountRoll];
+  if (abilityCountRoll !== undefined) {
+    rolls.abilityCount = [abilityCountRoll];
+    if (abilityCountDie !== undefined) rolls.abilityCountDie = [abilityCountDie];
+  }
   const choiceRequirements = [...(profile?.choices ?? [])];
   if (profile?.id === "ancestor" && knownSelections.some(value => ["Sagacity", "Spellcasting", "Subjugate"].includes(value))) {
     choiceRequirements.push(choice("ancestor-ability-details", "Record the Sagacity skill, known Folk Magic spells, or lesser-Intensity ally for each selected ability."));
@@ -425,6 +432,13 @@ export function validateSpirit(spirit: Pick<SpiritRecord, "spiritTypeId" | "inte
       issues.push({ code: "nature-cha-mismatch", message: "An animal nature spirit's CHA equals its INS." });
     }
   }
+  if (profile.id === "ancestor" && !String(spirit.typeData?.species ?? "").trim()) {
+    issues.push({ code: "missing-ancestor-species", message: "Record the deceased mortal's species." });
+  }
+  if (profile.id === "ancestor" && spirit.abilities.some(ability => ["Sagacity", "Spellcasting", "Subjugate"].includes(ability))
+      && (!Array.isArray(spirit.typeData?.abilityDetails) || spirit.typeData.abilityDetails.length === 0)) {
+    issues.push({ code: "missing-ancestor-ability-details", message: "Record the Sagacity skill, known Folk Magic spells, or lesser-Intensity ally for the selected Ancestor ability." });
+  }
   if (profile.id === "predator" && !spirit.typeData?.host) issues.push({ code: "missing-host", message: "Choose the predator spirit's host creature." });
   const selectable = new Set(profile.selectableAbilities ?? []);
   for (const ability of spirit.abilities) if (!selectable.has(ability) && !profile.inherentAbilities.includes(ability)) issues.push({ code: "incompatible-ability", message: `${ability} is not an ability choice for this spirit type.` });
@@ -436,7 +450,9 @@ export function validateSpirit(spirit: Pick<SpiritRecord, "spiritTypeId" | "inte
   } else if (profile.abilityCount === "1d3+intensity" && spirit.intensity !== undefined) {
     const min = spirit.intensity + 1;
     const max = spirit.intensity + 3;
-    if (rolledAbilityCount !== undefined ? selectedAbilityCount !== rolledAbilityCount : selectedAbilityCount < min || selectedAbilityCount > max) {
+    if (spirit.generation?.method === "core-generated" && rolledAbilityCount === undefined) {
+      issues.push({ code: "missing-ability-count-roll", message: "Roll 1d3 + Intensity to determine the required ability count." });
+    } else if (rolledAbilityCount !== undefined ? selectedAbilityCount !== rolledAbilityCount : selectedAbilityCount < min || selectedAbilityCount > max) {
       issues.push({ code: "ability-count", message: rolledAbilityCount !== undefined ? `Select ${rolledAbilityCount} abilities.` : `Select between ${min} and ${max} abilities.` });
     }
   } else if (profile.abilityCount === "up-to-intensity" && spirit.intensity !== undefined && selectedAbilityCount > spirit.intensity) {
