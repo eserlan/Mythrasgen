@@ -87,11 +87,20 @@ test("Ancestor edits retain historical rolls and gate Core saves on the current 
   expect(source).toContain('choiceId === "legacy-spirit-details"');
 });
 
-test("Ancestor editor status reports every validation issue", () => {
+test("Ancestor editor status reports concise dynamic summary without concatenating legacy issues", () => {
   const summary = source.slice(source.indexOf("function animismEditAncestorSummary"), source.indexOf("function saveAnimismSpiritEdit"));
-  expect(summary).toContain("const issues = animismEditIssues(spirit)");
-  expect(summary).toContain("!issues.length");
-  expect(summary).toContain("...issues");
+  expect(summary).not.toContain("...issues");
+  expect(summary).toContain("resolve the ability count and select the required abilities");
+  expect(summary).toContain("All required values are complete.");
+  expect(card).toContain("Migrated record: missing values have not been generated automatically.");
+});
+
+test("Ancestor editor aligns Intensity/POW controls with Deceased mortal and Abilities", () => {
+  const compiled = compile(source, { filename: "src/components/Magic.svelte", generate: "client" });
+  const css = compiled.css?.code ?? "";
+  expect(css).toMatch(/\.animism-edit-core[^\{]*\{[^}]*padding:\s*0\s+9px/);
+  expect(css).toMatch(/\.animism-edit-core[^\{]*\{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
+  expect(css).toMatch(/@media\(max-width:\s*420px\)[^\{]*\{[^}]*\.animism-edit-core[^\{]*\{[^}]*grid-template-columns:\s*1fr/);
 });
 
 test("Awakened Fetch generation uses the entered inherited POW", () => {
