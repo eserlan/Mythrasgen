@@ -19,6 +19,7 @@
     withStartingSorcerySchool, type SorcerySchool, type SorcerySpell,
   } from "../lib/sorcery";
   import { CORE_ANIMISM_RANKS, CORE_SPIRIT_RULES, generateCoreSpirit, listAnimismSpiritTypes, getBoundSpiritCapacity, getMaximumControllableSpiritPow, getSpiritDamage, getTranceCapabilities, reconcileAnimism, spiritIntensityBand, spiritIntensityForPow, spiritPowMatchesIntensity, validateSpirit, type AnimismRank, type AnimismStartingGrant, type SpiritAttitude, type SpiritBindingVessel, type SpiritRecord, type SpiritTradition, type SpiritType } from "../lib/animism";
+  import { CORE_THEIST_CULTS, CORE_THEIST_MIRACLES, THEIST_RANKS, devotionalPoolMaximum, effectiveMiracleMinimumRank, miracleAvailableAtRank, miracleIntensity, miracleMagnitude, startingMiracleLimit, validateKnownMiracles, type TheistCult, type TheistCultMiracle, type TheistRank } from "../lib/theism";
 
   const originName: Record<MagicSkillOrigin, string> = { culture: "Culture", career: "Career", bonus: "Bonus / Hobby Skill" };
   let picker: HTMLDialogElement;
@@ -99,11 +100,34 @@
   let animismEditAbilityCountDie = $state<number | null>(null);
   let animismEditTypeChoice = $state("");
   let animismEditTypeDetail = $state("");
+  let theismConfigureDialog = $state<HTMLDialogElement>();
+  let theismCultChoice = $state("");
+  let theismCultName = $state("");
+  let theismDeity = $state("");
+  let theismRankDraft = $state<TheistRank>("Initiate");
+  let theismOfferDraft = $state<TheistCultMiracle[]>([]);
+  let theismMiracleDetails = $state<string | null>(null);
 
   const capability = $derived(char.magic.disciplines.find(item => item.discipline === "Folk Magic"));
   const mysticismCapability = $derived(char.magic.disciplines.find(item => item.discipline === "Mysticism"));
   const sorceryCapability = $derived(char.magic.disciplines.find(item => item.discipline === "Sorcery"));
   const animismCapability = $derived(char.magic.disciplines.find(item => item.discipline === "Animism"));
+  const theismCapability = $derived(char.magic.disciplines.find(item => item.discipline === "Theism"));
+  const theismState = $derived(char.magic.theism);
+  const theismMembership = $derived(theismState.memberships[0]);
+  const theismDevotionSkill = $derived(theismCapability?.skills.find(item => item.name.startsWith("Devotion (")) ?? theismCapability?.skills.find(item => item.name === "Devotion"));
+  const theismExhortSkill = $derived(theismCapability?.skills.find(item => item.name === "Exhort"));
+  const theismSpecialisation = $derived(theismDevotionSkill?.name.startsWith("Devotion (") ? theismDevotionSkill.name.slice("Devotion (".length, -1).trim() : theismMembership?.devotionSpecialisation ?? "");
+  const theismDevotion = $derived(theismDevotionSkill?.value ?? theismMembership?.devotionValue ?? 0);
+  const theismExhort = $derived(theismExhortSkill?.value ?? theismMembership?.exhortValue ?? 0);
+  const theismCult = $derived([...CORE_THEIST_CULTS, ...theismState.customCults].find(item => item.id === theismMembership?.cultId));
+  const theismPoolMaximum = $derived(theismMembership ? devotionalPoolMaximum(char.chars.POW, theismMembership.rank) : 0);
+  const theismKnownIds = $derived(theismMembership?.knownMiracleIds ?? []);
+  const theismValidation = $derived(theismCult && theismMembership ? validateKnownMiracles(theismKnownIds, theismCult, theismMembership.rank, theismDevotion) : { valid: true, errors: [] });
+  const theismLimit = $derived(startingMiracleLimit(theismDevotion));
+  const theismAvailableMiracles = $derived(theismCult && theismMembership ? theismCult.miracles.map(offering => ({ offering, miracle: CORE_THEIST_MIRACLES.find(item => item.id === offering.miracleId) })).filter((item): item is { offering: TheistCultMiracle; miracle: typeof CORE_THEIST_MIRACLES[number] } => !!item.miracle && miracleAvailableAtRank(item.miracle, theismMembership!.rank, item.offering)) : []);
+  const theismInvalidIds = $derived(theismCult && theismMembership ? theismKnownIds.filter((id, index) => !theismAvailableMiracles.some(item => item.miracle.id === id) || index >= theismLimit) : theismKnownIds);
+  const theismNeedsSetup = $derived(!theismMembership || !theismCult || !theismSpecialisation || !theismValidation.valid || !!theismMembership && theismMembership.devotionalPool > theismPoolMaximum);
   const animismState = $derived(char.magic.animism);
   const animismBinding = $derived(animismCapability?.skills.find(item => item.name === "Binding" || item.name.startsWith("Binding (")));
   const animismTrance = $derived(animismCapability?.skills.find(item => item.name === "Trance"));
@@ -217,7 +241,76 @@
       reconcileAnimism(animismState, animismRank, char.chars.CHA, animismState.traditionId, animismBinding?.value);
       animismCapability.status = animismNeedsSetup ? "action-required" : "complete";
     }
+    if (theismCapability) {
+      if (theismMembership) {
+        theismMembership.devotionSpecialisation = theismSpecialisation;
+        theismMembership.devotionValue = theismDevotion;
+        theismMembership.exhortValue = theismExhort;
+      }
+      theismCapability.status = theismNeedsSetup ? "action-required" : "complete";
+    }
     persist();
+  }
+  function openTheismConfigure() {
+    const membership = theismMembership;
+    const currentCult = theismCult;
+    theismCultChoice = currentCult?.source === "custom" ? currentCult.id : currentCult?.id ?? "";
+    theismCultName = currentCult?.name ?? "";
+    theismDeity = currentCult?.deity ?? "";
+    theismRankDraft = membership?.rank ?? "Initiate";
+    theismOfferDraft = currentCult ? currentCult.miracles.map(item => ({ ...item })) : [];
+    theismConfigureDialog?.showModal();
+  }
+  function chooseTheismCult(value: string) {
+    theismCultChoice = value;
+    const preset = CORE_THEIST_CULTS.find(item => item.id === value);
+    const custom = theismState.customCults.find(item => item.id === value);
+    const cult = preset ?? custom;
+    theismCultName = cult?.name ?? "";
+    theismDeity = cult?.deity ?? "";
+    theismOfferDraft = cult ? cult.miracles.map(item => ({ ...item })) : [];
+  }
+  function toggleTheismOffering(miracleId: string) {
+    const existing = theismOfferDraft.find(item => item.miracleId === miracleId);
+    theismOfferDraft = existing ? theismOfferDraft.filter(item => item.miracleId !== miracleId) : [...theismOfferDraft, { miracleId }];
+  }
+  function setTheismOfferingRank(miracleId: string, value: string) {
+    theismOfferDraft = theismOfferDraft.map(item => item.miracleId === miracleId ? { ...item, minimumRank: value === "default" ? undefined : value as TheistRank } : item);
+  }
+  function saveTheismCult() {
+    if (!theismCultName.trim() || !theismDeity.trim()) return;
+    const id = theismCultChoice && !CORE_THEIST_CULTS.some(item => item.id === theismCultChoice)
+      ? theismCultChoice : `custom:theism-cult:${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`}`;
+    const cult: TheistCult = { id, name: theismCultName.trim(), deity: theismDeity.trim(), source: "custom", miracles: theismOfferDraft.map(item => ({ ...item })) };
+    const oldIndex = theismState.customCults.findIndex(item => item.id === id);
+    if (oldIndex >= 0) theismState.customCults[oldIndex] = cult; else theismState.customCults.push(cult);
+    const prior = theismMembership;
+    const membership = prior ?? { id: `theist:${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`}`, cultId: id, rank: theismRankDraft, devotionSpecialisation: theismSpecialisation, devotionValue: theismDevotion, exhortValue: theismExhort, devotionalPool: 0, knownMiracleIds: [] };
+    membership.cultId = id;
+    membership.rank = theismRankDraft;
+    membership.devotionSpecialisation = theismSpecialisation;
+    membership.devotionValue = theismDevotion;
+    membership.exhortValue = theismExhort;
+    if (!prior) theismState.memberships = [membership];
+    theismConfigureDialog?.close();
+    updateStatus();
+  }
+  function toggleTheismMiracle(id: string) {
+    if (!theismMembership) return;
+    const known = theismMembership.knownMiracleIds;
+    if (known.includes(id)) theismMembership.knownMiracleIds = known.filter(item => item !== id);
+    else if (known.length < theismLimit) theismMembership.knownMiracleIds = [...known, id];
+    if (theismMembership) {
+      theismMembership.devotionSpecialisation = theismSpecialisation;
+      theismMembership.devotionValue = theismDevotion;
+      theismMembership.exhortValue = theismExhort;
+    }
+    updateStatus();
+  }
+  function removeInvalidTheismMiracle(id: string) {
+    if (!theismMembership) return;
+    theismMembership.knownMiracleIds = theismMembership.knownMiracleIds.filter(item => item !== id);
+    updateStatus();
   }
   function inferAnimismTradition() {
     if (!animismCapability || animismState.traditionId) return;
@@ -800,7 +893,7 @@
     <h3>Magical Capabilities</h3>
     <div class="magic-capabilities">
       {#each char.magic.disciplines as item (item.discipline)}
-        {#if item.discipline !== "Folk Magic" && item.discipline !== "Animism" && item.discipline !== "Mysticism" && item.discipline !== "Sorcery"}
+        {#if item.discipline !== "Folk Magic" && item.discipline !== "Animism" && item.discipline !== "Mysticism" && item.discipline !== "Sorcery" && item.discipline !== "Theism"}
           <article class="magic-capability">
             <div class="magic-capability-heading">
               <h4>{item.discipline}</h4>
@@ -817,6 +910,44 @@
         {/if}
       {/each}
     </div>
+    {#if theismCapability}
+      <article class="folk-magic-discipline theism-discipline">
+        <div class="folk-magic-heading"><div><h4>Theism</h4>
+          <p class="folk-magic-skill">Devotion{#if theismSpecialisation} ({theismSpecialisation}){/if} {theismDevotion}% · Exhort {theismExhort}%</p>
+          {#if theismDevotionSkill?.origins.length}<p class="mute folk-magic-provenance">Devotion acquired through {theismDevotionSkill.origins.map(origin => originName[origin]).join(", ")}</p>{/if}
+        </div><span class:complete={!theismNeedsSetup} class="magic-status">{theismNeedsSetup ? "Action required" : "Complete"}</span></div>
+        <div class="theism-derived">
+          <div><b>Miracle Magnitude</b><span>{miracleMagnitude(theismDevotion)}</span></div>
+          <div><b>Miracle Intensity</b><span>{miracleIntensity(theismDevotion)}</span></div>
+        </div>
+        <section class="theism-cult-card" aria-label="Theist cult membership">
+          <div><b>{theismCult?.name ?? "No Theist Cult configured"}</b><small>{theismCult?.deity ?? "Choose a cult and deity"}{#if theismCult?.source === "custom"} · Custom{/if}</small></div>
+          <div class="theism-pool"><b>Devotional Pool</b><span>{theismMembership?.devotionalPool ?? 0} / {theismMembership ? theismPoolMaximum : 0} MP</span>
+            {#if theismMembership}<label class="theism-pool-current">Current<input type="number" min="0" max={theismPoolMaximum} value={theismMembership.devotionalPool} oninput={event => { const value = Number(event.currentTarget.value); if (Number.isInteger(value) && value >= 0) { theismMembership!.devotionalPool = value; updateStatus(); } }} /></label>{/if}
+          </div>
+          <div class="theism-cult-rank">{theismMembership?.rank ?? "Rank not set"}</div>
+          <button type="button" class="ghost" onclick={openTheismConfigure}>Configure Cult</button>
+        </section>
+        {#if !theismMembership || !theismCult}<p class="folk-magic-error" role="alert">Configure a Theist Cult.</p>{/if}
+        {#if !theismSpecialisation}<p class="folk-magic-error" role="alert">Devotion requires a divine specialisation.</p>{/if}
+        {#if theismMembership && theismMembership.devotionalPool > theismPoolMaximum}<p class="folk-magic-error" role="alert">Devotional Pool exceeds the current maximum. Reduce the current pool to {theismPoolMaximum} MP.</p>{/if}
+        <section class="theism-miracles" aria-label="Starting miracles">
+          <div class="theism-miracles-heading"><div><h5>Miracles — choose up to {theismLimit}</h5><small>{theismKnownIds.length} / {theismLimit} known</small></div></div>
+          {#if theismInvalidIds.length}
+            <div class="theism-invalid" role="alert"><b>Action required</b><span>{theismKnownIds.length > theismLimit ? `Choose no more than ${theismLimit} starting miracles.` : `${theismInvalidIds.length} known ${theismInvalidIds.length === 1 ? "miracle is" : "miracles are"} no longer available at your current cult rank or offering.`}</span>
+              {#each theismInvalidIds as id (id)}{@const miracle = CORE_THEIST_MIRACLES.find(item => item.id === id)}<div><span>{theismCult?.miracles.find(item => item.miracleId === id)?.name ?? miracle?.name ?? id}</span><button type="button" class="ghost" onclick={() => removeInvalidTheismMiracle(id)}>Remove</button></div>{/each}
+            </div>
+          {/if}
+          {#if !theismCult || !theismMembership}<p class="mute">Configure a cult to see its offered miracles.</p>
+          {:else if !theismAvailableMiracles.length}<p class="mute">No offered miracles meet this cult rank.</p>
+          {:else}<ul class="theism-miracle-list">{#each theismAvailableMiracles as item (item.miracle.id)}{@const selected = theismKnownIds.includes(item.miracle.id)}<li class:selected>
+            <label><input type="checkbox" checked={selected} disabled={!selected && theismKnownIds.length >= theismLimit} onchange={() => toggleTheismMiracle(item.miracle.id)} /><span><b>{item.offering.name ?? item.miracle.name}</b><small>{effectiveMiracleMinimumRank(item.miracle, item.offering)} · {item.miracle.mpCost} MP · {item.miracle.exhortationTime}</small></span></label>
+            <button type="button" class="ghost theism-detail-button" aria-label="Details for {item.offering.name ?? item.miracle.name}" onclick={() => theismMiracleDetails = theismMiracleDetails === item.miracle.id ? null : item.miracle.id}>Details</button>
+            {#if theismMiracleDetails === item.miracle.id}<div class="theism-miracle-detail"><small>{item.miracle.traits.length ? item.miracle.traits.join(" · ") : "Core Theism miracle"}</small>{#if item.miracle.description}<p>{item.miracle.description}</p>{/if}</div>{/if}
+          </li>{/each}</ul>{/if}
+        </section>
+      </article>
+    {/if}
     {#if animismCapability}
       <article class="folk-magic-discipline animism-discipline">
         <div class="folk-magic-heading"><div><h4>Animism</h4>
@@ -1162,6 +1293,29 @@
   {/if}
 </section>
 
+<dialog class="folk-magic-picker theism-configure-dialog" bind:this={theismConfigureDialog} aria-labelledby="theism-configure-title">
+  <div class="folk-magic-picker-content">
+    <header><h2 id="theism-configure-title">Configure Theist Cult</h2><p>Set one cult membership and the miracles it offers.</p></header>
+    <label class="mysticism-path">Start from a cult
+      <select value={theismCultChoice} onchange={event => chooseTheismCult(event.currentTarget.value)}>
+        <option value="">Custom cult…</option>
+        {#each CORE_THEIST_CULTS as cult (cult.id)}<option value={cult.id}>{cult.name} · Core preset</option>{/each}
+        {#each theismState.customCults as cult (cult.id)}<option value={cult.id}>{cult.name} · Custom</option>{/each}
+      </select>
+    </label>
+    <div class="theism-config-fields"><label>Cult name<input bind:value={theismCultName} maxlength="100" placeholder="Cult of Myceras" required /></label><label>Deity / divine group / pantheon<input bind:value={theismDeity} maxlength="100" placeholder="Myceras" required /></label>
+      <label>Theist rank<select bind:value={theismRankDraft}>{#each THEIST_RANKS as rank}<option value={rank}>{rank}</option>{/each}</select><small>Rank is an explicit campaign choice; it does not rise automatically with Devotion.</small></label>
+    </div>
+    <section class="theism-offer-editor"><h3>Cult miracle availability</h3><p class="mute">Choose offerings from the Core catalogue. Set a minimum-rank override only when this cult differs from the Core rank.</p>
+      <ul class="folk-magic-picker-list">{#each CORE_THEIST_MIRACLES as miracle (miracle.id)}{@const offer = theismOfferDraft.find(item => item.miracleId === miracle.id)}<li class:selected={!!offer}>
+        <label class="theism-offer-choice"><input type="checkbox" checked={!!offer} onchange={() => toggleTheismOffering(miracle.id)} /><span><b>{miracle.name}</b><small>Core minimum: {miracle.minimumRank}</small></span></label>
+        {#if offer}<label class="theism-rank-override">Minimum rank<select value={offer.minimumRank ?? "default"} onchange={event => setTheismOfferingRank(miracle.id, event.currentTarget.value)}><option value="default">Core · {miracle.minimumRank}</option>{#each THEIST_RANKS as rank}<option value={rank}>{rank}</option>{/each}</select></label>{/if}
+      </li>{/each}</ul>
+    </section>
+    <footer class="theism-config-footer"><button type="button" class="ghost" onclick={() => theismConfigureDialog?.close()}>Cancel</button><button type="button" class="primary" disabled={!theismCultName.trim() || !theismDeity.trim()} onclick={saveTheismCult}>Save Cult</button></footer>
+  </div>
+</dialog>
+
 <dialog class="folk-magic-picker" bind:this={sorceryPicker} aria-labelledby="sorcery-picker-title">
   <div class="folk-magic-picker-content">
     <header><div><h2 id="sorcery-picker-title">{sorceryPickerMode === "school" ? "Add spells to School" : "Choose starting spells"}</h2><p>{sorceryPickerMode === "school" ? `${sorcerySchoolSpellIds.length} spells in School` : `${sorcerySelected.length} / ${sorceryEntitlement.count} selected`}</p></div><button type="button" class="ghost" onclick={() => sorceryPicker.close()}>Close ✕</button></header>
@@ -1269,6 +1423,11 @@
 </dialog>
 
 <style>
+  .theism-derived{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:8px;margin:12px 0;padding:9px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .theism-derived div{display:grid;gap:3px}.theism-derived b,.theism-pool>b,.theism-miracles h5{font:700 .7rem var(--display);letter-spacing:.08em;text-transform:uppercase;color:var(--bronze)}.theism-derived span{font-weight:700}
+  .theism-cult-card{display:grid;grid-template-columns:minmax(0,1fr) minmax(145px,auto) auto auto;align-items:center;gap:10px;padding:10px;background:var(--card2);border:1px solid var(--line2)}
+  .theism-cult-card>div:first-child{display:grid;gap:3px;min-width:0}.theism-cult-card small,.theism-pool span{display:block;color:var(--mute);font-size:.82rem;overflow-wrap:anywhere}.theism-pool{display:grid;gap:3px;padding:5px 10px;border-left:3px solid var(--bronze);background:color-mix(in srgb,var(--bronze) 8%,transparent)}.theism-pool span{font-weight:700;color:var(--fg)}.theism-pool-current{display:grid;grid-template-columns:auto 76px;align-items:center;gap:5px;font-size:.72rem;color:var(--mute)}.theism-pool-current input{width:100%;min-width:0;padding:3px 5px}.theism-cult-rank{font-size:.85rem;white-space:nowrap}
+  .theism-miracles{margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}.theism-miracles-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}.theism-miracles-heading h5{margin:0}.theism-miracles-heading small{color:var(--mute);font-size:.8rem}.theism-miracle-list{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}.theism-miracle-list>li{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:4px 10px;padding:7px 4px;border-bottom:1px solid var(--line)}.theism-miracle-list>li.selected{background:color-mix(in srgb,var(--ok) 8%,transparent)}.theism-miracle-list label{display:flex;align-items:center;gap:9px;min-width:0}.theism-miracle-list input,.theism-offer-choice input{flex:none;accent-color:var(--bronze);width:18px;height:18px}.theism-miracle-list label span{min-width:0}.theism-miracle-list small,.theism-offer-choice small{display:block;color:var(--mute);font-size:.78rem;overflow-wrap:anywhere}.theism-detail-button{font-size:.65rem}.theism-miracle-detail{grid-column:1/-1;margin-left:27px;color:var(--mute);font-size:.82rem}.theism-miracle-detail p{margin:3px 0}.theism-invalid{display:grid;gap:5px;margin:8px 0;padding:8px 10px;border-left:3px solid var(--acc);background:color-mix(in srgb,var(--acc) 8%,transparent);font-size:.84rem}.theism-invalid>div{display:flex;align-items:center;justify-content:space-between;gap:10px}.theism-invalid>div span{overflow-wrap:anywhere}.theism-configure-dialog{width:min(760px,calc(100vw - 24px));max-width:760px}.theism-config-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:10px 0}.theism-config-fields label{display:grid;align-content:start;gap:4px;font-size:.82rem}.theism-config-fields input,.theism-config-fields select{width:100%;min-width:0}.theism-config-fields label:last-child{grid-column:1/-1;max-width:320px}.theism-config-fields small{color:var(--mute);font-size:.75rem}.theism-offer-editor h3{margin:12px 0 4px;font:700 .76rem var(--display);letter-spacing:.08em;text-transform:uppercase;color:var(--bronze)}.theism-offer-editor>p{margin:3px 0 8px;font-size:.82rem}.theism-offer-editor .folk-magic-picker-list{max-height:38dvh;overflow:auto}.theism-offer-editor .folk-magic-picker-list>li{align-items:center}.theism-offer-choice{display:flex;align-items:center;gap:8px;min-width:0;flex:1}.theism-offer-choice>span{min-width:0;overflow-wrap:anywhere}.theism-rank-override{display:grid;grid-template-columns:auto minmax(110px,150px);align-items:center;gap:5px;font-size:.72rem;color:var(--mute)}.theism-rank-override select{width:100%;min-width:0;padding:4px}.theism-config-footer{display:flex;justify-content:flex-end;gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}
   .magic-capabilities{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px}
   .magic-capability,.folk-magic-discipline{border:1px solid var(--line);background:var(--card2);padding:14px;min-width:0}
   .magic-capability-heading,.folk-magic-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
@@ -1319,6 +1478,7 @@
   .folk-magic-custom-form label{display:grid;gap:3px;font-size:.85rem}.folk-magic-custom-form input{width:100%}
   .folk-magic-custom-form>div{display:flex;gap:8px}
   .folk-magic-picker{width:min(620px,calc(100% - 24px));max-height:min(86dvh,760px);overflow:hidden;padding:0;color:var(--fg);background:var(--card);border:1px solid var(--line2);border-radius:4px;box-shadow:var(--shadow)}
+  .folk-magic-picker.theism-configure-dialog{width:min(760px,calc(100vw - 24px));max-width:760px}
   .folk-magic-picker::backdrop{background:#110d09a8;backdrop-filter:blur(2px)}
   .folk-magic-picker-content{display:flex;flex-direction:column;max-height:min(86dvh,760px);overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;box-sizing:border-box;padding:16px}
   .folk-magic-picker-content>header{position:static;display:flex;align-items:flex-start;justify-content:space-between;gap:10px;background:none;border:0}
@@ -1333,4 +1493,5 @@
   .folk-magic-no-results{padding:12px}
   @media(max-width:520px){.folk-magic-entitlement{align-items:flex-start;flex-direction:column}.folk-magic-known-row{align-items:flex-start}.folk-magic-actions>*{flex:1}.custom-path-selected-talents li{align-items:flex-start}.animism-row{grid-template-columns:minmax(0,1fr) auto}.animism-row>button:last-of-type{grid-column:2}}
   @media(max-width:420px){.animism-edit-core{grid-template-columns:1fr}.animism-edit-roll{align-items:flex-start}}
+  @media(max-width:600px){.theism-cult-card{grid-template-columns:minmax(0,1fr) auto}.theism-pool{grid-column:1}.theism-cult-rank{grid-column:2;grid-row:1}.theism-cult-card>button{grid-column:2;grid-row:2;justify-self:end}.theism-config-fields{grid-template-columns:minmax(0,1fr)}.theism-config-fields label:last-child{grid-column:auto}.theism-rank-override{grid-template-columns:1fr;max-width:130px}.theism-miracle-list>li{grid-template-columns:minmax(0,1fr) auto}}
 </style>
