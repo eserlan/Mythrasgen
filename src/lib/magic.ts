@@ -2,6 +2,7 @@ import { emptyFolkMagicState, normalizeFolkMagicState, type FolkMagicState } fro
 import { emptyMysticismState, normalizeMysticismState, type MysticismState } from "./mysticism";
 import { emptySorceryState, normalizeSorceryState, type SorceryState } from "./sorcery";
 import { emptyAnimismState, normalizeAnimismState, type AnimismState } from "./animism";
+import { emptyTheismState, normalizeTheismState, type TheismState } from "./theism";
 
 export const MAGIC_DISCIPLINES = ["Folk Magic", "Animism", "Mysticism", "Sorcery", "Theism"] as const;
 export type MagicDiscipline = typeof MAGIC_DISCIPLINES[number];
@@ -63,10 +64,12 @@ export interface MagicState {
   sorcery: SorceryState;
   /** Traditions, spirit relationships and bindings remain distinct from equipment. */
   animism: AnimismState;
+  /** Theist cult memberships have independent Devotional Pools and miracle knowledge. */
+  theism: TheismState;
 }
 
 export const emptyMagicState = (): MagicState => ({
-  disciplines: [], archivedDisciplines: [], traditions: [], startingAbilityEntitlements: [], folkMagic: emptyFolkMagicState(), mysticism: emptyMysticismState(), sorcery: emptySorceryState(), animism: emptyAnimismState(),
+  disciplines: [], archivedDisciplines: [], traditions: [], startingAbilityEntitlements: [], folkMagic: emptyFolkMagicState(), mysticism: emptyMysticismState(), sorcery: emptySorceryState(), animism: emptyAnimismState(), theism: emptyTheismState(),
 });
 
 export interface DetectedMagicSkill {
@@ -142,7 +145,7 @@ export function normalizeMagicState(value: unknown): MagicState {
         rate: entitlement.rate as number, count: entitlement.count as number }];
     }) : [];
   return { disciplines: normalizeStates(source.disciplines), archivedDisciplines: normalizeStates(source.archivedDisciplines), traditions, startingAbilityEntitlements,
-    folkMagic: normalizeFolkMagicState(source.folkMagic), mysticism: normalizeMysticismState(source.mysticism), sorcery: normalizeSorceryState(source.sorcery), animism: normalizeAnimismState(source.animism) };
+    folkMagic: normalizeFolkMagicState(source.folkMagic), mysticism: normalizeMysticismState(source.mysticism), sorcery: normalizeSorceryState(source.sorcery), animism: normalizeAnimismState(source.animism), theism: normalizeTheismState(source.theism) };
 }
 
 /** Reconcile detected skills while preserving configuration and explicitly archiving lost capabilities. */

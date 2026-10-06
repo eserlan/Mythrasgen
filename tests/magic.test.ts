@@ -13,6 +13,11 @@ import {
   CORE_SORCERY_BASE_SPELLS, CORE_SORCERY_SPELLS, effectiveShapingComponents, emptySorceryState, normalizeSorceryState, sorceryCatalogue,
   sorcerySpellDetails, withStartingSorcerySchool,
 } from "../src/lib/sorcery";
+import {
+  CORE_THEIST_CULTS, CORE_THEIST_MIRACLES, devotionalPoolMaximum, devotionalPoolsWithinPow,
+  emptyTheismState, miracleAvailableAtRank, miracleIntensity, miracleMagnitude, normalizeTheismState,
+  startingMiracleLimit, validateKnownMiracles, type TheistCult,
+} from "../src/lib/theism";
 
 (globalThis as typeof globalThis & { $state: <T>(value: T) => T }).$state = value => value;
 
@@ -49,6 +54,74 @@ describe("magical discipline detection", () => {
     expect(detectMagicDisciplines([{ name: "Invocation", value: 45, origins: ["career"] }]).map(item => item.discipline)).toEqual(["Sorcery"]);
     expect(detectMagicDisciplines([{ name: "Mysticism (Path of Shadows)", value: 45, origins: ["career"] }]))
       .toContainEqual(expect.objectContaining({ discipline: "Mysticism", skills: [expect.objectContaining({ name: "Mysticism (Path of Shadows)" })] }));
+  });
+});
+
+describe("Core Theism rules and structured data", () => {
+  test.each([
+    ["Lay Member", 23, 0], ["Initiate", 23, 6], ["Acolyte", 23, 12], ["Priest", 23, 18], ["High Priest", 23, 23],
+    ["Initiate", 1, 1], ["Acolyte", 5, 3], ["Priest", 5, 4],
+  ] as const)("%s Devotional Pool maximum at POW %i is %i", (rank, pow, expected) => {
+    expect(devotionalPoolMaximum(pow, rank)).toBe(expected);
+  });
+
+  test.each([[1, 1], [20, 1], [21, 2], [40, 2], [41, 3], [60, 3], [61, 4], [80, 4], [81, 5], [100, 5], [101, 6], [120, 6]])
+  ("Devotion %i gives a starting miracle limit of %i", (devotion, limit) => expect(startingMiracleLimit(devotion)).toBe(limit));
+
+  test.each([[1, 1], [10, 1], [11, 2], [20, 2], [21, 3], [100, 10]])
+  ("Devotion %i gives Magnitude and Intensity %i", (devotion, value) => {
+    expect(miracleMagnitude(devotion)).toBe(value);
+    expect(miracleIntensity(devotion)).toBe(value);
+  });
+
+  test("canonical catalogue has all 64 Core miracles with default rank costs and times", () => {
+    expect(CORE_THEIST_MIRACLES).toHaveLength(64);
+    expect(new Set(CORE_THEIST_MIRACLES.map(item => item.id)).size).toBe(64);
+    expect(CORE_THEIST_MIRACLES.filter(item => item.minimumRank === "Initiate")).toHaveLength(32);
+    expect(CORE_THEIST_MIRACLES.filter(item => item.minimumRank === "Acolyte")).toHaveLength(21);
+    expect(CORE_THEIST_MIRACLES.filter(item => item.minimumRank === "Priest")).toHaveLength(11);
+    expect(CORE_THEIST_MIRACLES.filter(item => item.minimumRank === "Initiate").every(item => item.mpCost === 1 && item.exhortationTime === "1 Turn")).toBe(true);
+    expect(CORE_THEIST_MIRACLES.filter(item => item.minimumRank === "Acolyte").every(item => item.mpCost === 2 && item.exhortationTime === "2 Turns")).toBe(true);
+    expect(CORE_THEIST_MIRACLES.filter(item => item.minimumRank === "Priest").every(item => item.mpCost === 3 && item.exhortationTime === "3 Turns")).toBe(true);
+  });
+
+  test("rank availability uses explicit cult rank and cult overrides preserve default data", () => {
+    const beast = CORE_THEIST_MIRACLES.find(item => item.name === "Beast Form")!;
+    expect(miracleAvailableAtRank(beast, "Initiate")).toBe(false);
+    expect(miracleAvailableAtRank(beast, "Acolyte")).toBe(true);
+    expect(miracleAvailableAtRank(beast, "Initiate", { miracleId: beast.id, minimumRank: "Initiate" })).toBe(true);
+    expect(beast).toMatchObject({ minimumRank: "Acolyte", mpCost: 2, exhortationTime: "2 Turns" });
+  });
+
+  test("starting known miracles must be offered, rank-available, and within Devotion limit", () => {
+    const cult = CORE_THEIST_CULTS.find(item => item.id === "core:cult-of-myceras")!;
+    const shield = CORE_THEIST_MIRACLES.find(item => item.name === "Shield")!;
+    const beast = CORE_THEIST_MIRACLES.find(item => item.name === "Beast Form")!;
+    expect(validateKnownMiracles([shield.id], cult, "Initiate", 20).valid).toBe(true);
+    expect(validateKnownMiracles([beast.id], cult, "Initiate", 20).errors).toContain("Beast Form is not available at Initiate rank.");
+    expect(validateKnownMiracles([shield.id, beast.id], cult, "Acolyte", 20).errors).toContain("Known miracles exceed the starting limit for Devotion.");
+    const awaken = CORE_THEIST_MIRACLES.find(item => item.name === "Awaken")!;
+    expect(validateKnownMiracles([awaken.id], cult, "High Priest", 40).valid).toBe(false); // Not offered by Myceras.
+  });
+
+  test("cult offerings and known miracles are separate; generic True has cult-facing alias", () => {
+    const devils = CORE_THEIST_CULTS.find(item => item.id === "core:seven-badoshi-devils")!;
+    const trueWeapon = CORE_THEIST_MIRACLES.find(item => item.name === "True (Weapon)")!;
+    expect(devils.miracles.find(item => item.miracleId === trueWeapon.id)).toMatchObject({ name: "True Scimitar" });
+    expect(trueWeapon.name).toBe("True (Weapon)");
+    expect(emptyTheismState().memberships).toEqual([]);
+    expect(devotionalPoolsWithinPow([{ devotionalPool: 5 }, { devotionalPool: 5 }], 10)).toBe(true);
+    expect(devotionalPoolsWithinPow([{ devotionalPool: 5 }, { devotionalPool: 6 }], 10)).toBe(false);
+  });
+
+  test("legacy characters receive no fabricated Theism membership and current membership data round trips", () => {
+    expect(normalizeTheismState(undefined)).toEqual(emptyTheismState());
+    const old = normalizeMagicState({ disciplines: [{ discipline: "Theism", skills: [{ name: "Devotion (Orlanth)", value: 50, origins: ["career"] }], status: "needs-configuration" }] });
+    expect(old.theism).toEqual(emptyTheismState());
+    const membership: TheistCult = { id: "custom:cult", name: "River Shrine", deity: "River", source: "custom", miracles: [] };
+    const restored = normalizeTheismState({ customCults: [membership], memberships: [{ id: "m1", cultId: membership.id, rank: "Initiate", devotionSpecialisation: "River", devotionValue: 50, exhortValue: 45, devotionalPool: 3, knownMiracleIds: [] }] });
+    expect(restored).toMatchObject({ customCults: [{ id: membership.id }], memberships: [{ cultId: membership.id, rank: "Initiate", devotionValue: 50, devotionalPool: 3 }] });
+    expect(normalizeMagicState(JSON.parse(JSON.stringify({ ...old, theism: restored }))).theism).toEqual(restored);
   });
 });
 
