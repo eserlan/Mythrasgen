@@ -19,7 +19,7 @@
     withStartingSorcerySchool, type SorcerySchool, type SorcerySpell,
   } from "../lib/sorcery";
   import { CORE_ANIMISM_RANKS, CORE_SPIRIT_RULES, generateCoreSpirit, listAnimismSpiritTypes, getBoundSpiritCapacity, getMaximumControllableSpiritPow, getSpiritDamage, getTranceCapabilities, reconcileAnimism, spiritIntensityBand, spiritIntensityForPow, spiritPowMatchesIntensity, validateSpirit, type AnimismRank, type AnimismStartingGrant, type SpiritAttitude, type SpiritBindingVessel, type SpiritRecord, type SpiritTradition, type SpiritType } from "../lib/animism";
-  import { CORE_THEIST_CULTS, CORE_THEIST_MIRACLES, THEIST_RANKS, devotionalPoolMaximum, effectiveMiracleMinimumRank, miracleAvailableAtRank, miracleIntensity, miracleMagnitude, startingMiracleLimit, validateKnownMiracles, type TheistCult, type TheistCultMiracle, type TheistRank } from "../lib/theism";
+  import { CORE_THEIST_CULTS, CORE_THEIST_MIRACLES, THEIST_RANKS, availableTheistCultMiracles, devotionalPoolMaximum, effectiveMiracleMinimumRank, miracleIntensity, miracleMagnitude, startingMiracleLimit, validateKnownMiracles, type TheistCult, type TheistCultMiracle, type TheistRank } from "../lib/theism";
 
   const originName: Record<MagicSkillOrigin, string> = { culture: "Culture", career: "Career", bonus: "Bonus / Hobby Skill" };
   let picker: HTMLDialogElement;
@@ -125,7 +125,7 @@
   const theismKnownIds = $derived(theismMembership?.knownMiracleIds ?? []);
   const theismValidation = $derived(theismCult && theismMembership ? validateKnownMiracles(theismKnownIds, theismCult, theismMembership.rank, theismDevotion) : { valid: true, errors: [] });
   const theismLimit = $derived(startingMiracleLimit(theismDevotion));
-  const theismAvailableMiracles = $derived(theismCult && theismMembership ? theismCult.miracles.map(offering => ({ offering, miracle: CORE_THEIST_MIRACLES.find(item => item.id === offering.miracleId) })).filter((item): item is { offering: TheistCultMiracle; miracle: typeof CORE_THEIST_MIRACLES[number] } => !!item.miracle && miracleAvailableAtRank(item.miracle, theismMembership!.rank, item.offering)) : []);
+  const theismAvailableMiracles = $derived(theismCult && theismMembership ? availableTheistCultMiracles(theismCult, theismMembership.rank) : []);
   const theismInvalidIds = $derived(theismCult && theismMembership ? theismKnownIds.filter((id, index) => !theismAvailableMiracles.some(item => item.miracle.id === id) || index >= theismLimit) : theismKnownIds);
   const theismNeedsSetup = $derived(!theismMembership || !theismCult || !theismSpecialisation || !theismValidation.valid || !!theismMembership && theismMembership.devotionalPool > theismPoolMaximum);
   const animismState = $derived(char.magic.animism);
