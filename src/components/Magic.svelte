@@ -107,6 +107,9 @@
   let theismRankDraft = $state<TheistRank>("Initiate");
   let theismOfferDraft = $state<TheistCultMiracle[]>([]);
   let theismMiracleDetails = $state<string[]>([]);
+  let theismOfferQuery = $state("");
+  let theismSelectedOnly = $state(false);
+  let theismRankOverrideEditorIds = $state<string[]>([]);
 
   const capability = $derived(char.magic.disciplines.find(item => item.discipline === "Folk Magic"));
   const mysticismCapability = $derived(char.magic.disciplines.find(item => item.discipline === "Mysticism"));
@@ -126,6 +129,13 @@
   const theismValidation = $derived(theismCult && theismMembership ? validateKnownMiracles(theismKnownIds, theismCult, theismMembership.rank, theismDevotion) : { valid: true, errors: [] });
   const theismLimit = $derived(startingMiracleLimit(theismDevotion));
   const theismAvailableMiracles = $derived(theismCult && theismMembership ? availableTheistCultMiracles(theismCult, theismMembership.rank) : []);
+  const theismOfferGroups = $derived(((["Initiate", "Acolyte", "Priest"] as const).map(rank => ({
+    rank,
+    miracles: CORE_THEIST_MIRACLES.filter(miracle => miracle.minimumRank === rank
+      && miracle.name.toLowerCase().includes(theismOfferQuery.trim().toLowerCase())
+      && (!theismSelectedOnly || theismOfferDraft.some(item => item.miracleId === miracle.id))),
+  }))));
+  const theismVisibleOfferCount = $derived(theismOfferGroups.reduce((count, group) => count + group.miracles.length, 0));
   const theismInvalidIds = $derived(theismCult && theismMembership ? theismKnownIds.filter((id, index) => !theismAvailableMiracles.some(item => item.miracle.id === id) || index >= theismLimit) : theismKnownIds);
   const theismNeedsSetup = $derived(!theismMembership || !theismCult || !theismSpecialisation || !theismValidation.valid || !!theismMembership && theismMembership.devotionalPool > theismPoolMaximum);
   const animismState = $derived(char.magic.animism);
@@ -259,6 +269,9 @@
     theismDeity = currentCult?.deity ?? "";
     theismRankDraft = membership?.rank ?? "Initiate";
     theismOfferDraft = currentCult ? currentCult.miracles.map(item => ({ ...item })) : [];
+    theismOfferQuery = "";
+    theismSelectedOnly = false;
+    theismRankOverrideEditorIds = theismOfferDraft.filter(item => item.minimumRank).map(item => item.miracleId);
     theismConfigureDialog?.showModal();
   }
   function chooseTheismCult(value: string) {
@@ -269,13 +282,25 @@
     theismCultName = cult?.name ?? "";
     theismDeity = cult?.deity ?? "";
     theismOfferDraft = cult ? cult.miracles.map(item => ({ ...item })) : [];
+    theismOfferQuery = "";
+    theismSelectedOnly = false;
+    theismRankOverrideEditorIds = theismOfferDraft.filter(item => item.minimumRank).map(item => item.miracleId);
   }
   function toggleTheismOffering(miracleId: string) {
     const existing = theismOfferDraft.find(item => item.miracleId === miracleId);
     theismOfferDraft = existing ? theismOfferDraft.filter(item => item.miracleId !== miracleId) : [...theismOfferDraft, { miracleId }];
+    if (existing) theismRankOverrideEditorIds = theismRankOverrideEditorIds.filter(id => id !== miracleId);
   }
   function setTheismOfferingRank(miracleId: string, value: string) {
     theismOfferDraft = theismOfferDraft.map(item => item.miracleId === miracleId ? { ...item, minimumRank: value === "default" ? undefined : value as TheistRank } : item);
+    theismRankOverrideEditorIds = value === "default"
+      ? theismRankOverrideEditorIds.filter(id => id !== miracleId)
+      : theismRankOverrideEditorIds.includes(miracleId) ? theismRankOverrideEditorIds : [...theismRankOverrideEditorIds, miracleId];
+  }
+  function toggleTheismRankOverrideEditor(miracleId: string) {
+    theismRankOverrideEditorIds = theismRankOverrideEditorIds.includes(miracleId)
+      ? theismRankOverrideEditorIds.filter(id => id !== miracleId)
+      : [...theismRankOverrideEditorIds, miracleId];
   }
   function saveTheismCult() {
     if (!theismCultName.trim() || !theismDeity.trim()) return;
@@ -1311,11 +1336,23 @@
     <div class="theism-config-fields"><label>Cult name<input bind:value={theismCultName} maxlength="100" placeholder="Cult of Myceras" required /></label><label>Deity / divine group / pantheon<input bind:value={theismDeity} maxlength="100" placeholder="Myceras" required /></label>
       <label>Theist rank<select bind:value={theismRankDraft}>{#each THEIST_RANKS as rank}<option value={rank}>{rank}</option>{/each}</select><small>Rank is an explicit campaign choice; it does not rise automatically with Devotion.</small></label>
     </div>
-    <section class="theism-offer-editor"><h3>Cult miracle availability</h3><p class="mute">Choose offerings from the Core catalogue. Set a minimum-rank override only when this cult differs from the Core rank.</p>
-      <ul class="folk-magic-picker-list">{#each CORE_THEIST_MIRACLES as miracle (miracle.id)}{@const offer = theismOfferDraft.find(item => item.miracleId === miracle.id)}<li class:selected={!!offer}>
-        <label class="theism-offer-choice"><input type="checkbox" checked={!!offer} onchange={() => toggleTheismOffering(miracle.id)} /><span><b>{miracle.name}</b><small>Core minimum: {miracle.minimumRank}</small></span></label>
-        {#if offer}<label class="theism-rank-override">Minimum rank<select value={offer.minimumRank ?? "default"} onchange={event => setTheismOfferingRank(miracle.id, event.currentTarget.value)}><option value="default">Core · {miracle.minimumRank}</option>{#each THEIST_RANKS as rank}<option value={rank}>{rank}</option>{/each}</select></label>{/if}
-      </li>{/each}</ul>
+    <section class="theism-offer-editor"><div class="theism-offer-heading"><div><h3>Cult miracle availability</h3><p class="mute">Cult offerings determine which miracles your character may learn.</p></div><b aria-live="polite">{theismOfferDraft.length} {theismOfferDraft.length === 1 ? "miracle" : "miracles"} offered</b></div>
+      <p class="mute">Choose offerings from the Core catalogue. Character-known miracles are selected on the main Theism screen.</p>
+      <label class="theism-offer-search">Search miracles<input class="folk-magic-search" bind:value={theismOfferQuery} placeholder="Filter by miracle name…" aria-label="Filter cult offerings by miracle name" /></label>
+      <label class="theism-selected-only"><input type="checkbox" bind:checked={theismSelectedOnly} />Selected only</label>
+      {#each theismOfferGroups as group (group.rank)}
+        {#if group.miracles.length}<section class="theism-offer-rank-group" aria-label={`${group.rank} miracles`}><h4>{group.rank}</h4>
+          <ul class="folk-magic-picker-list">{#each group.miracles as miracle (miracle.id)}{@const offer = theismOfferDraft.find(item => item.miracleId === miracle.id)}<li class:selected={!!offer}>
+            <label class="theism-offer-choice"><input type="checkbox" checked={!!offer} onchange={() => toggleTheismOffering(miracle.id)} /><span><b>{miracle.name}</b><small>Core minimum: {miracle.minimumRank}</small></span></label>
+            {#if offer}
+              {#if offer.minimumRank || theismRankOverrideEditorIds.includes(miracle.id)}
+                <div class="theism-rank-override"><label>Minimum rank<select aria-label={`Minimum rank override for ${miracle.name}`} value={offer.minimumRank ?? "default"} onchange={event => setTheismOfferingRank(miracle.id, event.currentTarget.value)}><option value="default">Core · {miracle.minimumRank}</option>{#each THEIST_RANKS as rank}<option value={rank}>{rank}</option>{/each}</select></label>{#if offer.minimumRank}<button type="button" class="ghost" onclick={() => setTheismOfferingRank(miracle.id, "default")}>Use Core</button>{/if}</div>
+              {:else}<button type="button" class="ghost theism-override-action" onclick={() => toggleTheismRankOverrideEditor(miracle.id)}>Override rank</button>{/if}
+            {/if}
+          </li>{/each}</ul>
+        </section>{/if}
+      {/each}
+      {#if !theismVisibleOfferCount}<p class="folk-magic-no-results">{theismSelectedOnly ? "No selected offerings match this filter." : "No miracles match this filter."}</p>{/if}
     </section>
     <footer class="theism-config-footer"><button type="button" class="ghost" onclick={() => theismConfigureDialog?.close()}>Cancel</button><button type="button" class="primary" disabled={!theismCultName.trim() || !theismDeity.trim()} onclick={saveTheismCult}>Save Cult</button></footer>
   </div>
@@ -1497,6 +1534,8 @@
   .folk-magic-details-button{font-size:.65rem}.folk-magic-spell-details{width:100%;margin:0 6px 6px 39px;color:var(--mute);font-size:.86rem}
   .folk-magic-traits{display:flex;flex-wrap:wrap;gap:5px;margin:0 0 7px}.folk-magic-traits span{padding:2px 6px;border:1px solid var(--line2);color:var(--bronze);font-size:.74rem}.folk-magic-spell-details p{margin:0 0 6px}.folk-magic-spell-details small{display:block;margin-top:4px}.folk-magic-spell-details .folk-magic-gap{color:var(--acc)}
   .folk-magic-no-results{padding:12px}
+  .theism-offer-editor .folk-magic-picker-list{max-height:none;overflow:visible}.theism-offer-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}.theism-offer-heading h3{margin-top:12px}.theism-offer-heading p{margin:3px 0 8px;font-size:.82rem}.theism-offer-heading>b{flex:none;margin-bottom:8px;color:var(--bronze);font-size:.8rem}.theism-offer-search{display:grid;gap:4px;margin:8px 0;font-size:.78rem}.theism-offer-search input{margin:0}.theism-selected-only{display:flex;align-items:center;gap:6px;margin:7px 0;font-size:.8rem}.theism-selected-only input{accent-color:var(--bronze)}.theism-offer-rank-group{margin-top:9px}.theism-offer-rank-group h4{margin:0;padding:5px 2px;border-bottom:1px solid var(--line2);color:var(--bronze);font:700 .7rem var(--display);letter-spacing:.1em;text-transform:uppercase}.theism-rank-override{display:flex;align-items:flex-end;gap:6px;font-size:.72rem;color:var(--mute)}.theism-rank-override label{display:grid;gap:3px;min-width:130px}.theism-rank-override button,.theism-override-action{flex:none;padding:5px 7px;font-size:.64rem}.theism-config-footer{position:sticky;bottom:-16px;z-index:1;margin:12px -16px -16px;padding:10px 16px 16px;background:var(--card)}
+  @media(max-width:600px){.theism-rank-override{max-width:100%;flex-wrap:wrap;align-items:center}.theism-rank-override label{min-width:0;flex:1 1 130px}}
   @media(max-width:520px){.folk-magic-entitlement{align-items:flex-start;flex-direction:column}.folk-magic-known-row{align-items:flex-start}.folk-magic-actions>*{flex:1}.custom-path-selected-talents li{align-items:flex-start}.animism-row{grid-template-columns:minmax(0,1fr) auto}.animism-row>button:last-of-type{grid-column:2}}
   @media(max-width:420px){.animism-edit-core{grid-template-columns:1fr}.animism-edit-roll{align-items:flex-start}}
   @media(max-width:600px){.theism-cult-card{grid-template-columns:minmax(0,1fr) auto}.theism-pool{grid-column:1}.theism-cult-rank{grid-column:2;grid-row:1}.theism-cult-card>button{grid-column:2;grid-row:2;justify-self:end}.theism-config-fields{grid-template-columns:minmax(0,1fr)}.theism-config-fields label:last-child{grid-column:auto}.theism-rank-override{grid-template-columns:1fr;max-width:130px}.theism-miracle-list>li{grid-template-columns:minmax(0,1fr) auto}}

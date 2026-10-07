@@ -30,3 +30,21 @@ test("Page VI resolves saved Core miracle offerings to canonical Details", () =>
   expect(page).toContain("{item.miracle.traits.join(\" · \")}");
   expect(page).toContain("<p>{item.miracle.description}</p>");
 });
+
+test("cult presets and saved rank overrides retain their offerings", () => {
+  const preset = CORE_THEIST_CULTS.find(cult => cult.name === "Cult of Myceras")!;
+  const beast = CORE_THEIST_MIRACLES.find(miracle => miracle.name === "Beast Form")!;
+  expect(preset.miracles.map(item => item.miracleId).sort()).toEqual(
+    ["Beast Form", "Berserk", "Clear Skies", "Consecrate", "Fortify", "Sacred Band", "Shield", "Sunspear"]
+      .map(name => CORE_THEIST_MIRACLES.find(miracle => miracle.name === name)!.id).sort(),
+  );
+
+  const cult = normalizeTheismState({
+    customCults: [{ ...preset, id: "custom:myceras", source: "custom", miracles: preset.miracles.map(item =>
+      item.miracleId === beast.id ? { ...item, minimumRank: "Initiate" as const } : { ...item }) }],
+    memberships: [],
+  }).customCults[0]!;
+  const restored = normalizeTheismState(JSON.parse(JSON.stringify({ customCults: [cult], memberships: [] })));
+  expect(restored.customCults[0]?.miracles.find(item => item.miracleId === beast.id)).toEqual({ miracleId: beast.id, minimumRank: "Initiate" });
+  expect(restored.customCults[0]?.miracles.map(item => item.miracleId)).toContain(beast.id);
+});

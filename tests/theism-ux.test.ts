@@ -31,4 +31,15 @@ test("Theism chargen uses Core rules for its compact cult and miracle workflow",
   expect(css).toMatch(/\.theism-miracle-detail[^\{]*\{[^}]*overflow-wrap:\s*anywhere/);
   expect(css).toMatch(/\.theism-cult-card[^\{]*\{[^}]*grid-template-columns/);
   expect(css).toMatch(/@media\s*\(max-width:\s*600px\)/);
+  expect(source).toContain('(["Initiate", "Acolyte", "Priest"] as const).map(rank');
+  expect(source).toContain('miracle.name.toLowerCase().includes(theismOfferQuery.trim().toLowerCase())');
+  expect(source).toContain('theismOfferDraft.length} {theismOfferDraft.length === 1 ? "miracle" : "miracles"} offered');
+  expect(source).toContain('bind:checked={theismSelectedOnly}');
+  expect(source).toContain('Cult offerings determine which miracles your character may learn.');
+  expect(source).toContain('Override rank</button>');
+  expect(source).toContain('Use Core</button>');
+  expect(source).toContain('theismOfferDraft.filter(item => item.minimumRank).map(item => item.miracleId)');
+  expect(source).toContain('value === "default" ? undefined : value as TheistRank');
+  expect(source).toContain('position:sticky;bottom:-16px');
+  expect(source).toContain(".theism-offer-editor .folk-magic-picker-list{max-height:none;overflow:visible}");
 });
