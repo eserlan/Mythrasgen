@@ -171,6 +171,17 @@ export function miracleAvailableAtRank(miracle: TheistMiracle, rank: TheistRank,
   return rankIndex(rank) >= rankIndex(effectiveMiracleMinimumRank(miracle, offering));
 }
 
+/** Resolve a cult's offerings to canonical miracle records, keeping only cult-specific presentation and rank overrides. */
+export function availableTheistCultMiracles(
+  cult: TheistCult, rank: TheistRank, catalogue: readonly TheistMiracle[] = CORE_THEIST_MIRACLES,
+): { offering: TheistCultMiracle; miracle: TheistMiracle }[] {
+  return cult.miracles.map(offering => ({
+    offering,
+    miracle: catalogue.find(item => item.id === offering.miracleId),
+  })).filter((item): item is { offering: TheistCultMiracle; miracle: TheistMiracle } =>
+    !!item.miracle && miracleAvailableAtRank(item.miracle, rank, item.offering));
+}
+
 export interface KnownMiracleValidation {
   valid: boolean;
   errors: string[];

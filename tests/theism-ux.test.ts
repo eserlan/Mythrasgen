@@ -7,6 +7,7 @@ test("Theism chargen uses Core rules for its compact cult and miracle workflow",
   const css = compile(source, { filename: "src/components/Magic.svelte", generate: "client" }).css?.code;
 
   expect(source).toContain("CORE_THEIST_CULTS, CORE_THEIST_MIRACLES");
+  expect(source).toContain("availableTheistCultMiracles(theismCult, theismMembership.rank)");
   expect(source).toContain("devotionalPoolMaximum(char.chars.POW, theismMembership.rank)");
   expect(source).toContain("startingMiracleLimit(theismDevotion)");
   expect(source).toContain("miracleMagnitude(theismDevotion)");
@@ -25,6 +26,7 @@ test("Theism chargen uses Core rules for its compact cult and miracle workflow",
   expect(source).toContain("aria-expanded={theismMiracleDetails.includes(item.miracle.id)}");
   expect(source).toContain("function toggleTheismMiracleDetails(id: string)");
   expect(source).toContain("<small class=\"theism-miracle-traits\">{item.miracle.traits.join(\" · \")}</small>");
+  expect(source).toContain("<p>{item.miracle.description}</p>");
   expect(css).toMatch(/\.theism-miracle-traits[^\{]*\{[^}]*background/);
   expect(css).toMatch(/\.theism-miracle-detail[^\{]*\{[^}]*overflow-wrap:\s*anywhere/);
   expect(css).toMatch(/\.theism-cult-card[^\{]*\{[^}]*grid-template-columns/);
