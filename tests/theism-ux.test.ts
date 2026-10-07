@@ -20,6 +20,13 @@ test("Theism chargen uses Core rules for its compact cult and miracle workflow",
   expect(source).toContain("theismMembership.knownMiracleIds = known.filter");
   expect(source).toContain("theismMembership.knownMiracleIds = [...known, id]");
   expect(source).toContain("theismState.customCults.push(cult)");
+  expect(source).not.toContain("Core Theism miracle");
+  expect(source).toContain("let theismMiracleDetails = $state<string[]>([])");
+  expect(source).toContain("aria-expanded={theismMiracleDetails.includes(item.miracle.id)}");
+  expect(source).toContain("function toggleTheismMiracleDetails(id: string)");
+  expect(source).toContain("<small class=\"theism-miracle-traits\">{item.miracle.traits.join(\" · \")}</small>");
+  expect(css).toMatch(/\.theism-miracle-traits[^\{]*\{[^}]*background/);
+  expect(css).toMatch(/\.theism-miracle-detail[^\{]*\{[^}]*overflow-wrap:\s*anywhere/);
   expect(css).toMatch(/\.theism-cult-card[^\{]*\{[^}]*grid-template-columns/);
   expect(css).toMatch(/@media\s*\(max-width:\s*600px\)/);
 });

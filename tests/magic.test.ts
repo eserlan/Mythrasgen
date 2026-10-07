@@ -83,6 +83,9 @@ describe("Core Theism rules and structured data", () => {
     expect(CORE_THEIST_MIRACLES.filter(item => item.minimumRank === "Initiate").every(item => item.mpCost === 1 && item.exhortationTime === "1 Turn")).toBe(true);
     expect(CORE_THEIST_MIRACLES.filter(item => item.minimumRank === "Acolyte").every(item => item.mpCost === 2 && item.exhortationTime === "2 Turns")).toBe(true);
     expect(CORE_THEIST_MIRACLES.filter(item => item.minimumRank === "Priest").every(item => item.mpCost === 3 && item.exhortationTime === "3 Turns")).toBe(true);
+    expect(CORE_THEIST_MIRACLES.every(item => item.traits.length > 0 && item.description.trim().length > 0)).toBe(true);
+    expect(CORE_THEIST_MIRACLES.find(item => item.name === "Perseverance")).toBeDefined();
+    expect(CORE_THEIST_MIRACLES.find(item => item.name === "True (Weapon)")).toBeDefined();
   });
 
   test("rank availability uses explicit cult rank and cult overrides preserve default data", () => {
