@@ -106,7 +106,7 @@
   let theismDeity = $state("");
   let theismRankDraft = $state<TheistRank>("Initiate");
   let theismOfferDraft = $state<TheistCultMiracle[]>([]);
-  let theismMiracleDetails = $state<string | null>(null);
+  let theismMiracleDetails = $state<string[]>([]);
 
   const capability = $derived(char.magic.disciplines.find(item => item.discipline === "Folk Magic"));
   const mysticismCapability = $derived(char.magic.disciplines.find(item => item.discipline === "Mysticism"));
@@ -306,6 +306,11 @@
       theismMembership.exhortValue = theismExhort;
     }
     updateStatus();
+  }
+  function toggleTheismMiracleDetails(id: string) {
+    theismMiracleDetails = theismMiracleDetails.includes(id)
+      ? theismMiracleDetails.filter(item => item !== id)
+      : [...theismMiracleDetails, id];
   }
   function removeInvalidTheismMiracle(id: string) {
     if (!theismMembership) return;
@@ -942,8 +947,8 @@
           {:else if !theismAvailableMiracles.length}<p class="mute">No offered miracles meet this cult rank.</p>
           {:else}<ul class="theism-miracle-list">{#each theismAvailableMiracles as item (item.miracle.id)}{@const selected = theismKnownIds.includes(item.miracle.id)}<li class:selected>
             <label><input type="checkbox" checked={selected} disabled={!selected && theismKnownIds.length >= theismLimit} onchange={() => toggleTheismMiracle(item.miracle.id)} /><span><b>{item.offering.name ?? item.miracle.name}</b><small>{effectiveMiracleMinimumRank(item.miracle, item.offering)} · {item.miracle.mpCost} MP · {item.miracle.exhortationTime}</small></span></label>
-            <button type="button" class="ghost theism-detail-button" aria-label="Details for {item.offering.name ?? item.miracle.name}" onclick={() => theismMiracleDetails = theismMiracleDetails === item.miracle.id ? null : item.miracle.id}>Details</button>
-            {#if theismMiracleDetails === item.miracle.id}<div class="theism-miracle-detail"><small>{item.miracle.traits.length ? item.miracle.traits.join(" · ") : "Core Theism miracle"}</small>{#if item.miracle.description}<p>{item.miracle.description}</p>{/if}</div>{/if}
+            <button type="button" class="ghost theism-detail-button" aria-label="Details for {item.offering.name ?? item.miracle.name}" aria-expanded={theismMiracleDetails.includes(item.miracle.id)} aria-controls="theism-miracle-detail-{item.miracle.id}" onclick={() => toggleTheismMiracleDetails(item.miracle.id)}>Details</button>
+            {#if theismMiracleDetails.includes(item.miracle.id)}<div class="theism-miracle-detail" id="theism-miracle-detail-{item.miracle.id}"><small class="theism-miracle-traits">{item.miracle.traits.join(" · ")}</small><p>{item.miracle.description}</p></div>{/if}
           </li>{/each}</ul>{/if}
         </section>
       </article>
@@ -1429,6 +1434,7 @@
   .theism-cult-card>div:first-child{display:grid;gap:3px;min-width:0}.theism-cult-card small,.theism-pool span{display:block;color:var(--mute);font-size:.82rem;overflow-wrap:anywhere}.theism-pool{display:grid;gap:3px;padding:5px 10px;border-left:3px solid var(--bronze);background:color-mix(in srgb,var(--bronze) 8%,transparent)}.theism-pool span{font-weight:700;color:var(--fg)}.theism-pool-current{display:grid;grid-template-columns:auto 76px;align-items:center;gap:5px;font-size:.72rem;color:var(--mute)}.theism-pool-current input{width:100%;min-width:0;padding:3px 5px}.theism-cult-rank{font-size:.85rem;white-space:nowrap}
   .theism-miracles{margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}.theism-miracles-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}.theism-miracles-heading h5{margin:0}.theism-miracles-heading small{color:var(--mute);font-size:.8rem}.theism-miracle-list{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}.theism-miracle-list>li{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:4px 10px;padding:7px 4px;border-bottom:1px solid var(--line)}.theism-miracle-list>li.selected{background:color-mix(in srgb,var(--ok) 8%,transparent)}.theism-miracle-list label{display:flex;align-items:center;gap:9px;min-width:0}.theism-miracle-list input,.theism-offer-choice input{flex:none;accent-color:var(--bronze);width:18px;height:18px}.theism-miracle-list label span{min-width:0}.theism-miracle-list small,.theism-offer-choice small{display:block;color:var(--mute);font-size:.78rem;overflow-wrap:anywhere}.theism-detail-button{font-size:.65rem}.theism-miracle-detail{grid-column:1/-1;margin-left:27px;color:var(--mute);font-size:.82rem}.theism-miracle-detail p{margin:3px 0}.theism-invalid{display:grid;gap:5px;margin:8px 0;padding:8px 10px;border-left:3px solid var(--acc);background:color-mix(in srgb,var(--acc) 8%,transparent);font-size:.84rem}.theism-invalid>div{display:flex;align-items:center;justify-content:space-between;gap:10px}.theism-invalid>div span{overflow-wrap:anywhere}.theism-configure-dialog{width:min(760px,calc(100vw - 24px));max-width:760px}.theism-config-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:10px 0}.theism-config-fields label{display:grid;align-content:start;gap:4px;font-size:.82rem}.theism-config-fields input,.theism-config-fields select{width:100%;min-width:0}.theism-config-fields label:last-child{grid-column:1/-1;max-width:320px}.theism-config-fields small{color:var(--mute);font-size:.75rem}.theism-offer-editor h3{margin:12px 0 4px;font:700 .76rem var(--display);letter-spacing:.08em;text-transform:uppercase;color:var(--bronze)}.theism-offer-editor>p{margin:3px 0 8px;font-size:.82rem}.theism-offer-editor .folk-magic-picker-list{max-height:38dvh;overflow:auto}.theism-offer-editor .folk-magic-picker-list>li{align-items:center}.theism-offer-choice{display:flex;align-items:center;gap:8px;min-width:0;flex:1}.theism-offer-choice>span{min-width:0;overflow-wrap:anywhere}.theism-rank-override{display:grid;grid-template-columns:auto minmax(110px,150px);align-items:center;gap:5px;font-size:.72rem;color:var(--mute)}.theism-rank-override select{width:100%;min-width:0;padding:4px}.theism-config-footer{display:flex;justify-content:flex-end;gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}
   .magic-capabilities{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px}
+  .theism-miracle-detail{min-width:0;overflow-wrap:anywhere}.theism-miracle-traits{display:inline-block;width:fit-content;max-width:100%;padding:3px 6px;border-left:2px solid var(--bronze);background:color-mix(in srgb,var(--bronze) 10%,transparent);color:var(--fg)!important;overflow-wrap:anywhere}.theism-miracle-detail p{overflow-wrap:anywhere}
   .magic-capability,.folk-magic-discipline{border:1px solid var(--line);background:var(--card2);padding:14px;min-width:0}
   .magic-capability-heading,.folk-magic-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
   .magic-capability h4,.folk-magic-heading h4{margin:0;color:var(--bronze);font:700 .82rem var(--display);letter-spacing:.1em;text-transform:uppercase}
