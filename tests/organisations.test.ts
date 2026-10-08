@@ -79,6 +79,26 @@ describe("shared organisation model", () => {
 (globalThis as typeof globalThis & { $state: <T>(value: T) => T }).$state = value => value;
 const store = await import("../src/lib/store.svelte");
 
+test("fresh character initialization has usable organisation collections", () => {
+  const { char, replace } = store;
+  replace({ memberships: [], organisations: [], magic: emptyMagicState() });
+  expect(char.memberships).toEqual([]);
+  expect(char.organisations.every(item => item.id && item.name && item.kind)).toBe(true);
+  expect(char.magic.disciplines).toEqual([]);
+  expect(char.home).toBe(false);
+});
+
+test("pre-shared-organisation saves migrate without losing organisation details", () => {
+  const { char, replace } = store;
+  replace({ memberships: [{ id: "legacy:guild", name: "Glass Guild", organisationType: "guild",
+    details: { skillsTaught: ["Craft"], duties: ["Keep the guild's secrets"] } }],
+  organisations: [], magic: emptyMagicState() });
+
+  expect(char.organisations).toContainEqual(expect.objectContaining({ id: "legacy:guild", name: "Glass Guild",
+    kind: { type: "custom", category: "guild" }, details: { skillsTaught: ["Craft"], duties: ["Keep the guild's secrets"] } }));
+  expect(char.memberships).toContainEqual({ id: "legacy:guild", organisationId: "legacy:guild", rank: "Common" });
+});
+
 test("legacy Theist cult membership migrates once into the shared membership while preserving magic state", () => {
   const { char, replace } = store;
   const theistMembership = { id: "theist:one", cultId: "core:cult-of-myceras", rank: "Acolyte", devotionSpecialisation: "Myceras",
