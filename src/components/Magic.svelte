@@ -21,7 +21,7 @@
   import { CORE_ANIMISM_RANKS, CORE_SPIRIT_RULES, generateCoreSpirit, listAnimismSpiritTypes, getBoundSpiritCapacity, getMaximumControllableSpiritPow, getSpiritDamage, getTranceCapabilities, reconcileAnimism, spiritIntensityBand, spiritIntensityForPow, spiritPowMatchesIntensity, validateSpirit, type AnimismRank, type AnimismStartingGrant, type SpiritAttitude, type SpiritBindingVessel, type SpiritRecord, type SpiritTradition, type SpiritType } from "../lib/animism";
   import { CORE_THEIST_CULTS, CORE_THEIST_MIRACLES, THEIST_RANKS, availableTheistCultMiracles, devotionalPoolMaximum, effectiveMiracleMinimumRank, miracleIntensity, miracleMagnitude, startingMiracleLimit, validateKnownMiracles, type TheistCult, type TheistCultMiracle, type TheistRank } from "../lib/theism";
   import { createOrganisationMembership, genericRankForTitle, rankTitle, upsertOrganisation, GENERIC_ORGANISATION_RANKS, type Organisation, type GenericOrganisationRank } from "../lib/organisations";
-  import { syncMagicOrganisationMemberships, syncTheistRankFromMembership } from "../lib/magic-organisations";
+  import { syncAnimismMembershipRankFromState, syncMagicOrganisationMemberships, syncTheistRankFromMembership } from "../lib/magic-organisations";
 
   const originName: Record<MagicSkillOrigin, string> = { culture: "Culture", career: "Career", bonus: "Bonus / Hobby Skill" };
   let picker: HTMLDialogElement;
@@ -721,7 +721,11 @@
     animismTraditionName = "";
     updateStatus();
   }
-  function updateAnimismRank(value: string) { animismState.rank = (CORE_ANIMISM_RANKS as readonly string[]).includes(value) ? value as AnimismRank : undefined; updateStatus(); }
+  function updateAnimismRank(value: string) {
+    animismState.rank = (CORE_ANIMISM_RANKS as readonly string[]).includes(value) ? value as AnimismRank : undefined;
+    syncAnimismMembershipRankFromState(char.magic, char.organisations, char.memberships);
+    updateStatus();
+  }
   function animismTypeIds(attitude: "friendly" | "neutral" | "hostile") {
     if (!animismTradition) return animismState.accessibleSpiritTypeIds;
     return attitude === "friendly" ? animismTradition.friendlySpiritTypeIds : attitude === "neutral" ? animismTradition.neutralSpiritTypeIds : animismTradition.hostileSpiritTypeIds;

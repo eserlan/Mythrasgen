@@ -4,7 +4,7 @@ import {
   rankTitle, upsertOrganisation, validateOrganisationMembership, type Organisation,
 } from "../src/lib/organisations";
 import { emptyMagicState } from "../src/lib/magic";
-import { syncMagicOrganisationMemberships, syncTheistRankFromMembership } from "../src/lib/magic-organisations";
+import { syncAnimismMembershipRankFromState, syncMagicOrganisationMemberships, syncTheistRankFromMembership } from "../src/lib/magic-organisations";
 
 describe("shared organisation model", () => {
   test("maps generic ranks to comparative titles without replacing custom overrides", () => {
@@ -119,4 +119,21 @@ test("magic skills alone and an unlinked Spirit Tradition do not create membersh
   syncMagicOrganisationMemberships(magic, organisations, memberships);
   expect(organisations).toEqual([]);
   expect(memberships).toEqual([]);
+});
+
+test("linked Animism ranks stay aligned between shared memberships and rules state", () => {
+  const magic = emptyMagicState();
+  magic.animism.traditions = [{ id: "tradition", name: "Forest Tradition", source: "custom", organisationId: "forest-cult",
+    friendlySpiritTypeIds: [], neutralSpiritTypeIds: [], hostileSpiritTypeIds: [], hostileTraditionIds: [], startingGrants: [], customSpiritTypes: [], customSpiritTemplates: [] }];
+  magic.animism.traditionId = "tradition";
+  const organisations: Organisation[] = [{ id: "forest-cult", name: "Forest Tradition", kind: { type: "magical-cult", discipline: "Animism" } }];
+  const memberships = [{ id: "forest-member", organisationId: "forest-cult", rank: "Overseer" as const }];
+
+  syncMagicOrganisationMemberships(magic, organisations, memberships);
+  expect(magic.animism.rank).toBe("High Shaman");
+  magic.animism.rank = "Shaman";
+  syncAnimismMembershipRankFromState(magic, organisations, memberships);
+  expect(memberships[0]!.rank).toBe("Proven");
+  syncMagicOrganisationMemberships(magic, organisations, memberships);
+  expect(magic.animism.rank).toBe("Shaman");
 });

@@ -1,10 +1,17 @@
 import { CORE_MYSTICISM_ORGANISATIONS, CORE_MYSTICISM_PATHS, type MysticismPath } from "./mysticism";
 import { CORE_SORCERY_SCHOOLS, type SorcerySchool } from "./sorcery";
-import type { AnimismState } from "./animism";
+import type { AnimismRank, AnimismState } from "./animism";
 import type { MagicState } from "./magic";
 import { createOrganisationMembership, normalizeOrganisationMemberships, normalizeOrganisations, type Organisation, type OrganisationMembership, type GenericOrganisationRank } from "./organisations";
 
 type Affiliation = { organisation: Organisation; membership: OrganisationMembership };
+
+const ANIMISM_RANK_TO_ORGANISATION: Record<AnimismRank, GenericOrganisationRank> = {
+  Follower: "Common", "Spirit Worshipper": "Dedicated", Shaman: "Proven", "High Shaman": "Overseer",
+};
+const ORGANISATION_RANK_TO_ANIMISM: Record<GenericOrganisationRank, AnimismRank> = {
+  Common: "Follower", Dedicated: "Spirit Worshipper", Proven: "Shaman", Overseer: "High Shaman", Leader: "High Shaman",
+};
 
 function affiliation(discipline: "Animism" | "Mysticism" | "Sorcery", organisation: Organisation, rank: GenericOrganisationRank = "Common"): Affiliation {
   return { organisation, membership: createOrganisationMembership(`magic:${discipline.toLowerCase()}:${organisation.id}`, organisation.id, rank) };
@@ -55,6 +62,25 @@ export function syncMagicOrganisationMemberships(magic: MagicState, organisation
   const normalizedMemberships = normalizeOrganisationMemberships([...currentMemberships, ...linked.map(item => item.membership)
     .filter(item => !present.has(item.id) && !presentOrganisations.has(item.organisationId))]);
   memberships.splice(0, memberships.length, ...normalizedMemberships);
+
+  const tradition = (magic.animism as AnimismState).traditions.find(item => item.id === magic.animism.traditionId);
+  const animismMembership = tradition?.organisationId
+    ? memberships.find(item => item.organisationId === tradition.organisationId)
+    : undefined;
+  if (tradition && animismMembership && organisations.some(item => item.id === tradition.organisationId
+    && item.kind.type === "magical-cult" && item.kind.discipline === "Animism")) {
+    magic.animism.rank = ORGANISATION_RANK_TO_ANIMISM[animismMembership.rank];
+  }
+}
+
+/** Keep a linked Animism membership aligned when its rules-facing rank is edited. */
+export function syncAnimismMembershipRankFromState(magic: MagicState, organisations: Organisation[], memberships: OrganisationMembership[]): void {
+  const tradition = magic.animism.traditions.find(item => item.id === magic.animism.traditionId);
+  if (!tradition?.organisationId || !magic.animism.rank) return;
+  if (!organisations.some(item => item.id === tradition.organisationId
+    && item.kind.type === "magical-cult" && item.kind.discipline === "Animism")) return;
+  const membership = memberships.find(item => item.organisationId === tradition.organisationId);
+  if (membership) membership.rank = ANIMISM_RANK_TO_ORGANISATION[magic.animism.rank];
 }
 
 /** Convert a shared Theism rank edit back to the legacy rules-facing title. */
