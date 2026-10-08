@@ -95,23 +95,66 @@ const blank = (): Character => ({
   generation: "pointBuy", rollResults: null, rollAssignments: STATS.map((_, i) => i), home: true,
 });
 function resolveNativeTongue(skills: string[], language = char.nativeLanguage) { return skills.map(name => name === "Native Tongue" ? nativeTongueName(language) : name); }
-function normalize(value: Partial<Character> | null, home = true): Character {
+const designationLabels = new Set([...cultures.map(item => item.name), ...careers.map(item => item.name)]);
+const isSkillName = (name: unknown): name is string => typeof name === "string" && !designationLabels.has(name);
+
+export function normalizeCharacter(value: Partial<Character> | null, home = true): Character {
   const restoreSpecialisations = (values: unknown): Record<string, string> =>
     values && typeof values === "object" && !Array.isArray(values)
       ? Object.fromEntries(Object.entries(values).filter((entry): entry is [string, string] => typeof entry[1] === "string"))
       : {};
   const fallback = blank();
-  const migrated = migrateCharacter(value ?? fallback);
+  // Older saves could place a culture/career label in a skill-choice field.
+  // Restore that designation to its proper index before the legacy migration
+  // runs, then keep it out of the skill registry inputs below.
+  const savedSelections = value?.cultureSelections as Partial<Character["cultureSelections"]> | undefined;
+  const savedCultureLabels = [
+    ...(typeof value?.culture === "string" ? [value.culture] : []),
+    ...(Array.isArray(savedSelections?.standard) ? savedSelections.standard.flat() : []),
+    ...(Array.isArray(savedSelections?.professional) ? savedSelections.professional : []),
+    ...(typeof savedSelections?.combatStyle === "string" ? [savedSelections.combatStyle] : []),
+    ...(Array.isArray(value?.careerProfessional) ? value.careerProfessional : []),
+  ];
+  const savedCareerLabels = [
+    ...(typeof value?.career === "string" ? [value.career] : []),
+    ...savedCultureLabels,
+  ];
+  const cultureLabel = savedCultureLabels.find(name => cultures.some(item => item.name === name));
+  // A numeric career is an old index and must keep using the legacy index map.
+  // String career values, and labels recovered from the old choice fields, are
+  // already current names and must not be remapped as legacy indices later.
+  const careerLabel = typeof value?.career === "number"
+    ? undefined
+    : savedCareerLabels.find(name => careers.some(item => item.name === name));
+  const migrated = migrateCharacter({
+    ...(value ?? fallback),
+    ...(cultureLabel ? { culture: cultures.findIndex(item => item.name === cultureLabel) } : {}),
+    ...(careerLabel ? { career: careers.findIndex(item => item.name === careerLabel) } : {}),
+  });
   const legacyHobby = migrated.hobbySkill;
-  const legacyCareer = !!value && value.career !== undefined && !Array.isArray(value.careerProfessional);
+  const legacyCareer = !!value && value.career !== undefined && !Array.isArray(value.careerProfessional) && !careerLabel;
   const cultureKind = cultures[migrated.culture ?? fallback.culture]?.kind;
   const ageCategory = normalizeAgeCategory(migrated.ageCategory, fallback.ageCategory);
+  const restoreCultureChoices = (candidate: unknown): string[][] => {
+    if (!Array.isArray(candidate)) return fallback.cultureSelections.standard;
+    return candidate.every(Array.isArray)
+      ? candidate.map(group => group.filter(isSkillName))
+      : [candidate.filter(isSkillName)];
+  };
   const normalized = {
     ...fallback,
     ...migrated,
     id: typeof migrated.id === "string" && migrated.id ? migrated.id : fallback.id,
     career: legacyCareer ? restoreLegacyCareerIndex(migrated.career ?? fallback.career) : migrated.career ?? fallback.career,
-    cultureSelections: { ...fallback.cultureSelections, ...migrated.cultureSelections },
+    cultureSelections: {
+      ...fallback.cultureSelections,
+      ...migrated.cultureSelections,
+      standard: restoreCultureChoices(migrated.cultureSelections?.standard),
+      professional: Array.isArray(migrated.cultureSelections?.professional)
+        ? migrated.cultureSelections.professional.filter(isSkillName)
+        : fallback.cultureSelections.professional,
+      combatStyle: isSkillName(migrated.cultureSelections?.combatStyle) ? migrated.cultureSelections.combatStyle : "",
+    },
     combatStyles: normalizeCombatStyles(migrated.combatStyles),
     skillSpecialisations: {
       culture: restoreSpecialisations(migrated.skillSpecialisations?.culture),
@@ -125,7 +168,7 @@ function normalize(value: Partial<Character> | null, home = true): Character {
     age: normalizeAge(Number.isFinite(migrated.age) ? migrated.age! : fallback.age, ageCategory),
     background: normalizeBackground(migrated.background, fallback.background),
     alloc: { ...fallback.alloc, ...(migrated.alloc ?? {}) },
-    careerProfessional: Array.isArray(migrated.careerProfessional) ? migrated.careerProfessional : [],
+    careerProfessional: Array.isArray(migrated.careerProfessional) ? migrated.careerProfessional.filter(isSkillName) : [],
     careerCombatStyles: Array.isArray(migrated.careerCombatStyles) ? migrated.careerCombatStyles.filter(name => typeof name === "string") : [],
     hobbySkill: null,
     race: normalizeRace(migrated.race),
@@ -360,7 +403,7 @@ const repository = createCharacterRepository<Character>(
   () => { const { id: _id, ...data } = blank(); return data; },
 );
 const initialCharacter = repository.getCharacter(repository.getActiveCharacterId() ?? "") ?? repository.createCharacter();
-export const char: Character = $state(normalize(initialCharacter, true));
+export const char: Character = $state(normalizeCharacter(initialCharacter, true));
 export const characterLibrary = $state({ characters: repository.listCharacters() as Character[] });
 function refreshLibrary() { characterLibrary.characters = repository.listCharacters() as Character[]; }
 
@@ -371,11 +414,11 @@ export function reconcileMagic() {
   reconcileAnimism(char.magic.animism, char.magic.animism.rank, char.chars.CHA, char.magic.animism.traditionId, binding?.value);
 }
 export const reset = (home = true) => Object.assign(char, blank(), { id: char.id, home });
-export const replace = (c: Partial<Character>) => Object.assign(char, normalize({ ...c, id: char.id }, false));
+export const replace = (c: Partial<Character>) => Object.assign(char, normalizeCharacter({ ...c, id: char.id }, false));
 export function createCharacter() {
   persist();
   const created = repository.createCharacter();
-  Object.assign(char, normalize(created, false));
+  Object.assign(char, normalizeCharacter(created, false));
   refreshLibrary();
   return created.id;
 }
@@ -384,7 +427,7 @@ export function selectCharacter(id: string) {
   if (!repository.setActiveCharacter(id)) return false;
   const selected = repository.getCharacter(id);
   if (!selected) return false;
-  Object.assign(char, normalize(selected, false));
+  Object.assign(char, normalizeCharacter(selected, false));
   refreshLibrary();
   return true;
 }
@@ -393,10 +436,10 @@ export function deleteCharacter(id: string) {
   if (!repository.deleteCharacter(id)) return false;
   const fallbackId = repository.getActiveCharacterId();
   const fallback = fallbackId ? repository.getCharacter(fallbackId) : null;
-  if (fallback) Object.assign(char, normalize(fallback, false));
+  if (fallback) Object.assign(char, normalizeCharacter(fallback, false));
   else {
     const created = repository.createCharacter();
-    Object.assign(char, normalize(created, true));
+    Object.assign(char, normalizeCharacter(created, true));
   }
   refreshLibrary();
   return true;
