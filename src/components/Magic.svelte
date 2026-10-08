@@ -20,7 +20,7 @@
   } from "../lib/sorcery";
   import { CORE_ANIMISM_RANKS, CORE_SPIRIT_RULES, generateCoreSpirit, listAnimismSpiritTypes, getBoundSpiritCapacity, getMaximumControllableSpiritPow, getSpiritDamage, getTranceCapabilities, reconcileAnimism, spiritIntensityBand, spiritIntensityForPow, spiritPowMatchesIntensity, validateSpirit, type AnimismRank, type AnimismStartingGrant, type SpiritAttitude, type SpiritBindingVessel, type SpiritRecord, type SpiritTradition, type SpiritType } from "../lib/animism";
   import { CORE_THEIST_CULTS, CORE_THEIST_MIRACLES, THEIST_RANKS, availableTheistCultMiracles, devotionalPoolMaximum, effectiveMiracleMinimumRank, miracleIntensity, miracleMagnitude, startingMiracleLimit, validateKnownMiracles, type TheistCult, type TheistCultMiracle, type TheistRank } from "../lib/theism";
-  import { createOrganisationMembership, genericRankForTitle, rankTitle, upsertOrganisation, GENERIC_ORGANISATION_RANKS, type Organisation, type GenericOrganisationRank } from "../lib/organisations";
+  import { createOrganisationMembership, genericRankForTitle, joinOrganisation, rankTitle, upsertOrganisation, GENERIC_ORGANISATION_RANKS, type Organisation, type GenericOrganisationRank } from "../lib/organisations";
   import { syncAnimismMembershipRankFromState, syncMagicOrganisationMemberships, syncTheistRankFromMembership } from "../lib/magic-organisations";
 
   const originName: Record<MagicSkillOrigin, string> = { culture: "Culture", career: "Career", bonus: "Bonus / Hobby Skill" };
@@ -114,6 +114,9 @@
   let theismRankOverrideEditorIds = $state<string[]>([]);
   let organisationDialog = $state<HTMLDialogElement>();
   let organisationEditingId = $state<string | null>(null);
+  let organisationMode = $state<"join" | "create">("join");
+  let organisationQuery = $state("");
+  let organisationSelectedId = $state("");
   let organisationName = $state("");
   let organisationKind = $state("guild");
   let organisationRank = $state<GenericOrganisationRank>("Common");
@@ -124,6 +127,8 @@
   let organisationDuties = $state("");
   let organisationRestrictions = $state("");
   let organisationBenefits = $state("");
+  let organisationPrivileges = $state("");
+  let organisationDefinitionNotes = $state("");
   let organisationNotes = $state("");
 
   const capability = $derived(char.magic.disciplines.find(item => item.discipline === "Folk Magic"));
@@ -346,8 +351,26 @@
   function openOrganisationEditor(membership?: typeof char.memberships[number]) {
     const organisation = membership ? char.organisations.find(item => item.id === membership.organisationId) : undefined;
     organisationEditingId = membership?.id ?? null;
+    organisationMode = "join";
+    organisationSelectedId = "";
+    organisationQuery = "";
+    if (!membership) {
+      organisationName = "";
+      organisationKind = "guild";
+      organisationRank = "Common";
+      organisationTitle = "";
+      organisationFocus = "";
+      organisationDescription = "";
+      organisationSkills = "";
+      organisationDuties = "";
+      organisationRestrictions = "";
+      organisationBenefits = "";
+      organisationPrivileges = "";
+      organisationDefinitionNotes = "";
+      organisationNotes = "";
+    }
     organisationName = organisation?.name ?? "";
-    organisationKind = organisation?.kind.type === "brotherhood" ? organisation.kind.subtype : organisation?.kind.type === "custom" ? organisation.kind.category ?? "custom brotherhood" : "guild";
+    organisationKind = organisation?.kind.type === "brotherhood" ? organisation.kind.subtype : organisation?.kind.type === "custom" ? organisation.kind.category ?? "custom" : "guild";
     organisationRank = membership?.rank ?? "Common";
     organisationTitle = membership?.titleOverride ?? "";
     organisationFocus = organisation?.focus ?? "";
@@ -355,30 +378,102 @@
     organisationSkills = organisation?.details?.skillsTaught?.join(", ") ?? "";
     organisationDuties = organisation?.details?.duties?.join(", ") ?? "";
     organisationRestrictions = organisation?.details?.restrictions?.join(", ") ?? "";
-    organisationBenefits = [...(organisation?.details?.benefits ?? []), ...(organisation?.details?.privileges ?? [])].join(", ");
+    organisationBenefits = organisation?.details?.benefits?.join(", ") ?? "";
+    organisationPrivileges = organisation?.details?.privileges?.join(", ") ?? "";
+    organisationDefinitionNotes = organisation?.details?.notes ?? "";
     organisationNotes = membership?.notes ?? "";
     organisationDialog?.showModal();
   }
+  function allAvailableOrganisations() {
+    const byId = new Map<string, Organisation>();
+    for (const organisation of [...char.organisations,
+      ...CORE_THEIST_CULTS.map(cult => ({ id: cult.id, name: cult.name, kind: { type: "magical-cult" as const, discipline: "Theism" as const }, deity: cult.deity, ...(cult.description ? { description: cult.description } : {}) })),
+      ...theismState.customCults.map(cult => ({ id: cult.id, name: cult.name, kind: { type: "magical-cult" as const, discipline: "Theism" as const }, deity: cult.deity, ...(cult.description ? { description: cult.description } : {}) }))]) {
+      if (!byId.has(organisation.id)) byId.set(organisation.id, organisation);
+    }
+    return [...byId.values()].sort((left, right) => left.name.localeCompare(right.name));
+  }
+  function availableOrganisations() {
+    const query = organisationQuery.trim().toLowerCase();
+    return allAvailableOrganisations().filter(organisation => !query || `${organisation.name} ${organisationKindLabel(organisation)} ${organisation.focus ?? ""} ${organisation.deity ?? ""} ${organisation.description ?? ""}`.toLowerCase().includes(query));
+  }
+  function selectedOrganisation() {
+    if (organisationEditingId) {
+      const membership = char.memberships.find(item => item.id === organisationEditingId);
+      const editingOrganisation = membership && char.organisations.find(item => item.id === membership.organisationId);
+      if (editingOrganisation) return editingOrganisation;
+    }
+    return allAvailableOrganisations().find(organisation => organisation.id === organisationSelectedId);
+  }
+  function selectedOrganisationRankTitle(rank = organisationRank) {
+    return rankTitle(rank, organisationMode === "create" ? { kind: organisationKindForCreation() } : selectedOrganisation());
+  }
+  function selectExistingOrganisation(id: string) {
+    organisationSelectedId = id;
+    const membership = char.memberships.find(item => item.organisationId === id);
+    const theist = theismState.memberships.find(item => item.cultId === id);
+    if (membership) {
+      organisationRank = membership.rank;
+      organisationTitle = membership.titleOverride ?? "";
+      organisationNotes = membership.notes ?? "";
+    } else if (theist) {
+      organisationRank = genericRankForTitle(theist.rank, "Theism") ?? "Common";
+      organisationTitle = "";
+      organisationNotes = "";
+    } else {
+      organisationRank = "Common";
+      organisationTitle = "";
+      organisationNotes = "";
+    }
+  }
+  function organisationKindForCreation(): Organisation["kind"] {
+    if (["guild", "brotherhood", "college", "gang", "company", "regiment", "military order"].includes(organisationKind)) {
+      return { type: "brotherhood", subtype: organisationKind };
+    }
+    return { type: "custom", category: organisationKind === "custom" ? "custom organisation" : organisationKind };
+  }
+  function ensureTheistMembership(organisation: Organisation, membership: typeof char.memberships[number]) {
+    if (organisation.kind.type !== "magical-cult" || organisation.kind.discipline !== "Theism") return;
+    const cult = [...CORE_THEIST_CULTS, ...theismState.customCults].find(item => item.id === organisation.id);
+    if (!cult || theismState.memberships.some(item => item.cultId === cult.id)) return;
+    const rank = rankTitle(membership.rank, organisation) as TheistRank;
+    theismState.memberships.push({ id: membership.id, cultId: cult.id, rank, devotionSpecialisation: cult.deity,
+      devotionValue: 0, exhortValue: 0, devotionalPool: 0, knownMiracleIds: [] });
+  }
   function saveOrganisationMembership() {
-    const name = organisationName.trim();
-    if (!name) return;
     const existingMembership = organisationEditingId ? char.memberships.find(item => item.id === organisationEditingId) : undefined;
-    const id = existingMembership?.organisationId ?? `organisation:${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`}`;
-    const subtype = organisationKind;
-    const previousDetails = char.organisations.find(item => item.id === id)?.details;
-    const organisation: Organisation = { id, name, kind: subtype === "custom" ? { type: "custom", category: "custom brotherhood" } : { type: "brotherhood", subtype },
-      description: organisationDescription.trim() || undefined, focus: organisationFocus.trim() || undefined,
-      details: { ...previousDetails, skillsTaught: splitOrganisationLines(organisationSkills), duties: splitOrganisationLines(organisationDuties), restrictions: splitOrganisationLines(organisationRestrictions),
-        benefits: splitOrganisationLines(organisationBenefits), privileges: [] } };
-    upsertOrganisation(char.organisations, organisation);
     if (existingMembership) {
       existingMembership.rank = organisationRank;
       existingMembership.titleOverride = organisationTitle.trim() || undefined;
       existingMembership.notes = organisationNotes.trim() || undefined;
-    } else {
-      const memberId = `membership:${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`}`;
-      char.memberships.push({ ...createOrganisationMembership(memberId, id, organisationRank), ...(organisationTitle.trim() ? { titleOverride: organisationTitle.trim() } : {}), ...(organisationNotes.trim() ? { notes: organisationNotes.trim() } : {}) });
+      const definition = char.organisations.find(item => item.id === existingMembership.organisationId);
+      if (definition) syncTheistRankFromMembership(char.magic, existingMembership, definition);
+      persist();
+      organisationDialog?.close();
+      return;
     }
+    let organisation: Organisation | undefined;
+    if (organisationMode === "join") organisation = selectedOrganisation();
+    else {
+      const name = organisationName.trim();
+      if (!name) return;
+      const id = `organisation:${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`}`;
+      const details = { skillsTaught: splitOrganisationLines(organisationSkills), duties: splitOrganisationLines(organisationDuties),
+        restrictions: splitOrganisationLines(organisationRestrictions), benefits: splitOrganisationLines(organisationBenefits), privileges: splitOrganisationLines(organisationPrivileges),
+        notes: organisationDefinitionNotes.trim() };
+      organisation = { id, name, kind: organisationKindForCreation(), focus: organisationFocus.trim() || undefined,
+        description: organisationDescription.trim() || undefined,
+        details: Object.fromEntries(Object.entries(details).filter(([, value]) => value.length)) };
+    }
+    if (!organisation) return;
+    // Selecting an existing organisation again reuses its membership and preserves its identity.
+    const memberId = theismState.memberships.find(item => item.cultId === organisation!.id)?.id
+      ?? `membership:${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`}`;
+    const membership = joinOrganisation(char.organisations, char.memberships, organisation, memberId, organisationRank);
+    membership.titleOverride = organisationTitle.trim() || undefined;
+    membership.notes = organisationNotes.trim() || undefined;
+    ensureTheistMembership(organisation, membership);
+    syncTheistRankFromMembership(char.magic, membership, organisation);
     organisationDialog?.close();
     persist();
   }
@@ -1458,21 +1553,48 @@
 
 <dialog class="folk-magic-picker organisation-editor" bind:this={organisationDialog} aria-labelledby="organisation-editor-title">
   <form class="folk-magic-picker-content" onsubmit={event => { event.preventDefault(); saveOrganisationMembership(); }}>
-    <header><h2 id="organisation-editor-title">{organisationEditingId ? "Edit organisation membership" : "Add organisation membership"}</h2><p>Set this affiliation’s details and current rank.</p></header>
+    <header><h2 id="organisation-editor-title">{organisationEditingId ? "Edit membership" : "Add membership"}</h2><p>{organisationEditingId ? "Change this character’s rank and personal notes." : "Join an existing organisation or create a new definition and membership."}</p></header>
+    {#if !organisationEditingId}
+      <div class="organisation-mode" role="group" aria-label="Membership mode">
+        <button type="button" class:active={organisationMode === "join"} aria-pressed={organisationMode === "join"} onclick={() => organisationMode = "join"}>Join existing</button>
+        <button type="button" class:active={organisationMode === "create"} aria-pressed={organisationMode === "create"} onclick={() => organisationMode = "create"}>Create new</button>
+      </div>
+    {/if}
     <div class="organisation-form-grid">
-      <label>Name<input bind:value={organisationName} required maxlength="120" /></label>
-      <label>Type<select bind:value={organisationKind}><option value="company">Company</option><option value="college">College</option><option value="gang">Gang</option><option value="guild">Guild</option><option value="regiment">Regiment</option><option value="custom">Custom brotherhood</option></select></label>
-      <label>Rank<select bind:value={organisationRank}>{#each GENERIC_ORGANISATION_RANKS as rank}<option value={rank}>{rank}</option>{/each}</select></label>
-      <label>Rank/title override<input bind:value={organisationTitle} maxlength="80" placeholder="Optional title" /></label>
-      <label>Focus (optional)<input bind:value={organisationFocus} maxlength="120" /></label>
-      <label class="organisation-wide">Description<textarea bind:value={organisationDescription} rows="2"></textarea></label>
-      <label>Skills taught<textarea bind:value={organisationSkills} rows="2" placeholder="Comma separated"></textarea></label>
-      <label>Obligations / duties<textarea bind:value={organisationDuties} rows="2" placeholder="Comma separated"></textarea></label>
-      <label>Restrictions<textarea bind:value={organisationRestrictions} rows="2" placeholder="Comma separated"></textarea></label>
-      <label>Benefits / privileges<textarea bind:value={organisationBenefits} rows="2" placeholder="Comma separated"></textarea></label>
-      <label class="organisation-wide">Membership notes<textarea bind:value={organisationNotes} rows="2"></textarea></label>
+      {#if organisationEditingId}
+        {@const editingMembership = char.memberships.find(item => item.id === organisationEditingId)}
+        {@const editingOrganisation = editingMembership && char.organisations.find(item => item.id === editingMembership.organisationId)}
+        <div class="organisation-identity organisation-wide"><b>{editingOrganisation?.name ?? editingMembership?.organisationId}</b><span>{editingOrganisation ? organisationKindLabel(editingOrganisation) : "Organisation"}{#if editingOrganisation?.focus} · {editingOrganisation.focus}{/if}</span></div>
+      {:else if organisationMode === "join"}
+        <label class="organisation-wide">Search organisations<input bind:value={organisationQuery} type="search" maxlength="120" placeholder="Search campaign organisations and cults" aria-label="Search existing organisations" /></label>
+        <label class="organisation-wide">Existing organisation<select value={organisationSelectedId} onchange={event => selectExistingOrganisation(event.currentTarget.value)} required>
+          <option value="">Choose an organisation…</option>
+          {#each availableOrganisations() as organisation (organisation.id)}<option value={organisation.id}>{organisation.name} · {organisationKindLabel(organisation)}{#if organisation.focus} · {organisation.focus}{/if}</option>{/each}
+        </select></label>
+        {@const chosenOrganisation = selectedOrganisation()}
+        {#if chosenOrganisation}<div class="organisation-identity organisation-wide"><b>{chosenOrganisation.name}</b><span>{organisationKindLabel(chosenOrganisation)}{#if chosenOrganisation.focus} · {chosenOrganisation.focus}{/if}</span>{#if chosenOrganisation.description}<p>{chosenOrganisation.description}</p>{/if}<small>Joining reuses this organisation definition.</small></div>{/if}
+      {:else}
+        <label>Name<input bind:value={organisationName} required maxlength="120" /></label>
+        <label>Type<select bind:value={organisationKind}>
+          <option value="guild">Guild</option><option value="brotherhood">Brotherhood</option><option value="college">College</option><option value="gang">Gang</option><option value="company">Company</option><option value="regiment">Regiment</option><option value="military order">Military order</option><option value="religious cult">Religious / magical cult</option><option value="custom">Custom organisation</option>
+        </select></label>
+        <label>Focus (optional)<input bind:value={organisationFocus} maxlength="120" /></label>
+        <details class="organisation-details organisation-wide"><summary>Organisation details (optional)</summary>
+          <p>These details belong to the reusable organisation definition.</p>
+          <label>Description<textarea bind:value={organisationDescription} rows="2"></textarea></label>
+          <label>Skills taught<textarea bind:value={organisationSkills} rows="2" placeholder="Comma separated"></textarea></label>
+          <label>Duties / obligations<textarea bind:value={organisationDuties} rows="2" placeholder="Comma separated"></textarea></label>
+          <label>Restrictions<textarea bind:value={organisationRestrictions} rows="2" placeholder="Comma separated"></textarea></label>
+          <label>Benefits<textarea bind:value={organisationBenefits} rows="2" placeholder="Comma separated"></textarea></label>
+          <label>Privileges<textarea bind:value={organisationPrivileges} rows="2" placeholder="Comma separated"></textarea></label>
+          <label>Organisation notes<textarea bind:value={organisationDefinitionNotes} rows="2"></textarea></label>
+        </details>
+      {/if}
+      <label>Rank<select bind:value={organisationRank}>{#each GENERIC_ORGANISATION_RANKS as rank}<option value={rank}>{selectedOrganisationRankTitle(rank)}</option>{/each}</select></label>
+      <label>Custom rank/title override<input bind:value={organisationTitle} maxlength="80" placeholder={selectedOrganisationRankTitle()} /></label>
+      <label class="organisation-wide">Personal membership notes<textarea bind:value={organisationNotes} rows="2"></textarea></label>
     </div>
-    <div class="organisation-form-actions"><button type="button" class="ghost" onclick={() => organisationDialog?.close()}>Cancel</button><button type="submit" class="primary" disabled={!organisationName.trim()}>Save membership</button></div>
+    <div class="organisation-form-actions"><button type="button" class="ghost" onclick={() => organisationDialog?.close()}>Cancel</button><button type="submit" class="primary" disabled={organisationEditingId ? false : organisationMode === "join" ? !organisationSelectedId : !organisationName.trim()}>Save membership</button></div>
   </form>
 </dialog>
 
@@ -1634,7 +1756,7 @@
   .magic-skills li{display:grid;grid-template-columns:1fr auto;gap:0 8px;border-top:1px solid var(--line);padding:7px 0}
   .magic-skills small{grid-column:1/-1;color:var(--mute);font-size:.78rem}
   .magic-empty-title{margin:.3rem 0;color:var(--mute)}
-  .organisations-section{margin-top:16px}.organisations-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}.organisations-heading h3{margin:0;color:var(--bronze);font:700 .9rem var(--display);letter-spacing:.1em;text-transform:uppercase}.organisations-heading p,.organisations-empty{margin:4px 0 0;color:var(--mute);font-size:.85rem}.organisation-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:9px;margin-top:12px}.organisation-card{min-width:0;padding:11px;border:1px solid var(--line);background:var(--card2)}.organisation-card-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}.organisation-card-heading h4{margin:0;overflow-wrap:anywhere}.organisation-card-heading span,.organisation-card-heading>b{font-size:.8rem;color:var(--mute)}.organisation-card-heading>b{white-space:nowrap;color:var(--fg)}.organisation-card>p{margin:7px 0 0;font-size:.83rem;overflow-wrap:anywhere}.organisation-summary{color:var(--mute)}.organisation-magic-link{color:var(--mute);font-size:.78rem!important}.organisation-actions{display:flex;gap:7px;margin-top:8px}.organisation-capability-link{display:inline-block;text-decoration:none;margin-top:3px}.organisation-editor{width:min(740px,calc(100vw - 24px));max-width:740px}.organisation-editor .folk-magic-picker-content{max-width:none}.organisation-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:12px}.organisation-form-grid label{display:grid;align-content:start;gap:4px;font-size:.8rem}.organisation-form-grid input,.organisation-form-grid select,.organisation-form-grid textarea{width:100%;min-width:0}.organisation-wide{grid-column:1/-1}.organisation-form-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}
+  .organisations-section{margin-top:16px}.organisations-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}.organisations-heading h3{margin:0;color:var(--bronze);font:700 .9rem var(--display);letter-spacing:.1em;text-transform:uppercase}.organisations-heading p,.organisations-empty{margin:4px 0 0;color:var(--mute);font-size:.85rem}.organisation-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:9px;margin-top:12px}.organisation-card{min-width:0;padding:11px;border:1px solid var(--line);background:var(--card2)}.organisation-card-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}.organisation-card-heading h4{margin:0;overflow-wrap:anywhere}.organisation-card-heading span,.organisation-card-heading>b{font-size:.8rem;color:var(--mute)}.organisation-card-heading>b{white-space:nowrap;color:var(--fg)}.organisation-card>p{margin:7px 0 0;font-size:.83rem;overflow-wrap:anywhere}.organisation-summary{color:var(--mute)}.organisation-magic-link{color:var(--mute);font-size:.78rem!important}.organisation-actions{display:flex;gap:7px;margin-top:8px}.organisation-capability-link{display:inline-block;text-decoration:none;margin-top:3px}.organisation-editor{width:min(740px,calc(100vw - 24px));max-width:740px}.organisation-editor .folk-magic-picker-content{max-width:none}.organisation-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:12px}.organisation-form-grid label{display:grid;align-content:start;gap:4px;font-size:.8rem}.organisation-form-grid input,.organisation-form-grid select,.organisation-form-grid textarea{width:100%;min-width:0}.organisation-wide{grid-column:1/-1}.organisation-mode{display:flex;gap:6px;margin-top:12px}.organisation-mode button.active{border-color:var(--bronze);color:var(--bronze)}.organisation-identity{display:grid;gap:3px;padding:9px;border:1px solid var(--line);font-size:.85rem}.organisation-identity span,.organisation-identity small,.organisation-identity p{margin:0;color:var(--mute)}.organisation-details{grid-column:1/-1;border-top:1px solid var(--line);padding-top:8px}.organisation-details summary{cursor:pointer;color:var(--bronze);font-size:.84rem}.organisation-details[open]{display:grid;gap:8px}.organisation-details>p{margin:0;color:var(--mute);font-size:.8rem}.organisation-form-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}
   .folk-magic-discipline{margin-top:12px;padding:16px}
   .folk-magic-skill{margin:2px 0 0;font-weight:700}
   .folk-magic-provenance{margin:0;font-size:.82rem}

@@ -45,6 +45,29 @@ export function createOrganisationMembership(id: string, organisationId: string,
   return { id, organisationId, rank, status: "active" };
 }
 
+/** Join an organisation once, reusing an existing character membership when present. */
+export function joinOrganisationMembership(
+  memberships: OrganisationMembership[], organisationId: string, id: string, rank: GenericOrganisationRank = "Common",
+): OrganisationMembership {
+  const existing = memberships.find(item => item.organisationId === organisationId);
+  if (existing) {
+    existing.rank = rank;
+    return existing;
+  }
+  const membership = createOrganisationMembership(id, organisationId, rank);
+  memberships.push(membership);
+  return membership;
+}
+
+/** Add an organisation to the shared catalogue and join it with one stable membership. */
+export function joinOrganisation(
+  organisations: Organisation[], memberships: OrganisationMembership[], organisation: Organisation,
+  id: string, rank: GenericOrganisationRank = "Common",
+): OrganisationMembership {
+  upsertOrganisation(organisations, organisation);
+  return joinOrganisationMembership(memberships, organisation.id, id, rank);
+}
+
 /** Keep the shared catalogue aligned when an existing organisation is edited. */
 export function upsertOrganisation(organisations: Organisation[], organisation: Organisation): void {
   const index = organisations.findIndex(item => item.id === organisation.id);
@@ -72,8 +95,10 @@ export const ORGANISATION_RANK_TITLES: Record<string, Record<GenericOrganisation
 
 export function rankTitle(rank: GenericOrganisationRank, organisation?: Pick<Organisation, "kind" | "rankTitles">): string {
   const discipline = organisation?.kind.type === "magical-cult" ? organisation.kind.discipline : undefined;
+  const category = organisation?.kind.type === "custom" ? organisation.kind.category?.toLowerCase() : "";
   return organisation?.rankTitles?.[rank] ?? (discipline ? ORGANISATION_RANK_TITLES[discipline]?.[rank] : undefined)
     ?? (organisation?.kind.type === "brotherhood" ? ORGANISATION_RANK_TITLES.Brotherhood[rank] : undefined)
+    ?? (category?.includes("cult") || category?.includes("religious") || category?.includes("magical") ? ORGANISATION_RANK_TITLES.Theism[rank] : undefined)
     ?? DEFAULT_RANK_TITLES[rank];
 }
 

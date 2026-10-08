@@ -17,17 +17,35 @@ describe("Magic & Cults affiliation UI", () => {
     expect(page).toContain("+ Add organisation");
   });
 
-  test("ordinary memberships expose editable details and predictable removal", () => {
+  test("membership dialog supports joining existing organisations and creating reusable definitions", () => {
+    expect(page).toContain('let organisationMode = $state<"join" | "create">("join")');
+    expect(page).toContain("Join existing");
+    expect(page).toContain("Create new");
+    expect(page).toContain("Search organisations");
+    expect(page).toContain("availableOrganisations()");
+    expect(page).toContain("Theist cult");
+    expect(page).toContain("reuses this organisation definition");
+    expect(page).toContain('organisationMode === "join" ? !organisationSelectedId');
+    expect(page).toContain("joinOrganisation(char.organisations, char.memberships, organisation, memberId, organisationRank)");
+    expect(page).toContain("Organisation details (optional)");
+    expect(page).toContain("Personal membership notes");
+    expect(page).toContain("ensureTheistMembership(organisation, membership)");
+  });
+
+  test("ordinary memberships expose contextual organisation types and predictable removal", () => {
     expect(page).toContain('<option value="company">Company</option>');
     expect(page).toContain('<option value="college">College</option>');
     expect(page).toContain('<option value="gang">Gang</option>');
     expect(page).toContain('<option value="guild">Guild</option>');
     expect(page).toContain('<option value="regiment">Regiment</option>');
-    expect(page).toContain('<option value="custom">Custom brotherhood</option>');
+    expect(page).toContain('<option value="military order">Military order</option>');
+    expect(page).toContain('<option value="religious cult">Religious / magical cult</option>');
     expect(page).toContain("Skills taught");
-    expect(page).toContain("Obligations / duties");
+    expect(page).toContain("Duties / obligations");
     expect(page).toContain("Restrictions");
     expect(page).toContain("Benefits");
+    expect(page).toContain("Privileges");
+    expect(page).toContain("These details belong to the reusable organisation definition.");
     expect(page).toContain("function removeOrganisationMembership");
     expect(page).toContain('organisation?.kind.type === "magical-cult"');
   });
