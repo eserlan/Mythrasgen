@@ -79,6 +79,24 @@ describe("Professional Skill specialisations", () => {
     setSkillSpecialisation("culture", "Lore (any)", "");
   });
 
+  test("hydrates legacy culture and career labels without validating them as skills", () => {
+    const { normalizeCharacter } = store;
+    const restored = normalizeCharacter({
+      id: "legacy-barbarian",
+      name: "Old Barbarian",
+      cultureSelections: { standard: [], professional: ["Barbarian"], combatStyle: "" },
+      careerProfessional: ["Barbarian", "Hunter"],
+      alloc: { culture: {}, career: {}, bonus: {} },
+    });
+
+    expect(restored).toMatchObject({ id: "legacy-barbarian", name: "Old Barbarian",
+      culture: cultures.findIndex(item => item.name === "Barbarian"),
+      career: careers.findIndex(item => item.name === "Hunter") });
+    expect(restored.cultureSelections.professional).toEqual([]);
+    expect(restored.careerProfessional).toEqual([]);
+    expect(restored.magic.disciplines).toEqual([]);
+  });
+
   test("preserves old template allocations until a specialisation can receive them", () => {
     const { char, replace, setSkillSpecialisation } = store;
     const scholar = careers.findIndex(item => item.name === "Scholar");
