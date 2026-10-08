@@ -369,13 +369,16 @@ function magicSkillsFor(character: Character) {
       .filter((name): name is string => !!name)])];
   const hobby = hobbySkillName(character.hobbySkill);
   const names = [...new Set([...cultureLearned, ...careerLearned, ...(hobby ? [hobby] : []), ...Object.keys(character.alloc.bonus)])];
+  const combatStyles = [...character.careerCombatStyles, character.cultureSelections.combatStyle,
+    ...character.combatStyles.map(style => style.name), ...(character.hobbySkill?.type === "combatStyle" ? [character.hobbySkill.name] : [])]
+    .filter(Boolean);
   return names.map(name => {
     const origins = [
       ...(cultureLearned.includes(name) ? ["culture" as const] : []),
       ...(careerLearned.includes(name) ? ["career" as const] : []),
       ...(name === hobby || (character.alloc.bonus[name] ?? 0) > 0 ? ["bonus" as const] : []),
     ];
-    const value = formulaVal(skillDef(name, [...character.careerCombatStyles, character.cultureSelections.combatStyle].filter(Boolean)).f, character.chars)
+    const value = formulaVal(skillDef(name, combatStyles).f, character.chars)
       + sum((Object.keys(POOLS) as Kind[]).map(kind => character.alloc[kind][name] ?? 0));
     return { name, value, origins };
   });
