@@ -20,6 +20,7 @@
   } from "../lib/sorcery";
   import { CORE_ANIMISM_RANKS, CORE_SPIRIT_RULES, generateCoreSpirit, listAnimismSpiritTypes, getBoundSpiritCapacity, getMaximumControllableSpiritPow, getSpiritDamage, getTranceCapabilities, reconcileAnimism, spiritIntensityBand, spiritIntensityForPow, spiritPowMatchesIntensity, validateSpirit, type AnimismRank, type AnimismStartingGrant, type SpiritAttitude, type SpiritBindingVessel, type SpiritRecord, type SpiritTradition, type SpiritType } from "../lib/animism";
   import { CORE_THEIST_CULTS, CORE_THEIST_MIRACLES, THEIST_RANKS, availableTheistCultMiracles, devotionalPoolMaximum, effectiveMiracleMinimumRank, miracleIntensity, miracleMagnitude, startingMiracleLimit, validateKnownMiracles, type TheistCult, type TheistCultMiracle, type TheistRank } from "../lib/theism";
+  import { createOrganisationMembership, genericRankForTitle, upsertOrganisation } from "../lib/organisations";
 
   const originName: Record<MagicSkillOrigin, string> = { culture: "Culture", career: "Career", bonus: "Bonus / Hobby Skill" };
   let picker: HTMLDialogElement;
@@ -317,6 +318,12 @@
     membership.devotionValue = theismDevotion;
     membership.exhortValue = theismExhort;
     if (!prior) theismState.memberships = [membership];
+    upsertOrganisation(char.organisations, { id: cult.id, name: cult.name, kind: { type: "magical-cult", discipline: "Theism" }, deity: cult.deity,
+      description: cult.description });
+    const sharedMembership = char.memberships.find(item => item.id === membership.id);
+    const genericRank = genericRankForTitle(membership.rank, "Theism") ?? "Common";
+    if (sharedMembership) { sharedMembership.organisationId = cult.id; sharedMembership.rank = genericRank; }
+    else char.memberships.push(createOrganisationMembership(membership.id, cult.id, genericRank));
     theismConfigureDialog?.close();
     updateStatus();
   }
@@ -1236,7 +1243,7 @@
             <label>Source details<input value={sorceryAccess()?.sourceDescription ?? sorcerySchool.sourceDescription ?? ""} maxlength="120" placeholder="Name or short note" onchange={event => updateSorceryAccess("sourceDescription", event.currentTarget.value)} /></label>
             <label>Organisation (optional)
               <select value={sorceryAccess()?.organisationId ?? ""} onchange={event => updateSorceryAccess("organisationId", event.currentTarget.value)}>
-                <option value="">None</option>{#each char.memberships as membership (membership.id)}<option value={membership.id}>{membership.name}</option>{/each}
+                <option value="">None</option>{#each char.organisations as organisation (organisation.id)}<option value={organisation.id}>{organisation.name}</option>{/each}
               </select>
             </label>
           </div>
