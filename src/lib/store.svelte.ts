@@ -120,14 +120,19 @@ export function normalizeCharacter(value: Partial<Character> | null, home = true
     ...savedCultureLabels,
   ];
   const cultureLabel = savedCultureLabels.find(name => cultures.some(item => item.name === name));
-  const careerLabel = savedCareerLabels.find(name => careers.some(item => item.name === name));
+  // A numeric career is an old index and must keep using the legacy index map.
+  // String career values, and labels recovered from the old choice fields, are
+  // already current names and must not be remapped as legacy indices later.
+  const careerLabel = typeof value?.career === "number"
+    ? undefined
+    : savedCareerLabels.find(name => careers.some(item => item.name === name));
   const migrated = migrateCharacter({
     ...(value ?? fallback),
     ...(cultureLabel ? { culture: cultures.findIndex(item => item.name === cultureLabel) } : {}),
     ...(careerLabel ? { career: careers.findIndex(item => item.name === careerLabel) } : {}),
   });
   const legacyHobby = migrated.hobbySkill;
-  const legacyCareer = !!value && value.career !== undefined && !Array.isArray(value.careerProfessional);
+  const legacyCareer = !!value && value.career !== undefined && !Array.isArray(value.careerProfessional) && !careerLabel;
   const cultureKind = cultures[migrated.culture ?? fallback.culture]?.kind;
   const ageCategory = normalizeAgeCategory(migrated.ageCategory, fallback.ageCategory);
   const restoreCultureChoices = (candidate: unknown): string[][] => {

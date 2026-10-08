@@ -95,6 +95,10 @@ describe("Professional Skill specialisations", () => {
     expect(restored.cultureSelections.professional).toEqual([]);
     expect(restored.careerProfessional).toEqual([]);
     expect(restored.magic.disciplines).toEqual([]);
+
+    // Current-name career strings must not be reinterpreted as legacy indices.
+    const stringCareer = normalizeCharacter(JSON.parse('{"id":"legacy-career","career":"Hunter"}'));
+    expect(stringCareer.career).toBe(careers.findIndex(item => item.name === "Hunter"));
   });
 
   test("preserves old template allocations until a specialisation can receive them", () => {
