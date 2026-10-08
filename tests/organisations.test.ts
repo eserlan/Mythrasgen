@@ -42,12 +42,12 @@ describe("shared organisation model", () => {
   });
 
   test("updates the shared organisation when an existing cult is edited", () => {
-    const organisations: Organisation[] = [{ id: "cult", name: "Old name", deity: "Old deity",
-      kind: { type: "magical-cult", discipline: "Theism" } }];
-    upsertOrganisation(organisations, { id: "cult", name: "New name", deity: "New deity",
+    const organisations: Organisation[] = [{ id: "cult", name: "Old name", deity: "Old deity", description: "Old description",
+      kind: { type: "magical-cult", discipline: "Theism" }, rankTitles: { Common: "Believer" }, details: { notes: "Local notes" } }];
+    upsertOrganisation(organisations, { id: "cult", name: "New name", deity: "New deity", description: undefined,
       kind: { type: "magical-cult", discipline: "Theism" } });
     expect(organisations).toEqual([{ id: "cult", name: "New name", deity: "New deity",
-      kind: { type: "magical-cult", discipline: "Theism" } }]);
+      kind: { type: "magical-cult", discipline: "Theism" }, rankTitles: { Common: "Believer" }, details: { notes: "Local notes" } }]);
   });
 });
 

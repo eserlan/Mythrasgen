@@ -319,7 +319,7 @@
     membership.exhortValue = theismExhort;
     if (!prior) theismState.memberships = [membership];
     upsertOrganisation(char.organisations, { id: cult.id, name: cult.name, kind: { type: "magical-cult", discipline: "Theism" }, deity: cult.deity,
-      ...(cult.description ? { description: cult.description } : {}) });
+      description: cult.description });
     const sharedMembership = char.memberships.find(item => item.id === membership.id);
     const genericRank = genericRankForTitle(membership.rank, "Theism") ?? "Common";
     if (sharedMembership) { sharedMembership.organisationId = cult.id; sharedMembership.rank = genericRank; }

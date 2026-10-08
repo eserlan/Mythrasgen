@@ -49,7 +49,13 @@ export function createOrganisationMembership(id: string, organisationId: string,
 export function upsertOrganisation(organisations: Organisation[], organisation: Organisation): void {
   const index = organisations.findIndex(item => item.id === organisation.id);
   if (index < 0) organisations.push(organisation);
-  else organisations[index] = organisation;
+  else {
+    const updated = { ...organisations[index], ...organisation };
+    for (const key of ["description", "deity", "pantheon", "focus", "rankTitles", "details"] as const) {
+      if (key in organisation && organisation[key] === undefined) delete updated[key];
+    }
+    organisations[index] = updated;
+  }
 }
 
 export const DEFAULT_RANK_TITLES: Record<GenericOrganisationRank, string> = {
