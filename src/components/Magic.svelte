@@ -20,7 +20,7 @@
   } from "../lib/sorcery";
   import { CORE_ANIMISM_RANKS, CORE_SPIRIT_RULES, generateCoreSpirit, listAnimismSpiritTypes, getBoundSpiritCapacity, getMaximumControllableSpiritPow, getSpiritDamage, getTranceCapabilities, reconcileAnimism, spiritIntensityBand, spiritIntensityForPow, spiritPowMatchesIntensity, validateSpirit, type AnimismRank, type AnimismStartingGrant, type SpiritAttitude, type SpiritBindingVessel, type SpiritRecord, type SpiritTradition, type SpiritType } from "../lib/animism";
   import { CORE_THEIST_CULTS, CORE_THEIST_MIRACLES, THEIST_RANKS, availableTheistCultMiracles, devotionalPoolMaximum, effectiveMiracleMinimumRank, miracleIntensity, miracleMagnitude, startingMiracleLimit, validateKnownMiracles, type TheistCult, type TheistCultMiracle, type TheistRank } from "../lib/theism";
-  import { createOrganisationMembership, genericRankForTitle } from "../lib/organisations";
+  import { createOrganisationMembership, genericRankForTitle, upsertOrganisation } from "../lib/organisations";
 
   const originName: Record<MagicSkillOrigin, string> = { culture: "Culture", career: "Career", bonus: "Bonus / Hobby Skill" };
   let picker: HTMLDialogElement;
@@ -318,10 +318,8 @@
     membership.devotionValue = theismDevotion;
     membership.exhortValue = theismExhort;
     if (!prior) theismState.memberships = [membership];
-    if (!char.organisations.some(item => item.id === cult.id)) {
-      char.organisations.push({ id: cult.id, name: cult.name, kind: { type: "magical-cult", discipline: "Theism" }, deity: cult.deity,
-        ...(cult.description ? { description: cult.description } : {}) });
-    }
+    upsertOrganisation(char.organisations, { id: cult.id, name: cult.name, kind: { type: "magical-cult", discipline: "Theism" }, deity: cult.deity,
+      ...(cult.description ? { description: cult.description } : {}) });
     const sharedMembership = char.memberships.find(item => item.id === membership.id);
     const genericRank = genericRankForTitle(membership.rank, "Theism") ?? "Common";
     if (sharedMembership) { sharedMembership.organisationId = cult.id; sharedMembership.rank = genericRank; }

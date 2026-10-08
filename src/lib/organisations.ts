@@ -45,6 +45,13 @@ export function createOrganisationMembership(id: string, organisationId: string,
   return { id, organisationId, rank, status: "active" };
 }
 
+/** Keep the shared catalogue aligned when an existing organisation is edited. */
+export function upsertOrganisation(organisations: Organisation[], organisation: Organisation): void {
+  const index = organisations.findIndex(item => item.id === organisation.id);
+  if (index < 0) organisations.push(organisation);
+  else organisations[index] = organisation;
+}
+
 export const DEFAULT_RANK_TITLES: Record<GenericOrganisationRank, string> = {
   Common: "Common", Dedicated: "Dedicated", Proven: "Proven", Overseer: "Overseer", Leader: "Leader",
 };

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   createOrganisationMembership, genericRankForTitle, normalizeOrganisationMemberships, normalizeOrganisations,
-  rankTitle, validateOrganisationMembership, type Organisation,
+  rankTitle, upsertOrganisation, validateOrganisationMembership, type Organisation,
 } from "../src/lib/organisations";
 
 describe("shared organisation model", () => {
@@ -39,6 +39,15 @@ describe("shared organisation model", () => {
     const memberships = organisations.map((organisation, index) => createOrganisationMembership(`member-${index}`, organisation.id));
     expect(normalizeOrganisations(organisations)).toHaveLength(3);
     expect(normalizeOrganisationMemberships(memberships)).toHaveLength(3);
+  });
+
+  test("updates the shared organisation when an existing cult is edited", () => {
+    const organisations: Organisation[] = [{ id: "cult", name: "Old name", deity: "Old deity",
+      kind: { type: "magical-cult", discipline: "Theism" } }];
+    upsertOrganisation(organisations, { id: "cult", name: "New name", deity: "New deity",
+      kind: { type: "magical-cult", discipline: "Theism" } });
+    expect(organisations).toEqual([{ id: "cult", name: "New name", deity: "New deity",
+      kind: { type: "magical-cult", discipline: "Theism" } }]);
   });
 });
 
