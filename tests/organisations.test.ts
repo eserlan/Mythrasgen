@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
-  createOrganisationMembership, genericRankForTitle, normalizeOrganisationMemberships, normalizeOrganisations,
+  createOrganisationMembership, genericRankForTitle, GENERIC_ORGANISATION_RANKS, joinOrganisationMembership, normalizeOrganisationMemberships, normalizeOrganisations,
   rankTitle, upsertOrganisation, validateOrganisationMembership, type Organisation,
 } from "../src/lib/organisations";
 import { emptyMagicState } from "../src/lib/magic";
@@ -10,6 +10,11 @@ describe("shared organisation model", () => {
   test("maps generic ranks to comparative titles without replacing custom overrides", () => {
     const theist: Organisation = { id: "cult", name: "Cult", kind: { type: "magical-cult", discipline: "Theism" } };
     const animist: Organisation = { id: "tradition", name: "Tradition", kind: { type: "magical-cult", discipline: "Animism" } };
+    const guild: Organisation = { id: "guild", name: "Glass Guild", kind: { type: "brotherhood", subtype: "guild" } };
+    const religiousCult: Organisation = { id: "religion", name: "River Cult", kind: { type: "custom", category: "religious cult" } };
+    expect(GENERIC_ORGANISATION_RANKS).toEqual(["Common", "Dedicated", "Proven", "Overseer", "Leader"]);
+    expect(GENERIC_ORGANISATION_RANKS.map(rank => rankTitle(rank, guild))).toEqual(["Associate", "Apprentice", "Journeyman", "Master", "Grand Master"]);
+    expect(rankTitle("Common", religiousCult)).toBe("Lay Member");
     expect(rankTitle("Common", theist)).toBe("Lay Member");
     expect(rankTitle("Leader", animist)).toBe("Spirit Lord");
     expect(genericRankForTitle("High Shaman", "Animism")).toBe("Overseer");
@@ -33,6 +38,14 @@ describe("shared organisation model", () => {
     expect(restoredMemberships.map(item => item.rank)).toEqual(["Common", "Proven"]);
     expect(validateOrganisationMembership(restoredMemberships[0]!, restoredOrganisations)).toEqual([]);
     expect(normalizeOrganisationMemberships([...restoredMemberships, ...restoredMemberships])).toHaveLength(2);
+  });
+
+  test("joining an organisation again reuses the stable membership identity", () => {
+    const memberships = [createOrganisationMembership("existing-member", "campaign:guild", "Dedicated")];
+    const joined = joinOrganisationMembership(memberships, "campaign:guild", "new-id", "Common");
+    expect(joined.id).toBe("existing-member");
+    expect(joined.rank).toBe("Common");
+    expect(memberships).toHaveLength(1);
   });
 
   test("supports non-magical subtypes and does not cap membership count", () => {
