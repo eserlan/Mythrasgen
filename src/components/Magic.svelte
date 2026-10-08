@@ -21,6 +21,7 @@
   import { CORE_ANIMISM_RANKS, CORE_SPIRIT_RULES, generateCoreSpirit, listAnimismSpiritTypes, getBoundSpiritCapacity, getMaximumControllableSpiritPow, getSpiritDamage, getTranceCapabilities, reconcileAnimism, spiritIntensityBand, spiritIntensityForPow, spiritPowMatchesIntensity, validateSpirit, type AnimismRank, type AnimismStartingGrant, type SpiritAttitude, type SpiritBindingVessel, type SpiritRecord, type SpiritTradition, type SpiritType } from "../lib/animism";
   import { CORE_THEIST_CULTS, CORE_THEIST_MIRACLES, THEIST_RANKS, availableTheistCultMiracles, devotionalPoolMaximum, effectiveMiracleMinimumRank, miracleIntensity, miracleMagnitude, startingMiracleLimit, validateKnownMiracles, type TheistCult, type TheistCultMiracle, type TheistRank } from "../lib/theism";
   import { createOrganisationMembership, genericRankForTitle, rankTitle, upsertOrganisation, GENERIC_ORGANISATION_RANKS, type Organisation, type GenericOrganisationRank } from "../lib/organisations";
+  import { syncAnimismMembershipRankFromState, syncMagicOrganisationMemberships, syncTheistRankFromMembership } from "../lib/magic-organisations";
 
   const originName: Record<MagicSkillOrigin, string> = { culture: "Culture", career: "Career", bonus: "Bonus / Hobby Skill" };
   let picker: HTMLDialogElement;
@@ -258,6 +259,7 @@
   });
 
   function updateStatus() {
+    syncMagicOrganisationMemberships(char.magic, char.organisations, char.memberships);
     if (capability) capability.status = complete ? "complete" : "action-required";
     if (mysticismCapability) mysticismCapability.status = mysticismComplete ? "complete" : "action-required";
     if (sorceryCapability) sorceryCapability.status = sorceryComplete ? "complete" : "action-required";
@@ -385,6 +387,19 @@
     const organisation = membership && char.organisations.find(item => item.id === membership.organisationId);
     if (!membership || organisation?.kind.type === "magical-cult") return;
     char.memberships = char.memberships.filter(item => item.id !== membershipId);
+    persist();
+  }
+  function updateMagicalMembershipRank(membershipId: string, value: string) {
+    const membership = char.memberships.find(item => item.id === membershipId);
+    if (!membership || !(GENERIC_ORGANISATION_RANKS as readonly string[]).includes(value)) return;
+    membership.rank = value as GenericOrganisationRank;
+    syncTheistRankFromMembership(char.magic, membership, char.organisations.find(item => item.id === membership.organisationId));
+    persist();
+  }
+  function updateMembershipTitle(membershipId: string, value: string) {
+    const membership = char.memberships.find(item => item.id === membershipId);
+    if (!membership) return;
+    membership.titleOverride = value.trim() || undefined;
     persist();
   }
   function organisationKindLabel(organisation: Organisation) {
@@ -691,6 +706,11 @@
     if (selected && specialised === selected.name.toLocaleLowerCase()) animismState.bindingSpecialisation = { skillName: animismBinding!.name, traditionId: id };
     updateStatus();
   }
+  function setAnimismCultLink(value: string) {
+    if (!animismTradition) return;
+    animismTradition.organisationId = value === "link" ? `animism:cult:${animismTradition.id}` : value || undefined;
+    updateStatus();
+  }
   function createAnimismTradition() {
     const name = animismTraditionName.trim(); if (!name) return;
     const id = animismId("tradition");
@@ -701,7 +721,11 @@
     animismTraditionName = "";
     updateStatus();
   }
-  function updateAnimismRank(value: string) { animismState.rank = (CORE_ANIMISM_RANKS as readonly string[]).includes(value) ? value as AnimismRank : undefined; updateStatus(); }
+  function updateAnimismRank(value: string) {
+    animismState.rank = (CORE_ANIMISM_RANKS as readonly string[]).includes(value) ? value as AnimismRank : undefined;
+    syncAnimismMembershipRankFromState(char.magic, char.organisations, char.memberships);
+    updateStatus();
+  }
   function animismTypeIds(attitude: "friendly" | "neutral" | "hostile") {
     if (!animismTradition) return animismState.accessibleSpiritTypeIds;
     return attitude === "friendly" ? animismTradition.friendlySpiritTypeIds : attitude === "neutral" ? animismTradition.neutralSpiritTypeIds : animismTradition.hostileSpiritTypeIds;
@@ -1142,7 +1166,12 @@
             <input class="folk-magic-search" bind:value={animismQuery} placeholder="Search spirit types…" aria-label="Search spirit types" />
             <ul class="folk-magic-picker-list">{#each animismPickerTypes as type (type.id)}{@const chosen = animismTypeIds(animismPickerAttitude).includes(type.id)}<li class:selected={chosen}><button type="button" class="folk-magic-spell-choice" onclick={() => toggleAnimismAccess(type.id)}><span class="folk-magic-check">{chosen ? "✓" : "+"}</span><span><b>{type.name}</b><small>{type.source === "custom" ? "Custom type" : "Core spirit type"}{#if type.provenance} · {type.provenance}{/if}{#if type.description} · {type.description}{/if}</small></span></button></li>{:else}<li class="mute folk-magic-no-results">No spirit types match this search.</li>{/each}</ul>
           </section>
-          {#if animismTradition}<section class="animism-config-section"><h3>Hostile traditions</h3><p>{animismTradition.hostileTraditionIds.length ? animismTradition.hostileTraditionIds.join(", ") : "None recorded."}</p><form class="animism-hostile-form" onsubmit={event => { event.preventDefault(); addAnimismHostileTradition(); }}><label>Add hostile Tradition<input bind:value={animismHostileTradition} maxlength="100" placeholder="Tradition or clan name" /></label><button type="submit" class="ghost" disabled={!animismHostileTradition.trim()}>Add</button></form></section>{/if}
+          {#if animismTradition}<section class="animism-config-section"><h3>Spirit Tradition affiliation</h3><p>A Spirit Tradition does not automatically count as a formal cult.</p><label class="mysticism-path">Cult membership (optional)
+            <select value={animismTradition.organisationId ? (animismTradition.organisationId === `animism:cult:${animismTradition.id}` ? "link" : animismTradition.organisationId) : ""} onchange={event => setAnimismCultLink(event.currentTarget.value)}>
+              <option value="">Tradition only — no cult membership</option><option value="link">Link this Tradition as a cult</option>
+              {#each char.organisations.filter(item => item.kind.type === "magical-cult" && item.kind.discipline === "Animism" && item.id !== animismTradition.organisationId) as organisation (organisation.id)}<option value={organisation.id}>{organisation.name}</option>{/each}
+            </select><small>Link only when this Tradition is formally organised as a cult.</small></label></section>
+            <section class="animism-config-section"><h3>Hostile traditions</h3><p>{animismTradition.hostileTraditionIds.length ? animismTradition.hostileTraditionIds.join(", ") : "None recorded."}</p><form class="animism-hostile-form" onsubmit={event => { event.preventDefault(); addAnimismHostileTradition(); }}><label>Add hostile Tradition<input bind:value={animismHostileTradition} maxlength="100" placeholder="Tradition or clan name" /></label><button type="submit" class="ghost" disabled={!animismHostileTradition.trim()}>Add</button></form></section>{/if}
           <form class="folk-magic-custom-form animism-form" onsubmit={event => { event.preventDefault(); createAnimismSpiritType(); }}><h5>Create custom spirit type</h5><label>Name<input bind:value={animismCustomTypeName} maxlength="100" required /></label><label>Category / description<textarea bind:value={animismCustomTypeDescription} rows="2" maxlength="300" placeholder="Optional"></textarea></label><label>Typical abilities / notes<textarea bind:value={animismCustomTypeNotes} rows="2" maxlength="300" placeholder="Optional"></textarea></label><label>Source / provenance<input bind:value={animismCustomTypeProvenance} maxlength="120" placeholder="Campaign book, clan lore…" /></label><button type="submit" class="primary" disabled={!animismCustomTypeName.trim()}>Create and add type</button></form>
         </div>
       </dialog>
@@ -1412,6 +1441,8 @@
           {#if summary}<p class="organisation-summary">{summary}</p>{/if}
           {#if magical}
             <p class="organisation-magic-link">Magic configuration is stored with this character’s {organisation!.kind.type === "magical-cult" ? organisation!.kind.discipline : "magical"} capability.</p>
+            <div class="organisation-magic-rank"><label>Rank<select aria-label="{organisation?.name ?? 'Magical'} rank" value={membership.rank} onchange={event => updateMagicalMembershipRank(membership.id, event.currentTarget.value)}>{#each GENERIC_ORGANISATION_RANKS as rank}<option value={rank}>{rankTitle(rank, organisation)}</option>{/each}</select></label>
+              <label>Display title<input aria-label="{organisation?.name ?? 'Magical'} title override" value={membership.titleOverride ?? ""} maxlength="80" placeholder={rankTitle(membership.rank, organisation)} onchange={event => updateMembershipTitle(membership.id, event.currentTarget.value)} /></label></div>
             {#if organisation?.kind.type === "magical-cult" && organisation.kind.discipline === "Theism"}
               <button type="button" class="ghost" onclick={openTheismConfigure}>Open Theist cult configuration</button>
             {:else}<a class="ghost organisation-capability-link" href="#magical-capabilities">View Magical Capabilities</a>{/if}
@@ -1660,4 +1691,5 @@
   @media(max-width:520px){.folk-magic-entitlement{align-items:flex-start;flex-direction:column}.folk-magic-known-row{align-items:flex-start}.folk-magic-actions>*{flex:1}.custom-path-selected-talents li{align-items:flex-start}.animism-row{grid-template-columns:minmax(0,1fr) auto}.animism-row>button:last-of-type{grid-column:2}}
   @media(max-width:420px){.animism-edit-core{grid-template-columns:1fr}.animism-edit-roll{align-items:flex-start}}
   @media(max-width:600px){.theism-cult-card{grid-template-columns:minmax(0,1fr) auto}.theism-pool{grid-column:1}.theism-cult-rank{grid-column:2;grid-row:1}.theism-cult-card>button{grid-column:2;grid-row:2;justify-self:end}.theism-config-fields{grid-template-columns:minmax(0,1fr)}.theism-config-fields label:last-child{grid-column:auto}.theism-rank-override{grid-template-columns:1fr;max-width:130px}.theism-miracle-list>li{grid-template-columns:minmax(0,1fr) auto}.organisations-heading{align-items:flex-start;flex-direction:column}.organisation-form-grid{grid-template-columns:1fr}.organisation-wide{grid-column:auto}.organisation-card-heading{flex-wrap:wrap}}
+  .organisation-magic-rank{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:8px 0}.organisation-magic-rank label{display:grid;gap:4px;font-size:.78rem;color:var(--mute)}.organisation-magic-rank input,.organisation-magic-rank select{width:100%;min-width:0}
 </style>

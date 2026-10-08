@@ -20,6 +20,7 @@ import { CORE_THEIST_CULTS } from "./theism";
 import { genericRankForTitle, normalizeOrganisationMemberships, normalizeOrganisations, rankTitle, type Organisation, type GenericOrganisationRank } from "./organisations";
 import { CORE_MYSTICISM_ORGANISATIONS } from "./mysticism";
 import { CORE_SORCERY_SCHOOLS } from "./sorcery";
+import { syncMagicOrganisationMemberships } from "./magic-organisations";
 
 export interface Passion {
   type: "Loyalty" | "Love" | "Hate";
@@ -189,6 +190,7 @@ function normalize(value: Partial<Character> | null, home = true): Character {
         kind: { type: "custom", category: "legacy" } });
     }
   }
+  syncMagicOrganisationMemberships(normalized.magic, normalized.organisations, normalized.memberships);
   const legacyNames = [
     ...(normalized.cultureSelections.combatStyle ? [[normalized.cultureSelections.combatStyle, "culture"] as const] : []),
     ...normalized.careerCombatStyles.filter(Boolean).map(name => [name, "career"] as const),

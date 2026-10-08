@@ -34,6 +34,8 @@ describe("Magic & Cults affiliation UI", () => {
 
   test("Theist-linked membership summarizes its saved rank and opens existing cult configuration", () => {
     expect(page).toContain("rankTitle(membership.rank, organisation)");
+    expect(page).toContain("updateMagicalMembershipRank(membership.id, event.currentTarget.value)");
+    expect(page).toContain("updateMembershipTitle(membership.id, event.currentTarget.value)");
     expect(page).toContain("Open Theist cult configuration");
     expect(page).toContain("onclick={openTheismConfigure}");
     const magicalCardActions = page.slice(page.indexOf("{:if magical}"), page.indexOf("{:else}", page.indexOf("{:if magical}")));
