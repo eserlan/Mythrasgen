@@ -436,3 +436,6 @@ svg.body text{text-anchor:middle;fill:var(--fg)}svg.body .hp{font:700 15px var(-
   .combat-style-dialog h2{margin-bottom:4px}
   .combat-style-dialog-footer{padding-top:6px}
 }
+.startup-error{max-width:760px;margin:12vh auto;padding:24px;color:var(--fg);background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow)}
+.startup-error h1{margin-top:0;color:var(--acc);font:700 1.5rem var(--display)}
+.startup-error pre{overflow-wrap:anywhere;white-space:pre-wrap;color:var(--mute)}
