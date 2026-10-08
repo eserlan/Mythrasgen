@@ -3,6 +3,8 @@ import { emptyMysticismState, normalizeMysticismState, type MysticismState } fro
 import { emptySorceryState, normalizeSorceryState, type SorceryState } from "./sorcery";
 import { emptyAnimismState, normalizeAnimismState, type AnimismState } from "./animism";
 import { emptyTheismState, normalizeTheismState, type TheismState } from "./theism";
+import { normalizeOrganisationMemberships, type OrganisationMembership } from "./organisations";
+export type { OrganisationMembership } from "./organisations";
 
 export const MAGIC_DISCIPLINES = ["Folk Magic", "Animism", "Mysticism", "Sorcery", "Theism"] as const;
 export type MagicDiscipline = typeof MAGIC_DISCIPLINES[number];
@@ -31,13 +33,6 @@ export interface MagicTradition {
   sourceType: string;
   disciplines: MagicDiscipline[];
   organisationId?: string;
-  details?: Record<string, unknown>;
-}
-
-export interface OrganisationMembership {
-  id: string;
-  name: string;
-  organisationType: string;
   details?: Record<string, unknown>;
 }
 
@@ -165,11 +160,5 @@ export function reconcileMagicState(current: MagicState, detected: MagicDiscipli
 }
 
 export function normalizeMemberships(value: unknown): OrganisationMembership[] {
-  if (!Array.isArray(value)) return [];
-  return value.flatMap(item => {
-    const membership = record(item);
-    if (!membership || typeof membership.id !== "string" || typeof membership.name !== "string" || typeof membership.organisationType !== "string") return [];
-    const details = record(membership.details);
-    return [{ id: membership.id, name: membership.name, organisationType: membership.organisationType, ...(details ? { details } : {}) }];
-  });
+  return normalizeOrganisationMemberships(value);
 }

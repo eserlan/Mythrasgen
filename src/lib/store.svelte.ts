@@ -14,8 +14,12 @@ import { attachCharacterStyle, CORE_COMBAT_STYLES, detachCharacterStyle, legacyC
 import { hasMeaningfulSpecialisation, requiresSpecialisation, resolveSkillTemplate, specialisationStageErrors } from "./specialisations";
 import { hobbySkillName, restoreHobbySkill, type HobbySkill } from "./hobby-skills";
 import type { FamilyRelationship } from "./family-relationships";
-import { detectMagicDisciplines, emptyMagicState, normalizeMagicState, normalizeMemberships, reconcileMagicState, type MagicState, type OrganisationMembership } from "./magic";
+import { detectMagicDisciplines, emptyMagicState, normalizeMagicState, reconcileMagicState, type MagicState, type OrganisationMembership } from "./magic";
 import { reconcileAnimism } from "./animism";
+import { CORE_THEIST_CULTS } from "./theism";
+import { genericRankForTitle, normalizeOrganisationMemberships, normalizeOrganisations, rankTitle, type Organisation, type GenericOrganisationRank } from "./organisations";
+import { CORE_MYSTICISM_ORGANISATIONS } from "./mysticism";
+import { CORE_SORCERY_SCHOOLS } from "./sorcery";
 
 export interface Passion {
   type: "Loyalty" | "Love" | "Hate";
@@ -47,6 +51,7 @@ export interface Character {
     purchases: { name: string; cost: number }[];
   };
   magic: MagicState;
+  organisations: Organisation[];
   memberships: OrganisationMembership[];
   socialTable: CultureKind;
   moneyTable: CultureKind;
@@ -77,7 +82,7 @@ const blank = (): Character => ({
   skillSpecialisations: { culture: {}, career: {} },
   alloc: { culture: {}, career: {}, bonus: {} }, hobbySkill: null, careerProfessional: [], careerCombatStyles: [], step: 0,
   passionsEnabled: false, passions: [],
-  magic: emptyMagicState(), memberships: [],
+  magic: emptyMagicState(), organisations: [], memberships: [],
   socialTable: "Barbarian", moneyTable: "Barbarian",
   background: { events: [{ roll: 0 }], archivedEvents: [], socialClassRoll: 50, socialClass: "Freeman",
     socialClassCulture: "Barbarian", socialClassMethod: "rolled", socialClassMoney: 1,
@@ -112,7 +117,8 @@ function normalize(value: Partial<Character> | null, home = true): Character {
       career: restoreSpecialisations(migrated.skillSpecialisations?.career),
     },
     step: migrateCharacterStep(migrated.step ?? fallback.step, !!migrated.background, !!migrated.magic),
-    magic: normalizeMagicState(migrated.magic), memberships: normalizeMemberships(migrated.memberships),
+    magic: normalizeMagicState(migrated.magic),
+    organisations: [], memberships: [],
     ...migrateCultureTables(cultureKind, migrated.socialTable, migrated.moneyTable),
     ageCategory,
     age: normalizeAge(Number.isFinite(migrated.age) ? migrated.age! : fallback.age, ageCategory),
@@ -126,6 +132,63 @@ function normalize(value: Partial<Character> | null, home = true): Character {
     nativeLanguage: typeof migrated.nativeLanguage === "string" ? migrated.nativeLanguage : "",
     home,
   } as Character;
+  // Older saves stored organisation labels in `memberships`; restore those as Common memberships.
+  const oldMembershipRows: unknown[] = Array.isArray(migrated.memberships) ? migrated.memberships as unknown[] : [];
+  const oldOrganisations = oldMembershipRows.flatMap(row => {
+    if (!row || typeof row !== "object") return [];
+    const old = row as Record<string, unknown>;
+    if (typeof old.id !== "string" || typeof old.name !== "string") return [];
+    return [{ id: old.id, name: old.name, kind: { type: "custom" as const,
+      ...(typeof old.organisationType === "string" ? { category: old.organisationType } : {}) },
+      ...(old.details && typeof old.details === "object" ? { details: old.details as Organisation["details"] } : {}) }];
+  });
+  const magicOrganisations: Organisation[] = normalized.magic.theism.memberships.flatMap(membership => {
+    const cult = [...CORE_THEIST_CULTS, ...normalized.magic.theism.customCults].find(item => item.id === membership.cultId);
+    if (!cult) return [];
+    return [{ id: cult.id, name: cult.name, kind: { type: "magical-cult" as const, discipline: "Theism" as const }, deity: cult.deity,
+      ...(cult.description ? { description: cult.description } : {}) }];
+  });
+  const linkedMagicOrganisations: Organisation[] = [
+    ...CORE_MYSTICISM_ORGANISATIONS.map(organisation => ({ id: organisation.id, name: organisation.name,
+      kind: { type: "magical-cult" as const, discipline: "Mysticism" as const }, ...(organisation.notes ? { details: { notes: organisation.notes } } : {}) })),
+    ...normalized.magic.mysticism.organisations.map(organisation => ({ id: organisation.id, name: organisation.name,
+      kind: { type: "magical-cult" as const, discipline: "Mysticism" as const }, ...(organisation.notes ? { details: { notes: organisation.notes } } : {}) })),
+    ...normalized.magic.animism.traditions.flatMap(tradition => tradition.organisationId ? [{ id: tradition.organisationId,
+      name: tradition.name, kind: { type: "magical-cult" as const, discipline: "Animism" as const },
+      ...(tradition.description ? { description: tradition.description } : {}), ...(tradition.notes ? { details: { notes: tradition.notes } } : {}) }] : []),
+    ...[...CORE_SORCERY_SCHOOLS, ...normalized.magic.sorcery.customSchools].flatMap(school => school.organisationId ? [{ id: school.organisationId,
+      name: school.name, kind: { type: "magical-cult" as const, discipline: "Sorcery" as const },
+      ...(school.notes ? { details: { notes: school.notes } } : {}) }] : []),
+  ];
+  normalized.organisations = normalizeOrganisations([
+    ...linkedMagicOrganisations, ...magicOrganisations, ...oldOrganisations, ...(Array.isArray(migrated.organisations) ? migrated.organisations : []),
+  ]);
+  const legacyGenericMemberships = oldMembershipRows.flatMap(row => {
+    if (!row || typeof row !== "object") return [];
+    const old = row as Record<string, unknown>;
+    return typeof old.id === "string" ? [{ id: old.id, organisationId: old.id, rank: "Common" }] : [];
+  });
+  const theistMemberships = normalized.magic.theism.memberships.map(membership => ({
+    id: membership.id, organisationId: membership.cultId,
+    rank: genericRankForTitle(membership.rank, "Theism") ?? "Common" as GenericOrganisationRank,
+  }));
+  const genericMemberships = normalizeOrganisationMemberships([...theistMemberships, ...legacyGenericMemberships,
+    ...(Array.isArray(migrated.memberships) ? migrated.memberships.filter(item => item && typeof item === "object" && "organisationId" in item) : [])]);
+  normalized.memberships = genericMemberships;
+  // Generic membership rank is authoritative; Theism keeps its discipline title for existing rules/UI.
+  for (const membership of normalized.memberships) {
+    const theist = normalized.magic.theism.memberships.find(item => item.id === membership.id);
+    const organisation = normalized.organisations.find(item => item.id === membership.organisationId);
+    if (theist && organisation?.kind.type === "magical-cult" && organisation.kind.discipline === "Theism") {
+      theist.rank = rankTitle(membership.rank, { kind: organisation.kind }) as typeof theist.rank;
+    }
+  }
+  for (const membership of normalized.memberships) {
+    if (!normalized.organisations.some(organisation => organisation.id === membership.organisationId)) {
+      normalized.organisations.push({ id: membership.organisationId, name: membership.organisationId,
+        kind: { type: "custom", category: "legacy" } });
+    }
+  }
   const legacyNames = [
     ...(normalized.cultureSelections.combatStyle ? [[normalized.cultureSelections.combatStyle, "culture"] as const] : []),
     ...normalized.careerCombatStyles.filter(Boolean).map(name => [name, "career"] as const),
