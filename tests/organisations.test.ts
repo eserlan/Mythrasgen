@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
-  createOrganisationMembership, genericRankForTitle, GENERIC_ORGANISATION_RANKS, joinOrganisationMembership, normalizeOrganisationMemberships, normalizeOrganisations,
-  rankTitle, upsertOrganisation, validateOrganisationMembership, type Organisation,
+  createOrganisationMembership, genericRankForTitle, GENERIC_ORGANISATION_RANKS, joinOrganisation, joinOrganisationMembership, normalizeOrganisationMemberships, normalizeOrganisations,
+  rankTitle, upsertOrganisation, validateOrganisationMembership, type Organisation, type OrganisationMembership,
 } from "../src/lib/organisations";
 import { emptyMagicState } from "../src/lib/magic";
 import { syncAnimismMembershipRankFromState, syncMagicOrganisationMemberships, syncTheistRankFromMembership } from "../src/lib/magic-organisations";
@@ -46,6 +46,15 @@ describe("shared organisation model", () => {
     expect(joined.id).toBe("existing-member");
     expect(joined.rank).toBe("Common");
     expect(memberships).toHaveLength(1);
+  });
+
+  test("joining a catalogue cult stores its definition with the character membership", () => {
+    const organisations: Organisation[] = [];
+    const memberships: OrganisationMembership[] = [];
+    const cult: Organisation = { id: "core:cult", name: "River Cult", deity: "River", kind: { type: "magical-cult", discipline: "Theism" } };
+    const joined = joinOrganisation(organisations, memberships, cult, "member-id", "Dedicated");
+    expect(organisations).toEqual([cult]);
+    expect(joined).toMatchObject({ id: "member-id", organisationId: cult.id, rank: "Dedicated" });
   });
 
   test("supports non-magical subtypes and does not cap membership count", () => {

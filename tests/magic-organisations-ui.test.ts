@@ -26,7 +26,7 @@ describe("Magic & Cults affiliation UI", () => {
     expect(page).toContain("Theist cult");
     expect(page).toContain("reuses this organisation definition");
     expect(page).toContain('organisationMode === "join" ? !organisationSelectedId');
-    expect(page).toContain("joinOrganisationMembership(char.memberships, organisation.id, memberId, organisationRank)");
+    expect(page).toContain("joinOrganisation(char.organisations, char.memberships, organisation, memberId, organisationRank)");
     expect(page).toContain("Organisation details (optional)");
     expect(page).toContain("Personal membership notes");
     expect(page).toContain("ensureTheistMembership(organisation, membership)");

@@ -59,6 +59,15 @@ export function joinOrganisationMembership(
   return membership;
 }
 
+/** Add an organisation to the shared catalogue and join it with one stable membership. */
+export function joinOrganisation(
+  organisations: Organisation[], memberships: OrganisationMembership[], organisation: Organisation,
+  id: string, rank: GenericOrganisationRank = "Common",
+): OrganisationMembership {
+  upsertOrganisation(organisations, organisation);
+  return joinOrganisationMembership(memberships, organisation.id, id, rank);
+}
+
 /** Keep the shared catalogue aligned when an existing organisation is edited. */
 export function upsertOrganisation(organisations: Organisation[], organisation: Organisation): void {
   const index = organisations.findIndex(item => item.id === organisation.id);

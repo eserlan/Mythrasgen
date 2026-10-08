@@ -20,7 +20,7 @@
   } from "../lib/sorcery";
   import { CORE_ANIMISM_RANKS, CORE_SPIRIT_RULES, generateCoreSpirit, listAnimismSpiritTypes, getBoundSpiritCapacity, getMaximumControllableSpiritPow, getSpiritDamage, getTranceCapabilities, reconcileAnimism, spiritIntensityBand, spiritIntensityForPow, spiritPowMatchesIntensity, validateSpirit, type AnimismRank, type AnimismStartingGrant, type SpiritAttitude, type SpiritBindingVessel, type SpiritRecord, type SpiritTradition, type SpiritType } from "../lib/animism";
   import { CORE_THEIST_CULTS, CORE_THEIST_MIRACLES, THEIST_RANKS, availableTheistCultMiracles, devotionalPoolMaximum, effectiveMiracleMinimumRank, miracleIntensity, miracleMagnitude, startingMiracleLimit, validateKnownMiracles, type TheistCult, type TheistCultMiracle, type TheistRank } from "../lib/theism";
-  import { createOrganisationMembership, genericRankForTitle, joinOrganisationMembership, rankTitle, upsertOrganisation, GENERIC_ORGANISATION_RANKS, type Organisation, type GenericOrganisationRank } from "../lib/organisations";
+  import { createOrganisationMembership, genericRankForTitle, joinOrganisation, rankTitle, upsertOrganisation, GENERIC_ORGANISATION_RANKS, type Organisation, type GenericOrganisationRank } from "../lib/organisations";
   import { syncAnimismMembershipRankFromState, syncMagicOrganisationMemberships, syncTheistRankFromMembership } from "../lib/magic-organisations";
 
   const originName: Record<MagicSkillOrigin, string> = { culture: "Culture", career: "Career", bonus: "Bonus / Hobby Skill" };
@@ -464,13 +464,12 @@
       organisation = { id, name, kind: organisationKindForCreation(), focus: organisationFocus.trim() || undefined,
         description: organisationDescription.trim() || undefined,
         details: Object.fromEntries(Object.entries(details).filter(([, value]) => value.length)) };
-      upsertOrganisation(char.organisations, organisation);
     }
     if (!organisation) return;
     // Selecting an existing organisation again reuses its membership and preserves its identity.
     const memberId = theismState.memberships.find(item => item.cultId === organisation!.id)?.id
       ?? `membership:${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`}`;
-    const membership = joinOrganisationMembership(char.memberships, organisation.id, memberId, organisationRank);
+    const membership = joinOrganisation(char.organisations, char.memberships, organisation, memberId, organisationRank);
     membership.titleOverride = organisationTitle.trim() || undefined;
     membership.notes = organisationNotes.trim() || undefined;
     ensureTheistMembership(organisation, membership);
