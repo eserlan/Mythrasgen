@@ -59,7 +59,7 @@ export interface Character {
   /** True while the landing page is showing. */
   home: boolean;
 }
-export const STEPS = ["Concept", "Characteristics", "Culture", "Career", "Bonus Skills", "Magic", "Background", "Combat", "Sheet"];
+export const STEPS = ["Concept", "Characteristics", "Culture", "Career", "Bonus Skills", "Magic & Cults", "Background", "Combat", "Sheet"];
 export const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX"];
 export const INTRO = [
   "Name your hero and choose their culture and career.",
@@ -67,7 +67,7 @@ export const INTRO = [
   "The customs and skills every child of your people learns.",
   "The trade or calling that shaped your adult years.",
   "Use age-based bonus points to round out learned skills and one optional hobby skill.",
-  "Review the magical disciplines granted by your skills. Future discipline stages will build on these capabilities.",
+  "Review magical capabilities and record membership in cults, brotherhoods, and other organisations.",
   "The people, events, and possessions your hero starts with.",
   "Combat Styles, their weapons, and the training that governs them.",
   "Your hero, ready for the table.",

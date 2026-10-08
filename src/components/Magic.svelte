@@ -20,7 +20,7 @@
   } from "../lib/sorcery";
   import { CORE_ANIMISM_RANKS, CORE_SPIRIT_RULES, generateCoreSpirit, listAnimismSpiritTypes, getBoundSpiritCapacity, getMaximumControllableSpiritPow, getSpiritDamage, getTranceCapabilities, reconcileAnimism, spiritIntensityBand, spiritIntensityForPow, spiritPowMatchesIntensity, validateSpirit, type AnimismRank, type AnimismStartingGrant, type SpiritAttitude, type SpiritBindingVessel, type SpiritRecord, type SpiritTradition, type SpiritType } from "../lib/animism";
   import { CORE_THEIST_CULTS, CORE_THEIST_MIRACLES, THEIST_RANKS, availableTheistCultMiracles, devotionalPoolMaximum, effectiveMiracleMinimumRank, miracleIntensity, miracleMagnitude, startingMiracleLimit, validateKnownMiracles, type TheistCult, type TheistCultMiracle, type TheistRank } from "../lib/theism";
-  import { createOrganisationMembership, genericRankForTitle, upsertOrganisation } from "../lib/organisations";
+  import { createOrganisationMembership, genericRankForTitle, rankTitle, upsertOrganisation, GENERIC_ORGANISATION_RANKS, type Organisation, type GenericOrganisationRank } from "../lib/organisations";
 
   const originName: Record<MagicSkillOrigin, string> = { culture: "Culture", career: "Career", bonus: "Bonus / Hobby Skill" };
   let picker: HTMLDialogElement;
@@ -111,6 +111,19 @@
   let theismOfferQuery = $state("");
   let theismSelectedOnly = $state(false);
   let theismRankOverrideEditorIds = $state<string[]>([]);
+  let organisationDialog = $state<HTMLDialogElement>();
+  let organisationEditingId = $state<string | null>(null);
+  let organisationName = $state("");
+  let organisationKind = $state("guild");
+  let organisationRank = $state<GenericOrganisationRank>("Common");
+  let organisationTitle = $state("");
+  let organisationFocus = $state("");
+  let organisationDescription = $state("");
+  let organisationSkills = $state("");
+  let organisationDuties = $state("");
+  let organisationRestrictions = $state("");
+  let organisationBenefits = $state("");
+  let organisationNotes = $state("");
 
   const capability = $derived(char.magic.disciplines.find(item => item.discipline === "Folk Magic"));
   const mysticismCapability = $derived(char.magic.disciplines.find(item => item.discipline === "Mysticism"));
@@ -326,6 +339,58 @@
     else char.memberships.push(createOrganisationMembership(membership.id, cult.id, genericRank));
     theismConfigureDialog?.close();
     updateStatus();
+  }
+  const splitOrganisationLines = (value: string) => value.split(/[\n,]/).map(item => item.trim()).filter(Boolean);
+  function openOrganisationEditor(membership?: typeof char.memberships[number]) {
+    const organisation = membership ? char.organisations.find(item => item.id === membership.organisationId) : undefined;
+    organisationEditingId = membership?.id ?? null;
+    organisationName = organisation?.name ?? "";
+    organisationKind = organisation?.kind.type === "brotherhood" ? organisation.kind.subtype : organisation?.kind.type === "custom" ? organisation.kind.category ?? "custom brotherhood" : "guild";
+    organisationRank = membership?.rank ?? "Common";
+    organisationTitle = membership?.titleOverride ?? "";
+    organisationFocus = organisation?.focus ?? "";
+    organisationDescription = organisation?.description ?? "";
+    organisationSkills = organisation?.details?.skillsTaught?.join(", ") ?? "";
+    organisationDuties = organisation?.details?.duties?.join(", ") ?? "";
+    organisationRestrictions = organisation?.details?.restrictions?.join(", ") ?? "";
+    organisationBenefits = [...(organisation?.details?.benefits ?? []), ...(organisation?.details?.privileges ?? [])].join(", ");
+    organisationNotes = membership?.notes ?? "";
+    organisationDialog?.showModal();
+  }
+  function saveOrganisationMembership() {
+    const name = organisationName.trim();
+    if (!name) return;
+    const existingMembership = organisationEditingId ? char.memberships.find(item => item.id === organisationEditingId) : undefined;
+    const id = existingMembership?.organisationId ?? `organisation:${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`}`;
+    const subtype = organisationKind;
+    const previousDetails = char.organisations.find(item => item.id === id)?.details;
+    const organisation: Organisation = { id, name, kind: subtype === "custom" ? { type: "custom", category: "custom brotherhood" } : { type: "brotherhood", subtype },
+      description: organisationDescription.trim() || undefined, focus: organisationFocus.trim() || undefined,
+      details: { ...previousDetails, skillsTaught: splitOrganisationLines(organisationSkills), duties: splitOrganisationLines(organisationDuties), restrictions: splitOrganisationLines(organisationRestrictions),
+        benefits: splitOrganisationLines(organisationBenefits), privileges: [] } };
+    upsertOrganisation(char.organisations, organisation);
+    if (existingMembership) {
+      existingMembership.rank = organisationRank;
+      existingMembership.titleOverride = organisationTitle.trim() || undefined;
+      existingMembership.notes = organisationNotes.trim() || undefined;
+    } else {
+      const memberId = `membership:${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`}`;
+      char.memberships.push({ ...createOrganisationMembership(memberId, id, organisationRank), ...(organisationTitle.trim() ? { titleOverride: organisationTitle.trim() } : {}), ...(organisationNotes.trim() ? { notes: organisationNotes.trim() } : {}) });
+    }
+    organisationDialog?.close();
+    persist();
+  }
+  function removeOrganisationMembership(membershipId: string) {
+    const membership = char.memberships.find(item => item.id === membershipId);
+    const organisation = membership && char.organisations.find(item => item.id === membership.organisationId);
+    if (!membership || organisation?.kind.type === "magical-cult") return;
+    char.memberships = char.memberships.filter(item => item.id !== membershipId);
+    persist();
+  }
+  function organisationKindLabel(organisation: Organisation) {
+    if (organisation.kind.type === "magical-cult") return `${organisation.kind.discipline} cult`;
+    if (organisation.kind.type === "brotherhood") return organisation.kind.subtype.replace(/\b\w/g, letter => letter.toUpperCase());
+    return organisation.kind.category ?? "Organisation";
   }
   function toggleTheismMiracle(id: string) {
     if (!theismMembership) return;
@@ -915,17 +980,13 @@
   }
 </script>
 
-<StepHead step={5} title="Magic" />
+<StepHead step={5} title="Magic & Cults" />
 
-<section class="card magic-foundation">
+<section class="card magic-foundation" id="magical-capabilities">
   {#if char.magic.disciplines.length === 0}
     <h3>Magical Capabilities</h3>
     <p class="magic-empty-title">No magical capabilities detected.</p>
     <p class="mute">Your current Culture, Career and Bonus Skills have not granted access to a magical discipline.</p>
-    <div class="magic-organisations">
-      <h4>Cults &amp; Brotherhoods</h4>
-      <p>Cult or brotherhood membership may still be available if permitted by the campaign.</p>
-    </div>
   {:else}
     <h3>Magical Capabilities</h3>
     <div class="magic-capabilities">
@@ -1330,6 +1391,60 @@
   {/if}
 </section>
 
+<section class="card organisations-section" aria-labelledby="organisations-title">
+  <div class="organisations-heading"><div><h3 id="organisations-title">Cults &amp; Organisations</h3><p>Record magical and ordinary affiliations, ranks, and obligations.</p></div>
+    <button type="button" class="primary" onclick={() => openOrganisationEditor()}>+ Add organisation</button>
+  </div>
+  {#if !char.memberships.length}
+    <p class="organisations-empty">No memberships yet. Add a guild, company, college, gang, regiment, brotherhood, or cult when it fits your character.</p>
+  {:else}
+    <div class="organisation-cards">
+      {#each char.memberships as membership (membership.id)}
+        {@const organisation = char.organisations.find(item => item.id === membership.organisationId)}
+        {@const magical = organisation?.kind.type === "magical-cult"}
+        {@const benefits = [...(organisation?.details?.benefits ?? []), ...(organisation?.details?.privileges ?? [])]}
+        {@const summary = [benefits.length ? `Benefits: ${benefits.join(", ")}` : "", organisation?.details?.duties?.length ? `Duties: ${organisation.details.duties.join(", ")}` : ""].filter(Boolean).join(" · ")}
+        <article class="organisation-card">
+          <div class="organisation-card-heading"><div><h4>{organisation?.name ?? membership.organisationId}</h4><span>{organisation ? organisationKindLabel(organisation) : "Organisation"}{#if organisation?.focus} · {organisation.focus}{/if}</span></div>
+            <b>{membership.titleOverride || (organisation ? rankTitle(membership.rank, organisation) : membership.rank)}</b>
+          </div>
+          {#if organisation?.description}<p>{organisation.description}</p>{/if}
+          {#if summary}<p class="organisation-summary">{summary}</p>{/if}
+          {#if magical}
+            <p class="organisation-magic-link">Magic configuration is stored with this character’s {organisation!.kind.type === "magical-cult" ? organisation!.kind.discipline : "magical"} capability.</p>
+            {#if organisation?.kind.type === "magical-cult" && organisation.kind.discipline === "Theism"}
+              <button type="button" class="ghost" onclick={openTheismConfigure}>Open Theist cult configuration</button>
+            {:else}<a class="ghost organisation-capability-link" href="#magical-capabilities">View Magical Capabilities</a>{/if}
+          {:else}
+            <div class="organisation-actions"><button type="button" class="ghost" onclick={() => openOrganisationEditor(membership)}>Edit</button>
+              <button type="button" class="ghost" onclick={() => removeOrganisationMembership(membership.id)}>Remove membership</button></div>
+          {/if}
+        </article>
+      {/each}
+    </div>
+  {/if}
+</section>
+
+<dialog class="folk-magic-picker organisation-editor" bind:this={organisationDialog} aria-labelledby="organisation-editor-title">
+  <form class="folk-magic-picker-content" onsubmit={event => { event.preventDefault(); saveOrganisationMembership(); }}>
+    <header><h2 id="organisation-editor-title">{organisationEditingId ? "Edit organisation membership" : "Add organisation membership"}</h2><p>Set this affiliation’s details and current rank.</p></header>
+    <div class="organisation-form-grid">
+      <label>Name<input bind:value={organisationName} required maxlength="120" /></label>
+      <label>Type<select bind:value={organisationKind}><option value="company">Company</option><option value="college">College</option><option value="gang">Gang</option><option value="guild">Guild</option><option value="regiment">Regiment</option><option value="custom">Custom brotherhood</option></select></label>
+      <label>Rank<select bind:value={organisationRank}>{#each GENERIC_ORGANISATION_RANKS as rank}<option value={rank}>{rank}</option>{/each}</select></label>
+      <label>Rank/title override<input bind:value={organisationTitle} maxlength="80" placeholder="Optional title" /></label>
+      <label>Focus (optional)<input bind:value={organisationFocus} maxlength="120" /></label>
+      <label class="organisation-wide">Description<textarea bind:value={organisationDescription} rows="2"></textarea></label>
+      <label>Skills taught<textarea bind:value={organisationSkills} rows="2" placeholder="Comma separated"></textarea></label>
+      <label>Obligations / duties<textarea bind:value={organisationDuties} rows="2" placeholder="Comma separated"></textarea></label>
+      <label>Restrictions<textarea bind:value={organisationRestrictions} rows="2" placeholder="Comma separated"></textarea></label>
+      <label>Benefits / privileges<textarea bind:value={organisationBenefits} rows="2" placeholder="Comma separated"></textarea></label>
+      <label class="organisation-wide">Membership notes<textarea bind:value={organisationNotes} rows="2"></textarea></label>
+    </div>
+    <div class="organisation-form-actions"><button type="button" class="ghost" onclick={() => organisationDialog?.close()}>Cancel</button><button type="submit" class="primary" disabled={!organisationName.trim()}>Save membership</button></div>
+  </form>
+</dialog>
+
 <dialog class="folk-magic-picker theism-configure-dialog" bind:this={theismConfigureDialog} aria-labelledby="theism-configure-title">
   <div class="folk-magic-picker-content">
     <header><h2 id="theism-configure-title">Configure Theist Cult</h2><p>Set one cult membership and the miracles it offers.</p></header>
@@ -1487,9 +1602,8 @@
   .magic-skills{list-style:none;margin:10px 0 0;padding:0}
   .magic-skills li{display:grid;grid-template-columns:1fr auto;gap:0 8px;border-top:1px solid var(--line);padding:7px 0}
   .magic-skills small{grid-column:1/-1;color:var(--mute);font-size:.78rem}
-  .magic-organisations{margin-top:20px;border-top:1px solid var(--line);padding-top:12px}
-  .magic-organisations h4{margin:0;color:var(--bronze);font:700 .78rem var(--display);text-transform:uppercase;letter-spacing:.1em}
-  .magic-organisations p,.magic-empty-title{margin:.3rem 0;color:var(--mute)}
+  .magic-empty-title{margin:.3rem 0;color:var(--mute)}
+  .organisations-section{margin-top:16px}.organisations-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}.organisations-heading h3{margin:0;color:var(--bronze);font:700 .9rem var(--display);letter-spacing:.1em;text-transform:uppercase}.organisations-heading p,.organisations-empty{margin:4px 0 0;color:var(--mute);font-size:.85rem}.organisation-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:9px;margin-top:12px}.organisation-card{min-width:0;padding:11px;border:1px solid var(--line);background:var(--card2)}.organisation-card-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}.organisation-card-heading h4{margin:0;overflow-wrap:anywhere}.organisation-card-heading span,.organisation-card-heading>b{font-size:.8rem;color:var(--mute)}.organisation-card-heading>b{white-space:nowrap;color:var(--fg)}.organisation-card>p{margin:7px 0 0;font-size:.83rem;overflow-wrap:anywhere}.organisation-summary{color:var(--mute)}.organisation-magic-link{color:var(--mute);font-size:.78rem!important}.organisation-actions{display:flex;gap:7px;margin-top:8px}.organisation-capability-link{display:inline-block;text-decoration:none;margin-top:3px}.organisation-editor{width:min(740px,calc(100vw - 24px));max-width:740px}.organisation-editor .folk-magic-picker-content{max-width:none}.organisation-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:12px}.organisation-form-grid label{display:grid;align-content:start;gap:4px;font-size:.8rem}.organisation-form-grid input,.organisation-form-grid select,.organisation-form-grid textarea{width:100%;min-width:0}.organisation-wide{grid-column:1/-1}.organisation-form-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}
   .folk-magic-discipline{margin-top:12px;padding:16px}
   .folk-magic-skill{margin:2px 0 0;font-weight:700}
   .folk-magic-provenance{margin:0;font-size:.82rem}
@@ -1545,5 +1659,5 @@
   @media(max-width:600px){.theism-rank-override{max-width:100%;flex-wrap:wrap;align-items:center}.theism-rank-override label{min-width:0;flex:1 1 130px}}
   @media(max-width:520px){.folk-magic-entitlement{align-items:flex-start;flex-direction:column}.folk-magic-known-row{align-items:flex-start}.folk-magic-actions>*{flex:1}.custom-path-selected-talents li{align-items:flex-start}.animism-row{grid-template-columns:minmax(0,1fr) auto}.animism-row>button:last-of-type{grid-column:2}}
   @media(max-width:420px){.animism-edit-core{grid-template-columns:1fr}.animism-edit-roll{align-items:flex-start}}
-  @media(max-width:600px){.theism-cult-card{grid-template-columns:minmax(0,1fr) auto}.theism-pool{grid-column:1}.theism-cult-rank{grid-column:2;grid-row:1}.theism-cult-card>button{grid-column:2;grid-row:2;justify-self:end}.theism-config-fields{grid-template-columns:minmax(0,1fr)}.theism-config-fields label:last-child{grid-column:auto}.theism-rank-override{grid-template-columns:1fr;max-width:130px}.theism-miracle-list>li{grid-template-columns:minmax(0,1fr) auto}}
+  @media(max-width:600px){.theism-cult-card{grid-template-columns:minmax(0,1fr) auto}.theism-pool{grid-column:1}.theism-cult-rank{grid-column:2;grid-row:1}.theism-cult-card>button{grid-column:2;grid-row:2;justify-self:end}.theism-config-fields{grid-template-columns:minmax(0,1fr)}.theism-config-fields label:last-child{grid-column:auto}.theism-rank-override{grid-template-columns:1fr;max-width:130px}.theism-miracle-list>li{grid-template-columns:minmax(0,1fr) auto}.organisations-heading{align-items:flex-start;flex-direction:column}.organisation-form-grid{grid-template-columns:1fr}.organisation-wide{grid-column:auto}.organisation-card-heading{flex-wrap:wrap}}
 </style>
