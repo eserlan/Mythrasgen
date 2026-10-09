@@ -50,21 +50,29 @@ describe("Magic & Cults affiliation UI", () => {
     expect(page).toContain('organisation?.kind.type === "magical-cult"');
   });
 
-  test("Theist-linked membership summarizes its saved rank and opens existing cult configuration", () => {
+  test("Theist-linked membership exposes shared edit/remove actions and opens existing cult configuration", () => {
     expect(page).toContain("rankTitle(membership.rank, organisation)");
     expect(page).toContain("updateMagicalMembershipRank(membership.id, event.currentTarget.value)");
     expect(page).toContain("updateMembershipTitle(membership.id, event.currentTarget.value)");
     expect(page).toContain("Open Theist cult configuration");
     expect(page).toContain("onclick={openTheismConfigure}");
     expect(page).toContain("{#if theistCult && theismCapability}");
-    const magicalCardActions = page.slice(page.indexOf("{:if magical}"), page.indexOf("{:else}", page.indexOf("{:if magical}")));
-    expect(magicalCardActions).not.toContain("Remove membership");
-    expect(magicalCardActions).not.toContain("Edit</button>");
+    const magicalCard = page.slice(page.indexOf("{@const theistCult ="), page.indexOf("</article>", page.indexOf("{@const theistCult =")));
+    expect(magicalCard).toContain("Edit</button>");
+    expect(magicalCard).toContain("Remove membership</button>");
+    expect(page).toContain("Personal membership notes");
+  });
+
+  test("membership removal confirms ordinary removals and blocks active magical unlinking", () => {
+    expect(page).toContain("window.confirm(`Remove your membership in ${organisationName}? This removes only the membership; the organisation remains available.`)");
+    expect(page).toContain("Removing it would affect access to miracles and the Devotional Pool.");
+    expect(page).toContain("window.alert(`Cannot remove ${organisationName} membership while its magic affiliation is active.");
+    expect(page).toContain("if (linkedTheist || membership.id.startsWith(\"magic:\"))");
   });
 
   test("Theist membership helper text and configuration action follow Theism capability", () => {
     const theistCardStart = page.indexOf("{@const theistCult =");
-    const theistCard = page.slice(theistCardStart, page.indexOf('{:else}\n            <div class="organisation-actions">', theistCardStart));
+    const theistCard = page.slice(theistCardStart, page.indexOf("</article>", theistCardStart));
     expect(theistCard).toContain("{#if theistCult}");
     expect(theistCard).toContain("{#if theismCapability}");
     expect(theistCard).toContain("This cult's magic configuration is managed in Theism above.");

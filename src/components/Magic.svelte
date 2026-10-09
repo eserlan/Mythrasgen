@@ -480,7 +480,16 @@
   function removeOrganisationMembership(membershipId: string) {
     const membership = char.memberships.find(item => item.id === membershipId);
     const organisation = membership && char.organisations.find(item => item.id === membership.organisationId);
-    if (!membership || organisation?.kind.type === "magical-cult") return;
+    if (!membership) return;
+    const organisationName = organisation?.name ?? membership.organisationId;
+    const linkedTheist = organisation?.kind.type === "magical-cult" && organisation.kind.discipline === "Theism"
+      && theismState.memberships.some(item => item.id === membership.id || item.cultId === organisation.id);
+    if (linkedTheist || membership.id.startsWith("magic:")) {
+      const consequence = linkedTheist ? "Removing it would affect access to miracles and the Devotional Pool." : "Its magic affiliation is still active.";
+      window.alert(`Cannot remove ${organisationName} membership while its magic affiliation is active. ${consequence} Disconnect the affiliation in its magic configuration first; saved magic data will be preserved.`);
+      return;
+    }
+    if (!window.confirm(`Remove your membership in ${organisationName}? This removes only the membership; the organisation remains available.`)) return;
     char.memberships = char.memberships.filter(item => item.id !== membershipId);
     persist();
   }
@@ -1550,10 +1559,9 @@
             {#if theistCult && theismCapability}
               <button type="button" class="ghost" onclick={openTheismConfigure}>Open Theist cult configuration</button>
             {:else if !theistCult}<a class="ghost organisation-capability-link" href="#magical-capabilities">View Magical Capabilities</a>{/if}
-          {:else}
-            <div class="organisation-actions"><button type="button" class="ghost" onclick={() => openOrganisationEditor(membership)}>Edit</button>
-              <button type="button" class="ghost" onclick={() => removeOrganisationMembership(membership.id)}>Remove membership</button></div>
           {/if}
+          <div class="organisation-actions"><button type="button" class="ghost" onclick={() => openOrganisationEditor(membership)}>Edit</button>
+            <button type="button" class="ghost" onclick={() => removeOrganisationMembership(membership.id)}>Remove membership</button></div>
         </article>
       {/each}
     </div>
