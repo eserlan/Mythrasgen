@@ -4,9 +4,26 @@ import {
   rankTitle, upsertOrganisation, validateOrganisationMembership, type Organisation, type OrganisationMembership,
 } from "../src/lib/organisations";
 import { emptyMagicState } from "../src/lib/magic";
-import { syncAnimismMembershipRankFromState, syncMagicOrganisationMemberships, syncTheistRankFromMembership } from "../src/lib/magic-organisations";
+import { hasActiveTheistAffiliation, syncAnimismMembershipRankFromState, syncMagicOrganisationMemberships, syncTheistRankFromMembership } from "../src/lib/magic-organisations";
 
 describe("shared organisation model", () => {
+  test("a Theist cult classification and empty placeholder do not imply active magic", () => {
+    const magic = emptyMagicState();
+    const organisation: Organisation = { id: "core:cult-of-myceras", name: "Cult of Myceras", deity: "Myceras", kind: { type: "magical-cult", discipline: "Theism" } };
+    const membership = createOrganisationMembership("myceras-member", organisation.id, "Dedicated");
+    magic.theism.memberships.push({ id: membership.id, cultId: organisation.id, rank: "Initiate", devotionSpecialisation: "Myceras",
+      devotionValue: 0, exhortValue: 0, devotionalPool: 0, knownMiracleIds: [] });
+
+    expect(hasActiveTheistAffiliation(magic, membership, organisation, false)).toBe(false);
+    expect(hasActiveTheistAffiliation(magic, membership, organisation, true)).toBe(true);
+    magic.theism.memberships[0]!.devotionSpecialisation = "Another deity";
+    expect(hasActiveTheistAffiliation(magic, membership, organisation, false)).toBe(true);
+    magic.theism.memberships[0]!.devotionSpecialisation = "Myceras";
+    magic.theism.memberships[0]!.knownMiracleIds.push("core:theism:shield");
+    expect(hasActiveTheistAffiliation(magic, membership, organisation, false)).toBe(true);
+    expect(hasActiveTheistAffiliation(magic, membership, { ...organisation, kind: { type: "custom", category: "religious cult" } }, true)).toBe(false);
+  });
+
   test("maps generic ranks to comparative titles without replacing custom overrides", () => {
     const theist: Organisation = { id: "cult", name: "Cult", kind: { type: "magical-cult", discipline: "Theism" } };
     const animist: Organisation = { id: "tradition", name: "Tradition", kind: { type: "magical-cult", discipline: "Animism" } };
