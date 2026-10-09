@@ -1,10 +1,31 @@
 import { CORE_MYSTICISM_ORGANISATIONS, CORE_MYSTICISM_PATHS, type MysticismPath } from "./mysticism";
 import { CORE_SORCERY_SCHOOLS, type SorcerySchool } from "./sorcery";
+import { CORE_THEIST_CULTS } from "./theism";
 import type { AnimismRank, AnimismState } from "./animism";
 import type { MagicState } from "./magic";
 import { createOrganisationMembership, normalizeOrganisationMemberships, normalizeOrganisations, type Organisation, type OrganisationMembership, type GenericOrganisationRank } from "./organisations";
 
 type Affiliation = { organisation: Organisation; membership: OrganisationMembership };
+
+/** A Theist cult type alone is not a character-level magic affiliation. */
+export function hasActiveTheistAffiliation(
+  magic: MagicState,
+  membership: OrganisationMembership,
+  organisation: Organisation | undefined,
+  hasTheismCapability: boolean,
+): boolean {
+  if (organisation?.kind.type !== "magical-cult" || organisation.kind.discipline !== "Theism") return false;
+  const theist = magic.theism.memberships.find(item => item.id === membership.id || item.cultId === organisation.id);
+  if (!theist) return false;
+  const defaultSpecialisation = organisation.deity
+    ?? magic.theism.customCults.find(item => item.id === organisation.id)?.deity
+    ?? CORE_THEIST_CULTS.find(item => item.id === organisation.id)?.deity;
+  const hasSavedSpecialisation = defaultSpecialisation
+    ? theist.devotionSpecialisation !== defaultSpecialisation
+    : !!theist.devotionSpecialisation;
+  return hasTheismCapability || theist.devotionValue > 0 || theist.exhortValue > 0
+    || theist.devotionalPool > 0 || theist.knownMiracleIds.length > 0 || hasSavedSpecialisation;
+}
 
 const ANIMISM_RANK_TO_ORGANISATION: Record<AnimismRank, GenericOrganisationRank> = {
   Follower: "Common", "Spirit Worshipper": "Dedicated", Shaman: "Proven", "High Shaman": "Overseer",

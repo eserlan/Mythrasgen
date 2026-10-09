@@ -63,11 +63,13 @@ describe("Magic & Cults affiliation UI", () => {
     expect(page).toContain("Personal membership notes");
   });
 
-  test("membership removal confirms ordinary removals and blocks active magical unlinking", () => {
+  test("membership removal confirms ordinary removals and guards only active magical unlinking", () => {
     expect(page).toContain("window.confirm(`Remove your membership in ${organisationName}? This removes only the membership; the organisation remains available.`)");
-    expect(page).toContain("Removing it would affect access to miracles and the Devotional Pool.");
-    expect(page).toContain("window.alert(`Cannot remove ${organisationName} membership while its magic affiliation is active.");
-    expect(page).toContain("if (linkedTheist || membership.id.startsWith(\"magic:\"))");
+    expect(page).toContain("hasActiveTheistAffiliation(char.magic, membership, organisation, !!theismCapability)");
+    expect(page).toContain("window.alert(`Cannot remove ${organisationName} membership.");
+    expect(page).toContain("if (activeTheist || membership.id.startsWith(\"magic:\"))");
+    expect(page).toContain("char.magic.theism.memberships = char.magic.theism.memberships.filter(item => item.id !== membershipId && item.cultId !== organisation.id)");
+    expect(page).toContain("The app has no safe unlink action yet; keep the membership in place to preserve that configuration.");
   });
 
   test("Theist membership helper text and configuration action follow Theism capability", () => {

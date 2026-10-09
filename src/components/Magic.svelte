@@ -21,7 +21,7 @@
   import { CORE_ANIMISM_RANKS, CORE_SPIRIT_RULES, generateCoreSpirit, listAnimismSpiritTypes, getBoundSpiritCapacity, getMaximumControllableSpiritPow, getSpiritDamage, getTranceCapabilities, reconcileAnimism, spiritIntensityBand, spiritIntensityForPow, spiritPowMatchesIntensity, validateSpirit, type AnimismRank, type AnimismStartingGrant, type SpiritAttitude, type SpiritBindingVessel, type SpiritRecord, type SpiritTradition, type SpiritType } from "../lib/animism";
   import { CORE_THEIST_CULTS, CORE_THEIST_MIRACLES, THEIST_RANKS, availableTheistCultMiracles, devotionalPoolMaximum, effectiveMiracleMinimumRank, miracleIntensity, miracleMagnitude, startingMiracleLimit, validateKnownMiracles, type TheistCult, type TheistCultMiracle, type TheistRank } from "../lib/theism";
   import { createOrganisationMembership, genericRankForTitle, joinOrganisation, rankTitle, upsertOrganisation, GENERIC_ORGANISATION_RANKS, type Organisation, type GenericOrganisationRank } from "../lib/organisations";
-  import { syncAnimismMembershipRankFromState, syncMagicOrganisationMemberships, syncTheistRankFromMembership } from "../lib/magic-organisations";
+  import { hasActiveTheistAffiliation, syncAnimismMembershipRankFromState, syncMagicOrganisationMemberships, syncTheistRankFromMembership } from "../lib/magic-organisations";
 
   const originName: Record<MagicSkillOrigin, string> = { culture: "Culture", career: "Career", bonus: "Bonus / Hobby Skill" };
   let picker: HTMLDialogElement;
@@ -482,15 +482,21 @@
     const organisation = membership && char.organisations.find(item => item.id === membership.organisationId);
     if (!membership) return;
     const organisationName = organisation?.name ?? membership.organisationId;
-    const linkedTheist = organisation?.kind.type === "magical-cult" && organisation.kind.discipline === "Theism"
-      && theismState.memberships.some(item => item.id === membership.id || item.cultId === organisation.id);
-    if (linkedTheist || membership.id.startsWith("magic:")) {
-      const consequence = linkedTheist ? "Removing it would affect access to miracles and the Devotional Pool." : "Its magic affiliation is still active.";
-      window.alert(`Cannot remove ${organisationName} membership while its magic affiliation is active. ${consequence} Disconnect the affiliation in its magic configuration first; saved magic data will be preserved.`);
+    const activeTheist = hasActiveTheistAffiliation(char.magic, membership, organisation, !!theismCapability);
+    if (activeTheist || membership.id.startsWith("magic:")) {
+      const guidance = activeTheist
+        ? "This membership is linked to Theism skills or saved miracle and Devotional Pool data. The app has no safe unlink action yet; keep the membership in place to preserve that configuration."
+        : "This membership is linked to an active magic configuration. Keep it in place to preserve that configuration.";
+      window.alert(`Cannot remove ${organisationName} membership. ${guidance}`);
       return;
     }
     if (!window.confirm(`Remove your membership in ${organisationName}? This removes only the membership; the organisation remains available.`)) return;
     char.memberships = char.memberships.filter(item => item.id !== membershipId);
+    if (organisation?.kind.type === "magical-cult" && organisation.kind.discipline === "Theism") {
+      // Joining a Theist cult creates an empty placeholder record for rank sync. Remove
+      // that character-local placeholder too, or hydration would recreate the membership.
+      char.magic.theism.memberships = char.magic.theism.memberships.filter(item => item.id !== membershipId && item.cultId !== organisation.id);
+    }
     persist();
   }
   function updateMagicalMembershipRank(membershipId: string, value: string) {
