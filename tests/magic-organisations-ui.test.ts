@@ -56,8 +56,21 @@ describe("Magic & Cults affiliation UI", () => {
     expect(page).toContain("updateMembershipTitle(membership.id, event.currentTarget.value)");
     expect(page).toContain("Open Theist cult configuration");
     expect(page).toContain("onclick={openTheismConfigure}");
+    expect(page).toContain("{#if theistCult && theismCapability}");
     const magicalCardActions = page.slice(page.indexOf("{:if magical}"), page.indexOf("{:else}", page.indexOf("{:if magical}")));
     expect(magicalCardActions).not.toContain("Remove membership");
     expect(magicalCardActions).not.toContain("Edit</button>");
+  });
+
+  test("Theist membership helper text and configuration action follow Theism capability", () => {
+    const theistCardStart = page.indexOf("{@const theistCult =");
+    const theistCard = page.slice(theistCardStart, page.indexOf('{:else}\n            <div class="organisation-actions">', theistCardStart));
+    expect(theistCard).toContain("{#if theistCult}");
+    expect(theistCard).toContain("{#if theismCapability}");
+    expect(theistCard).toContain("This cult's magic configuration is managed in Theism above.");
+    expect(theistCard).toContain("This is a Theist cult membership. Access to divine magic requires the appropriate magical skills.");
+    expect(theistCard).toContain("{#if theistCult && theismCapability}");
+    expect(theistCard).toContain("Open Theist cult configuration");
+    expect(theistCard).toContain("{:else if !theistCult}");
   });
 });

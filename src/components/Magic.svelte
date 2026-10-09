@@ -1535,12 +1535,21 @@
           {#if organisation?.description}<p>{organisation.description}</p>{/if}
           {#if summary}<p class="organisation-summary">{summary}</p>{/if}
           {#if magical}
-            <p class="organisation-magic-link">Magic configuration is stored with this character’s {organisation!.kind.type === "magical-cult" ? organisation!.kind.discipline : "magical"} capability.</p>
+            {@const theistCult = organisation?.kind.type === "magical-cult" && organisation.kind.discipline === "Theism"}
+            {#if theistCult}
+              {#if theismCapability}
+                <p class="organisation-magic-link">This cult's magic configuration is managed in Theism above.</p>
+              {:else}
+                <p class="organisation-magic-link">This is a Theist cult membership. Access to divine magic requires the appropriate magical skills.</p>
+              {/if}
+            {:else}
+              <p class="organisation-magic-link">Magic configuration is stored with this character’s {organisation!.kind.type === "magical-cult" ? organisation!.kind.discipline : "magical"} capability.</p>
+            {/if}
             <div class="organisation-magic-rank"><label>Rank<select aria-label="{organisation?.name ?? 'Magical'} rank" value={membership.rank} onchange={event => updateMagicalMembershipRank(membership.id, event.currentTarget.value)}>{#each GENERIC_ORGANISATION_RANKS as rank}<option value={rank}>{rankTitle(rank, organisation)}</option>{/each}</select></label>
               <label>Display title<input aria-label="{organisation?.name ?? 'Magical'} title override" value={membership.titleOverride ?? ""} maxlength="80" placeholder={rankTitle(membership.rank, organisation)} onchange={event => updateMembershipTitle(membership.id, event.currentTarget.value)} /></label></div>
-            {#if organisation?.kind.type === "magical-cult" && organisation.kind.discipline === "Theism"}
+            {#if theistCult && theismCapability}
               <button type="button" class="ghost" onclick={openTheismConfigure}>Open Theist cult configuration</button>
-            {:else}<a class="ghost organisation-capability-link" href="#magical-capabilities">View Magical Capabilities</a>{/if}
+            {:else if !theistCult}<a class="ghost organisation-capability-link" href="#magical-capabilities">View Magical Capabilities</a>{/if}
           {:else}
             <div class="organisation-actions"><button type="button" class="ghost" onclick={() => openOrganisationEditor(membership)}>Edit</button>
               <button type="button" class="ghost" onclick={() => removeOrganisationMembership(membership.id)}>Remove membership</button></div>
