@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { EQUIPMENT_CATALOGUE } from "./equipment-catalogue";
-import { addExpense, addGift, addPurchase, ledgerSpentCp, normalizeInventoryState, reconcileBalance, refundPurchase, removeInventoryItem, type InventoryState } from "./equipment-inventory";
+import { addExpense, addGift, addPurchase, changeInventoryItem, ledgerSpentCp, normalizeInventoryState, reconcileBalance, refundPurchase, removeInventoryItem, type InventoryState } from "./equipment-inventory";
 
 const item = (id: string) => {
   const found = EQUIPMENT_CATALOGUE.find(entry => entry.source.id === id);
@@ -57,5 +57,18 @@ describe("Page VIII equipment ledger", () => {
     const original = addPurchase(blank(), item("one_handed-dagger"), 2, undefined, "2026-01-02T03:04:05.000Z");
     const restored = normalizeInventoryState(structuredClone(original));
     expect(restored).toEqual(original);
+  });
+
+  test("persists armour coverage and fit, and keeps inventory state synchronized", () => {
+    let state = addPurchase(blank(), item("armour-half-plate"), 1);
+    const owned = state.inventory[0];
+    state = changeInventoryItem(state, owned.id, { armour: {
+      material: "steel", locations: ["Head", "Chest"], coverageResolved: true, fit: "fitted", compatibility: "compatible",
+    } });
+    state = changeInventoryItem(state, owned.id, { state: "carried" });
+    const restored = normalizeInventoryState(structuredClone(state));
+    expect(restored.inventory[0]).toMatchObject({ state: "carried", armour: {
+      construction: "half_plate", material: "steel", locations: ["Head", "Chest"], state: "carried", fit: "fitted",
+    } });
   });
 });
