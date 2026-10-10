@@ -26,7 +26,7 @@
   const shown = $derived([...matching].sort((a, b) => sort === "price"
     ? (a.source.price_cp_candidate ?? Number.MAX_SAFE_INTEGER) - (b.source.price_cp_candidate ?? Number.MAX_SAFE_INTEGER) || a.source.name.localeCompare(b.source.name)
     : a.source.name.localeCompare(b.source.name)));
-  const selected = $derived(EQUIPMENT_CATALOGUE.find(item => item.source.id === selectedId) ?? null);
+  const selected = $derived(matching.find(item => item.source.id === selectedId) ?? null);
   const categoryCount = (id: EquipmentCategory) => EQUIPMENT_CATALOGUE.filter(item => item.source.category === id).length;
   const categoryLabel = (id: EquipmentCategory) => id.replaceAll("_", " ").replace(/\b\w/g, value => value.toUpperCase());
   const kindLabel = (kind: typeof EQUIPMENT_CATALOGUE[number]["kind"]) => ({

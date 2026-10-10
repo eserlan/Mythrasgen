@@ -28,3 +28,7 @@ test("equipment selection keeps provenance and the single purchase form discover
     expect(inventory).toContain(text);
   expect(compile(inventory, { filename: "src/components/EquipmentInventory.svelte", generate: "client" }).warnings).toHaveLength(0);
 });
+
+test("equipment details stay scoped to the current search or category results", () => {
+  expect(inventory).toContain("const selected = $derived(matching.find(item => item.source.id === selectedId) ?? null);");
+});
