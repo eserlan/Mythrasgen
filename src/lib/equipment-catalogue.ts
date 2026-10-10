@@ -190,9 +190,11 @@ export function acquireWithoutPurchase(catalogueId: string, acquiredAs: "gifted"
 
 export function createEquipmentPurchase(
   catalogueId: string,
-  options: { gmEnteredPriceCp?: number; recordedAt?: string } = {},
+  options: { gmEnteredPriceCp?: number; recordedAt?: string; quantity?: number } = {},
 ): { owned: OwnedEquipment; transaction: EquipmentTransaction } {
   const item = requireCatalogueItem(catalogueId);
+  const quantity = options.quantity ?? 1;
+  if (!Number.isSafeInteger(quantity) || quantity < 1) throw new Error("Quantity must be a positive integer");
   const explicitPrice = options.gmEnteredPriceCp;
   if (explicitPrice !== undefined && (!Number.isSafeInteger(explicitPrice) || explicitPrice < 0)) {
     throw new Error("GM-entered price must be a non-negative integer number of CP");
@@ -209,7 +211,7 @@ export function createEquipmentPurchase(
     recordedAt: options.recordedAt ?? new Date().toISOString(),
   });
   return {
-    owned: Object.freeze({ catalogueId, acquiredAs: "purchased", quantity: 1 }),
+    owned: Object.freeze({ catalogueId, acquiredAs: "purchased", quantity }),
     transaction,
   };
 }

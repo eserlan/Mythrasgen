@@ -21,6 +21,8 @@ import { genericRankForTitle, normalizeOrganisationMemberships, normalizeOrganis
 import { CORE_MYSTICISM_ORGANISATIONS } from "./mysticism";
 import { CORE_SORCERY_SCHOOLS } from "./sorcery";
 import { syncMagicOrganisationMemberships } from "./magic-organisations";
+import { addExpense, addGift, addPurchase, changeInventoryItem, ledgerSpentCp, migrateLegacyPurchases, normalizeInventoryState, reconcileBalance, removeInventoryItem, refundPurchase, type EquipmentState, type InventoryTransaction } from "./equipment-inventory";
+import { EQUIPMENT_CATALOGUE } from "./equipment-catalogue";
 
 export interface Passion {
   type: "Loyalty" | "Love" | "Hate";
@@ -50,6 +52,8 @@ export interface Character {
     connectionsResolved: boolean; connections: string[]; relationships: FamilyRelationship[]; startingMoneyRoll: number;
     startingMoneyKey: string; startingMoneyTotal: number; currentMoney: number; equipment: string;
     purchases: { name: string; cost: number }[];
+    inventory: import("./equipment-inventory").InventoryItem[];
+    equipmentTransactions: InventoryTransaction[];
   };
   magic: MagicState;
   organisations: Organisation[];
@@ -91,7 +95,7 @@ const blank = (): Character => ({
     parentsRoll: 0, parents: "", siblingsRoll: 0, siblings: "", extendedFamilyRoll: 0, extendedFamily: "",
     standingRoll: 0, standingResolved: false, familyReputationCountRoll: 0, familyTies: [], connectionsRoll: 0,
     connectionsResolved: false, connections: [], relationships: [], startingMoneyRoll: 14, startingMoneyKey: "", startingMoneyTotal: 700, currentMoney: 700,
-    equipment: "Tools; simple weapons; rented accommodation", purchases: [] },
+    equipment: "Tools; simple weapons; rented accommodation", purchases: [], inventory: [], equipmentTransactions: [] },
   generation: "pointBuy", rollResults: null, rollAssignments: STATS.map((_, i) => i), home: true,
 });
 function resolveNativeTongue(skills: string[], language = char.nativeLanguage) { return skills.map(name => name === "Native Tongue" ? nativeTongueName(language) : name); }
@@ -259,6 +263,13 @@ export function normalizeCharacter(value: Partial<Character> | null, home = true
   normalized.socialTable = cultureKind ?? "Civilised";
   normalized.moneyTable = cultureKind ?? "Civilised";
   normalized.background.socialClassCulture = resolvedCulture;
+  const savedInventoryLedger = migrated.background as Partial<Character["background"]> | undefined;
+  const hasSavedInventoryLedger = Array.isArray(savedInventoryLedger?.equipmentTransactions);
+  const normalizedInventory = normalizeInventoryState(normalized.background);
+  normalized.background.inventory = normalizedInventory.inventory;
+  normalized.background.equipmentTransactions = hasSavedInventoryLedger
+    ? normalizedInventory.equipmentTransactions
+    : migrateLegacyPurchases(normalized.background.purchases);
   // Upgrade legacy saves with a snapshot of the official class data they resolved.
   const savedClass = SOCIAL_CLASSES[resolvedCulture]?.find(row => row.name === normalized.background.socialClass);
   if (savedClass && !(migrated.background as Partial<Character["background"]> | undefined)?.socialClassEquipment) {
@@ -281,10 +292,9 @@ export function normalizeCharacter(value: Partial<Character> | null, home = true
   const migratedCurrentMoney = migrated.background?.currentMoney;
   const savedCurrentMoney = typeof migratedCurrentMoney === "number"
     && Number.isFinite(migratedCurrentMoney) && migratedCurrentMoney >= 0;
-  if (!savedCurrentMoney) {
-    const spent = normalized.background.purchases.reduce((total, item) => total + item.cost, 0);
-    normalized.background.currentMoney = Math.max(0, normalized.background.startingMoneyTotal - spent);
-  } else if (normalized.background.startingMoneyKey !== moneyKey) {
+  if (normalized.background.equipmentTransactions.length) {
+    normalized.background.currentMoney = reconcileBalance(normalized.background.startingMoneyTotal, normalized.background.equipmentTransactions).remainingCp / 10;
+  } else if (!savedCurrentMoney || normalized.background.startingMoneyKey !== moneyKey) {
     normalized.background.currentMoney = normalized.background.startingMoneyTotal;
   }
   normalized.background.startingMoneyKey = moneyKey;
@@ -539,7 +549,9 @@ export function recalculateStartingMoney() {
   const total = ready
     ? calculateStartingMoney(char.background.startingMoneyRoll, char.moneyTable, char.background.socialClassMoney)
     : 0;
-  if (char.background.startingMoneyKey !== key) char.background.currentMoney = total;
+  if (char.background.equipmentTransactions.length) {
+    char.background.currentMoney = reconcileBalance(total, char.background.equipmentTransactions).remainingCp / 10;
+  } else if (char.background.startingMoneyKey !== key) char.background.currentMoney = total;
   char.background.startingMoneyKey = key;
   char.background.startingMoneyTotal = total;
   return total;
@@ -549,6 +561,43 @@ export function setStartingMoneyRoll(roll: number) {
   return recalculateStartingMoney();
 }
 export const startingMoney = () => char.background.startingMoneyTotal;
+export const equipmentSpentCp = () => ledgerSpentCp(char.background.equipmentTransactions);
+export const equipmentBalanceCp = () => reconcileBalance(char.background.startingMoneyTotal, char.background.equipmentTransactions).remainingCp;
+export function purchaseEquipment(catalogueId: string, quantity: number, gmEnteredPriceCp?: number) {
+  const record = EQUIPMENT_CATALOGUE.find(item => item.source.id === catalogueId)?.source;
+  if (!record) throw new Error(`Unknown equipment catalogue id: ${catalogueId}`);
+  const next = addPurchase({ inventory: char.background.inventory, equipmentTransactions: char.background.equipmentTransactions }, record, quantity, gmEnteredPriceCp);
+  const spend = ledgerSpentCp(next.equipmentTransactions);
+  if (spend > Math.round(char.background.startingMoneyTotal * 10)) throw new Error("Purchase exceeds available funds");
+  char.background.inventory = next.inventory;
+  char.background.equipmentTransactions = next.equipmentTransactions;
+  char.background.currentMoney = equipmentBalanceCp() / 10;
+}
+export function acquireEquipment(catalogueId: string, quantity: number, acquiredAs: "gifted" | "inherited" | "granted") {
+  const record = EQUIPMENT_CATALOGUE.find(item => item.source.id === catalogueId)?.source;
+  if (!record) throw new Error(`Unknown equipment catalogue id: ${catalogueId}`);
+  const next = addGift({ inventory: char.background.inventory, equipmentTransactions: char.background.equipmentTransactions }, record, quantity, acquiredAs);
+  char.background.inventory = next.inventory;
+}
+export function recordEquipmentExpense(catalogueId: string, quantity: number, gmEnteredPriceCp?: number) {
+  const record = EQUIPMENT_CATALOGUE.find(item => item.source.id === catalogueId)?.source;
+  if (!record) throw new Error(`Unknown equipment catalogue id: ${catalogueId}`);
+  const next = addExpense({ inventory: char.background.inventory, equipmentTransactions: char.background.equipmentTransactions }, record, quantity, gmEnteredPriceCp);
+  if (ledgerSpentCp(next.equipmentTransactions) > Math.round(char.background.startingMoneyTotal * 10)) throw new Error("Expense exceeds available funds");
+  char.background.equipmentTransactions = next.equipmentTransactions;
+  char.background.currentMoney = equipmentBalanceCp() / 10;
+}
+export function updateInventoryItem(id: string, update: { quantity?: number; state?: EquipmentState }) {
+  char.background.inventory = changeInventoryItem({ inventory: char.background.inventory, equipmentTransactions: char.background.equipmentTransactions }, id, update).inventory;
+}
+export function deleteInventoryItem(id: string) {
+  char.background.inventory = removeInventoryItem({ inventory: char.background.inventory, equipmentTransactions: char.background.equipmentTransactions }, id).inventory;
+}
+export function refundEquipmentPurchase(transactionId: string, amountCp: number) {
+  const next = refundPurchase({ inventory: char.background.inventory, equipmentTransactions: char.background.equipmentTransactions }, transactionId, amountCp);
+  char.background.equipmentTransactions = next.equipmentTransactions;
+  char.background.currentMoney = equipmentBalanceCp() / 10;
+}
 export const socialClassMoney = (kind: CultureKind, rank: string) => classMoneyMultiplier(kind, rank);
 export const rollDie = (sides: number) => Math.floor(Math.random() * sides) + 1;
 export const rollPercentile = () => rollDie(100);
