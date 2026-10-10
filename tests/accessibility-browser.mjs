@@ -134,10 +134,15 @@ try {
   await evaluate(`(() => { const select = document.querySelector('.owned-list select'); select.value = 'worn'; select.dispatchEvent(new Event('change', { bubbles: true })); })()`);
   await clickText("Review your character");
   assert.match(await evaluate(`document.querySelector('.review-summary')?.innerText ?? ''`), /Carrying load/, "review should show carrying load after purchase");
+  await clickText("Choose equipment");
+  await evaluate(`if (!document.querySelector('.item-detail')) document.querySelector('.catalogue-row')?.click()`);
+  assert.ok(await evaluate(`!!document.querySelector('.item-detail .purchase-controls')`), "selected item purchase controls should remain available when returning to choose equipment");
   await call("Emulation.setDeviceMetricsOverride", { width: 320, height: 900, deviceScaleFactor: 1, mobile: true });
   await new Promise(resolve => setTimeout(resolve, 100));
-  const narrow = await evaluate(`JSON.stringify({ viewport: document.documentElement.clientWidth, page: document.querySelector('.inventory-ledger').clientWidth, content: document.querySelector('.inventory-ledger').scrollWidth })`);
-  assert.ok(JSON.parse(narrow).content <= JSON.parse(narrow).page, `Page VIII must reflow at 320 CSS px: ${narrow}`);
+  const narrow = await evaluate(`JSON.stringify({ viewport: document.documentElement.clientWidth, page: document.querySelector('.inventory-ledger').clientWidth, content: document.querySelector('.inventory-ledger').scrollWidth, controls: document.querySelector('.purchase-controls').scrollWidth, controlsWidth: document.querySelector('.purchase-controls').clientWidth, quantityWidth: document.querySelector('.quantity-input').getBoundingClientRect().width })`);
+  const narrowLayout = JSON.parse(narrow);
+  assert.ok(narrowLayout.content <= narrowLayout.page && narrowLayout.controls <= narrowLayout.controlsWidth, `Page VIII purchase controls must reflow at 320 CSS px: ${narrow}`);
+  assert.ok(narrowLayout.quantityWidth <= 110, `Quantity should stay compact at 320 CSS px: ${narrow}`);
   await evaluate(`(() => { const style = document.createElement('style'); style.id = 'text-spacing-check'; style.textContent = 'p,li,label,summary { line-height: 1.5 !important; margin-bottom: 2em !important; letter-spacing: .12em !important; word-spacing: .16em !important; }'; document.head.append(style); })()`);
   const spaced = await evaluate(`JSON.stringify({ page: document.querySelector('.inventory-ledger').clientWidth, content: document.querySelector('.inventory-ledger').scrollWidth })`);
   assert.ok(JSON.parse(spaced).content <= JSON.parse(spaced).page, `Page VIII must reflow with WCAG text-spacing overrides: ${spaced}`);

@@ -277,25 +277,34 @@
       {:else}
         <p>{statSummary(selected) || "No combat details available."}</p>
       {/if}
-      <p class="mute">Catalogue prices and figures are transcribed candidates; verify them against Mythras Core, p. {record.source_printed_page}.</p>
+      <p class="mute">Source: Mythras Core, p. {record.source_printed_page}.</p>
       {#if selected.kind === "wielding_profile"}<p class="mute">Choose this option for a weapon you own. It does not add a second item.</p>{/if}
       {#if selected.kind === "armour_material_modifier"}<p class="balance-warning">This modifier is not a separate item to buy.</p>{/if}
       {#if selected.kind === "non_carried_purchase"}<p class="mute">This is a service or expense. It changes your money without adding carried equipment.</p>{/if}
       {#if record.base_enc_per_location === undefined && selected.kind === "physical_item" && record.category === "armour"}<p class="balance-warning">ENC per location is unknown; resolve it on the owned armour record when acquired.</p>{/if}
       {#if selected.kind !== "armour_material_modifier"}
         <div class="purchase-controls">
-          <label>Quantity <input aria-label={`Quantity of ${record.name}`} type="number" min="1" step="1" value={quantity[record.id] ?? "1"} onchange={event => quantity[record.id] = event.currentTarget.value}></label>
-          {#if unavailable}<label>GM price (CP) <input aria-label={`GM price in CP for ${record.name}`} type="number" min="0" step="1" value={gmPrice[record.id] ?? ""} onchange={event => gmPrice[record.id] = event.currentTarget.value} placeholder="Required"><small>Enter 0 only when the GM approves a free item.</small></label>
-          {:else if amount(record.id) > 0}<span>Total: <b>{formatCopperPrice(record.price_cp_candidate * amount(record.id))}</b></span>
-          {:else}<span>Enter a positive whole quantity.</span>{/if}
-          {#if unavailable && customCp(record.id) !== undefined}<span>Total: <b>{formatCopperPrice((customCp(record.id) ?? 0) * amount(record.id))}</b>{customCp(record.id) === 0 ? " · GM-approved zero price" : " · GM-entered"}</span>{/if}
-          {#if selected.kind === "non_carried_purchase"}<button type="button" disabled={!canTransact(record)} onclick={() => purchase(selected)}>Record expense</button>
-          {:else}<button type="button" class="primary" disabled={!canTransact(record)} onclick={() => purchase(selected)}>{selected.kind === "wielding_profile" ? "Buy weapon" : "Buy"}</button>
-            <label>Add without spending <select aria-label={`Add ${record.name} without spending`} disabled={amount(record.id) < 1} onchange={event => { const value = event.currentTarget.value; if (value) acquire(selected, value as "gifted" | "inherited" | "granted"); event.currentTarget.value = "" }}>
-              <option value="">Choose…</option><option value="gifted">Gifted</option><option value="inherited">Inherited</option><option value="granted">Granted</option>
-            </select></label>
+          <div class="paid-purchase">
+            <div class="purchase-values">
+              <label class="quantity-control">Quantity <input class="quantity-input" aria-label={`Quantity of ${record.name}`} aria-invalid={amount(record.id) < 1} aria-describedby={amount(record.id) < 1 ? `quantity-error-${record.id}` : undefined} type="number" min="1" step="1" value={quantity[record.id] ?? "1"} onchange={event => quantity[record.id] = event.currentTarget.value}></label>
+              {#if unavailable}<label class="gm-price-control">GM price (CP) <input aria-label={`GM price in CP for ${record.name}`} type="number" min="0" step="1" value={gmPrice[record.id] ?? ""} onchange={event => gmPrice[record.id] = event.currentTarget.value} placeholder="Required"><small>Enter 0 only when the GM approves a free item.</small></label>{/if}
+              {#if amount(record.id) > 0 && (!unavailable || customCp(record.id) !== undefined)}
+                {@const totalCp = (priceFor(record) ?? 0) * amount(record.id)}
+                <div class="purchase-total" aria-live="polite"><span>Total price</span><b>{formatCopperPrice(totalCp)}</b>{#if unavailable}<span>{customCp(record.id) === 0 ? "GM-approved zero price" : "GM-entered"}</span>{/if}</div>
+              {:else}<p class="purchase-total pending-total">{unavailable ? "Enter a GM price to see the total." : "Enter a positive whole quantity."}</p>{/if}
+            </div>
+            {#if selected.kind === "non_carried_purchase"}<button type="button" disabled={!canTransact(record)} onclick={() => purchase(selected)}>Record expense</button>
+            {:else}<button type="button" class="primary buy-button" disabled={!canTransact(record)} onclick={() => purchase(selected)}>{selected.kind === "wielding_profile" ? "Buy weapon" : "Buy"}</button>{/if}
+          </div>
+          {#if selected.kind !== "non_carried_purchase"}
+            <div class="free-acquisition">
+              <b>Add without paying</b>
+              <label>Acquisition type <select aria-label={`Add ${record.name} without paying`} disabled={amount(record.id) < 1} onchange={event => { const value = event.currentTarget.value; if (value) acquire(selected, value as "gifted" | "inherited" | "granted"); event.currentTarget.value = "" }}>
+                <option value="">Choose an option…</option><option value="gifted">Gifted</option><option value="inherited">Inherited</option><option value="granted">Granted</option>
+              </select></label>
+            </div>
           {/if}
-          {#if amount(record.id) < 1}<p class="balance-warning" role="status">Enter a positive whole quantity.</p>{/if}
+          {#if amount(record.id) < 1}<p class="balance-warning" id={`quantity-error-${record.id}`} role="status">Enter a positive whole quantity.</p>{/if}
           {#if unavailable && gmPrice[record.id] !== undefined && gmPrice[record.id] !== "" && customCp(record.id) === undefined}<p class="balance-warning" role="status">Enter a whole number of CP that is zero or more.</p>{/if}
           {#if amount(record.id) > 0 && priceFor(record) !== undefined && priceFor(record)! * amount(record.id) > currentBalanceCp}<p class="balance-warning" role="status">This costs more than your remaining money. Reduce the quantity or ask the GM about the price.</p>{/if}
         </div>
@@ -376,7 +385,23 @@
   .balance-warning { color:var(--acc); font-weight:700; }
   .catalogue-info { margin:.5rem 0; color:var(--mute); }
   .catalogue-info summary { cursor:pointer; }
-  .catalogue-filters,.purchase-controls { display:flex; align-items:end; flex-wrap:wrap; gap:.65rem; }
+  .catalogue-filters { display:flex; align-items:end; flex-wrap:wrap; gap:.65rem; }
+  .purchase-controls { display:grid; gap:.8rem; margin-top:1rem; }
+  .paid-purchase { display:flex; align-items:end; flex-wrap:wrap; gap:1rem; padding:.85rem; border:1px solid var(--line); border-radius:.5rem; }
+  .purchase-values { display:flex; align-items:end; flex:1 1 25rem; flex-wrap:wrap; gap:.85rem 1rem; min-width:0; }
+  .purchase-values label { display:grid; gap:.25rem; }
+  .purchase-values .quantity-control { flex:0 0 auto; }
+  .purchase-values .quantity-input { box-sizing:border-box; width:6.5rem; min-height:2.75rem; }
+  .purchase-values .gm-price-control { flex:0 1 12rem; min-width:min(100%,10rem); }
+  .purchase-values .gm-price-control input { width:100%; }
+  .purchase-total { display:grid; gap:.2rem; min-width:7.5rem; }
+  .purchase-total span { color:var(--mute); font-size:.9rem; }
+  .pending-total { align-self:center; margin:0; }
+  .buy-button { min-width:7rem; min-height:2.75rem; }
+  .free-acquisition { display:flex; align-items:end; flex-wrap:wrap; gap:.5rem 1rem; padding:.75rem .85rem; border:1px solid var(--line); border-left:4px solid var(--mute); border-radius:.5rem; background:color-mix(in srgb,var(--card2) 65%,transparent); }
+  .free-acquisition > b { flex:1 1 100%; }
+  .free-acquisition label { display:grid; gap:.25rem; }
+  .free-acquisition select { min-width:14rem; min-height:2.75rem; }
   .catalogue-filters label:first-child { flex:1 1 18rem; }
   .catalogue-filters input { width:100%; }
   .group-buttons,.subcategory-buttons { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,13rem),1fr)); gap:.6rem; margin-top:.75rem; }
@@ -417,6 +442,13 @@
     .catalogue-row { align-items:flex-start; }
     .row-price { max-width:40%; overflow-wrap:anywhere; }
     .owned-list li > div { flex-basis:100%; }
-    .purchase-controls > * { flex:1 1 100%; min-width:0; }
+    .paid-purchase { align-items:stretch; }
+    .purchase-values { flex-basis:100%; align-items:end; }
+    .purchase-values .quantity-control { flex:1 1 100%; }
+    .purchase-values .quantity-input { width:6.5rem; max-width:100%; }
+    .purchase-values .gm-price-control { flex:1 1 100%; min-width:0; }
+    .purchase-total { min-width:0; }
+    .buy-button { width:100%; }
+    .free-acquisition label,.free-acquisition select { width:100%; min-width:0; }
   }
 </style>
