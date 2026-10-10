@@ -71,7 +71,7 @@ export function summarizeArmour(pieces: readonly ArmourPiece[]): ArmourSummary {
       const material = piece.material ? ARMOUR_MATERIALS[piece.material] : undefined;
       const ap = piece.apOverride ?? construction?.ap;
       const enc = piece.encOverride ?? (construction && material ? construction.enc * material.encMultiplier : undefined);
-      if (ap === undefined || enc === undefined) unresolved.push(`${piece.id}: AP or ENC unresolved`);
+      if (ap === undefined) unresolved.push(`${piece.id}: AP unresolved`);
       const protectionResolved = piece.fit === "fitted"
         && (piece.compatibility === "compatible" || (piece.compatibility === "incompatible" && piece.gmCompatibilityOverride));
       for (const location of piece.locations) {
