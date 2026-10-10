@@ -41,5 +41,6 @@ test("technical provenance and armour location data are secondary disclosures", 
   expect(inventory).toContain("<summary>Money and transaction history</summary>");
   expect(inventory).toContain("{#if armourItems.length}");
   expect(inventory).toContain("No armour recorded");
+  expect(inventory).toContain("filter(ap => ap !== null && ap > 0).length} locations protected");
   expect(inventory).toContain("No equipment yet. Choose equipment to add an item.");
 });

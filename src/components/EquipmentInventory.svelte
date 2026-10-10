@@ -286,7 +286,7 @@
   <div class="review-summary" aria-live="polite">
     <div><small>Money remaining</small><b>{signedMoney(currentBalanceCp)}</b></div>
     <div><small>Carrying load</small><b>{load.load === null ? `At least ${load.knownLoad} ENC · unknown` : `${load.load} ENC · ${load.band}`}</b></div>
-    <div><small>Armour protection</small><b>{armourItems.length ? `${Object.values(armourSummary.apByLocation).filter(ap => ap !== null).length} locations covered` : "No armour recorded"}</b></div>
+    <div><small>Armour protection</small><b>{armourItems.length ? `${Object.values(armourSummary.apByLocation).filter(ap => ap !== null && ap > 0).length} locations protected` : "No armour recorded"}</b></div>
   </div>
   {#if load.unresolvedItems.length}<p class="balance-warning" role="status">Load is incomplete. Add ENC for: {load.unresolvedItems.join(", ")}.</p>{/if}
   {#if armourSummary.unresolved.length}<p class="balance-warning" role="status">Armour needs review: {armourSummary.unresolved.join("; ")}</p>{/if}
