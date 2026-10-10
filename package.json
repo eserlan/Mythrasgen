@@ -9,11 +9,13 @@
     "check": "svelte-check",
     "test": "bun test",
     "catalogue:validate": "node scripts/validate-equipment-catalogue.mjs",
-    "test:bootstrap-browser": "bun run build && bun tests/bootstrap-browser.mjs"
+    "test:bootstrap-browser": "bun run build && bun tests/bootstrap-browser.mjs",
+    "test:accessibility-browser": "bun tests/accessibility-browser.mjs"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
     "@types/bun": "^1.4.2",
+    "axe-core": "^4.14.0",
     "svelte": "^5.57.1",
     "svelte-check": "^4.7.6",
     "typescript": "~6",

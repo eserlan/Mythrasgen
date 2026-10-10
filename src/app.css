@@ -28,6 +28,7 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;op
 body::after{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(900px 420px at 50% -80px,color-mix(in srgb,var(--bronze) 16%,transparent),transparent)}
 h1,h2,h3{font-family:var(--display);margin:0;letter-spacing:.06em}
 h3{font-size:.95rem;text-transform:uppercase;color:var(--bronze);margin-bottom:.7rem;font-weight:700}
+.inventory-ledger>h3{color:var(--fg)}
 code{background:var(--bg2);padding:1px 6px;border-radius:4px;font-size:.85em}
 .mute{color:var(--mute)}
 ::selection{background:var(--bronze);color:#fff}
