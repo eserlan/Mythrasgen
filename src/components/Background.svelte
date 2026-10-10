@@ -7,6 +7,7 @@
   import { activateModalDialog } from "../lib/modal-dialog";
   import { cultures } from "../lib/content";
   import { AGE_CATEGORIES } from "../lib/rules";
+  import { formatCopperPrice } from "../lib/equipment-catalogue";
 
   let socialClassDialog: HTMLDialogElement;
   let chooserFor: number | null = $state(null);
@@ -236,7 +237,7 @@
   </div>
   <div class="starting-money-total" role="status">
     <span>Starting Money</span>
-    <strong>{startingMoney()} sp</strong>
+    <strong>{formatCopperPrice(startingMoney() * 10)}</strong>
     <small>{background.startingMoneyRoll} × {moneyMultiplier()} sp × {socialClassReady() ? `Social Class modifier (×${background.socialClassMoney})` : "pending Social Class modifier"}</small>
   </div>
 </section>

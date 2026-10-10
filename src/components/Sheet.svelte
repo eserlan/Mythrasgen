@@ -20,7 +20,7 @@
   const connectionTier = $derived(tableResult(CONNECTIONS, char.background.connectionsRoll));
   const equipment = $derived(sheetEquipmentSummary(char.background.inventory, char.chars.STR,
     startingMoney(), char.background.equipmentTransactions));
-  const money = (cp: number) => cp < 0 ? `−${formatCopperPrice(-cp)}` : formatCopperPrice(cp);
+  const money = formatCopperPrice;
 </script>
 
 <div class="noprint"><StepHead step={8} title="Character sheet" /></div>
@@ -61,7 +61,7 @@
     <p><b>Family standing:</b> {standing[2]} · ties: {formatFamilyRelationships(char.background.relationships, "reputation")} · <b>Connections:</b> {connectionTier[2]} — {formatFamilyRelationships(char.background.relationships, "connections")}</p>
     {#each resolvedBackgroundEvents(char.background.events) as { event, index }}{@const resolvedEvent = resolveBackgroundEvent(event)}<p><b>Background event {index + 1} ({event.source === "rolled" ? `rolled ${event.roll}; ` : ""}{resolvedEvent?.range}):</b> {resolvedEvent?.text}</p>{/each}
     <p><b>Social-class equipment guidance (not an inventory record):</b> {socialClassReady() ? char.background.equipment || "Unrecorded" : "Pending Social Class reconciliation"}</p>
-    <p><b>Starting money:</b> {socialClassReady() ? `${startingMoney()} sp` : "Pending Social Class"}</p>
+    <p><b>Starting money:</b> {socialClassReady() ? formatCopperPrice(startingMoney() * 10) : "Pending Social Class"}</p>
   </div>
   <section class="card sheet-equipment" aria-labelledby="sheet-equipment-title">
     <h3 id="sheet-equipment-title">Equipment &amp; funds</h3>

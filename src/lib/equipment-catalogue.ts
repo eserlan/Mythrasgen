@@ -153,12 +153,13 @@ export function displayEquipmentPrice(record: EquipmentSourceRecord): string {
 }
 
 export function formatCopperPrice(copper: number): string {
-  if (!Number.isSafeInteger(copper) || copper < 0) throw new Error("Price must be a non-negative integer number of CP");
-  const gold = Math.floor(copper / 1000);
-  const silver = Math.floor((copper % 1000) / 10);
-  const remainingCopper = copper % 10;
-  return [gold && `${gold} GP`, silver && `${silver} SP`, remainingCopper && `${remainingCopper} CP`]
-    .filter(Boolean).join(" ") || "0 CP";
+  if (!Number.isSafeInteger(copper)) throw new Error("Amount must be a whole number of CP");
+  const absoluteCopper = Math.abs(copper);
+  const silver = Math.floor(absoluteCopper / 10);
+  const remainingCopper = absoluteCopper % 10;
+  const amount = [silver ? `${silver} SP` : "", remainingCopper ? `${remainingCopper} CP` : ""]
+    .filter(Boolean).join(" ") || "0 SP";
+  return copper < 0 ? `−${amount}` : amount;
 }
 
 export interface OwnedEquipment {
