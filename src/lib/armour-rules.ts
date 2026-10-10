@@ -54,14 +54,16 @@ export function summarizeArmour(pieces: readonly ArmourPiece[]): ArmourSummary {
   let loadEncKnown = true;
   for (const piece of pieces) {
     if (piece.state === "stored") continue;
-    if (piece.state === "worn") {
-      if (!piece.locations.length && !piece.coverageResolved) {
-        unresolved.push(`${piece.id}: coverage unresolved`);
+    if (!piece.locations.length && !piece.coverageResolved) {
+      unresolved.push(`${piece.id}: coverage unresolved`);
+      if (piece.state === "worn") {
         for (const location of HIT_LOCATIONS) apByLocation[location] = null;
         fullWornEncKnown = false;
-        loadEncKnown = false;
-        continue;
       }
+      loadEncKnown = false;
+      continue;
+    }
+    if (piece.state === "worn") {
       if (piece.fit !== "fitted") unresolved.push(`${piece.id}: fit ${piece.fit}`);
       if (piece.compatibility === "unresolved" || piece.compatibility === "conditional"
         || (piece.compatibility === "incompatible" && !piece.gmCompatibilityOverride)) {

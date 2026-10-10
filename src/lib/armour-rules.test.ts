@@ -32,6 +32,11 @@ describe("location armour calculations", () => {
     });
   });
 
+  test("keeps carried armour load unknown until its covered locations are resolved", () => {
+    expect(summarizeArmour([{ ...plate(), state: "carried", locations: [], coverageResolved: false }]))
+      .toMatchObject({ fullWornEnc: 0, loadEnc: null, unresolved: ["plate: coverage unresolved"] });
+  });
+
   test("applies a GM ENC override per covered location", () => {
     expect(summarizeArmour([{ ...plate(), locations: ["Head", "Chest"], encOverride: 1.25 }]))
       .toMatchObject({ fullWornEnc: 2.5, loadEnc: 1.25 });
