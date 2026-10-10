@@ -18,28 +18,47 @@ async function freePort() {
   await new Promise(resolve => server.close(resolve));
   return address.port;
 }
-async function waitFor(url, attempts = 120) {
+function captureStderr(child) {
+  let output = "";
+  child.stderr?.on("data", chunk => { output = (output + chunk).slice(-8000); });
+  child.on("error", error => { child.spawnError = error.message; });
+  return () => [child.spawnError, output.trim()].filter(Boolean).join("\n");
+}
+function assertRunning(child, label, getStderr) {
+  if (child.spawnError || child.exitCode !== null || child.signalCode !== null) {
+    const status = child.spawnError ? `failed to start: ${child.spawnError}` : child.signalCode ? `signal ${child.signalCode}` : `exit code ${child.exitCode}`;
+    const details = getStderr();
+    throw new Error(`${label} exited before becoming ready (${status})${details ? `:\n${details}` : ""}`);
+  }
+}
+async function waitFor(url, child, label, getStderr, attempts = 240) {
   for (let i = 0; i < attempts; i++) {
     try { return await fetch(url).then(response => response.json()); } catch { await new Promise(resolve => setTimeout(resolve, 250)); }
+    assertRunning(child, label, getStderr);
   }
-  throw new Error(`Timed out waiting for ${url}`);
+  const details = getStderr();
+  throw new Error(`Timed out waiting for ${url}${details ? `:\n${details}` : ""}`);
 }
-async function waitForHttp(url, attempts = 60) {
+async function waitForHttp(url, child, getStderr, attempts = 60) {
   for (let i = 0; i < attempts; i++) {
     try { if ((await fetch(url)).ok) return; } catch {}
+    assertRunning(child, "Vite preview", getStderr);
     await new Promise(resolve => setTimeout(resolve, 250));
   }
-  throw new Error(`Timed out waiting for ${url}`);
+  const details = getStderr();
+  throw new Error(`Timed out waiting for ${url}${details ? `:\n${details}` : ""}`);
 }
 const previewPort = await freePort();
 const debugPort = await freePort();
 const profile = await fs.mkdtemp(join(tmpdir(), "mythrasgen-a11y-"));
-const preview = spawn("bun", ["run", "preview", "--", "--host", "127.0.0.1", "--port", String(previewPort), "--strictPort"], { stdio: "ignore", detached: true });
-const browser = spawn(chromium, ["--headless=new", "--no-sandbox", "--disable-dev-shm-usage", `--remote-debugging-port=${debugPort}`, `--user-data-dir=${profile}`], { stdio: "ignore", detached: true });
+const preview = spawn("bun", ["run", "preview", "--", "--host", "127.0.0.1", "--port", String(previewPort), "--strictPort"], { stdio: ["ignore", "ignore", "pipe"], detached: true });
+const getPreviewStderr = captureStderr(preview);
+const browser = spawn(chromium, ["--headless=new", "--no-sandbox", "--disable-dev-shm-usage", `--remote-debugging-port=${debugPort}`, `--user-data-dir=${profile}`], { stdio: ["ignore", "ignore", "pipe"], detached: true });
+const getBrowserStderr = captureStderr(browser);
 try {
   const url = `http://127.0.0.1:${previewPort}/`;
-  await waitForHttp(url);
-  await waitFor(`http://127.0.0.1:${debugPort}/json/version`);
+  await waitForHttp(url, preview, getPreviewStderr);
+  await waitFor(`http://127.0.0.1:${debugPort}/json/version`, browser, "Chromium", getBrowserStderr);
   const page = await fetch(`http://127.0.0.1:${debugPort}/json/new?${url}`, { method: "PUT" }).then(response => response.json());
   const socket = new WebSocket(page.webSocketDebuggerUrl);
   await new Promise((resolve, reject) => { socket.onopen = resolve; socket.onerror = reject; });
