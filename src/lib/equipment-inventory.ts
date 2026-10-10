@@ -1,4 +1,4 @@
-import { EQUIPMENT_CATALOGUE_VERSION, createEquipmentPurchase, type EquipmentSourceRecord } from "./equipment-catalogue";
+import { EQUIPMENT_CATALOGUE, EQUIPMENT_CATALOGUE_VERSION, createEquipmentPurchase, type EquipmentSourceRecord } from "./equipment-catalogue";
 import type { ArmourPiece, ArmourConstructionId, ArmourMaterialId, CompatibilityState, FitState, HitLocationName } from "./armour-rules";
 import { ARMOUR_CONSTRUCTIONS, ARMOUR_MATERIALS } from "./armour-rules";
 
@@ -58,6 +58,14 @@ export function normalizeInventoryState(value: unknown): InventoryState {
     if (!item || typeof item !== "object") return [];
     const row = item as InventoryItem;
     if (typeof row.name !== "string" || !validInt(row.quantity, 1)) return [];
+    const catalogueEnc = typeof row.catalogueId === "string"
+      ? EQUIPMENT_CATALOGUE.find(entry => entry.source.id === row.catalogueId)?.source.enc_candidate
+      : undefined;
+    const savedEnc = typeof row.encPerUnit === "number" && Number.isFinite(row.encPerUnit) && row.encPerUnit >= 0 ? row.encPerUnit : null;
+    const encPerUnit = savedEnc ?? catalogueEnc ?? null;
+    const encSource = row.encSource === "gm_override" && savedEnc !== null ? "gm_override"
+      : savedEnc !== null && row.encSource === "catalogue_candidate" ? "catalogue_candidate"
+        : catalogueEnc !== undefined ? "catalogue_candidate" : "unresolved";
     const normalizedItem = {
       id: typeof row.id === "string" && row.id ? row.id : uid(),
       catalogueId: typeof row.catalogueId === "string" ? row.catalogueId : null,
@@ -67,9 +75,8 @@ export function normalizeInventoryState(value: unknown): InventoryState {
       quantity: row.quantity,
       acquiredAs: ["purchased", "gifted", "inherited", "granted", "legacy"].includes(row.acquiredAs) ? row.acquiredAs : "legacy",
       state: ["carried", "worn", "stored"].includes(row.state) ? row.state : "carried",
-      encPerUnit: typeof row.encPerUnit === "number" && Number.isFinite(row.encPerUnit) && row.encPerUnit >= 0 ? row.encPerUnit : null,
-      encSource: row.encSource === "gm_override" && typeof row.encPerUnit === "number" ? "gm_override"
-        : row.encSource === "catalogue_candidate" && typeof row.encPerUnit === "number" ? "catalogue_candidate" : "unresolved",
+      encPerUnit,
+      encSource,
       ...(typeof row.encumbranceExempt === "boolean" ? { encumbranceExempt: row.encumbranceExempt } : {}),
       ...(row.armour && typeof row.armour === "object" ? { armour: {
         construction: typeof row.armour.construction === "string" && Object.hasOwn(ARMOUR_CONSTRUCTIONS, row.armour.construction)
@@ -153,8 +160,8 @@ export function addPurchase(
     existing.sourceIds = sourceIds;
   } else inventory.push({ id: uid(), catalogueId: record.id, sourceIds, ...(group ? { physicalItemKey: group } : {}),
     name: record.name, quantity, acquiredAs: "purchased", state: record.category === "armour" ? "worn" : "carried",
-    encPerUnit: record.base_enc_per_location ?? null,
-    encSource: record.base_enc_per_location === undefined ? "unresolved" : "catalogue_candidate",
+    encPerUnit: record.enc_candidate ?? record.base_enc_per_location ?? null,
+    encSource: record.enc_candidate !== undefined || record.base_enc_per_location !== undefined ? "catalogue_candidate" : "unresolved",
     ...(record.category === "armour" ? { armour: newArmourConfig(record.id, "worn") } : {}) });
   const transaction: InventoryTransaction = { id: uid(), kind: "purchase", catalogueId: record.id, name: record.name,
     quantity, amountCp: created.transaction.amountCp * quantity, amountSource: created.transaction.amountSource,
@@ -175,8 +182,8 @@ export function addGift(state: InventoryState, record: EquipmentSourceRecord, qu
   return { ...state, inventory: [...state.inventory, { id: uid(), catalogueId: record.id, sourceIds: [record.id],
     ...(record.physical_item_key ? { physicalItemKey: record.physical_item_key } : {}), name: record.name, quantity,
     acquiredAs, state: record.category === "armour" ? "worn" : "carried",
-    encPerUnit: record.base_enc_per_location ?? null,
-    encSource: record.base_enc_per_location === undefined ? "unresolved" : "catalogue_candidate",
+    encPerUnit: record.enc_candidate ?? record.base_enc_per_location ?? null,
+    encSource: record.enc_candidate !== undefined || record.base_enc_per_location !== undefined ? "catalogue_candidate" : "unresolved",
     ...(record.category === "armour" ? { armour: newArmourConfig(record.id, "worn") } : {}) }] };
 }
 

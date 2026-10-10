@@ -21,7 +21,9 @@ test("equipment starts with three activities and four plain-language groups", ()
   expect(inventory).toContain("Searches all {EQUIPMENT_CATALOGUE.length} equipment records.");
   const groups = ["one_handed", "two_handed", "ranged", "ammunition", "siege", "vehicles", "armour", "shields", "materials", "clothing", "tools", "food", "livestock", "accommodation"];
   expect(new Set(groups)).toEqual(new Set(EQUIPMENT_CATALOGUE.map(item => item.source.category)));
-  expect(inventory).toContain("aria-pressed={selectedId === record.id}");
+  expect(inventory).toContain("aria-expanded={selectedId === record.id}");
+  expect(inventory).toContain("selectedId === record.id ? null : record.id");
+  expect(inventory).toContain('aria-controls={selectedId === record.id ? "selected-item-detail" : undefined}');
   expect(inventory).toContain("aria-labelledby=\"selected-item-title\"");
   expect(inventory).toContain("Search all equipment");
   expect(compile(inventory, { filename: "src/components/EquipmentInventory.svelte", generate: "client" }).warnings).toHaveLength(0);
@@ -58,6 +60,7 @@ test("weapon and shield details use player-facing labels and keep provisional so
   expect(broadsword?.source.ap_candidate).toBe(6);
   expect(broadsword?.source.hp_candidate).toBe(10);
   expect(broadsword?.source.wielding_hands).toBe(1);
+  expect(broadsword?.source.enc_candidate).toBe(2);
   expect(broadsword?.source.source_printed_page).toBe(63);
   expect(broadsword?.source.verification).toContain("require visual row validation");
   expect(broadsword?.fieldVerification.ap_candidate).toBe("provisional");
@@ -65,14 +68,14 @@ test("weapon and shield details use player-facing labels and keep provisional so
   expect(buckler?.source.ap_candidate).toBe(6);
   expect(buckler?.source.hp_candidate).toBe(9);
 
-  for (const text of ["Base damage", "${itemType} AP", "${itemType} HP", "Shield", "Hands required", "Medium", "Rules help", "Mythras Core, p. {record.source_printed_page}", "Combat profile", "Unresolved"])
+  for (const text of ["Base damage", "${itemType} AP", "${itemType} HP", "Encumbrance (ENC)", "Shield", "Hands required", "Medium", "Rules help", "Mythras Core, p. {record.source_printed_page}", "Combat profile", "Unresolved"])
     expect(inventory).toContain(text);
   for (const text of ["Stats pending verification", "Details pending verification", "provisional", "requires GM confirmation", "candidate stats are not verified"])
     expect(inventory.toLowerCase()).not.toContain(text.toLowerCase());
   expect(inventory.match(/Mythras Core, p\. \{record\.source_printed_page\}/g)).toHaveLength(1);
   expect(inventory).toContain('unavailable ? "Price unavailable" : displayEquipmentPrice(record)');
-  expect(inventory).toContain("ENC unresolved");
-  expect(inventory).toContain("Catalogue prices and figures are transcribed candidates; verify them against Mythras Core");
+  expect(inventory).toContain("ENC Unknown");
+  expect(inventory).not.toContain("Catalogue prices and figures are transcribed candidates");
   for (const text of ["Record {record.id}", "{record.source_line}", "Object.entries(selected.fieldVerification)", "{record.verification}", "Source IDs:"])
     expect(inventory).not.toContain(text);
   expect(inventory).not.toContain("<details><summary>Rules &amp; sources</summary><p>Mythras Core");

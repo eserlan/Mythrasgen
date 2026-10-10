@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { EQUIPMENT_CATALOGUE } from "./equipment-catalogue";
+import { carriedLoad } from "./encumbrance";
 import { addExpense, addGift, addPurchase, changeInventoryItem, ledgerSpentCp, normalizeInventoryState, reconcileBalance, refundPurchase, removeInventoryItem, type InventoryState } from "./equipment-inventory";
 
 const item = (id: string) => {
@@ -34,6 +35,35 @@ describe("Page VIII equipment ledger", () => {
     expect(state.inventory[0].quantity).toBe(3);
     expect(state.inventory[0].sourceIds).toEqual([first.id, second.id]);
     expect(ledgerSpentCp(state.equipmentTransactions)).toBe(0);
+  });
+
+  test("catalogue ENC follows purchased, gifted, and inherited items and survives reload", () => {
+    const sword = item("one_handed-broadsword");
+    expect(sword.enc_candidate).toBe(2);
+    for (const state of [
+      addPurchase(blank(), sword, 2),
+      addGift(blank(), sword, 1, "gifted"),
+      addGift(blank(), sword, 1, "inherited"),
+    ]) {
+      expect(state.inventory[0]).toMatchObject({ encPerUnit: 2, encSource: "catalogue_candidate" });
+      expect(normalizeInventoryState(structuredClone(state)).inventory[0].encPerUnit).toBe(2);
+    }
+    const two = addPurchase(blank(), sword, 2);
+    expect(carriedLoad(two.inventory).load).toBe(4);
+    expect(carriedLoad([{ ...two.inventory[0], state: "stored" }]).load).toBe(0);
+    expect(normalizeInventoryState({ inventory: [{ id: "old", catalogueId: sword.id, name: sword.name, quantity: 1 }] }).inventory[0])
+      .toMatchObject({ encPerUnit: 2, encSource: "catalogue_candidate" });
+  });
+
+  test("catalogue ENC never replaces an explicit GM override or invents unknown values", () => {
+    const sword = item("one_handed-broadsword");
+    const overridden = addPurchase(blank(), sword, 1);
+    overridden.inventory[0].encPerUnit = 3;
+    overridden.inventory[0].encSource = "gm_override";
+    expect(normalizeInventoryState(structuredClone(overridden)).inventory[0]).toMatchObject({ encPerUnit: 3, encSource: "gm_override" });
+    const unknown = item("one_handed-dagger");
+    expect(unknown.enc_candidate).toBeUndefined();
+    expect(addPurchase(blank(), unknown, 1).inventory[0]).toMatchObject({ encPerUnit: null, encSource: "unresolved" });
   });
 
   test("removal does not refund; an explicit refund is a separate transaction", () => {

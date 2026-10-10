@@ -39,7 +39,7 @@ function validateRow(row, index) {
   assert(typeof row.source_line === "string", `${row.id}: source_line must be a string`);
   assert(row.price_cp_candidate === null || (Number.isSafeInteger(row.price_cp_candidate) && row.price_cp_candidate >= 0), `${row.id}: price must be non-negative integer CP or null`);
   assert(typeof row.verification === "string" && row.verification.trim(), `${row.id}: missing verification status`);
-  for (const key of ["ap", "ap_candidate", "hp_candidate", "wielding_hands", "base_enc_per_location", "enc_multiplier"]) {
+  for (const key of ["ap", "ap_candidate", "hp_candidate", "enc_candidate", "wielding_hands", "base_enc_per_location", "enc_multiplier"]) {
     assert(row[key] === undefined || (typeof row[key] === "number" && Number.isFinite(row[key])), `${row.id}: malformed ${key}`);
   }
   if (row.combat_profile_candidate !== undefined) {
@@ -76,7 +76,7 @@ try {
   const csvIdColumn = csvHeader.indexOf("id");
   assert(csvIdColumn >= 0, "CSV is missing id column");
   const csvFieldIndexes = new Map(csvHeader.map((field, index) => [field, index]));
-  const crossCheckFields = ["id", "category", "name", "source_printed_page", "price_cp_candidate", "verification", "source_line"];
+  const crossCheckFields = ["id", "category", "name", "source_printed_page", "price_cp_candidate", "verification", "source_line", "enc_candidate"];
   assert(crossCheckFields.every(field => csvFieldIndexes.has(field)), "CSV is missing a JSON cross-check column");
   const csvDataRows = csvRows.slice(1).filter(row => row.length > 1);
   assert(csvDataRows.every(row => row.length === csvHeader.length), "CSV contains a row with the wrong number of columns");
@@ -88,7 +88,7 @@ try {
   for (const record of records) {
     const csvRow = csvRowsById.get(record.id);
     for (const field of crossCheckFields) {
-      const expected = record[field] === null ? "" : String(record[field]);
+      const expected = record[field] === null || record[field] === undefined ? "" : String(record[field]);
       assert(csvRow[csvFieldIndexes.get(field)] === expected, `CSV ${field} does not match JSON for ${record.id}`);
     }
   }
