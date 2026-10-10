@@ -41,13 +41,16 @@
   })[id];
   const isWeapon = (record: typeof EQUIPMENT_CATALOGUE[number]["source"]) =>
     ["one_handed", "two_handed", "ranged"].includes(record.category);
-  const weaponStats = (record: typeof EQUIPMENT_CATALOGUE[number]["source"]) => {
-    if (!isWeapon(record)) return [] as [string, string][];
+  const hasCombatProfile = (record: typeof EQUIPMENT_CATALOGUE[number]["source"]) =>
+    isWeapon(record) || record.category === "shields";
+  const combatStats = (record: typeof EQUIPMENT_CATALOGUE[number]["source"]) => {
+    if (!hasCombatProfile(record)) return [] as [string, string][];
+    const itemType = record.category === "shields" ? "Shield" : "Weapon";
     const profile = record.combat_profile_candidate;
     return [
       ...(profile ? [["Base damage", profile.damage], ["Size", profile.size === "M" ? "Medium" : profile.size], ["Reach", profile.reach === "M" ? "Medium" : profile.reach]] as [string, string][] : []),
-      ...(record.ap_candidate !== undefined ? [["Weapon AP", String(record.ap_candidate)] as [string, string]] : []),
-      ...(record.hp_candidate !== undefined ? [["Weapon HP", String(record.hp_candidate)] as [string, string]] : []),
+      ...(record.ap_candidate !== undefined ? [[`${itemType} AP`, String(record.ap_candidate)] as [string, string]] : []),
+      ...(record.hp_candidate !== undefined ? [[`${itemType} HP`, String(record.hp_candidate)] as [string, string]] : []),
       ...(record.wielding_hands !== undefined ? [["Hands required", `${record.wielding_hands} ${record.wielding_hands === 1 ? "hand" : "hands"}`] as [string, string]] : []),
     ];
   };
@@ -75,8 +78,8 @@
     id: `${item.id}-${index + 1}`, ...item.armour!, state: item.state,
   })))));
   const statSummary = (record: typeof EQUIPMENT_CATALOGUE[number]) => [
-    ...(weaponStats(record.source).length ? ["Provisional"] : []),
-    ...weaponStats(record.source).map(([name, value]) => `${name} ${value}`),
+    ...(combatStats(record.source).length ? ["Provisional"] : []),
+    ...combatStats(record.source).map(([name, value]) => `${name} ${value}`),
     record.source.base_enc_per_location !== undefined && `ENC ${record.source.base_enc_per_location}`,
   ].filter(Boolean).join(" · ");
   function purchase(record: typeof EQUIPMENT_CATALOGUE[number]) {
@@ -256,17 +259,17 @@
       <div class="detail-title"><div><h5 id="selected-item-title">{record.name}</h5><p class="mute">{categorySummary(record.category)} · {unavailable ? "Price unavailable" : displayEquipmentPrice(record)}</p></div>
         <button type="button" class="ghost" aria-label="Close item details" onclick={() => closeDetails(record.id)}>Close</button>
       </div>
-      {#if isWeapon(record)}
+      {#if hasCombatProfile(record)}
         <dl class="weapon-detail-stats">
-          {#each weaponStats(record) as [name, value]}
+          {#each combatStats(record) as [name, value]}
             <div><dt>{name}</dt><dd>{value}</dd></div>
           {/each}
         </dl>
-        <p class="mute">The price and weapon stats shown here are provisional and need confirmation against Mythras Core.</p>
+        <p class="mute">The price and {record.category === "shields" ? "shield" : "weapon"} stats shown here are provisional and need confirmation against Mythras Core.</p>
         <details class="rules-help"><summary aria-label={`Rules help for ${record.name}`}>Rules help</summary>
           <p>Listed dice are base damage. Add your character’s Damage Modifier when the rules call for it.</p>
           <p>Size compares a weapon with an incoming attack when parrying. Reach describes how far the weapon can engage and can affect who controls the distance.</p>
-          <p>Weapon AP and Weapon HP measure the weapon’s durability. They are not character armour points or character hit points. Hands required tells you how to wield it.</p>
+          <p>{record.category === "shields" ? "Shield" : "Weapon"} AP and {record.category === "shields" ? "shield" : "weapon"} HP measure the item's durability. They are not character armour points or character hit points. Hands required tells you how to wield it.</p>
         </details>
         <p class="mute">Mythras Core, p. {record.source_printed_page}. Special Effects need verification against the Core PDF before they can be listed.</p>
       {:else}
