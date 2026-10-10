@@ -1,0 +1,2278 @@
+[
+  {
+    "id": "one_handed-ball-chain",
+    "category": "one_handed",
+    "name": "Ball & chain",
+    "source_printed_page": 63,
+    "source_line": "Ball & chain            1d6+1     M     M                                 2           6/8             Flexible      M       250 SP",
+    "price_cp_candidate": 2500,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "combat_profile_candidate": {
+      "damage": "1d6+1",
+      "size": "M",
+      "reach": "M"
+    },
+    "ap_candidate": 6,
+    "hp_candidate": 8,
+    "wielding_hands": 1
+  },
+  {
+    "id": "one_handed-battleaxe",
+    "category": "one_handed",
+    "name": "Battleaxe",
+    "source_printed_page": 63,
+    "source_line": "Battleaxe              1d6+1     M     M       Bleed, Sunder                1           4/8                       A-R      100 SP",
+    "price_cp_candidate": 1000,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "combat_profile_candidate": {
+      "damage": "1d6+1",
+      "size": "M",
+      "reach": "M"
+    },
+    "ap_candidate": 4,
+    "hp_candidate": 8,
+    "wielding_hands": 1,
+    "physical_item_key": "weapon-battleaxe"
+  },
+  {
+    "id": "one_handed-broadsword",
+    "category": "one_handed",
+    "name": "Broadsword",
+    "source_printed_page": 63,
+    "source_line": "Broadsword              1d8      M     M       Bleed, Impale                2          6/10                        A-E      175 SP",
+    "price_cp_candidate": 1750,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "combat_profile_candidate": {
+      "damage": "1d8",
+      "size": "M",
+      "reach": "M"
+    },
+    "ap_candidate": 6,
+    "hp_candidate": 10,
+    "wielding_hands": 1
+  },
+  {
+    "id": "one_handed-chain",
+    "category": "one_handed",
+    "name": "Chain",
+    "source_printed_page": 63,
+    "source_line": "Chain                  1d4      M     M      Entangle                    1           8/6             Flexible           A-I      10 SP",
+    "price_cp_candidate": 100,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "combat_profile_candidate": {
+      "damage": "1d4",
+      "size": "M",
+      "reach": "M"
+    },
+    "ap_candidate": 8,
+    "hp_candidate": 6,
+    "wielding_hands": 1
+  },
+  {
+    "id": "one_handed-club",
+    "category": "one_handed",
+    "name": "Club",
+    "source_printed_page": 63,
+    "source_line": "Club                   1d6      M         S       Bash, Stun Location           1           4/4                                  All       5 SP",
+    "price_cp_candidate": 50,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "combat_profile_candidate": {
+      "damage": "1d6",
+      "size": "M",
+      "reach": "S"
+    },
+    "ap_candidate": 4,
+    "hp_candidate": 4,
+    "wielding_hands": 1
+  },
+  {
+    "id": "one_handed-dagger",
+    "category": "one_handed",
+    "name": "Dagger",
+    "source_printed_page": 63,
+    "source_line": "Dagger               1d4+1         S         S       Bleed, Impale        —          6/8         Thrown             All       30 SP",
+    "price_cp_candidate": 300,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "combat_profile_candidate": {
+      "damage": "1d4+1",
+      "size": "S",
+      "reach": "S"
+    },
+    "ap_candidate": 6,
+    "hp_candidate": 8,
+    "wielding_hands": 1,
+    "physical_item_key": "weapon-dagger"
+  },
+  {
+    "id": "one_handed-hatchet",
+    "category": "one_handed",
+    "name": "Hatchet",
+    "source_printed_page": 63,
+    "source_line": "Hatchet                 1d6          S         S       Bleed                       1           4/6         Thrown             All       25 SP",
+    "price_cp_candidate": 250,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "combat_profile_candidate": {
+      "damage": "1d6",
+      "size": "S",
+      "reach": "S"
+    },
+    "ap_candidate": 4,
+    "hp_candidate": 6,
+    "wielding_hands": 1,
+    "physical_item_key": "weapon-hatchet"
+  },
+  {
+    "id": "one_handed-falchion",
+    "category": "one_handed",
+    "name": "Falchion",
+    "source_printed_page": 63,
+    "source_line": "Falchion               1d6+2     M     M      Bleed                       1          6/10                    A-M      200 SP",
+    "price_cp_candidate": 2000,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "combat_profile_candidate": {
+      "damage": "1d6+2",
+      "size": "M",
+      "reach": "M"
+    },
+    "ap_candidate": 6,
+    "hp_candidate": 10,
+    "wielding_hands": 1
+  },
+  {
+    "id": "one_handed-flail",
+    "category": "one_handed",
+    "name": "Flail",
+    "source_printed_page": 63,
+    "source_line": "Flail                    1d6      M     M      Bash                        1           3/6             Flexible       A-M      25 SP",
+    "price_cp_candidate": 250,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "combat_profile_candidate": {
+      "damage": "1d6",
+      "size": "M",
+      "reach": "M"
+    },
+    "ap_candidate": 3,
+    "hp_candidate": 6,
+    "wielding_hands": 1
+  },
+  {
+    "id": "one_handed-knife",
+    "category": "one_handed",
+    "name": "Knife",
+    "source_printed_page": 63,
+    "source_line": "Knife                   1d3          S         S       Bleed, Impale        —          5/4                                  All       10 SP",
+    "price_cp_candidate": 100,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "combat_profile_candidate": {
+      "damage": "1d3",
+      "size": "S",
+      "reach": "S"
+    },
+    "ap_candidate": 5,
+    "hp_candidate": 4,
+    "wielding_hands": 1
+  },
+  {
+    "id": "one_handed-lance",
+    "category": "one_handed",
+    "name": "Lance",
+    "source_printed_page": 63,
+    "source_line": "Lance                1d10+2      H       VL      Impale, Sunder               3          4/10         Mount        A-M      150 SP",
+    "price_cp_candidate": 1500,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "combat_profile_candidate": {
+      "damage": "1d10+2",
+      "size": "H",
+      "reach": "VL"
+    },
+    "ap_candidate": 4,
+    "hp_candidate": 10,
+    "wielding_hands": 1
+  },
+  {
+    "id": "one_handed-longsword",
+    "category": "one_handed",
+    "name": "Longsword",
+    "source_printed_page": 63,
+    "source_line": "Longsword               1d8      M        L       Bleed, Impale                2          6/12                   M-R      250 SP",
+    "price_cp_candidate": 2500,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "combat_profile_candidate": {
+      "damage": "1d8",
+      "size": "M",
+      "reach": "L"
+    },
+    "ap_candidate": 6,
+    "hp_candidate": 12,
+    "wielding_hands": 1,
+    "physical_item_key": "weapon-longsword"
+  },
+  {
+    "id": "one_handed-mace",
+    "category": "one_handed",
+    "name": "Mace",
+    "source_printed_page": 63,
+    "source_line": "Mace                   1d8      M         S       Bash, Stun Location           1           6/6                       A-R      100 SP",
+    "price_cp_candidate": 1000,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "combat_profile_candidate": {
+      "damage": "1d8",
+      "size": "M",
+      "reach": "S"
+    },
+    "ap_candidate": 6,
+    "hp_candidate": 6,
+    "wielding_hands": 1
+  },
+  {
+    "id": "one_handed-main-gauche",
+    "category": "one_handed",
+    "name": "Main Gauche",
+    "source_printed_page": 63,
+    "source_line": "Main Gauche            1d4          S         S       Bleed           —          6/10         Entrapping      M-E      180 SP",
+    "price_cp_candidate": 1800,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "combat_profile_candidate": {
+      "damage": "1d4",
+      "size": "S",
+      "reach": "S"
+    },
+    "ap_candidate": 6,
+    "hp_candidate": 10,
+    "wielding_hands": 1
+  },
+  {
+    "id": "one_handed-military-pick",
+    "category": "one_handed",
+    "name": "Military pick",
+    "source_printed_page": 63,
+    "source_line": "Military pick           1d6+1     M     M      Stun Location, Sunder         3          6/10                    M-E      180 SP",
+    "price_cp_candidate": 1800,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "combat_profile_candidate": {
+      "damage": "1d6+1",
+      "size": "M",
+      "reach": "M"
+    },
+    "ap_candidate": 6,
+    "hp_candidate": 10,
+    "wielding_hands": 1
+  },
+  {
+    "id": "one_handed-net",
+    "category": "one_handed",
+    "name": "Net",
+    "source_printed_page": 63,
+    "source_line": "Net                    1d4          S        L       Entangle                    3          2/20                                  All       20 SP",
+    "price_cp_candidate": 200,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "combat_profile_candidate": {
+      "damage": "1d4",
+      "size": "S",
+      "reach": "L"
+    },
+    "ap_candidate": 2,
+    "hp_candidate": 20,
+    "wielding_hands": 1,
+    "physical_item_key": "weapon-net"
+  },
+  {
+    "id": "one_handed-rapier",
+    "category": "one_handed",
+    "name": "Rapier",
+    "source_printed_page": 63,
+    "source_line": "Rapier                  1d8      M        L       Impale                      1           5/8                      E       100 SP",
+    "price_cp_candidate": 1000,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "combat_profile_candidate": {
+      "damage": "1d8",
+      "size": "M",
+      "reach": "L"
+    },
+    "ap_candidate": 5,
+    "hp_candidate": 8,
+    "wielding_hands": 1
+  },
+  {
+    "id": "one_handed-sabre",
+    "category": "one_handed",
+    "name": "Sabre",
+    "source_printed_page": 63,
+    "source_line": "Sabre                 1d6+1     M     M       Bleed, Impale                1           6/8                               E-I       225 SP",
+    "price_cp_candidate": 2250,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "combat_profile_candidate": {
+      "damage": "1d6+1",
+      "size": "M",
+      "reach": "M"
+    },
+    "ap_candidate": 6,
+    "hp_candidate": 8,
+    "wielding_hands": 1
+  },
+  {
+    "id": "one_handed-scimitar",
+    "category": "one_handed",
+    "name": "Scimitar",
+    "source_printed_page": 63,
+    "source_line": "Scimitar                 1d8      M     M      Bleed                       2          6/10                    M-E      200 SP",
+    "price_cp_candidate": 2000,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "combat_profile_candidate": {
+      "damage": "1d8",
+      "size": "M",
+      "reach": "M"
+    },
+    "ap_candidate": 6,
+    "hp_candidate": 10,
+    "wielding_hands": 1
+  },
+  {
+    "id": "one_handed-shortspear",
+    "category": "one_handed",
+    "name": "Shortspear",
+    "source_printed_page": 63,
+    "source_line": "Shortspear             1d8+1     M        L       Impale                      2           4/5           Set, Thrown           All       20 SP",
+    "price_cp_candidate": 200,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "combat_profile_candidate": {
+      "damage": "1d8+1",
+      "size": "M",
+      "reach": "L"
+    },
+    "ap_candidate": 4,
+    "hp_candidate": 5,
+    "wielding_hands": 1,
+    "physical_item_key": "weapon-shortspear"
+  },
+  {
+    "id": "one_handed-shortsword",
+    "category": "one_handed",
+    "name": "Shortsword",
+    "source_printed_page": 63,
+    "source_line": "Shortsword              1d6      M         S       Bleed, Impale                1           6/8                                  All       100 SP",
+    "price_cp_candidate": 1000,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "combat_profile_candidate": {
+      "damage": "1d6",
+      "size": "M",
+      "reach": "S"
+    },
+    "ap_candidate": 6,
+    "hp_candidate": 8,
+    "wielding_hands": 1
+  },
+  {
+    "id": "one_handed-trident",
+    "category": "one_handed",
+    "name": "Trident",
+    "source_printed_page": 63,
+    "source_line": "Trident                 1d8      M        L       Impale                      2          4/10       Barbed, Thrown     A-M      155 SP",
+    "price_cp_candidate": 1550,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "combat_profile_candidate": {
+      "damage": "1d8",
+      "size": "M",
+      "reach": "L"
+    },
+    "ap_candidate": 4,
+    "hp_candidate": 10,
+    "wielding_hands": 1,
+    "physical_item_key": "weapon-trident"
+  },
+  {
+    "id": "one_handed-whip",
+    "category": "one_handed",
+    "name": "Whip",
+    "source_printed_page": 63,
+    "source_line": "Whip                   1d3      M      VL      Entangle, Stun Location        1           2/8             Flexible,       A-M      100 SP",
+    "price_cp_candidate": 1000,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "combat_profile_candidate": {
+      "damage": "1d3",
+      "size": "M",
+      "reach": "VL"
+    },
+    "ap_candidate": 2,
+    "hp_candidate": 8,
+    "wielding_hands": 1
+  },
+  {
+    "id": "shields-buckler",
+    "category": "shields",
+    "name": "Buckler",
+    "source_printed_page": 63,
+    "source_line": "Buckler         1d3     M         S       Bash, Stun Location         1           6/9                            M-E",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "combat_profile_candidate": {
+      "damage": "1d3",
+      "size": "M",
+      "reach": "S"
+    },
+    "ap_candidate": 6,
+    "hp_candidate": 9,
+    "wielding_hands": 1
+  },
+  {
+    "id": "shields-heater",
+    "category": "shields",
+    "name": "Heater",
+    "source_printed_page": 63,
+    "source_line": "Heater         1d4        L         S       Bash, Stun Location         2          6/12                   M",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "combat_profile_candidate": {
+      "damage": "1d4",
+      "size": "L",
+      "reach": "S"
+    },
+    "ap_candidate": 6,
+    "hp_candidate": 12,
+    "wielding_hands": 1
+  },
+  {
+    "id": "shields-hoplite",
+    "category": "shields",
+    "name": "Hoplite",
+    "source_printed_page": 63,
+    "source_line": "Hoplite         1d4      H         S       Bash, Stun Location         3          6/15                           A-M",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "combat_profile_candidate": {
+      "damage": "1d4",
+      "size": "H",
+      "reach": "S"
+    },
+    "ap_candidate": 6,
+    "hp_candidate": 15,
+    "wielding_hands": 1
+  },
+  {
+    "id": "shields-kite",
+    "category": "shields",
+    "name": "Kite",
+    "source_printed_page": 63,
+    "source_line": "Kite           1d4      H         S       Bash, Stun Location         3          4/15                   M",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "combat_profile_candidate": {
+      "damage": "1d4",
+      "size": "H",
+      "reach": "S"
+    },
+    "ap_candidate": 4,
+    "hp_candidate": 15,
+    "wielding_hands": 1
+  },
+  {
+    "id": "shields-peltast",
+    "category": "shields",
+    "name": "Peltast",
+    "source_printed_page": 63,
+    "source_line": "Peltast         1d4        L         S       Bash, Stun Location         2          4/12                           A-M",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "combat_profile_candidate": {
+      "damage": "1d4",
+      "size": "L",
+      "reach": "S"
+    },
+    "ap_candidate": 4,
+    "hp_candidate": 12,
+    "wielding_hands": 1
+  },
+  {
+    "id": "shields-scutum",
+    "category": "shields",
+    "name": "Scutum",
+    "source_printed_page": 63,
+    "source_line": "Scutum        1d4      H         S       Bash, Stun Location         4          4/18                           A-M",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "combat_profile_candidate": {
+      "damage": "1d4",
+      "size": "H",
+      "reach": "S"
+    },
+    "ap_candidate": 4,
+    "hp_candidate": 18,
+    "wielding_hands": 1
+  },
+  {
+    "id": "shields-target",
+    "category": "shields",
+    "name": "Target",
+    "source_printed_page": 63,
+    "source_line": "Target        1d3+1       L         S       Bash, Impale               2           4/9                                 A-E",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "combat_profile_candidate": {
+      "damage": "1d3+1",
+      "size": "L",
+      "reach": "S"
+    },
+    "ap_candidate": 4,
+    "hp_candidate": 9,
+    "wielding_hands": 1
+  },
+  {
+    "id": "shields-viking",
+    "category": "shields",
+    "name": "Viking",
+    "source_printed_page": 63,
+    "source_line": "Viking         1d4        L         S       Bash, Stun Location         3          4/12                   M",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "combat_profile_candidate": {
+      "damage": "1d4",
+      "size": "L",
+      "reach": "S"
+    },
+    "ap_candidate": 4,
+    "hp_candidate": 12,
+    "wielding_hands": 1
+  },
+  {
+    "id": "two_handed-battleaxe",
+    "category": "two_handed",
+    "name": "Battleaxe",
+    "source_printed_page": 64,
+    "source_line": "Battleaxe             1d8+1         L      M        Bleed, Sunder                1           4/8                  A-M      100 SP",
+    "price_cp_candidate": 1000,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "combat_profile_candidate": {
+      "damage": "1d8+1",
+      "size": "L",
+      "reach": "M"
+    },
+    "ap_candidate": 4,
+    "hp_candidate": 8,
+    "wielding_hands": 2,
+    "physical_item_key": "weapon-battleaxe"
+  },
+  {
+    "id": "two_handed-garrotte",
+    "category": "two_handed",
+    "name": "Garrotte",
+    "source_printed_page": 64,
+    "source_line": "Garrotte               1d2           S        T           -             —          1/2           Stealth          A-I      15 SP",
+    "price_cp_candidate": 150,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "combat_profile_candidate": {
+      "damage": "1d2",
+      "size": "S",
+      "reach": "T"
+    },
+    "ap_candidate": 1,
+    "hp_candidate": 2,
+    "wielding_hands": 2
+  },
+  {
+    "id": "two_handed-glaive-rhomphaia",
+    "category": "two_handed",
+    "name": "Glaive/Rhomphaia",
+    "source_printed_page": 64,
+    "source_line": "Glaive/Rhomphaia     1d10+2        L          L        Bleed, Sunder                2          4/10                  A-M      250 SP",
+    "price_cp_candidate": 2500,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "combat_profile_candidate": {
+      "damage": "1d10+2",
+      "size": "L",
+      "reach": "L"
+    },
+    "ap_candidate": 4,
+    "hp_candidate": 10,
+    "wielding_hands": 2
+  },
+  {
+    "id": "two_handed-great-axe",
+    "category": "two_handed",
+    "name": "Great axe",
+    "source_printed_page": 64,
+    "source_line": "Great axe             2d6+2      H         L        Bleed, Sunder                2          4/10                  A-M      125 SP",
+    "price_cp_candidate": 1250,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "combat_profile_candidate": {
+      "damage": "2d6+2",
+      "size": "H",
+      "reach": "L"
+    },
+    "ap_candidate": 4,
+    "hp_candidate": 10,
+    "wielding_hands": 2
+  },
+  {
+    "id": "two_handed-great-club",
+    "category": "two_handed",
+    "name": "Great club",
+    "source_printed_page": 64,
+    "source_line": "Great club              2d6       H         L        Bash, Stun Location           3          4/10                              All       50 SP",
+    "price_cp_candidate": 500,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "combat_profile_candidate": {
+      "damage": "2d6",
+      "size": "H",
+      "reach": "L"
+    },
+    "ap_candidate": 4,
+    "hp_candidate": 10,
+    "wielding_hands": 2
+  },
+  {
+    "id": "two_handed-great-hammer",
+    "category": "two_handed",
+    "name": "Great hammer",
+    "source_printed_page": 64,
+    "source_line": "Great hammer         1d10+3      H         L                                  3          4/10                  M-E      250 SP",
+    "price_cp_candidate": 2500,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "combat_profile_candidate": {
+      "damage": "1d10+3",
+      "size": "H",
+      "reach": "L"
+    },
+    "ap_candidate": 4,
+    "hp_candidate": 10,
+    "wielding_hands": 2
+  },
+  {
+    "id": "two_handed-greatsword",
+    "category": "two_handed",
+    "name": "Greatsword",
+    "source_printed_page": 64,
+    "source_line": "Greatsword             2d8       H         L        Bleed, Impale, Sunder         4          6/12                  M-E      300 SP",
+    "price_cp_candidate": 3000,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "combat_profile_candidate": {
+      "damage": "2d8",
+      "size": "H",
+      "reach": "L"
+    },
+    "ap_candidate": 6,
+    "hp_candidate": 12,
+    "wielding_hands": 2
+  },
+  {
+    "id": "two_handed-halberd-poleaxe",
+    "category": "two_handed",
+    "name": "Halberd/Poleaxe",
+    "source_printed_page": 64,
+    "source_line": "Halberd/Poleaxe       1d8+2         L        VL                                  4          4/10            Set          A-E      200 SP",
+    "price_cp_candidate": 2000,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "combat_profile_candidate": {
+      "damage": "1d8+2",
+      "size": "L",
+      "reach": "VL"
+    },
+    "ap_candidate": 4,
+    "hp_candidate": 10,
+    "wielding_hands": 2
+  },
+  {
+    "id": "two_handed-longspear",
+    "category": "two_handed",
+    "name": "Longspear",
+    "source_printed_page": 64,
+    "source_line": "Longspear            1d10+1        L        VL       Impale                      2          4/10            Set              All       30 SP",
+    "price_cp_candidate": 300,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "combat_profile_candidate": {
+      "damage": "1d10+1",
+      "size": "L",
+      "reach": "VL"
+    },
+    "ap_candidate": 4,
+    "hp_candidate": 10,
+    "wielding_hands": 2
+  },
+  {
+    "id": "two_handed-longsword",
+    "category": "two_handed",
+    "name": "Longsword",
+    "source_printed_page": 64,
+    "source_line": "Longsword             1d10         L          L        Bleed, Impale, Sunder         2          6/12                  M-E      250 SP",
+    "price_cp_candidate": 2500,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "combat_profile_candidate": {
+      "damage": "1d10",
+      "size": "L",
+      "reach": "L"
+    },
+    "ap_candidate": 6,
+    "hp_candidate": 12,
+    "wielding_hands": 2,
+    "physical_item_key": "weapon-longsword"
+  },
+  {
+    "id": "two_handed-military-flail",
+    "category": "two_handed",
+    "name": "Military flail",
+    "source_printed_page": 64,
+    "source_line": "Military flail            1d10         L          L        Bash, Stun Location           3          4/10          Flexible      A-M      250 SP",
+    "price_cp_candidate": 2500,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "combat_profile_candidate": {
+      "damage": "1d10",
+      "size": "L",
+      "reach": "L"
+    },
+    "ap_candidate": 4,
+    "hp_candidate": 10,
+    "wielding_hands": 2
+  },
+  {
+    "id": "two_handed-pike-sarissa",
+    "category": "two_handed",
+    "name": "Pike/Sarissa",
+    "source_printed_page": 64,
+    "source_line": "Pike/Sarissa          1d10+2        L        VL       Impale                      4          4/12            Set        A-M      90 SP",
+    "price_cp_candidate": 900,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "combat_profile_candidate": {
+      "damage": "1d10+2",
+      "size": "L",
+      "reach": "VL"
+    },
+    "ap_candidate": 4,
+    "hp_candidate": 12,
+    "wielding_hands": 2
+  },
+  {
+    "id": "two_handed-quarterstaff",
+    "category": "two_handed",
+    "name": "Quarterstaff",
+    "source_printed_page": 64,
+    "source_line": "Quarterstaff             1d8      M         L       Stun Location                2           4/8         Defensive           All       20 SP",
+    "price_cp_candidate": 200,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "combat_profile_candidate": {
+      "damage": "1d8",
+      "size": "M",
+      "reach": "L"
+    },
+    "ap_candidate": 4,
+    "hp_candidate": 8,
+    "wielding_hands": 2
+  },
+  {
+    "id": "two_handed-xyston",
+    "category": "two_handed",
+    "name": "Xyston",
+    "source_printed_page": 64,
+    "source_line": "Xyston                1d10         L        VL       Impale                      3          4/10                  A       100 SP",
+    "price_cp_candidate": 1000,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "combat_profile_candidate": {
+      "damage": "1d10",
+      "size": "L",
+      "reach": "VL"
+    },
+    "ap_candidate": 4,
+    "hp_candidate": 10,
+    "wielding_hands": 2
+  },
+  {
+    "id": "siege-scorpion",
+    "category": "siege",
+    "name": "Scorpion",
+    "source_printed_page": 64,
+    "source_line": "Scorpion             3d6       150m      300m        4      1/1      BE          Impale, Sunder          4/15        A-M      750 SP",
+    "price_cp_candidate": 7500,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "siege-ballista",
+    "category": "siege",
+    "name": "Ballista",
+    "source_printed_page": 64,
+    "source_line": "Ballista              4d6       200m      400m        5      2/4      BE          Impale, Sunder          4/25        A-M       1,000 SP",
+    "price_cp_candidate": 10000,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "siege-mangonel",
+    "category": "siege",
+    "name": "Mangonel",
+    "source_printed_page": 64,
+    "source_line": "Mangonel            5d6       250m      500m        6      2/4      BE            Bash, Stun            4/50      M        1,250 SP",
+    "price_cp_candidate": 12500,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "siege-onager",
+    "category": "siege",
+    "name": "Onager",
+    "source_printed_page": 64,
+    "source_line": "Onager              6d6       300m      600m        7      3/6      BE            Bash, Stun            4/75        A-M       1,500 SP",
+    "price_cp_candidate": 15000,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "siege-couillard",
+    "category": "siege",
+    "name": "Couillard",
+    "source_printed_page": 64,
+    "source_line": "Couillard            7d6       350m      700m        8      3/6      BE            Bash, Stun            4/100      M        3,000 SP",
+    "price_cp_candidate": 30000,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "siege-trebuchet",
+    "category": "siege",
+    "name": "Trebuchet",
+    "source_printed_page": 64,
+    "source_line": "Trebuchet            8d6       400m      800m        9      4/8      BE            Bash, Stun            4/150      M        5,000 SP",
+    "price_cp_candidate": 50000,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "vehicles-two-wheeled-cart",
+    "category": "vehicles",
+    "name": "Two wheeled cart",
+    "source_printed_page": 64,
+    "source_line": "Two wheeled cart (hayrick, ox cart or similar)                                         6/60                      1                    A-I            60",
+    "price_cp_candidate": 600,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "price_basis": "vehicle"
+  },
+  {
+    "id": "vehicles-two-wheeled-wagon",
+    "category": "vehicles",
+    "name": "Two wheeled wagon",
+    "source_printed_page": 64,
+    "source_line": "Two wheeled wagon (goods cart, carriage or similar)                                  10/100                     1                    A-I           175",
+    "price_cp_candidate": 1750,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "price_basis": "vehicle"
+  },
+  {
+    "id": "vehicles-four-wheeled-freight-wagon",
+    "category": "vehicles",
+    "name": "Four Wheeled Freight wagon",
+    "source_printed_page": 64,
+    "source_line": "Four Wheeled Freight wagon                                                     10/200                     2                    A-I           500",
+    "price_cp_candidate": 5000,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "price_basis": "vehicle"
+  },
+  {
+    "id": "vehicles-war-chariot",
+    "category": "vehicles",
+    "name": "War Chariot",
+    "source_printed_page": 64,
+    "source_line": "War Chariot                                                                   2/20                      2                    A-I           1200",
+    "price_cp_candidate": 12000,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "price_basis": "vehicle"
+  },
+  {
+    "id": "vehicles-sedan-chair",
+    "category": "vehicles",
+    "name": "Sedan Chair",
+    "source_printed_page": 64,
+    "source_line": "Sedan Chair (carried by humans)                                                  1/10                      2                    A-I           400",
+    "price_cp_candidate": 4000,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "price_basis": "vehicle"
+  },
+  {
+    "id": "vehicles-palanquin",
+    "category": "vehicles",
+    "name": "Palanquin",
+    "source_printed_page": 64,
+    "source_line": "Palanquin (carried by humans)                                                    4/40                      8                    A-I           2000",
+    "price_cp_candidate": 20000,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "price_basis": "vehicle"
+  },
+  {
+    "id": "vehicles-stage-coach",
+    "category": "vehicles",
+    "name": "Stage Coach",
+    "source_printed_page": 64,
+    "source_line": "Stage Coach (covered and comfortable)                                             8/200                     4                  R, I          8000",
+    "price_cp_candidate": 80000,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "price_basis": "vehicle"
+  },
+  {
+    "id": "vehicles-heavy-coach",
+    "category": "vehicles",
+    "name": "Heavy Coach",
+    "source_printed_page": 64,
+    "source_line": "Heavy Coach (covered and comfortable)                                            12/400                     8                  R, I          15000",
+    "price_cp_candidate": 150000,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "price_basis": "vehicle"
+  },
+  {
+    "id": "ranged-atlatl",
+    "category": "ranged",
+    "name": "Atlatl",
+    "source_printed_page": 65,
+    "source_line": "Atlatl        —     —      +1 Step   +0/+25/+75       1     —     —          1         1/4        P      10 SP",
+    "price_cp_candidate": 100,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "ranged-blowgun",
+    "category": "ranged",
+    "name": "Blowgun",
+    "source_printed_page": 65,
+    "source_line": "Blowgun       —       N     —      10/20/30          2     —     —     —        1/4        P      30 SP",
+    "price_cp_candidate": 300,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "ranged-bolas",
+    "category": "ranged",
+    "name": "Bolas",
+    "source_printed_page": 65,
+    "source_line": "Bolas               1d4       N     —      10/25/50     —        Entangle    —     —        2/2       P-A     10 SP",
+    "price_cp_candidate": 100,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "ranged-dagger",
+    "category": "ranged",
+    "name": "Dagger",
+    "source_printed_page": 65,
+    "source_line": "Dagger             1d4       Y          S      5/10/20     —        Impale         S     —        6/8          All     30 SP",
+    "price_cp_candidate": 300,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "physical_item_key": "weapon-dagger"
+  },
+  {
+    "id": "ranged-dart",
+    "category": "ranged",
+    "name": "Dart",
+    "source_printed_page": 65,
+    "source_line": "Dart               1d4       Y          S      5/10/20     —        Impale         S     —        2/1       P-A     10 SP",
+    "price_cp_candidate": 100,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "ranged-discus",
+    "category": "ranged",
+    "name": "Discus",
+    "source_printed_page": 65,
+    "source_line": "Discus            1d4+1       Y         L      5/20/40     —     Stun Location   —     —        2/3      A      30 SP",
+    "price_cp_candidate": 300,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "ranged-hatchet",
+    "category": "ranged",
+    "name": "Hatchet",
+    "source_printed_page": 65,
+    "source_line": "Hatchet             1d6       Y          S      10/20/30     —         Bleed     —          1         4/6          All     25 SP",
+    "price_cp_candidate": 250,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "physical_item_key": "weapon-hatchet"
+  },
+  {
+    "id": "ranged-heavy-crossbow",
+    "category": "ranged",
+    "name": "Heavy crossbow",
+    "source_printed_page": 65,
+    "source_line": "Heavy crossbow      1d10      N      H      20/150/300        4                      S           2         4/8      M-E     350 SP",
+    "price_cp_candidate": 3500,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "ranged-javelin",
+    "category": "ranged",
+    "name": "Javelin",
+    "source_printed_page": 65,
+    "source_line": "Javelin            1d8+1       Y      H      10/20/50     —       Weapon     M          1         3/8      A-M     20 SP",
+    "price_cp_candidate": 200,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "ranged-light-crossbow",
+    "category": "ranged",
+    "name": "Light crossbow",
+    "source_printed_page": 65,
+    "source_line": "Light crossbow       1d8       N         L      20/100/200        3         Impale         S           1         4/5      M-E     150 SP",
+    "price_cp_candidate": 1500,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "ranged-long-bow",
+    "category": "ranged",
+    "name": "Long bow",
+    "source_printed_page": 65,
+    "source_line": "Long bow           1d8       Y      H      15/125/250        2         Impale         S           1         4/7    M      200 SP",
+    "price_cp_candidate": 2000,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "ranged-net",
+    "category": "ranged",
+    "name": "Net",
+    "source_printed_page": 65,
+    "source_line": "Net         —       N     —      3/5/10      —        Entangle    —          3        2/20          All     20 SP",
+    "price_cp_candidate": 200,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "physical_item_key": "weapon-net"
+  },
+  {
+    "id": "ranged-recurve-bow",
+    "category": "ranged",
+    "name": "Recurve bow",
+    "source_printed_page": 65,
+    "source_line": "Recurve bow         1d8       Y      H      15/125/250        2         Impale         S           1         4/8      A-M     225 SP",
+    "price_cp_candidate": 2250,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "ranged-short-bow",
+    "category": "ranged",
+    "name": "Short bow",
+    "source_printed_page": 65,
+    "source_line": "Short bow           1d6       Y         L      15/100/200        2         Impale         S           1         4/4      P-M     75 SP",
+    "price_cp_candidate": 750,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "ranged-shortspear",
+    "category": "ranged",
+    "name": "Shortspear",
+    "source_printed_page": 65,
+    "source_line": "Shortspear           1d8       Y         L      10/15/30          –         Impale     M          1         4/5          All     20 SP",
+    "price_cp_candidate": 200,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "physical_item_key": "weapon-shortspear"
+  },
+  {
+    "id": "ranged-sling",
+    "category": "ranged",
+    "name": "Sling",
+    "source_printed_page": 65,
+    "source_line": "Sling               1d8       N         L      10/150/300        3      Stun Location   —     —        1/2      P-M     5 SP",
+    "price_cp_candidate": 50,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "ranged-staff-sling",
+    "category": "ranged",
+    "name": "Staff sling",
+    "source_printed_page": 65,
+    "source_line": "Staff sling           2d6       N        E      5/25/50           4      Stun Location   —          2         3/6      A-M     20 SP",
+    "price_cp_candidate": 200,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "ranged-stone-rock",
+    "category": "ranged",
+    "name": "Stone/Rock",
+    "source_printed_page": 65,
+    "source_line": "Stone/Rock          1d3       Y          S      5/10/20     —     Stun Location   —                                        All",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "ranged-trident",
+    "category": "ranged",
+    "name": "Trident",
+    "source_printed_page": 65,
+    "source_line": "Trident             1d8       Y         L      10/15/30     —            M          2        4/10     A-M     155 SP",
+    "price_cp_candidate": 1550,
+    "verification": "source-indexed; numeric fields require visual row validation",
+    "physical_item_key": "weapon-trident"
+  },
+  {
+    "id": "armour-natural-cured",
+    "category": "armour",
+    "name": "Natural/Cured",
+    "source_printed_page": 58,
+    "source_line": "Natural/Cured                  Furs, Hides                1           2             20        14/140/3                Any",
+    "price_cp_candidate": 200,
+    "verification": "visually checked against printed page 58",
+    "ap": 1,
+    "base_enc_per_location": 2,
+    "price_basis": "per hit location"
+  },
+  {
+    "id": "armour-padded-quilted",
+    "category": "armour",
+    "name": "Padded/Quilted",
+    "source_printed_page": 58,
+    "source_line": "Padded/Quilted            Aketon, Gambeson             2           1             80        7/560/2                 Any",
+    "price_cp_candidate": 800,
+    "verification": "visually checked against printed page 58",
+    "ap": 2,
+    "base_enc_per_location": 1,
+    "price_basis": "per hit location"
+  },
+  {
+    "id": "armour-laminated",
+    "category": "armour",
+    "name": "Laminated",
+    "source_printed_page": 58,
+    "source_line": "Laminated              Linothorax, Bezainted           3           2            180        14/1260/3             A-M",
+    "price_cp_candidate": 1800,
+    "verification": "visually checked against printed page 58",
+    "ap": 3,
+    "base_enc_per_location": 2,
+    "price_basis": "per hit location"
+  },
+  {
+    "id": "armour-scaled",
+    "category": "armour",
+    "name": "Scaled",
+    "source_printed_page": 58,
+    "source_line": "Scaled armour; or if the source creature is of sufficient",
+    "price_cp_candidate": 3200,
+    "verification": "visually checked against printed page 58",
+    "ap": 4,
+    "base_enc_per_location": 3,
+    "price_basis": "per hit location"
+  },
+  {
+    "id": "armour-half-plate",
+    "category": "armour",
+    "name": "Half Plate",
+    "source_printed_page": 58,
+    "source_line": "Half Plate                  Hoplite Plate               5           4            500        28/3500/6               A-R",
+    "price_cp_candidate": 5000,
+    "verification": "visually checked against printed page 58",
+    "ap": 5,
+    "base_enc_per_location": 4,
+    "price_basis": "per hit location"
+  },
+  {
+    "id": "armour-mail",
+    "category": "armour",
+    "name": "Mail",
+    "source_printed_page": 58,
+    "source_line": "Mail              Mail Hauberk, Laminar           6           5            900        35/6300/7               A-R",
+    "price_cp_candidate": 9000,
+    "verification": "visually checked against printed page 58",
+    "ap": 6,
+    "base_enc_per_location": 5,
+    "price_basis": "per hit location"
+  },
+  {
+    "id": "armour-plated-mail",
+    "category": "armour",
+    "name": "Plated Mail",
+    "source_printed_page": 58,
+    "source_line": "Plated Mail               Splinted Chainmail            7           6            1400       42/9800/9              M-E",
+    "price_cp_candidate": 14000,
+    "verification": "visually checked against printed page 58",
+    "ap": 7,
+    "base_enc_per_location": 6,
+    "price_basis": "per hit location"
+  },
+  {
+    "id": "armour-articulated-plate",
+    "category": "armour",
+    "name": "Articulated Plate",
+    "source_printed_page": 58,
+    "source_line": "Articulated Plate              Gothic Plate               8           7            2400       49/16800/10            M-E",
+    "price_cp_candidate": 24000,
+    "verification": "visually checked against printed page 58",
+    "ap": 8,
+    "base_enc_per_location": 7,
+    "price_basis": "per hit location"
+  },
+  {
+    "id": "materials-bone",
+    "category": "materials",
+    "name": "Bone",
+    "source_printed_page": 58,
+    "source_line": "Bone           x1.5                                   Laminated, Scaled, and Plate construction              which it has been designed.",
+    "price_cp_candidate": null,
+    "verification": "visually checked against printed page 58",
+    "enc_multiplier": 1.5
+  },
+  {
+    "id": "materials-bronze",
+    "category": "materials",
+    "name": "Bronze",
+    "source_printed_page": 58,
+    "source_line": "Bronze         x1",
+    "price_cp_candidate": null,
+    "verification": "visually checked against printed page 58",
+    "enc_multiplier": 1
+  },
+  {
+    "id": "materials-chitin",
+    "category": "materials",
+    "name": "Chitin",
+    "source_printed_page": 58,
+    "source_line": "Laminated, Scaled, and Plate armours. Chitin can           vast bulk of those who train in weapons also train in armour, and            Chitin         x0.75",
+    "price_cp_candidate": null,
+    "verification": "visually checked against printed page 58",
+    "enc_multiplier": 0.75
+  },
+  {
+    "id": "materials-iron",
+    "category": "materials",
+    "name": "Iron",
+    "source_printed_page": 58,
+    "source_line": "Superior in strength to iron or bronze, it is can be",
+    "price_cp_candidate": null,
+    "verification": "visually checked against printed page 58",
+    "enc_multiplier": 1
+  },
+  {
+    "id": "materials-ivory",
+    "category": "materials",
+    "name": "Ivory",
+    "source_printed_page": 58,
+    "source_line": "Teeth, and tusks can be fashioned as part of               greater the Initiative Penalty. This penalty is applied to a character’s            Ivory          x1.25",
+    "price_cp_candidate": null,
+    "verification": "visually checked against printed page 58",
+    "enc_multiplier": 1.25
+  },
+  {
+    "id": "materials-leather",
+    "category": "materials",
+    "name": "Leather",
+    "source_printed_page": 58,
+    "source_line": "Leather can be tanned or boiled to make it rigid, and          all the armour worn, and then divide by 5, rounding up. A full suit",
+    "price_cp_candidate": null,
+    "verification": "visually checked against printed page 58",
+    "enc_multiplier": 2
+  },
+  {
+    "id": "materials-linen",
+    "category": "materials",
+    "name": "Linen",
+    "source_printed_page": 58,
+    "source_line": "Linen          x1",
+    "price_cp_candidate": null,
+    "verification": "visually checked against printed page 58",
+    "enc_multiplier": 1
+  },
+  {
+    "id": "materials-shell",
+    "category": "materials",
+    "name": "Shell",
+    "source_printed_page": 58,
+    "source_line": "Shell armour tends to be thick, and heavy to make               Meerish Warriors wear Hoplite Half Plate armour: helm, greaves, vam-",
+    "price_cp_candidate": null,
+    "verification": "visually checked against printed page 58",
+    "enc_multiplier": 2
+  },
+  {
+    "id": "materials-silk",
+    "category": "materials",
+    "name": "Silk",
+    "source_printed_page": 58,
+    "source_line": "Silk            x0.75                                                                        Initiative Penalty is therefore -6.",
+    "price_cp_candidate": null,
+    "verification": "visually checked against printed page 58",
+    "enc_multiplier": 0.75
+  },
+  {
+    "id": "materials-steel",
+    "category": "materials",
+    "name": "Steel",
+    "source_printed_page": 58,
+    "source_line": "Steel           x0.75     fashioned into thinner, lighter pieces for rigid material",
+    "price_cp_candidate": null,
+    "verification": "visually checked against printed page 58",
+    "enc_multiplier": 0.75
+  },
+  {
+    "id": "materials-stone",
+    "category": "materials",
+    "name": "Stone",
+    "source_printed_page": 58,
+    "source_line": "Stone          x3                                                        portable. Prices  for rented temporary accommodation, such as a                                           suitable for laminated or scaled armours, or large single",
+    "price_cp_candidate": null,
+    "verification": "visually checked against printed page 58",
+    "enc_multiplier": 3
+  },
+  {
+    "id": "accommodation-common-room-floor-stables",
+    "category": "accommodation",
+    "name": "Common room floor/stables",
+    "source_printed_page": 59,
+    "source_line": "",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "accommodation-shared-room-dormitory",
+    "category": "accommodation",
+    "name": "Shared room/dormitory",
+    "source_printed_page": 59,
+    "source_line": "",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "accommodation-private-room",
+    "category": "accommodation",
+    "name": "Private room",
+    "source_printed_page": 59,
+    "source_line": "Private room                 2               5               10                                                                                                                 Vest or Tabard               10               20              50",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "accommodation-rented-hovel-or-shack",
+    "category": "accommodation",
+    "name": "Rented hovel or shack",
+    "source_printed_page": 59,
+    "source_line": "Rented hovel or shack                                               10                       -                         -               Tunic or Dress               15               30              75",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "accommodation-rented-cabin-or-cottage",
+    "category": "accommodation",
+    "name": "Rented cabin or cottage",
+    "source_printed_page": 59,
+    "source_line": "",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "accommodation-rented-house-or-apartment",
+    "category": "accommodation",
+    "name": "Rented house or apartment",
+    "source_printed_page": 59,
+    "source_line": "",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "accommodation-rented-villa-or-mansion",
+    "category": "accommodation",
+    "name": "Rented villa or mansion",
+    "source_printed_page": 59,
+    "source_line": "",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "accommodation-hovel-or-shack-to-buy",
+    "category": "accommodation",
+    "name": "Hovel or shack to buy",
+    "source_printed_page": 59,
+    "source_line": "Hovel or shack to buy        100                       -                         -",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "accommodation-cabin-or-cottage-to-buy",
+    "category": "accommodation",
+    "name": "Cabin or Cottage to buy",
+    "source_printed_page": 59,
+    "source_line": "",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "accommodation-house-or-apartment-to-buy",
+    "category": "accommodation",
+    "name": "House or Apartment to buy",
+    "source_printed_page": 59,
+    "source_line": "",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "accommodation-villa-or-mansion-to-buy",
+    "category": "accommodation",
+    "name": "Villa or Mansion to buy",
+    "source_printed_page": 59,
+    "source_line": "",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "accommodation-tent",
+    "category": "accommodation",
+    "name": "Tent",
+    "source_printed_page": 59,
+    "source_line": "Tent (per person                                                             of beverage. A superior meal consists of several varied courses, and",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "clothing-boots",
+    "category": "clothing",
+    "name": "Boots",
+    "source_printed_page": 59,
+    "source_line": "Type                                                                              Boots                      25               50              100",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "clothing-cap-or-hat",
+    "category": "clothing",
+    "name": "Cap or Hat",
+    "source_printed_page": 59,
+    "source_line": "Common room floor/                                                  Cap or Hat                  3                6               18                                                        0.5                       -                         -",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "clothing-gloves-socks-or-underwear",
+    "category": "clothing",
+    "name": "Gloves, Socks or Underwear",
+    "source_printed_page": 59,
+    "source_line": "",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "clothing-general-coat-or-cloak",
+    "category": "clothing",
+    "name": "General Coat or Cloak",
+    "source_printed_page": 59,
+    "source_line": "dormitory                                                                                                      General Coat or Cloak        20               45              90",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "clothing-vest-or-tabard",
+    "category": "clothing",
+    "name": "Vest or Tabard",
+    "source_printed_page": 59,
+    "source_line": "Private room                 2               5               10                                                                                                                 Vest or Tabard               10               20              50",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "clothing-tunic-or-dress",
+    "category": "clothing",
+    "name": "Tunic or Dress",
+    "source_printed_page": 59,
+    "source_line": "Rented hovel or shack                                               10                       -                         -               Tunic or Dress               15               30              75",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "clothing-sandals",
+    "category": "clothing",
+    "name": "Sandals",
+    "source_printed_page": 59,
+    "source_line": "Sandals                     4                8               20",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "clothing-shoes",
+    "category": "clothing",
+    "name": "Shoes",
+    "source_printed_page": 59,
+    "source_line": "Shoes                      20               45              90",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "clothing-trousers-skirt-or-kilt",
+    "category": "clothing",
+    "name": "Trousers, Skirt or Kilt",
+    "source_printed_page": 59,
+    "source_line": "Trousers, Skirt or Kilt         12               25              60                        small family",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "clothing-shirt-smock-or-shift",
+    "category": "clothing",
+    "name": "Shirt, Smock or Shift",
+    "source_printed_page": 59,
+    "source_line": "Shirt, Smock or Shift          8               16              35                     Rented house or",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "clothing-winter-coat-or-cloak",
+    "category": "clothing",
+    "name": "Winter Coat or Cloak",
+    "source_printed_page": 59,
+    "source_line": "apartment (week) –           30              50               75               Winter Coat or Cloak         30               75              150",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "food-meal-at-a-tavern-or-inn",
+    "category": "food",
+    "name": "Meal at a tavern or inn",
+    "source_printed_page": 59,
+    "source_line": "ones appropriate to the local conditions or to celebrate unusual      Meal at a tavern or inn            1              3              8",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "food-ale-or-beer-for-an-evening",
+    "category": "food",
+    "name": "Ale or Beer for an evening",
+    "source_printed_page": 59,
+    "source_line": "occasions. Those of high Social Class may even be required to con-       Ale or Beer for an evening          1                1.5             3",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "food-wine-or-spirits-for-an-evening",
+    "category": "food",
+    "name": "Wine or Spirits for an evening",
+    "source_printed_page": 59,
+    "source_line": "",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "food-trail-rations-7-days",
+    "category": "food",
+    "name": "Trail rations (7 days)",
+    "source_printed_page": 59,
+    "source_line": "no upper limit as to how much an item of garb can cost once you                                                                                                                          Trail rations (7 days)              7              9             12",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "livestock-bull",
+    "category": "livestock",
+    "name": "Bull",
+    "source_printed_page": 60,
+    "source_line": "Bull                        500             1000            3000                                                                                                   Chest, Large (holds up to 100 ENC)                    5          80 SP",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "livestock-calf",
+    "category": "livestock",
+    "name": "Calf",
+    "source_printed_page": 60,
+    "source_line": "Calf                        30              60             180                                                                                                   Chest, Small (holds up to 50 ENC)                     3          40 SP",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "livestock-camel",
+    "category": "livestock",
+    "name": "Camel",
+    "source_printed_page": 60,
+    "source_line": "Camel                     1100            2200            6000                                                                                      Cooking Pot (for travel)                              2          3 SP",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "livestock-cow",
+    "category": "livestock",
+    "name": "Cow",
+    "source_printed_page": 60,
+    "source_line": "Cow                       100             200             600                                                                                                    Craft tools (basic tools to match a handicraft)             2          75 SP",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "livestock-fowl",
+    "category": "livestock",
+    "name": "Fowl",
+    "source_printed_page": 60,
+    "source_line": "Fowl                        1               2               4                                                                                 Crop (riding)                   —         15 SP",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "livestock-goat",
+    "category": "livestock",
+    "name": "Goat",
+    "source_printed_page": 60,
+    "source_line": "Goat                       25              50             100                                                                                   Crowbar                                          1          25 SP",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "livestock-horse-cavalry-war-trained",
+    "category": "livestock",
+    "name": "Horse (cavalry/war-trained)",
+    "source_printed_page": 60,
+    "source_line": "",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "livestock-horse-heavy-draught",
+    "category": "livestock",
+    "name": "Horse (heavy draught)",
+    "source_printed_page": 60,
+    "source_line": "Horse (heavy draught)         1400            2800            8000",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "livestock-horse-riding",
+    "category": "livestock",
+    "name": "Horse (riding)",
+    "source_printed_page": 60,
+    "source_line": "Horse (riding)               1200            2500            7000",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "livestock-ox",
+    "category": "livestock",
+    "name": "Ox",
+    "source_printed_page": 60,
+    "source_line": "Ox                        150             300             800",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "livestock-pig",
+    "category": "livestock",
+    "name": "Pig",
+    "source_printed_page": 60,
+    "source_line": "Pig                         25              50             150",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "livestock-sheep",
+    "category": "livestock",
+    "name": "Sheep",
+    "source_printed_page": 60,
+    "source_line": "Sheep                      25              50             150                              —         25 SP                                                                                                                                                skill)",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "ammunition-arrows-per-sheaf-of-a-dozen",
+    "category": "ammunition",
+    "name": "Arrows (per sheaf of a dozen)",
+    "source_printed_page": 62,
+    "source_line": "successful.                           hh Arrows (per sheaf of a dozen) 4 SP",
+    "price_cp_candidate": 40,
+    "verification": "checked against printed page 62 ammunition list",
+    "price_basis": "listed bundle"
+  },
+  {
+    "id": "ammunition-quarrels-per-sheaf-of-a-dozen",
+    "category": "ammunition",
+    "name": "Quarrels (per sheaf of a dozen)",
+    "source_printed_page": 62,
+    "source_line": "hh Damage Modifier: Not all ranged weapons can take advantage of a char-    hh Quarrels (per sheaf of a dozen) 3 SP",
+    "price_cp_candidate": 30,
+    "verification": "checked against printed page 62 ammunition list",
+    "price_basis": "listed bundle"
+  },
+  {
+    "id": "ammunition-lead-sling-bullets-per-bag-of-twenty",
+    "category": "ammunition",
+    "name": "Lead sling bullets (per bag of twenty)",
+    "source_printed_page": 62,
+    "source_line": "acter’s damage modifier. A Yes or No entry dictates whether or not the    hh Lead sling bullets (per bag of twenty) 1 SP",
+    "price_cp_candidate": 10,
+    "verification": "checked against printed page 62 ammunition list",
+    "price_basis": "listed bundle"
+  },
+  {
+    "id": "ammunition-blowgun-darts-per-half-dozen",
+    "category": "ammunition",
+    "name": "Blowgun darts (per half dozen)",
+    "source_printed_page": 62,
+    "source_line": "user’s damage modifier can be applied.                hh Blowgun darts (per half dozen) 2 SP",
+    "price_cp_candidate": 20,
+    "verification": "checked against printed page 62 ammunition list",
+    "price_basis": "listed bundle"
+  },
+  {
+    "id": "ammunition-thrown-darts-per-sheaf-of-a-dozen",
+    "category": "ammunition",
+    "name": "Thrown darts (per sheaf of a dozen)",
+    "source_printed_page": 62,
+    "source_line": "hh Force: Each ranged weapon possesses a force rating equivalent to the    hh Thrown darts (per sheaf of a dozen) 2 SP",
+    "price_cp_candidate": 20,
+    "verification": "checked against printed page 62 ammunition list",
+    "price_basis": "listed bundle"
+  },
+  {
+    "id": "tools-abacus",
+    "category": "tools",
+    "name": "Abacus",
+    "source_printed_page": 60,
+    "source_line": "of valuable materials such as ivory or chitin. A few creatures might      Abacus                                           1          8 SP",
+    "price_cp_candidate": 80,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-astrolabe",
+    "category": "tools",
+    "name": "Astrolabe",
+    "source_printed_page": 60,
+    "source_line": "even be kept for their ability to fight or hunt.                                                                                                    Astrolabe (Ancient onwards)                          1         200 SP",
+    "price_cp_candidate": 2000,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-backpack-satchel",
+    "category": "tools",
+    "name": "Backpack/Satchel",
+    "source_printed_page": 60,
+    "source_line": "The following table only offers general livestock. In more exotic                                                                                             Backpack/Satchel (holds up to 20 ENC)                 1          5 SP",
+    "price_cp_candidate": 50,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-bedroll",
+    "category": "tools",
+    "name": "Bedroll",
+    "source_printed_page": 60,
+    "source_line": "Bedroll                                           1          1 SP        anything from giant insects to flying beasts. Higher quality usually",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-bit-bridle",
+    "category": "tools",
+    "name": "Bit & Bridle",
+    "source_printed_page": 60,
+    "source_line": "reflects better physical characteristics or training, but can be merely        Bit & Bridle                                       1          15 SP",
+    "price_cp_candidate": 150,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-block-tackle",
+    "category": "tools",
+    "name": "Block & tackle",
+    "source_printed_page": 60,
+    "source_line": "based upon the creature’s aesthetic beauty.                                    Block & tackle                                     1          15 SP",
+    "price_cp_candidate": 150,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-bottle-glass-earthenware",
+    "category": "tools",
+    "name": "Bottle, glass/earthenware",
+    "source_printed_page": 60,
+    "source_line": "Bottle, glass/earthenware              —          2 SP",
+    "price_cp_candidate": 20,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-candle-6-hour",
+    "category": "tools",
+    "name": "Candle, 6 hour",
+    "source_printed_page": 60,
+    "source_line": "Livestock Table                                                                                              Candle, 6 hour                                     1          1 SP",
+    "price_cp_candidate": 10,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-chain-2m",
+    "category": "tools",
+    "name": "Chain, 2m",
+    "source_printed_page": 60,
+    "source_line": "Item              Poor Quality   Reasonable     Superior                                                                                            Chain, 2m                                        2          40 SP",
+    "price_cp_candidate": 400,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-chest-large",
+    "category": "tools",
+    "name": "Chest, Large",
+    "source_printed_page": 60,
+    "source_line": "Bull                        500             1000            3000                                                                                                   Chest, Large (holds up to 100 ENC)                    5          80 SP",
+    "price_cp_candidate": 800,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-chest-small",
+    "category": "tools",
+    "name": "Chest, Small",
+    "source_printed_page": 60,
+    "source_line": "Calf                        30              60             180                                                                                                   Chest, Small (holds up to 50 ENC)                     3          40 SP",
+    "price_cp_candidate": 400,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-cooking-pot",
+    "category": "tools",
+    "name": "Cooking Pot",
+    "source_printed_page": 60,
+    "source_line": "Camel                     1100            2200            6000                                                                                      Cooking Pot (for travel)                              2          3 SP",
+    "price_cp_candidate": 30,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-craft-tools",
+    "category": "tools",
+    "name": "Craft tools",
+    "source_printed_page": 60,
+    "source_line": "Cow                       100             200             600                                                                                                    Craft tools (basic tools to match a handicraft)             2          75 SP",
+    "price_cp_candidate": 750,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-crop-riding",
+    "category": "tools",
+    "name": "Crop (riding)",
+    "source_printed_page": 60,
+    "source_line": "Fowl                        1               2               4                                                                                 Crop (riding)                   —         15 SP",
+    "price_cp_candidate": 150,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-crowbar",
+    "category": "tools",
+    "name": "Crowbar",
+    "source_printed_page": 60,
+    "source_line": "Goat                       25              50             100                                                                                   Crowbar                                          1          25 SP",
+    "price_cp_candidate": 250,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-doorjamb",
+    "category": "tools",
+    "name": "Doorjamb",
+    "source_printed_page": 60,
+    "source_line": "3000            6000            10,000           Doorjamb                                        2          5 SP",
+    "price_cp_candidate": 50,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-driver-s-whip",
+    "category": "tools",
+    "name": "Driver’s whip",
+    "source_printed_page": 60,
+    "source_line": "Driver’s whip                   —         25 SP",
+    "price_cp_candidate": 250,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-falconer-s-kit",
+    "category": "tools",
+    "name": "Falconer’s Kit",
+    "source_printed_page": 60,
+    "source_line": "Falconer’s Kit                                      1          30 SP",
+    "price_cp_candidate": 300,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-feed-mount-rations",
+    "category": "tools",
+    "name": "Feed/mount rations",
+    "source_printed_page": 60,
+    "source_line": "Feed/mount rations (per day)                         1          5 CP",
+    "price_cp_candidate": 5,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-fine-wine-goblet",
+    "category": "tools",
+    "name": "Fine wine goblet",
+    "source_printed_page": 60,
+    "source_line": "Fine wine goblet (glass – double for silver)        —          8 SP",
+    "price_cp_candidate": 80,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-first-aid-kit",
+    "category": "tools",
+    "name": "First aid kit",
+    "source_printed_page": 60,
+    "source_line": "First aid kit (useful for 10 applications of First Aid",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-fish-hooks",
+    "category": "tools",
+    "name": "Fish hooks",
+    "source_printed_page": 60,
+    "source_line": "Fish hooks (20)                  —          1 SP",
+    "price_cp_candidate": 10,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-fishing-kit",
+    "category": "tools",
+    "name": "Fishing kit",
+    "source_printed_page": 60,
+    "source_line": "Fishing kit                                        1          15 SP",
+    "price_cp_candidate": 150,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-fishing-net",
+    "category": "tools",
+    "name": "Fishing Net",
+    "source_printed_page": 60,
+    "source_line": "Fishing Net                                       4          10 SP",
+    "price_cp_candidate": 100,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-flint-tinder",
+    "category": "tools",
+    "name": "Flint & tinder",
+    "source_printed_page": 60,
+    "source_line": "Flint & tinder                   —          1 SP",
+    "price_cp_candidate": 10,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-game-snares-and-traps",
+    "category": "tools",
+    "name": "Game Snares, and Traps",
+    "source_printed_page": 60,
+    "source_line": "Game Snares, and Traps                             1          1 SP   Tools",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-goad",
+    "category": "tools",
+    "name": "Goad",
+    "source_printed_page": 60,
+    "source_line": "Tools include all the items any self-respecting adventurer can be      Goad                                            1          25 SP",
+    "price_cp_candidate": 250,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-grappling-hook",
+    "category": "tools",
+    "name": "Grappling hook",
+    "source_printed_page": 60,
+    "source_line": "expected to own: rope, sacks and bags, candles, lanterns, and so on.       Grappling hook                  —          5 SP",
+    "price_cp_candidate": 50,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-hammer-saw-mallet-chisel",
+    "category": "tools",
+    "name": "Hammer/Saw/Mallet/Chisel",
+    "source_printed_page": 60,
+    "source_line": "All items in this list are deemed to be of reasonable quality.               Hammer/Saw/Mallet/Chisel                         1          1 SP",
+    "price_cp_candidate": 10,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-healer-s-kit",
+    "category": "tools",
+    "name": "Healer’s kit",
+    "source_printed_page": 60,
+    "source_line": "Healer’s kit (useful for 10 applications of Healing",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-hourglass",
+    "category": "tools",
+    "name": "Hourglass",
+    "source_printed_page": 60,
+    "source_line": "Hourglass (Ancient onwards)                          1          20 SP",
+    "price_cp_candidate": 200,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-knife-tool-not-weapon",
+    "category": "tools",
+    "name": "Knife (tool, not weapon)",
+    "source_printed_page": 60,
+    "source_line": "Knife (tool, not weapon)              —          5 SP",
+    "price_cp_candidate": 50,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-ladder-rope-3m",
+    "category": "tools",
+    "name": "Ladder, rope 3m",
+    "source_printed_page": 60,
+    "source_line": "Ladder, rope 3m                                   4          2 SP",
+    "price_cp_candidate": 20,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-lantern-basic",
+    "category": "tools",
+    "name": "Lantern, basic",
+    "source_printed_page": 60,
+    "source_line": "Lantern, basic                                     1          10 SP",
+    "price_cp_candidate": 100,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-lock-picks",
+    "category": "tools",
+    "name": "Lock picks",
+    "source_printed_page": 60,
+    "source_line": "Lock picks                    —         75 SP",
+    "price_cp_candidate": 750,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-lockbox",
+    "category": "tools",
+    "name": "Lockbox",
+    "source_printed_page": 60,
+    "source_line": "Lockbox                                         depending    75 - 250 SP",
+    "price_cp_candidate": 2500,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-lodestone",
+    "category": "tools",
+    "name": "Lodestone",
+    "source_printed_page": 60,
+    "source_line": "Lodestone                    —          5 SP",
+    "price_cp_candidate": 50,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-milling-stone",
+    "category": "tools",
+    "name": "Milling Stone",
+    "source_printed_page": 60,
+    "source_line": "Milling Stone                                      2          8 SP",
+    "price_cp_candidate": 80,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-mirror-hand-glass",
+    "category": "tools",
+    "name": "Mirror (hand glass)",
+    "source_printed_page": 60,
+    "source_line": "Mirror (hand glass)                                 1          12 SP",
+    "price_cp_candidate": 120,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-mug-beaker-dish-plate",
+    "category": "tools",
+    "name": "Mug/Beaker/Dish/Plate",
+    "source_printed_page": 60,
+    "source_line": "Mug/Beaker/Dish/Plate (wood – double price for",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-musical-instrument",
+    "category": "tools",
+    "name": "Musical instrument",
+    "source_printed_page": 60,
+    "source_line": "Musical instrument                                 2          70 SP",
+    "price_cp_candidate": 700,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-nails-or-tacks",
+    "category": "tools",
+    "name": "Nails or tacks",
+    "source_printed_page": 60,
+    "source_line": "Nails or tacks (50)                 —          2 CP",
+    "price_cp_candidate": 2,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-oil-flask",
+    "category": "tools",
+    "name": "Oil flask",
+    "source_printed_page": 60,
+    "source_line": "Oil flask                                          1          1 SP",
+    "price_cp_candidate": 10,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-papyrus-or-paper-sheet",
+    "category": "tools",
+    "name": "Papyrus or paper sheet",
+    "source_printed_page": 60,
+    "source_line": "Papyrus or paper sheet (double the cost for vellum)    —          5 CP",
+    "price_cp_candidate": 5,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-pickaxe",
+    "category": "tools",
+    "name": "Pickaxe",
+    "source_printed_page": 60,
+    "source_line": "Pickaxe                                           1          35 SP                  permitted access to the Impale and Bleed effects, whereas a mace is unable",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-pole-3m",
+    "category": "tools",
+    "name": "Pole, 3m",
+    "source_printed_page": 60,
+    "source_line": "Pole, 3m                                          1          1 SP                     to produce those effects but could inflict Stun Location instead (see Special",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-quills",
+    "category": "tools",
+    "name": "Quills",
+    "source_printed_page": 60,
+    "source_line": "Quills , and ink for writing                            1          30 SP                   Effects page 95).",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-quiver",
+    "category": "tools",
+    "name": "Quiver",
+    "source_printed_page": 60,
+    "source_line": "Quiver                     —          2 SP      hh ENC: The weapon’s combined encumbrance and weight",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-razor-folding",
+    "category": "tools",
+    "name": "Razor, folding",
+    "source_printed_page": 60,
+    "source_line": "Razor, folding                  —          3 SP      hh AP/HP: All weapons are rated for their Armour Points and Hit Points;",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-rope-hemp-10m",
+    "category": "tools",
+    "name": "Rope (hemp), 10m",
+    "source_printed_page": 60,
+    "source_line": "Rope (hemp), 10m                                  2          10 SP                     their ability to withstand direct damage, and how much damage they",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-sack-large",
+    "category": "tools",
+    "name": "Sack, large",
+    "source_printed_page": 60,
+    "source_line": "Sack, large (holds up to 60 ENC)                      1          5 CP                can tolerate before breaking. Those weapons that rely on metal for their",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-sack-small",
+    "category": "tools",
+    "name": "Sack, small",
+    "source_printed_page": 60,
+    "source_line": "damage capability are assumed to be either bronze or iron.                        Sack, small (holds up to 30 ENC)           —          2 CP",
+    "price_cp_candidate": 2,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-saddle-riding",
+    "category": "tools",
+    "name": "Saddle, riding",
+    "source_printed_page": 60,
+    "source_line": "hh Traits: Some weapons, due to their specialised nature, have certain qual-                        Saddle, riding                                      3          60 SP",
+    "price_cp_candidate": 600,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-saddle-war",
+    "category": "tools",
+    "name": "Saddle, war",
+    "source_printed_page": 60,
+    "source_line": "Saddle, war                                       4          90 SP                                                                                   The common traits are:",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-saddlebag",
+    "category": "tools",
+    "name": "Saddlebag",
+    "source_printed_page": 60,
+    "source_line": "Saddlebag (holds up to 2x20 ENC)                     2          20 SP       hh Barbed – If impaled it will cause full rather than half damage on",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-saw-hand",
+    "category": "tools",
+    "name": "Saw, hand",
+    "source_printed_page": 60,
+    "source_line": "Saw, hand                                         1          1 SP                      being yanked free.",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-scythe-sickle",
+    "category": "tools",
+    "name": "Scythe/Sickle",
+    "source_printed_page": 60,
+    "source_line": "Scythe/Sickle                                      2          30 SP       hh Defensive – If used to parry an attacking weapon, that weapon is",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-sextant",
+    "category": "tools",
+    "name": "Sextant",
+    "source_printed_page": 60,
+    "source_line": "Sextant (Renaissance cultures, and later)                 1          25 SP                      considered one size smaller than  it actually  is. So a Large sword",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-ship-s-compass",
+    "category": "tools",
+    "name": "Ship’s Compass",
+    "source_printed_page": 60,
+    "source_line": "Ship’s Compass (Medieval cultures, and later)            1          70 SP                           is considered Medium, and a Medium sword is considered Small.",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-shoes-horse",
+    "category": "tools",
+    "name": "Shoes, horse",
+    "source_printed_page": 60,
+    "source_line": "Shoes, horse                                       1          10 SP                 Weapons already Small in size are unaffected.",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-spade-hoe-pitchfork",
+    "category": "tools",
+    "name": "Spade/Hoe/Pitchfork",
+    "source_printed_page": 60,
+    "source_line": "hh Double Ended – If broken in combat, the length remaining in the                      Spade/Hoe/Pitchfork                               1          25 SP",
+    "price_cp_candidate": 250,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-torch-1-hour",
+    "category": "tools",
+    "name": "Torch, 1 hour",
+    "source_printed_page": 60,
+    "source_line": "hand can be reversed, and used as a shorter version of  the original                       Torch, 1 hour                   —          4 CP",
+    "price_cp_candidate": 4,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-torch-6-hour",
+    "category": "tools",
+    "name": "Torch, 6 hour",
+    "source_printed_page": 60,
+    "source_line": "Torch, 6 hour                                      1          8 CP",
+    "price_cp_candidate": 8,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-waterskin-or-canteen",
+    "category": "tools",
+    "name": "Waterskin or Canteen",
+    "source_printed_page": 60,
+    "source_line": "Waterskin or Canteen (holds 2 litres of liquid)            1          5 CP                   Pin Weapon special effect without needing to roll a Critical.",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  },
+  {
+    "id": "tools-wax-block",
+    "category": "tools",
+    "name": "Wax, block",
+    "source_printed_page": 60,
+    "source_line": "Wax, block                                        1          2 CP       hh Flexible – If  the opponent is using a shield to parry, the shield is",
+    "price_cp_candidate": null,
+    "verification": "source-indexed; numeric fields require visual row validation"
+  }
+]
