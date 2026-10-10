@@ -3,7 +3,7 @@ import { socialClassForRoll } from "./background-rules";
 import { cultures } from "./content";
 
 Object.defineProperty(globalThis, "$state", { value: <T>(value: T) => value, configurable: true });
-const { char, recalculateStartingMoney, replace, resolveSocialClass, setStartingMoneyRoll } = await import("./store.svelte");
+const { char, purchaseEquipment, recalculateStartingMoney, replace, resolveSocialClass, setStartingMoneyRoll } = await import("./store.svelte");
 
 const original = {
   moneyTable: char.moneyTable,
@@ -21,6 +21,8 @@ const original = {
   startingMoneyTotal: char.background.startingMoneyTotal,
   currentMoney: char.background.currentMoney,
   purchases: structuredClone(char.background.purchases),
+  inventory: structuredClone(char.background.inventory),
+  equipmentTransactions: structuredClone(char.background.equipmentTransactions),
 };
 
 afterEach(() => {
@@ -39,6 +41,8 @@ afterEach(() => {
   char.background.startingMoneyTotal = original.startingMoneyTotal;
   char.background.currentMoney = original.currentMoney;
   char.background.purchases = structuredClone(original.purchases);
+  char.background.inventory = structuredClone(original.inventory);
+  char.background.equipmentTransactions = structuredClone(original.equipmentTransactions);
 });
 
 describe("persistent starting money", () => {
@@ -101,9 +105,46 @@ describe("persistent starting money", () => {
 
     const legacySave = structuredClone(char);
     delete (legacySave.background as Partial<typeof legacySave.background>).currentMoney;
+    delete (legacySave.background as Partial<typeof legacySave.background>).inventory;
+    delete (legacySave.background as Partial<typeof legacySave.background>).equipmentTransactions;
     replace(legacySave);
 
     expect(char.background.currentMoney).toBe(958);
     expect(char.background.startingMoneyTotal).toBe(975);
+  });
+
+  test("ledger purchases reject overspending and reconcile when starting funds change", () => {
+    char.moneyTable = "Civilised";
+    char.socialTable = "Civilised";
+    char.background.socialClass = "Freeman";
+    char.background.socialClassRoll = 50;
+    char.background.socialClassMethod = "rolled";
+    char.background.socialClassCulture = "Civilised";
+    char.background.socialClassMoney = 1;
+    char.background.socialClassEquipment = "Tools; simple weapons";
+    char.background.socialClassResources = "Rented accommodation; may own a few livestock";
+    char.background.equipmentTransactions = [];
+    char.background.inventory = [];
+    char.background.purchases = [];
+    setStartingMoneyRoll(13);
+    const previousBalance = char.background.currentMoney;
+
+    expect(() => purchaseEquipment("one_handed-dagger", 40)).toThrow("exceeds available funds");
+    expect(char.background.inventory).toHaveLength(0);
+    expect(char.background.equipmentTransactions).toHaveLength(0);
+    expect(char.background.currentMoney).toBe(previousBalance);
+
+    purchaseEquipment("one_handed-dagger", 2);
+    expect(char.background.equipmentTransactions[0].amountCp).toBe(600);
+    expect(char.background.currentMoney).toBe(915);
+    char.background.socialClassMoney = 0.01;
+    recalculateStartingMoney();
+    expect(char.background.equipmentTransactions).toHaveLength(1);
+    expect(char.background.currentMoney).toBeLessThan(0);
+    const deficit = char.background.currentMoney;
+    replace(structuredClone(char));
+    expect(char.background.equipmentTransactions).toHaveLength(1);
+    expect(char.background.inventory[0].quantity).toBe(2);
+    expect(char.background.currentMoney).toBe(deficit);
   });
 });
