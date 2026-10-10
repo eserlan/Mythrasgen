@@ -39,9 +39,18 @@
     siege: "Siege equipment", vehicles: "Vehicle", shields: "Shield", armour: "Armour", materials: "Armour material",
     clothing: "Clothing", tools: "Tool or gear", food: "Food and drink", livestock: "Livestock", accommodation: "Place to stay",
   })[id];
-  const kindLabel = (kind: typeof EQUIPMENT_CATALOGUE[number]["kind"]) => ({
-    physical_item: "Physical item", wielding_profile: "Wielding profile", non_carried_purchase: "Service or expense", armour_material_modifier: "Material modifier",
-  }[kind]);
+  const isWeapon = (record: typeof EQUIPMENT_CATALOGUE[number]["source"]) =>
+    ["one_handed", "two_handed", "ranged"].includes(record.category);
+  const weaponStats = (record: typeof EQUIPMENT_CATALOGUE[number]["source"]) => {
+    if (!isWeapon(record)) return [] as [string, string][];
+    const profile = record.combat_profile_candidate;
+    return [
+      ...(profile ? [["Base damage", profile.damage], ["Size", profile.size === "M" ? "Medium" : profile.size], ["Reach", profile.reach === "M" ? "Medium" : profile.reach]] as [string, string][] : []),
+      ...(record.ap_candidate !== undefined ? [["Weapon AP", String(record.ap_candidate)] as [string, string]] : []),
+      ...(record.hp_candidate !== undefined ? [["Weapon HP", String(record.hp_candidate)] as [string, string]] : []),
+      ...(record.wielding_hands !== undefined ? [["Hands required", `${record.wielding_hands} ${record.wielding_hands === 1 ? "hand" : "hands"}`] as [string, string]] : []),
+    ];
+  };
   const amount = (id: string) => {
     const parsed = Number(quantity[id] || 1);
     return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : 0;
@@ -66,10 +75,8 @@
     id: `${item.id}-${index + 1}`, ...item.armour!, state: item.state,
   })))));
   const statSummary = (record: typeof EQUIPMENT_CATALOGUE[number]) => [
-    record.source.combat_profile_candidate && `Damage ${record.source.combat_profile_candidate.damage}, Size ${record.source.combat_profile_candidate.size}, Reach ${record.source.combat_profile_candidate.reach}`,
-    record.source.ap_candidate !== undefined && `AP ${record.source.ap_candidate}`,
-    record.source.hp_candidate !== undefined && `HP ${record.source.hp_candidate}`,
-    record.source.wielding_hands !== undefined && `${record.source.wielding_hands} hand${record.source.wielding_hands === 1 ? "" : "s"}`,
+    ...(weaponStats(record.source).length ? ["Provisional"] : []),
+    ...weaponStats(record.source).map(([name, value]) => `${name} ${value}`),
     record.source.base_enc_per_location !== undefined && `ENC ${record.source.base_enc_per_location}`,
   ].filter(Boolean).join(" · ");
   function purchase(record: typeof EQUIPMENT_CATALOGUE[number]) {
@@ -142,7 +149,7 @@
   {#if currentBalanceCp < 0}<p class="balance-warning" role="alert">Your recorded spending is {formatCopperPrice(-currentBalanceCp)} above your starting money. Existing purchases are preserved.</p>{/if}
   <details class="catalogue-info"><summary>Rules &amp; sources</summary>
     <p class="mute">Catalogue {EQUIPMENT_CATALOGUE_VERSION}; all purchases and expenses are recorded in integer CP. Candidate prices and stats are provisional and may need GM confirmation. Source records distinguish physical items, weapon profiles, material modifiers, and non-carried services.</p>
-    <p class="mute">Equipment records available: {EQUIPMENT_CATALOGUE.length}. Weapon profiles describe how an item is used and do not create a second possession. Material modifiers are not standalone items. Services and expenses affect money without adding carried inventory.</p>
+    <p class="mute">Weapon profiles describe how an item is used and do not create a second possession. Material modifiers are not standalone items. Services and expenses affect money without adding carried inventory.</p>
     <p class="mute">Load rules: {CORE_ENCUMBRANCE_RULES_VERIFICATION}. Armour rules: {ARMOUR_RULES_VERIFICATION}. Material price adjustments are GM-defined.</p>
   </details>
 
@@ -159,7 +166,7 @@
       {#each char.background.inventory as item (item.id)}
         <li>
           <div><b>{item.name}</b> × {item.quantity} <span class="tag">{item.state}</span>
-            <details class="item-source"><summary>Item details</summary><p class="mute">Acquired as {item.acquiredAs}. Source ID{item.sourceIds.length === 1 ? "" : "s"}: {item.sourceIds.join(", ")}</p></details>
+            <details class="item-source"><summary>Item details</summary><p class="mute">Acquired as {item.acquiredAs}.</p></details>
           </div>
           <label>Quantity <input aria-label={`Quantity of ${item.name}`} type="number" min="1" step="1" value={item.quantity} onchange={event => editInventoryQuantity(item.id, item.name, event.currentTarget.value)}></label>
           <label>State <select value={item.state} onchange={event => saveInventoryChange(item.id, item.name, { state: event.currentTarget.value as "carried" | "worn" | "stored" })}>
@@ -246,17 +253,29 @@
     {@const record = selected.source}
     {@const unavailable = record.price_cp_candidate === null}
     <section class="item-detail" aria-labelledby="selected-item-title">
-      <div class="detail-title"><div><h5 id="selected-item-title">{record.name}</h5><p class="mute">{categoryLabel(record.category)} · {unavailable ? "Price unavailable" : displayEquipmentPrice(record)}</p></div>
+      <div class="detail-title"><div><h5 id="selected-item-title">{record.name}</h5><p class="mute">{categorySummary(record.category)} · {unavailable ? "Price unavailable" : displayEquipmentPrice(record)}</p></div>
         <button type="button" class="ghost" aria-label="Close item details" onclick={() => closeDetails(record.id)}>Close</button>
       </div>
-      <p>{statSummary(selected) || "No combat details available."}</p>
+      {#if isWeapon(record)}
+        <dl class="weapon-detail-stats">
+          {#each weaponStats(record) as [name, value]}
+            <div><dt>{name}</dt><dd>{value}</dd></div>
+          {/each}
+        </dl>
+        <p class="mute">The price and weapon stats shown here are provisional and need confirmation against Mythras Core.</p>
+        <details class="rules-help"><summary aria-label={`Rules help for ${record.name}`}>Rules help</summary>
+          <p>Listed dice are base damage. Add your character’s Damage Modifier when the rules call for it.</p>
+          <p>Size compares a weapon with an incoming attack when parrying. Reach describes how far the weapon can engage and can affect who controls the distance.</p>
+          <p>Weapon AP and Weapon HP measure the weapon’s durability. They are not character armour points or character hit points. Hands required tells you how to wield it.</p>
+        </details>
+        <p class="mute">Mythras Core, p. {record.source_printed_page}. Special Effects need verification against the Core PDF before they can be listed.</p>
+      {:else}
+        <p>{statSummary(selected) || "No combat details available."}</p>
+      {/if}
       {#if selected.kind === "wielding_profile"}<p class="mute">Choose this option for a weapon you own. It does not add a second item.</p>{/if}
       {#if selected.kind === "armour_material_modifier"}<p class="balance-warning">This modifier is not a separate item to buy.</p>{/if}
       {#if selected.kind === "non_carried_purchase"}<p class="mute">This is a service or expense. It changes your money without adding carried equipment.</p>{/if}
-      <details><summary>Rules &amp; sources</summary><p>Record {record.id} · Mythras Core p. {record.source_printed_page} · {record.verification}</p>
-        <p>Record type: {kindLabel(selected.kind)}. Source row and field checks:</p>
-        {#if record.source_line}<p>{record.source_line}</p>{/if}
-        <p>{Object.entries(selected.fieldVerification).map(([field, status]) => `${field}: ${status}`).join(" · ")}</p>
+      <details><summary>Rules &amp; sources</summary><p>Mythras Core, p. {record.source_printed_page}. Values shown above are provisional and may need GM confirmation.</p>
         {#if record.base_enc_per_location === undefined && selected.kind === "physical_item" && record.category === "armour"}<p class="balance-warning">ENC per location is unknown; resolve it on the owned armour record when acquired.</p>{/if}
       </details>
       {#if selected.kind !== "armour_material_modifier"}

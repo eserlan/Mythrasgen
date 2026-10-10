@@ -44,3 +44,22 @@ test("technical provenance and armour location data are secondary disclosures", 
   expect(inventory).toContain("filter(ap => ap !== null && ap > 0).length} locations protected");
   expect(inventory).toContain("No equipment yet. Choose equipment to add an item.");
 });
+
+test("weapon details use player-facing labels and keep provisional source fields out of the UI", () => {
+  const broadsword = EQUIPMENT_CATALOGUE.find(item => item.source.id === "one_handed-broadsword");
+  expect(broadsword).toBeDefined();
+  expect(broadsword?.source.combat_profile_candidate).toEqual({ damage: "1d8", size: "M", reach: "M" });
+  expect(broadsword?.source.ap_candidate).toBe(6);
+  expect(broadsword?.source.hp_candidate).toBe(10);
+  expect(broadsword?.source.wielding_hands).toBe(1);
+
+  for (const text of ["Base damage", "Weapon AP", "Weapon HP", "Hands required", "Medium", "Rules help", "Mythras Core, p. {record.source_printed_page}", "Special Effects need verification against the Core PDF"])
+    expect(inventory).toContain(text);
+  for (const text of ["Record {record.id}", "{record.source_line}", "Object.entries(selected.fieldVerification)", "{record.verification}", "Source IDs:"])
+    expect(inventory).not.toContain(text);
+  expect(inventory).toContain("The price and weapon stats shown here are provisional");
+  expect(inventory).toContain("...(weaponStats(record.source).length ? [\"Provisional\"] : [])");
+  expect(inventory).toContain("They are not character armour points or character hit points.");
+  expect(inventory).toContain("aria-label={`Rules help for ${record.name}`}");
+  expect(inventory).toContain("It does not add a second item.");
+});
