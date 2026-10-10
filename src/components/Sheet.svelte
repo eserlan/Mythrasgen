@@ -11,7 +11,7 @@
   import SkillInfo from "./SkillInfo.svelte";
   import { formatCopperPrice } from "../lib/equipment-catalogue";
   import { sheetEquipmentSummary } from "../lib/sheet-equipment";
-  import { ARMOUR_MATERIALS, ARMOUR_CONSTRUCTIONS, ARMOUR_RULES_VERIFICATION, HIT_LOCATIONS } from "../lib/armour-rules";
+  import { ARMOUR_MATERIALS, ARMOUR_CONSTRUCTIONS, HIT_LOCATIONS } from "../lib/armour-rules";
   const loc = $derived(deriveStats(char.chars).loc);
   const skills = $derived(allSkills().sort());
   const std = $derived(skills.filter(n => !skillDefinition(n).pro && !RESISTANCES.includes(n as typeof RESISTANCES[number])));
@@ -80,7 +80,7 @@
         <tbody>{#each char.background.inventory as item (item.id)}
           <tr>
             <th scope="row">{item.name}</th><td>{item.quantity}</td><td>{item.state}</td><td>{item.acquiredAs}</td>
-            <td>{#if item.armour}{item.armour.encOverride !== undefined ? `${item.armour.encOverride} per covered location (GM value)` : item.armour.construction && item.armour.material && ARMOUR_CONSTRUCTIONS[item.armour.construction] && ARMOUR_MATERIALS[item.armour.material] ? "Derived · provisional rules" : "Unresolved"}{:else if item.encPerUnit === null}Unresolved{:else}{item.encPerUnit} per item ({item.encSource === "gm_override" ? "GM value" : "catalogue candidate"}){/if}</td>
+            <td>{#if item.armour}{item.armour.encOverride !== undefined ? `${item.armour.encOverride} per covered location (GM value)` : item.armour.construction && item.armour.material && ARMOUR_CONSTRUCTIONS[item.armour.construction] && ARMOUR_MATERIALS[item.armour.material] ? "Derived" : "Unresolved"}{:else if item.encPerUnit === null}Unresolved{:else}{item.encPerUnit} per item{item.encSource === "gm_override" ? " (GM value)" : ""}{/if}</td>
             <td>{item.sourceIds.length ? item.sourceIds.join(", ") : "Unresolved"}</td>
           </tr>
         {/each}</tbody>
@@ -97,7 +97,7 @@
       <tbody><tr>{#each HIT_LOCATIONS as location}<td>{equipment.armour.apByLocation[location] === null ? "Unresolved" : `${equipment.armour.apByLocation[location]} AP`}</td>{/each}</tr></tbody>
     </table></div>
     <p><b>Worn armour ENC:</b> {equipment.armour.fullWornEnc ?? "Unresolved"} full · {equipment.armour.loadEnc ?? "Unresolved"} load · <b>Initiative penalty:</b> {equipment.armour.initiativePenalty === null ? "Unresolved" : `−${equipment.armour.initiativePenalty}`}</p>
-    <p class="mute">Derived from the shared armour rules ({ARMOUR_RULES_VERIFICATION}); candidate catalogue values are not verified.</p>
+    <p class="mute">Armour protection and ENC are derived from each piece's construction, material, coverage and fit.</p>
     {#if equipment.armour.unresolved.length}<p class="sheet-warning">Armour unresolved: {equipment.armour.unresolved.join("; ")}.</p>{/if}
   </section>
   <div class="two sheet-body">

@@ -53,12 +53,20 @@ test("weapon and shield details use player-facing labels and keep provisional so
   expect(broadsword?.source.ap_candidate).toBe(6);
   expect(broadsword?.source.hp_candidate).toBe(10);
   expect(broadsword?.source.wielding_hands).toBe(1);
+  expect(broadsword?.source.source_printed_page).toBe(63);
+  expect(broadsword?.source.verification).toContain("require visual row validation");
+  expect(broadsword?.fieldVerification.ap_candidate).toBe("provisional");
   expect(buckler?.source.combat_profile_candidate).toEqual({ damage: "1d3", size: "M", reach: "S" });
   expect(buckler?.source.ap_candidate).toBe(6);
   expect(buckler?.source.hp_candidate).toBe(9);
 
-  for (const text of ["Base damage", "${itemType} AP", "${itemType} HP", "Shield", "Hands required", "Medium", "Rules help", "Mythras Core, p. {record.source_printed_page} · Stats pending verification."])
+  for (const text of ["Base damage", "${itemType} AP", "${itemType} HP", "Shield", "Hands required", "Medium", "Rules help", "Mythras Core, p. {record.source_printed_page}", "Combat profile", "Unresolved"])
     expect(inventory).toContain(text);
+  for (const text of ["Stats pending verification", "Details pending verification", "provisional", "requires GM confirmation", "candidate stats are not verified"])
+    expect(inventory.toLowerCase()).not.toContain(text.toLowerCase());
+  expect(inventory.match(/Mythras Core, p\. \{record\.source_printed_page\}/g)).toHaveLength(1);
+  expect(inventory).toContain('unavailable ? "Price unavailable" : displayEquipmentPrice(record)');
+  expect(inventory).toContain("ENC unresolved");
   for (const text of ["Record {record.id}", "{record.source_line}", "Object.entries(selected.fieldVerification)", "{record.verification}", "Source IDs:"])
     expect(inventory).not.toContain(text);
   expect(inventory).not.toContain("<details><summary>Rules &amp; sources</summary><p>Mythras Core");

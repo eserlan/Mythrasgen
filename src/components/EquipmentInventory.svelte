@@ -1,9 +1,9 @@
 <script lang="ts">
   import { tick } from "svelte";
-  import { EQUIPMENT_CATALOGUE, EQUIPMENT_CATALOGUE_VERSION, displayEquipmentPrice, formatCopperPrice, type EquipmentCategory } from "../lib/equipment-catalogue";
+  import { EQUIPMENT_CATALOGUE, displayEquipmentPrice, formatCopperPrice, type EquipmentCategory } from "../lib/equipment-catalogue";
   import { acquireEquipment, char, deleteInventoryItem, equipmentBalanceCp, equipmentSpentCp, purchaseEquipment, recordEquipmentExpense, refundEquipmentPurchase, startingMoney, updateInventoryItem } from "../lib/store.svelte";
-  import { CORE_ENCUMBRANCE_RULES_VERIFICATION, encumbranceSummary } from "../lib/encumbrance";
-  import { ARMOUR_CONSTRUCTIONS, ARMOUR_MATERIALS, ARMOUR_RULES_VERIFICATION, HIT_LOCATIONS, summarizeArmour, type HitLocationName } from "../lib/armour-rules";
+  import { encumbranceSummary } from "../lib/encumbrance";
+  import { ARMOUR_CONSTRUCTIONS, ARMOUR_MATERIALS, HIT_LOCATIONS, summarizeArmour, type HitLocationName } from "../lib/armour-rules";
 
   const categories: EquipmentCategory[] = [...new Set(EQUIPMENT_CATALOGUE.map(item => item.source.category))];
   const categoryGroups: { name: string; categories: EquipmentCategory[] }[] = [
@@ -26,7 +26,7 @@
     const q = query.trim().toLowerCase();
     const inGroup = group === null || categoryGroups.find(entry => entry.name === group)?.categories.includes(item.source.category) === true;
     return (q || (inGroup && (category === null || item.source.category === category)))
-      && (!q || `${item.source.name} ${item.source.category} ${item.source.source_line} ${item.source.id} ${item.source.verification}`.toLowerCase().includes(q));
+      && (!q || `${item.source.name} ${item.source.category} ${item.source.source_line} ${item.source.id}`.toLowerCase().includes(q));
   }));
   const shown = $derived([...matching].sort((a, b) => sort === "price"
     ? (a.source.price_cp_candidate ?? Number.MAX_SAFE_INTEGER) - (b.source.price_cp_candidate ?? Number.MAX_SAFE_INTEGER) || a.source.name.localeCompare(b.source.name)
@@ -48,9 +48,9 @@
     const itemType = record.category === "shields" ? "Shield" : "Weapon";
     const profile = record.combat_profile_candidate;
     return [
-      ...(profile ? [["Base damage", profile.damage], ["Size", profile.size === "M" ? "Medium" : profile.size], ["Reach", profile.reach === "M" ? "Medium" : profile.reach]] as [string, string][] : []),
-      ...(record.ap_candidate !== undefined ? [[`${itemType} AP`, String(record.ap_candidate)] as [string, string]] : []),
-      ...(record.hp_candidate !== undefined ? [[`${itemType} HP`, String(record.hp_candidate)] as [string, string]] : []),
+      ...(profile ? [["Base damage", profile.damage], ["Size", profile.size === "M" ? "Medium" : profile.size], ["Reach", profile.reach === "M" ? "Medium" : profile.reach]] as [string, string][] : [["Combat profile", "Unresolved"] as [string, string]]),
+      [`${itemType} AP`, record.ap_candidate === undefined ? "Unresolved" : String(record.ap_candidate)],
+      [`${itemType} HP`, record.hp_candidate === undefined ? "Unresolved" : String(record.hp_candidate)],
       ...(record.wielding_hands !== undefined ? [["Hands required", `${record.wielding_hands} ${record.wielding_hands === 1 ? "hand" : "hands"}`] as [string, string]] : []),
     ];
   };
@@ -78,9 +78,8 @@
     id: `${item.id}-${index + 1}`, ...item.armour!, state: item.state,
   })))));
   const statSummary = (record: typeof EQUIPMENT_CATALOGUE[number]) => [
-    ...(combatStats(record.source).length ? ["Provisional"] : []),
     ...combatStats(record.source).map(([name, value]) => `${name} ${value}`),
-    record.source.base_enc_per_location !== undefined && `ENC ${record.source.base_enc_per_location}`,
+    record.source.base_enc_per_location !== undefined ? `ENC ${record.source.base_enc_per_location}` : record.kind === "physical_item" ? "ENC unresolved" : undefined,
   ].filter(Boolean).join(" · ");
   function purchase(record: typeof EQUIPMENT_CATALOGUE[number]) {
     if (purchaseBusy) return;
@@ -151,9 +150,9 @@
   {#if message}<p class="hint" role="status" aria-live="polite">{message}</p>{/if}
   {#if currentBalanceCp < 0}<p class="balance-warning" role="alert">Your recorded spending is {formatCopperPrice(-currentBalanceCp)} above your starting money. Existing purchases are preserved.</p>{/if}
   <details class="catalogue-info"><summary>Rules &amp; sources</summary>
-    <p class="mute">Catalogue {EQUIPMENT_CATALOGUE_VERSION}; all purchases and expenses are recorded in integer CP. Candidate prices and stats are provisional and may need GM confirmation. Source records distinguish physical items, weapon profiles, material modifiers, and non-carried services.</p>
+    <p class="mute">All purchases and expenses are recorded in integer CP. Source records distinguish physical items, weapon profiles, material modifiers, and non-carried services.</p>
     <p class="mute">Weapon profiles describe how an item is used and do not create a second possession. Material modifiers are not standalone items. Services and expenses affect money without adding carried inventory.</p>
-    <p class="mute">Load rules: {CORE_ENCUMBRANCE_RULES_VERIFICATION}. Armour rules: {ARMOUR_RULES_VERIFICATION}. Material price adjustments are GM-defined.</p>
+    <p class="mute">Material price adjustments are GM-defined.</p>
   </details>
 
   {#if view === "owned"}
@@ -179,7 +178,7 @@
             <label>ENC per covered location <input aria-label={`ENC per covered location for ${item.name}`} type="number" min="0" step="0.25" value={item.armour.encOverride ?? ""} placeholder="Use construction" onchange={event => saveInventoryChange(item.id, item.name, { armour: { encOverride: event.currentTarget.value === "" ? undefined : Number(event.currentTarget.value) } })}></label>
           {:else}
             <label>ENC per item <input aria-label={`ENC per item for ${item.name}`} type="number" min="0" step="0.25" value={item.encPerUnit ?? ""} placeholder="Unknown" onchange={event => saveInventoryChange(item.id, item.name, { encPerUnit: event.currentTarget.value === "" ? null : Number(event.currentTarget.value) })}></label>
-            <span class="tag">{item.encPerUnit === null ? "ENC unresolved" : item.encSource === "gm_override" ? "GM ENC" : "Catalogue candidate ENC"}</span>
+            <span class="tag">{item.encPerUnit === null ? "ENC unresolved" : item.encSource === "gm_override" ? "GM ENC" : "ENC per item"}</span>
           {/if}
           <label><input type="checkbox" checked={!!item.encumbranceExempt} onchange={event => saveInventoryChange(item.id, item.name, { encumbranceExempt: event.currentTarget.checked })}> Exempt (e.g. everyday clothing)</label>
           {#if item.armour}
@@ -265,7 +264,6 @@
             <div><dt>{name}</dt><dd>{value}</dd></div>
           {/each}
         </dl>
-        <p class="mute">Mythras Core, p. {record.source_printed_page} · Stats pending verification.</p>
         <details class="rules-help"><summary aria-label={`Rules help for ${record.name}`}>Rules help</summary>
           <p>Listed dice are base damage. Add your character’s Damage Modifier when the rules call for it.</p>
           <p>Size compares a weapon with an incoming attack when parrying. Reach describes how far the weapon can engage and can affect who controls the distance.</p>
@@ -274,7 +272,7 @@
       {:else}
         <p>{statSummary(selected) || "No combat details available."}</p>
       {/if}
-      {#if !hasCombatProfile(record)}<p class="mute">Mythras Core, p. {record.source_printed_page} · Details pending verification.</p>{/if}
+      <p class="mute">Mythras Core, p. {record.source_printed_page}</p>
       {#if selected.kind === "wielding_profile"}<p class="mute">Choose this option for a weapon you own. It does not add a second item.</p>{/if}
       {#if selected.kind === "armour_material_modifier"}<p class="balance-warning">This modifier is not a separate item to buy.</p>{/if}
       {#if selected.kind === "non_carried_purchase"}<p class="mute">This is a service or expense. It changes your money without adding carried equipment.</p>{/if}
