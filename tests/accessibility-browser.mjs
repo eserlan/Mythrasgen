@@ -81,6 +81,7 @@ try {
   assert.equal(await evaluate(`document.querySelectorAll('.group-button').length`), 4, "new characters should see four equipment groups, not the full catalogue");
   assert.equal(await evaluate(`document.querySelectorAll('.armour-summary').length`), 0, "the new character review should not show an empty armour grid");
   await call("Emulation.setEmulatedMedia", { features: [{ name: "prefers-color-scheme", value: "dark" }] });
+  await new Promise(resolve => setTimeout(resolve, 250));
   await runAxe();
   await call("Emulation.setEmulatedMedia", { features: [] });
   await clickText("Weapons");
