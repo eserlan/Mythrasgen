@@ -298,6 +298,18 @@ button.char.swap-card.swap-unavailable:disabled{border-style:dashed;opacity:.62;
 .banner p span{font-size:.6rem;margin:0 8px}
 .sheet-stats .char b{font-family:var(--display);font-size:2.1rem;line-height:1.1}
 .sheet-body .card{margin-top:0}
+.sheet-equipment h4{margin:14px 0 6px;font:700 .7rem var(--display);text-transform:uppercase;letter-spacing:.1em;color:var(--mute)}
+.sheet-equipment p{margin:6px 0}
+.sheet-funds{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:8px 0}
+.sheet-funds>div{display:flex;flex-direction:column;gap:2px;border:1px solid var(--line);padding:7px}
+.sheet-funds small{color:var(--mute)}
+.sheet-table-wrap{max-width:100%;overflow-x:auto}
+.sheet-equipment-table,.sheet-armour-table{width:100%;border-collapse:collapse;font-size:.78rem}
+.sheet-equipment-table caption,.sheet-armour-table caption{text-align:left;font-weight:700;padding:4px 0}
+.sheet-equipment-table th,.sheet-equipment-table td,.sheet-armour-table th,.sheet-armour-table td{border:1px solid var(--line);padding:4px 6px;text-align:left;vertical-align:top}
+.sheet-equipment-table th[scope=row]{font-weight:700}
+.sheet-armour-table th,.sheet-armour-table td{text-align:center}
+.sheet-warning{border-left:2px solid var(--bronze);padding-left:8px;color:var(--mute)}
 svg.body{display:block;margin:0 auto;width:min(210px,60%);height:auto}
 svg.body rect{fill:var(--card2);stroke:var(--bronze);stroke-width:1.4}
 svg.body text{text-anchor:middle;fill:var(--fg)}svg.body .hp{font:700 15px var(--display)}svg.body .rg{font:9px var(--body);fill:var(--mute)}
@@ -381,6 +393,11 @@ svg.body text{text-anchor:middle;fill:var(--fg)}svg.body .hp{font:700 15px var(-
   svg.body{width:150px}
   .skills,.derived{margin:6px 0}
   .leaders.cols{columns:2}
+  .sheet-equipment{break-inside:auto}
+  .sheet-equipment-table,.sheet-armour-table{font-size:8.5px}
+  .sheet-equipment-table thead{display:table-header-group}
+  .sheet-equipment-table tr{break-inside:avoid}
+  .sheet-table-wrap{overflow:visible}
 }
 .culture-combat-style{display:grid;gap:8px;margin-top:18px}
 .combat-style-picker{display:grid;gap:8px}

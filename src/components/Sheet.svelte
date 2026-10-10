@@ -9,12 +9,18 @@
   import { CONNECTIONS, FAMILY_STANDING, resolvedBackgroundEvents, resolveBackgroundEvent, tableResult } from "../lib/background-rules";
   import { formatFamilyRelationships } from "../lib/family-relationships";
   import SkillInfo from "./SkillInfo.svelte";
+  import { formatCopperPrice } from "../lib/equipment-catalogue";
+  import { sheetEquipmentSummary } from "../lib/sheet-equipment";
+  import { ARMOUR_MATERIALS, ARMOUR_CONSTRUCTIONS, ARMOUR_RULES_VERIFICATION, HIT_LOCATIONS } from "../lib/armour-rules";
   const loc = $derived(deriveStats(char.chars).loc);
   const skills = $derived(allSkills().sort());
   const std = $derived(skills.filter(n => !skillDefinition(n).pro && !RESISTANCES.includes(n as typeof RESISTANCES[number])));
   const pro = $derived(skills.filter(n => skillDefinition(n).pro));
   const standing = $derived(tableResult(FAMILY_STANDING, char.background.standingRoll));
   const connectionTier = $derived(tableResult(CONNECTIONS, char.background.connectionsRoll));
+  const equipment = $derived(sheetEquipmentSummary(char.background.inventory, char.chars.STR,
+    startingMoney(), char.background.equipmentTransactions));
+  const money = (cp: number) => cp < 0 ? `−${formatCopperPrice(-cp)}` : formatCopperPrice(cp);
 </script>
 
 <div class="noprint"><StepHead step={8} title="Character sheet" /></div>
@@ -54,9 +60,46 @@
     {#if char.background.extendedFamily}<p><b>Extended family:</b> {char.background.extendedFamily}</p>{/if}
     <p><b>Family standing:</b> {standing[2]} · ties: {formatFamilyRelationships(char.background.relationships, "reputation")} · <b>Connections:</b> {connectionTier[2]} — {formatFamilyRelationships(char.background.relationships, "connections")}</p>
     {#each resolvedBackgroundEvents(char.background.events) as { event, index }}{@const resolvedEvent = resolveBackgroundEvent(event)}<p><b>Background event {index + 1} ({event.source === "rolled" ? `rolled ${event.roll}; ` : ""}{resolvedEvent?.range}):</b> {resolvedEvent?.text}</p>{/each}
-    <p><b>Starting equipment:</b> {socialClassReady() ? char.background.equipment || "Unrecorded" : "Pending Social Class reconciliation"}</p>
-    <p><b>Starting money:</b> {socialClassReady() ? `${startingMoney()} sp` : "Pending Social Class"} · <b>Current funds:</b> {char.background.currentMoney} sp</p>
+    <p><b>Social-class equipment guidance (not an inventory record):</b> {socialClassReady() ? char.background.equipment || "Unrecorded" : "Pending Social Class reconciliation"}</p>
+    <p><b>Starting money:</b> {socialClassReady() ? `${startingMoney()} sp` : "Pending Social Class"}</p>
   </div>
+  <section class="card sheet-equipment" aria-labelledby="sheet-equipment-title">
+    <h3 id="sheet-equipment-title">Equipment &amp; funds</h3>
+    {#if socialClassReady()}
+      <div class="sheet-funds">
+        <div><small>Starting funds</small><b>{money(equipment.funds.startingCp)}</b></div>
+        <div><small>Spent (CP ledger)</small><b>{money(equipment.funds.spentCp)}</b></div>
+        <div><small>Remaining (CP ledger)</small><b>{money(equipment.funds.remainingCp)}</b></div>
+      </div>
+      {#if equipment.funds.remainingCp < 0}<p class="sheet-warning">Ledger balance is below current starting funds; historical transactions are retained.</p>{/if}
+    {:else}<p class="sheet-warning">Funds unresolved until Social Class is reconciled.</p>{/if}
+    {#if char.background.inventory.length}
+      <div class="sheet-table-wrap"><table class="sheet-equipment-table">
+        <caption>Owned equipment</caption>
+        <thead><tr><th scope="col">Item</th><th scope="col">Qty</th><th scope="col">State</th><th scope="col">Acquisition</th><th scope="col">ENC</th><th scope="col">Source</th></tr></thead>
+        <tbody>{#each char.background.inventory as item (item.id)}
+          <tr>
+            <th scope="row">{item.name}</th><td>{item.quantity}</td><td>{item.state}</td><td>{item.acquiredAs}</td>
+            <td>{#if item.armour}{item.armour.encOverride !== undefined ? `${item.armour.encOverride} per covered location (GM value)` : item.armour.construction && item.armour.material && ARMOUR_CONSTRUCTIONS[item.armour.construction] && ARMOUR_MATERIALS[item.armour.material] ? "Derived · provisional rules" : "Unresolved"}{:else if item.encPerUnit === null}Unresolved{:else}{item.encPerUnit} per item ({item.encSource === "gm_override" ? "GM value" : "catalogue candidate"}){/if}</td>
+            <td>{item.sourceIds.length ? item.sourceIds.join(", ") : "Unresolved"}</td>
+          </tr>
+        {/each}</tbody>
+      </table></div>
+    {:else}<p class="mute">No owned equipment recorded.</p>{/if}
+    <h4>Load &amp; encumbrance</h4>
+    <p><b>Load:</b> {equipment.load.load === null ? `At least ${equipment.load.knownLoad} ENC · unresolved` : `${equipment.load.load} ENC`} · <b>Band:</b> {equipment.load.band} · <b>Movement:</b> {equipment.load.movement}</p>
+    <p><b>Skill penalty:</b> {equipment.load.skillDifficultyGrades === null ? "Unresolved" : `${equipment.load.skillDifficultyGrades} difficulty grades`} · <b>Sprinting:</b> {equipment.load.sprinting} · <b>Fatigue:</b> {equipment.load.fatigue}</p>
+    {#if equipment.load.unresolvedItems.length}<p class="sheet-warning">Load unresolved for: {equipment.load.unresolvedItems.join(", ")}.</p>{/if}
+    <h4>Worn armour</h4>
+    <div class="sheet-table-wrap"><table class="sheet-armour-table">
+      <caption>Armour protection by hit location</caption>
+      <thead><tr>{#each HIT_LOCATIONS as location}<th scope="col">{location}</th>{/each}</tr></thead>
+      <tbody><tr>{#each HIT_LOCATIONS as location}<td>{equipment.armour.apByLocation[location] === null ? "Unresolved" : `${equipment.armour.apByLocation[location]} AP`}</td>{/each}</tr></tbody>
+    </table></div>
+    <p><b>Worn armour ENC:</b> {equipment.armour.fullWornEnc ?? "Unresolved"} full · {equipment.armour.loadEnc ?? "Unresolved"} load · <b>Initiative penalty:</b> {equipment.armour.initiativePenalty === null ? "Unresolved" : `−${equipment.armour.initiativePenalty}`}</p>
+    <p class="mute">Derived from the shared armour rules ({ARMOUR_RULES_VERIFICATION}); candidate catalogue values are not verified.</p>
+    {#if equipment.armour.unresolved.length}<p class="sheet-warning">Armour unresolved: {equipment.armour.unresolved.join("; ")}.</p>{/if}
+  </section>
   <div class="two sheet-body">
     <div class="card"><h3>Hit locations</h3><HitLocations {loc} /></div>
     <div class="card">
