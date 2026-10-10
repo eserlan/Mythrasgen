@@ -32,6 +32,9 @@
     ? (a.source.price_cp_candidate ?? Number.MAX_SAFE_INTEGER) - (b.source.price_cp_candidate ?? Number.MAX_SAFE_INTEGER) || a.source.name.localeCompare(b.source.name)
     : a.source.name.localeCompare(b.source.name)));
   const selected = $derived(matching.find(item => item.source.id === selectedId) ?? null);
+  $effect(() => {
+    if (selectedId !== null && !matching.some(item => item.source.id === selectedId)) selectedId = null;
+  });
   const categoryCount = (id: EquipmentCategory) => EQUIPMENT_CATALOGUE.filter(item => item.source.category === id).length;
   const categoryLabel = (id: EquipmentCategory) => id.replaceAll("_", " ").replace(/\b\w/g, value => value.toUpperCase());
   const categorySummary = (id: EquipmentCategory) => ({
@@ -51,6 +54,7 @@
       ...(profile ? [["Base damage", profile.damage], ["Size", profile.size === "M" ? "Medium" : profile.size], ["Reach", profile.reach === "M" ? "Medium" : profile.reach]] as [string, string][] : [["Combat profile", "Unresolved"] as [string, string]]),
       [`${itemType} AP`, record.ap_candidate === undefined ? "Unresolved" : String(record.ap_candidate)],
       [`${itemType} HP`, record.hp_candidate === undefined ? "Unresolved" : String(record.hp_candidate)],
+      ["Encumbrance (ENC)", record.enc_candidate === undefined ? "Unknown" : String(record.enc_candidate)],
       ...(record.wielding_hands !== undefined ? [["Hands required", `${record.wielding_hands} ${record.wielding_hands === 1 ? "hand" : "hands"}`] as [string, string]] : []),
     ];
   };
@@ -79,7 +83,7 @@
   })))));
   const statSummary = (record: typeof EQUIPMENT_CATALOGUE[number]) => [
     ...combatStats(record.source).map(([name, value]) => `${name} ${value}`),
-    record.source.base_enc_per_location !== undefined ? `ENC ${record.source.base_enc_per_location}` : record.kind === "physical_item" ? "ENC unresolved" : undefined,
+    record.source.enc_candidate !== undefined ? `ENC ${record.source.enc_candidate}` : record.source.base_enc_per_location !== undefined ? `ENC ${record.source.base_enc_per_location}` : record.kind === "physical_item" ? "ENC Unknown" : undefined,
   ].filter(Boolean).join(" · ");
   function purchase(record: typeof EQUIPMENT_CATALOGUE[number]) {
     if (purchaseBusy) return;
@@ -241,7 +245,7 @@
       <ul class="catalogue-list" aria-label="Equipment results">
         {#each shown as entry (entry.source.id)}
           {@const record = entry.source}
-          <li><button id={`equipment-result-${record.id}`} type="button" class="catalogue-row" aria-pressed={selectedId === record.id} onclick={() => selectedId = record.id}>
+          <li><button id={`equipment-result-${record.id}`} type="button" class="catalogue-row" aria-expanded={selectedId === record.id} aria-controls={selectedId === record.id ? "selected-item-detail" : undefined} onclick={() => selectedId = selectedId === record.id ? null : record.id}>
             <span class="row-main"><b>{record.name}</b><small>{categorySummary(record.category)}</small></span>
             <span class="row-price">{displayEquipmentPrice(record)}</span>
           </button></li>
@@ -254,7 +258,7 @@
   {#if selected && (query.trim() || category !== null)}
     {@const record = selected.source}
     {@const unavailable = record.price_cp_candidate === null}
-    <section class="item-detail" aria-labelledby="selected-item-title">
+    <section id="selected-item-detail" class="item-detail" aria-labelledby="selected-item-title">
       <div class="detail-title"><div><h5 id="selected-item-title">{record.name}</h5><p class="mute">{categorySummary(record.category)} · {unavailable ? "Price unavailable" : displayEquipmentPrice(record)}</p></div>
         <button type="button" class="ghost" aria-label="Close item details" onclick={() => closeDetails(record.id)}>Close</button>
       </div>
@@ -267,6 +271,7 @@
         <details class="rules-help"><summary aria-label={`Rules help for ${record.name}`}>Rules help</summary>
           <p>Listed dice are base damage. Add your character’s Damage Modifier when the rules call for it.</p>
           <p>Size compares a weapon with an incoming attack when parrying. Reach describes how far the weapon can engage and can affect who controls the distance.</p>
+          <p>Encumbrance (ENC) measures the item's contribution to carried load. Worn armour uses its separate half-ENC rule; stored items add no carried load.</p>
           <p>{record.category === "shields" ? "Shield" : "Weapon"} AP and {record.category === "shields" ? "shield" : "weapon"} HP measure the item's durability. They are not character armour points or character hit points. Hands required tells you how to wield it.</p>
         </details>
       {:else}
@@ -384,7 +389,7 @@
   .catalogue-list { display:grid; gap:.25rem; list-style:none; margin:.5rem 0 0; padding:0; }
   .catalogue-list li { min-width:0; }
   .catalogue-row { width:100%; min-width:0; display:flex; justify-content:space-between; align-items:center; gap:.75rem; text-align:left; padding:.55rem .65rem; border:1px solid var(--line); border-radius:.35rem; background:transparent; color:inherit; }
-  .catalogue-row[aria-pressed="true"] { border:2px solid var(--acc); background:color-mix(in srgb,var(--acc) 10%,transparent); }
+  .catalogue-row[aria-expanded="true"] { border:2px solid var(--acc); background:color-mix(in srgb,var(--acc) 10%,transparent); }
   .row-main { min-width:0; display:grid; gap:.12rem; }
   .row-main b { overflow-wrap:anywhere; }
   .row-main small,.row-price { color:var(--mute); }

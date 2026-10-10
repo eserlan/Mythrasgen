@@ -21,6 +21,8 @@ export interface EquipmentSourceRecord {
   readonly combat_profile_candidate?: Readonly<{ damage: string; size: string; reach: string }>;
   readonly ap_candidate?: number;
   readonly hp_candidate?: number;
+  /** Core equipment-table ENC per item, when the printed row provides one. */
+  readonly enc_candidate?: number;
   readonly wielding_hands?: number;
   readonly physical_item_key?: string;
   readonly price_basis?: string;
@@ -92,7 +94,7 @@ function validateSourceRecords(value: unknown): asserts value is EquipmentSource
     if (typeof row.verification !== "string" || row.verification.trim() === "") {
       throw new Error(`Equipment ${row.id} has no record verification status`);
     }
-    for (const key of ["ap", "ap_candidate", "hp_candidate", "wielding_hands", "enc_multiplier"] as const) {
+    for (const key of ["ap", "ap_candidate", "hp_candidate", "wielding_hands", "enc_multiplier", "enc_candidate"] as const) {
       const field = row[key];
       if (field !== undefined && (typeof field !== "number" || !Number.isFinite(field))) {
         throw new Error(`Equipment ${row.id} has invalid ${key}`);
@@ -125,6 +127,7 @@ export const EQUIPMENT_CATALOGUE: readonly ImportedEquipmentRecord[] = deepFreez
     if (field === "verification") fieldVerification[field] = "source_indexed";
     else if (field === "source_line" && value === "") fieldVerification[field] = "unresolved";
     else if (field === "price_cp_candidate" && value === null) fieldVerification[field] = "unresolved";
+    else if (field === "enc_candidate") fieldVerification[field] = "provisional";
     else if (["id", "category", "name", "source_printed_page", "source_line"].includes(field)) fieldVerification[field] = "source_indexed";
     else fieldVerification[field] = checkedRecordPattern.test(source.verification) ? "visually_checked" : "provisional";
   }
