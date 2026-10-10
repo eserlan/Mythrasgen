@@ -72,7 +72,7 @@ try {
   assert.ok(JSON.parse(loaded).equipment, `Page VIII did not load: ${JSON.parse(loaded).text}`);
   await evaluate(axeSource);
   const runAxe = async () => {
-    const result = await evaluate(`axe.run(document.querySelector('.inventory-ledger'), { runOnly: { type: 'tag', values: ['wcag2a','wcag2aa','wcag21a','wcag21aa','wcag22aa'] } }).then(result => JSON.stringify({ violations: result.violations.map(v => ({ id:v.id, impact:v.impact, help:v.help, nodes:v.nodes.map(n => n.target) })) }))`);
+    const result = await evaluate(`axe.run(document.querySelector('.inventory-ledger'), { runOnly: { type: 'tag', values: ['wcag2a','wcag2aa','wcag21a','wcag21aa','wcag22aa'] } }).then(result => JSON.stringify({ violations: result.violations.map(v => ({ id:v.id, impact:v.impact, help:v.help, nodes:v.nodes.map(n => ({ target:n.target, failureSummary:n.failureSummary })) })) }))`);
     const { violations } = JSON.parse(result);
     assert.deepEqual(violations, [], `axe violations: ${JSON.stringify(violations)}`);
   };
