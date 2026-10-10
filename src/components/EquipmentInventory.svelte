@@ -1,6 +1,8 @@
 <script lang="ts">
   import { EQUIPMENT_CATALOGUE, EQUIPMENT_CATALOGUE_VERSION, displayEquipmentPrice, formatCopperPrice, type EquipmentCategory } from "../lib/equipment-catalogue";
   import { acquireEquipment, char, deleteInventoryItem, equipmentBalanceCp, equipmentSpentCp, purchaseEquipment, recordEquipmentExpense, refundEquipmentPurchase, startingMoney, updateInventoryItem } from "../lib/store.svelte";
+  import { CORE_ENCUMBRANCE_RULES_VERIFICATION, encumbranceSummary } from "../lib/encumbrance";
+  import { ARMOUR_CONSTRUCTIONS, ARMOUR_MATERIALS, ARMOUR_RULES_VERIFICATION, HIT_LOCATIONS, summarizeArmour, type HitLocationName } from "../lib/armour-rules";
 
   const categories: (EquipmentCategory | "all")[] = ["all", ...new Set(EQUIPMENT_CATALOGUE.map(item => item.source.category))];
   let query = $state("");
@@ -25,6 +27,11 @@
   const currentBalanceCp = $derived(equipmentBalanceCp());
   const startingCp = $derived(startingMoney() * 10);
   const signedMoney = (value: number) => value < 0 ? `−${formatCopperPrice(-value)}` : formatCopperPrice(value);
+  const load = $derived(encumbranceSummary(char.background.inventory, char.chars.STR));
+  const armourItems = $derived(char.background.inventory.filter(item => item.armour));
+  const armourSummary = $derived(summarizeArmour(armourItems.flatMap(item => Array.from({ length: item.quantity }, (_, index) => ({
+    id: `${item.id}-${index + 1}`, ...item.armour!, state: item.state,
+  })))));
   const statSummary = (record: typeof EQUIPMENT_CATALOGUE[number]) => [
     record.source.combat_profile_candidate && `Damage ${record.source.combat_profile_candidate.damage}, Size ${record.source.combat_profile_candidate.size}, Reach ${record.source.combat_profile_candidate.reach}`,
     record.source.ap_candidate !== undefined && `AP ${record.source.ap_candidate}`,
@@ -55,6 +62,10 @@
       message = "Refund recorded as a separate transaction.";
     } catch (error) { message = error instanceof Error ? error.message : "Could not record refund."; }
   }
+  function setArmourLocation(item: typeof char.background.inventory[number], location: HitLocationName, checked: boolean) {
+    const locations = item.armour?.locations ?? [];
+    updateInventoryItem(item.id, { armour: { locations: checked ? [...new Set([...locations, location])] : locations.filter(value => value !== location), coverageResolved: true } });
+  }
 </script>
 
 <section class="card inventory-ledger" aria-label="Inventory and equipment purchasing">
@@ -66,6 +77,25 @@
   </div>
   {#if currentBalanceCp < 0}<p class="balance-warning" role="alert">Historical spending is {formatCopperPrice(-currentBalanceCp)} above current starting funds. Existing transactions are preserved.</p>{/if}
   <p class="mute">Catalogue {EQUIPMENT_CATALOGUE_VERSION}. Prices and candidate stats are provisional; all spending is recorded in integer CP.</p>
+  <h4>Load and encumbrance</h4>
+  <div class="load-summary" aria-live="polite">
+    <div><small>Load</small><b>{load.load === null ? `At least ${load.knownLoad} ENC · unknown` : `${load.load} ENC`}</b></div>
+    <div><small>Load band</small><b>{load.band}</b></div>
+    <div><small>Thresholds (STR {char.chars.STR})</small><b>{load.thresholds ? `2× ${load.thresholds.burdened} · 3× ${load.thresholds.overloaded} · 4× ${load.thresholds.unsustainable}` : "Unknown"}</b></div>
+    <div><small>Movement</small><b>{load.movement}</b></div>
+    <div><small>Skills / sprinting / fatigue</small><b>{load.skillDifficultyGrades === null ? "Unknown" : `${load.skillDifficultyGrades} grade${load.skillDifficultyGrades === 1 ? "" : "s"} harder`} · {load.sprinting} · {load.fatigue}</b></div>
+  </div>
+  {#if load.unresolvedItems.length}<p class="balance-warning" role="status">ENC unresolved for: {load.unresolvedItems.join(", ")}. Set a GM value to calculate a complete load.</p>{/if}
+  <p class="mute">Load rules: {CORE_ENCUMBRANCE_RULES_VERIFICATION}. Worn items contribute half ENC; stored items do not count. Twenty zero-ENC items count as 1 ENC.</p>
+  <h4>Armour by hit location</h4>
+  <div class="armour-summary" aria-live="polite">
+    {#each HIT_LOCATIONS as location}<div><small>{location}</small><b>{armourSummary.apByLocation[location] === null ? "Unknown AP" : `${armourSummary.apByLocation[location]} AP`}</b></div>{/each}
+    <div><small>Worn full ENC</small><b>{armourSummary.fullWornEnc ?? "Unknown"}</b></div>
+    <div><small>Worn load ENC</small><b>{armourSummary.loadEnc ?? "Unknown"}</b></div>
+    <div><small>Initiative penalty</small><b>{armourSummary.initiativePenalty === null ? "Unknown" : `−${armourSummary.initiativePenalty}`}</b></div>
+  </div>
+  {#if armourSummary.unresolved.length}<p class="balance-warning" role="status">Armour needs resolution: {armourSummary.unresolved.join("; ")}</p>{/if}
+  <p class="mute">Armour rules: {ARMOUR_RULES_VERIFICATION}. Material price adjustments are GM-defined. Compatibility is recorded per piece; fit must be explicitly set.</p>
   {#if message}<p class="hint" role="status">{message}</p>{/if}
 
   <h4>Owned equipment</h4>
@@ -80,6 +110,32 @@
           <label>State <select value={item.state} onchange={event => updateInventoryItem(item.id, { state: event.currentTarget.value as "carried" | "worn" | "stored" })}>
             <option value="carried">Carried</option><option value="worn">Worn</option><option value="stored">Stored</option>
           </select></label>
+          {#if item.armour}
+            <label>ENC per covered location <input aria-label={`ENC per covered location for ${item.name}`} type="number" min="0" step="0.25" value={item.armour.encOverride ?? ""} placeholder="Use construction" onchange={event => updateInventoryItem(item.id, { armour: { encOverride: event.currentTarget.value === "" ? undefined : Number(event.currentTarget.value) } })}></label>
+          {:else}
+            <label>ENC per item <input aria-label={`ENC per item for ${item.name}`} type="number" min="0" step="0.25" value={item.encPerUnit ?? ""} placeholder="Unknown" onchange={event => updateInventoryItem(item.id, { encPerUnit: event.currentTarget.value === "" ? null : Number(event.currentTarget.value) })}></label>
+            <span class="tag">{item.encPerUnit === null ? "ENC unresolved" : item.encSource === "gm_override" ? "GM ENC" : "Catalogue candidate ENC"}</span>
+          {/if}
+          <label><input type="checkbox" checked={!!item.encumbranceExempt} onchange={event => updateInventoryItem(item.id, { encumbranceExempt: event.currentTarget.checked })}> Exempt (e.g. everyday clothing)</label>
+          {#if item.armour}
+            <details class="armour-editor"><summary>Armour locations and fit</summary>
+              <label>Construction <select value={item.armour.construction ?? ""} onchange={event => updateInventoryItem(item.id, { armour: { construction: event.currentTarget.value as keyof typeof ARMOUR_CONSTRUCTIONS || null } })}>
+                <option value="">Unresolved</option>{#each Object.entries(ARMOUR_CONSTRUCTIONS) as [id, construction]}<option value={id}>{construction.name}</option>{/each}
+              </select></label>
+              <label>Material <select value={item.armour.material ?? ""} onchange={event => updateInventoryItem(item.id, { armour: { material: event.currentTarget.value as keyof typeof ARMOUR_MATERIALS || null } })}>
+                <option value="">Unresolved</option>{#each Object.entries(ARMOUR_MATERIALS) as [id, material]}<option value={id}>{material.name} (ENC ×{material.encMultiplier})</option>{/each}
+              </select></label>
+              <fieldset><legend>Covered locations</legend>{#each HIT_LOCATIONS as location}<label><input type="checkbox" checked={item.armour.locations.includes(location)} onchange={event => setArmourLocation(item, location, event.currentTarget.checked)}>{location}</label>{/each}</fieldset>
+              <label>Fit <select value={item.armour.fit} onchange={event => updateInventoryItem(item.id, { armour: { fit: event.currentTarget.value as "fitted" | "ill_fitting" | "unresolved" } })}>
+                <option value="unresolved">Unresolved</option><option value="fitted">Fitted</option><option value="ill_fitting">Ill fitting</option>
+              </select></label>
+              <label>Compatibility <select value={item.armour.compatibility} onchange={event => updateInventoryItem(item.id, { armour: { compatibility: event.currentTarget.value as "compatible" | "incompatible" | "conditional" | "unresolved" } })}>
+                <option value="unresolved">Unresolved</option><option value="compatible">Compatible</option><option value="conditional">Conditional</option><option value="incompatible">Incompatible</option>
+              </select></label>
+              {#if item.armour.compatibility === "incompatible"}<label><input type="checkbox" checked={!!item.armour.gmCompatibilityOverride} onchange={event => updateInventoryItem(item.id, { armour: { gmCompatibilityOverride: event.currentTarget.checked } })}> GM compatibility override</label>{/if}
+              <p class="mute">Flexible armour typically fits SIZ ±1; rigid armour needs wearer-specific SIZ and proportions. Record fit explicitly. No automatic layering: overlapping pieces use highest AP and every worn piece adds ENC. Compatibility remains unresolved until confirmed or GM overridden.</p>
+            </details>
+          {/if}
           <button type="button" class="ghost" onclick={() => deleteInventoryItem(item.id)}>Remove</button>
         </li>
       {/each}
@@ -138,6 +194,13 @@
 <style>
   .inventory-ledger { margin-top: 1rem; }
   .money-summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.5rem; margin:1rem 0; }
+  .load-summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(10rem,1fr)); gap:.5rem; margin:.75rem 0; }
+  .load-summary > div { display:flex; flex-direction:column; gap:.2rem; padding:.65rem; border:1px solid var(--line); border-radius:.5rem; }
+  .armour-summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(8rem,1fr)); gap:.5rem; margin:.75rem 0; }
+  .armour-summary > div { display:flex; flex-direction:column; gap:.2rem; padding:.65rem; border:1px solid var(--line); border-radius:.5rem; }
+  .armour-editor { flex:1 1 100%; display:flex; align-items:start; flex-wrap:wrap; gap:.6rem; padding:.65rem; border:1px solid var(--line); border-radius:.5rem; }
+  .armour-editor summary { flex-basis:100%; cursor:pointer; }
+  .armour-editor fieldset { display:flex; flex-wrap:wrap; gap:.45rem; }
   .money-summary > div { display:flex; flex-direction:column; gap:.2rem; padding:.65rem; border:1px solid var(--line); border-radius:.5rem; }
   .money-summary small,.mute { color:var(--muted); }
   .balance-warning { color:#9c2727; font-weight:700; }

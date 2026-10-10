@@ -587,7 +587,7 @@ export function recordEquipmentExpense(catalogueId: string, quantity: number, gm
   char.background.equipmentTransactions = next.equipmentTransactions;
   char.background.currentMoney = equipmentBalanceCp() / 10;
 }
-export function updateInventoryItem(id: string, update: { quantity?: number; state?: EquipmentState }) {
+export function updateInventoryItem(id: string, update: { quantity?: number; state?: EquipmentState; encPerUnit?: number | null; encumbranceExempt?: boolean; armour?: Partial<Omit<import("./armour-rules").ArmourPiece, "id">> }) {
   char.background.inventory = changeInventoryItem({ inventory: char.background.inventory, equipmentTransactions: char.background.equipmentTransactions }, id, update).inventory;
 }
 export function deleteInventoryItem(id: string) {

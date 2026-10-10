@@ -14,7 +14,8 @@ test("Page VIII keeps Combat Styles compact and separates training from possessi
 
 test("equipment UI exposes catalogue search, provenance, acquisition, money, and ledger history", () => {
   for (const text of ["type=\"search\"", "Category", "Source {record.id}", "Price unavailable", "GM price (CP)",
-    "GM-approved zero price", "Acquire as", "Starting Money", "Spent", "Remaining", "Transaction history", "Record refund…"])
+    "GM-approved zero price", "Acquire as", "Starting Money", "Spent", "Remaining", "Transaction history", "Record refund…",
+    "ENC per covered location"])
     expect(inventory).toContain(text);
   expect(compile(inventory, { filename: "src/components/EquipmentInventory.svelte", generate: "client" }).warnings).toHaveLength(0);
 });
