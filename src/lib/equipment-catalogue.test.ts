@@ -8,6 +8,7 @@ import {
   acquireWithoutPurchase,
   createEquipmentPurchase,
   displayEquipmentPrice,
+  formatCopperPrice,
 } from "./equipment-catalogue";
 
 function item(id: string) {
@@ -17,6 +18,18 @@ function item(id: string) {
 }
 
 describe("provisional equipment catalogue", () => {
+  test("formats integer CP as silver-first Mythras currency, including signed and large values", () => {
+    expect(formatCopperPrice(0)).toBe("0 SP");
+    expect(formatCopperPrice(1750)).toBe("175 SP");
+    expect(formatCopperPrice(2500)).toBe("250 SP");
+    expect(formatCopperPrice(7000)).toBe("700 SP");
+    expect(formatCopperPrice(12)).toBe("1 SP 2 CP");
+    expect(formatCopperPrice(2)).toBe("2 CP");
+    expect(formatCopperPrice(-1750)).toBe("−175 SP");
+    expect(formatCopperPrice(Number.MAX_SAFE_INTEGER)).toBe("900719925474099 SP 1 CP");
+    expect(() => formatCopperPrice(1.5)).toThrow(/whole number of CP/);
+  });
+
   test("catalogue validator rejects CSV values that diverge from JSON", () => {
     const temporaryDirectory = mkdtempSync(join(tmpdir(), "mythras-catalogue-validation-"));
     try {

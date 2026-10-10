@@ -71,7 +71,7 @@
   };
   const currentBalanceCp = $derived(equipmentBalanceCp());
   const startingCp = $derived(startingMoney() * 10);
-  const signedMoney = (value: number) => value < 0 ? `−${formatCopperPrice(-value)}` : formatCopperPrice(value);
+  const signedMoney = formatCopperPrice;
   const load = $derived(encumbranceSummary(char.background.inventory, char.chars.STR));
   const armourItems = $derived(char.background.inventory.filter(item => item.armour));
   const armourSummary = $derived(summarizeArmour(armourItems.flatMap(item => Array.from({ length: item.quantity }, (_, index) => ({
@@ -243,7 +243,7 @@
         {#each shown as entry (entry.source.id)}
           {@const record = entry.source}
           <li><button id={`equipment-result-${record.id}`} type="button" class="catalogue-row" aria-pressed={selectedId === record.id} onclick={() => selectedId = record.id}>
-            <span class="row-main"><b>{record.name}</b><small>{statSummary(entry) || categorySummary(record.category)}</small></span>
+            <span class="row-main"><b>{record.name}</b><small>{categorySummary(record.category)}</small></span>
             <span class="row-price">{displayEquipmentPrice(record)}</span>
           </button></li>
         {/each}
@@ -265,22 +265,20 @@
             <div><dt>{name}</dt><dd>{value}</dd></div>
           {/each}
         </dl>
-        <p class="mute">The price and {record.category === "shields" ? "shield" : "weapon"} stats shown here are provisional and need confirmation against Mythras Core.</p>
+        <p class="mute">Mythras Core, p. {record.source_printed_page} · Stats pending verification.</p>
         <details class="rules-help"><summary aria-label={`Rules help for ${record.name}`}>Rules help</summary>
           <p>Listed dice are base damage. Add your character’s Damage Modifier when the rules call for it.</p>
           <p>Size compares a weapon with an incoming attack when parrying. Reach describes how far the weapon can engage and can affect who controls the distance.</p>
           <p>{record.category === "shields" ? "Shield" : "Weapon"} AP and {record.category === "shields" ? "shield" : "weapon"} HP measure the item's durability. They are not character armour points or character hit points. Hands required tells you how to wield it.</p>
         </details>
-        <p class="mute">Mythras Core, p. {record.source_printed_page}. Special Effects need verification against the Core PDF before they can be listed.</p>
       {:else}
         <p>{statSummary(selected) || "No combat details available."}</p>
       {/if}
+      {#if !hasCombatProfile(record)}<p class="mute">Mythras Core, p. {record.source_printed_page} · Details pending verification.</p>{/if}
       {#if selected.kind === "wielding_profile"}<p class="mute">Choose this option for a weapon you own. It does not add a second item.</p>{/if}
       {#if selected.kind === "armour_material_modifier"}<p class="balance-warning">This modifier is not a separate item to buy.</p>{/if}
       {#if selected.kind === "non_carried_purchase"}<p class="mute">This is a service or expense. It changes your money without adding carried equipment.</p>{/if}
-      <details><summary>Rules &amp; sources</summary><p>Mythras Core, p. {record.source_printed_page}. Values shown above are provisional and may need GM confirmation.</p>
-        {#if record.base_enc_per_location === undefined && selected.kind === "physical_item" && record.category === "armour"}<p class="balance-warning">ENC per location is unknown; resolve it on the owned armour record when acquired.</p>{/if}
-      </details>
+      {#if record.base_enc_per_location === undefined && selected.kind === "physical_item" && record.category === "armour"}<p class="balance-warning">ENC per location is unknown; resolve it on the owned armour record when acquired.</p>{/if}
       {#if selected.kind !== "armour_material_modifier"}
         <div class="purchase-controls">
           <label>Quantity <input aria-label={`Quantity of ${record.name}`} type="number" min="1" step="1" value={quantity[record.id] ?? "1"} onchange={event => quantity[record.id] = event.currentTarget.value}></label>

@@ -57,12 +57,14 @@ test("weapon and shield details use player-facing labels and keep provisional so
   expect(buckler?.source.ap_candidate).toBe(6);
   expect(buckler?.source.hp_candidate).toBe(9);
 
-  for (const text of ["Base damage", "${itemType} AP", "${itemType} HP", "Shield", "Hands required", "Medium", "Rules help", "Mythras Core, p. {record.source_printed_page}", "Special Effects need verification against the Core PDF"])
+  for (const text of ["Base damage", "${itemType} AP", "${itemType} HP", "Shield", "Hands required", "Medium", "Rules help", "Mythras Core, p. {record.source_printed_page} · Stats pending verification."])
     expect(inventory).toContain(text);
   for (const text of ["Record {record.id}", "{record.source_line}", "Object.entries(selected.fieldVerification)", "{record.verification}", "Source IDs:"])
     expect(inventory).not.toContain(text);
-  expect(inventory).toContain("The price and {record.category === \"shields\" ? \"shield\" : \"weapon\"} stats shown here are provisional");
-  expect(inventory).toContain("...(combatStats(record.source).length ? [\"Provisional\"] : [])");
+  expect(inventory).not.toContain("<details><summary>Rules &amp; sources</summary><p>Mythras Core");
+  expect(inventory).not.toContain("Special Effects need verification against the Core PDF");
+  expect(inventory).toContain("<small>{categorySummary(record.category)}</small>");
+  expect(inventory).not.toContain("{statSummary(entry) || categorySummary(record.category)}");
   expect(inventory).toContain("They are not character armour points or character hit points.");
   expect(inventory).toContain("aria-label={`Rules help for ${record.name}`}");
   expect(inventory).toContain('isWeapon(record) || record.category === "shields"');
