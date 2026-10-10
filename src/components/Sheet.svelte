@@ -97,7 +97,7 @@
       <tbody><tr>{#each HIT_LOCATIONS as location}<td>{equipment.armour.apByLocation[location] === null ? "Unresolved" : `${equipment.armour.apByLocation[location]} AP`}</td>{/each}</tr></tbody>
     </table></div>
     <p><b>Worn armour ENC:</b> {equipment.armour.fullWornEnc ?? "Unresolved"} full · {equipment.armour.loadEnc ?? "Unresolved"} load · <b>Initiative penalty:</b> {equipment.armour.initiativePenalty === null ? "Unresolved" : `−${equipment.armour.initiativePenalty}`}</p>
-    <p class="mute">Armour protection and ENC are derived from each piece's construction, material, coverage and fit.</p>
+    <p class="mute">Armour protection and ENC are derived from each piece's construction, material, coverage and fit. The source rules values have not been visually verified against the Core.</p>
     {#if equipment.armour.unresolved.length}<p class="sheet-warning">Armour unresolved: {equipment.armour.unresolved.join("; ")}.</p>{/if}
   </section>
   <div class="two sheet-body">

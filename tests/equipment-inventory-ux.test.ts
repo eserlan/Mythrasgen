@@ -5,6 +5,7 @@ import { EQUIPMENT_CATALOGUE } from "../src/lib/equipment-catalogue";
 
 const page = readFileSync(new URL("../src/components/Combat.svelte", import.meta.url), "utf8");
 const inventory = readFileSync(new URL("../src/components/EquipmentInventory.svelte", import.meta.url), "utf8");
+const sheet = readFileSync(new URL("../src/components/Sheet.svelte", import.meta.url), "utf8");
 
 test("Page VIII separates combat training from possessions", () => {
   expect(page).toContain("EquipmentInventory");
@@ -45,6 +46,10 @@ test("technical provenance and armour location data are secondary disclosures", 
   expect(inventory).toContain("No equipment yet. Choose equipment to add an item.");
 });
 
+test("character sheet identifies unverified armour source values", () => {
+  expect(sheet).toContain("source rules values have not been visually verified against the Core");
+});
+
 test("weapon and shield details use player-facing labels and keep provisional source fields out of the UI", () => {
   const broadsword = EQUIPMENT_CATALOGUE.find(item => item.source.id === "one_handed-broadsword");
   const buckler = EQUIPMENT_CATALOGUE.find(item => item.source.id === "shields-buckler");
@@ -67,6 +72,7 @@ test("weapon and shield details use player-facing labels and keep provisional so
   expect(inventory.match(/Mythras Core, p\. \{record\.source_printed_page\}/g)).toHaveLength(1);
   expect(inventory).toContain('unavailable ? "Price unavailable" : displayEquipmentPrice(record)');
   expect(inventory).toContain("ENC unresolved");
+  expect(inventory).toContain("Catalogue prices and figures are transcribed candidates; verify them against Mythras Core");
   for (const text of ["Record {record.id}", "{record.source_line}", "Object.entries(selected.fieldVerification)", "{record.verification}", "Source IDs:"])
     expect(inventory).not.toContain(text);
   expect(inventory).not.toContain("<details><summary>Rules &amp; sources</summary><p>Mythras Core");

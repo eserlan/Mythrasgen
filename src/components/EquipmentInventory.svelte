@@ -272,7 +272,7 @@
       {:else}
         <p>{statSummary(selected) || "No combat details available."}</p>
       {/if}
-      <p class="mute">Mythras Core, p. {record.source_printed_page}</p>
+      <p class="mute">Catalogue prices and figures are transcribed candidates; verify them against Mythras Core, p. {record.source_printed_page}.</p>
       {#if selected.kind === "wielding_profile"}<p class="mute">Choose this option for a weapon you own. It does not add a second item.</p>{/if}
       {#if selected.kind === "armour_material_modifier"}<p class="balance-warning">This modifier is not a separate item to buy.</p>{/if}
       {#if selected.kind === "non_carried_purchase"}<p class="mute">This is a service or expense. It changes your money without adding carried equipment.</p>{/if}
