@@ -8,6 +8,7 @@
     "preview": "vite preview",
     "check": "svelte-check",
     "test": "bun test",
+    "catalogue:validate": "node scripts/validate-equipment-catalogue.mjs",
     "test:bootstrap-browser": "bun run build && bun tests/bootstrap-browser.mjs"
   },
   "devDependencies": {
