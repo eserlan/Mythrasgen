@@ -41,6 +41,7 @@ export interface InventoryState {
 
 const validInt = (value: unknown, minimum = 0): value is number => Number.isSafeInteger(value) && (value as number) >= minimum;
 const uid = () => globalThis.crypto?.randomUUID?.() ?? `equipment-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+const encumbranceForRecord = (record: EquipmentSourceRecord) => record.enc_candidate ?? record.base_enc_per_location ?? null;
 const armourConstructionForCatalogue: Record<string, ArmourConstructionId> = {
   "armour-natural-cured": "natural_cured", "armour-padded-quilted": "padded_quilted", "armour-laminated": "laminated",
   "armour-scaled": "scaled", "armour-half-plate": "half_plate", "armour-mail": "mail",
@@ -152,7 +153,8 @@ export function addPurchase(
   const group = record.physical_item_key;
   const inventory = state.inventory.map(item => ({ ...item, sourceIds: [...item.sourceIds] }));
   const existing = inventory.find(item => item.acquiredAs === "purchased"
-    && (group ? item.physicalItemKey === group : item.catalogueId === record.id));
+    && (group ? item.physicalItemKey === group : item.catalogueId === record.id)
+    && item.encPerUnit === encumbranceForRecord(record));
   const sourceIds = [...new Set([...(existing?.sourceIds ?? []), record.id])];
   if (existing) {
     if (!Number.isSafeInteger(existing.quantity + quantity)) throw new Error("Quantity is too large");
@@ -160,8 +162,8 @@ export function addPurchase(
     existing.sourceIds = sourceIds;
   } else inventory.push({ id: uid(), catalogueId: record.id, sourceIds, ...(group ? { physicalItemKey: group } : {}),
     name: record.name, quantity, acquiredAs: "purchased", state: record.category === "armour" ? "worn" : "carried",
-    encPerUnit: record.enc_candidate ?? record.base_enc_per_location ?? null,
-    encSource: record.enc_candidate !== undefined || record.base_enc_per_location !== undefined ? "catalogue_candidate" : "unresolved",
+    encPerUnit: encumbranceForRecord(record),
+    encSource: encumbranceForRecord(record) === null ? "unresolved" : "catalogue_candidate",
     ...(record.category === "armour" ? { armour: newArmourConfig(record.id, "worn") } : {}) });
   const transaction: InventoryTransaction = { id: uid(), kind: "purchase", catalogueId: record.id, name: record.name,
     quantity, amountCp: created.transaction.amountCp * quantity, amountSource: created.transaction.amountSource,
@@ -173,7 +175,8 @@ export function addPurchase(
 export function addGift(state: InventoryState, record: EquipmentSourceRecord, quantity: number, acquiredAs: "gifted" | "inherited" | "granted"): InventoryState {
   if (!validInt(quantity, 1)) throw new Error("Quantity must be a positive integer");
   const existing = state.inventory.find(item => item.acquiredAs === acquiredAs && (record.physical_item_key
-    ? item.physicalItemKey === record.physical_item_key : item.catalogueId === record.id));
+    ? item.physicalItemKey === record.physical_item_key : item.catalogueId === record.id)
+    && item.encPerUnit === encumbranceForRecord(record));
   if (existing) {
     if (!Number.isSafeInteger(existing.quantity + quantity)) throw new Error("Quantity is too large");
     return { ...state, inventory: state.inventory.map(item => item.id === existing.id
@@ -182,8 +185,8 @@ export function addGift(state: InventoryState, record: EquipmentSourceRecord, qu
   return { ...state, inventory: [...state.inventory, { id: uid(), catalogueId: record.id, sourceIds: [record.id],
     ...(record.physical_item_key ? { physicalItemKey: record.physical_item_key } : {}), name: record.name, quantity,
     acquiredAs, state: record.category === "armour" ? "worn" : "carried",
-    encPerUnit: record.enc_candidate ?? record.base_enc_per_location ?? null,
-    encSource: record.enc_candidate !== undefined || record.base_enc_per_location !== undefined ? "catalogue_candidate" : "unresolved",
+    encPerUnit: encumbranceForRecord(record),
+    encSource: encumbranceForRecord(record) === null ? "unresolved" : "catalogue_candidate",
     ...(record.category === "armour" ? { armour: newArmourConfig(record.id, "worn") } : {}) }] };
 }
 

@@ -37,6 +37,24 @@ describe("Page VIII equipment ledger", () => {
     expect(ledgerSpentCp(state.equipmentTransactions)).toBe(0);
   });
 
+  test("keeps profile stacks separate when the catalogue assigns different ENC", () => {
+    const melee = item("one_handed-shortspear");
+    const ranged = item("ranged-shortspear");
+    expect(melee.physical_item_key).toBe(ranged.physical_item_key);
+    expect(melee.enc_candidate).toBe(2);
+    expect(ranged.enc_candidate).toBe(1);
+
+    for (const [first, second] of [[melee, ranged], [ranged, melee]]) {
+      const bought = addPurchase(addPurchase(blank(), first, 1), second, 1);
+      expect(bought.inventory).toHaveLength(2);
+      expect(carriedLoad(bought.inventory).load).toBe(3);
+
+      const gifted = addGift(addGift(blank(), first, 1, "gifted"), second, 1, "gifted");
+      expect(gifted.inventory).toHaveLength(2);
+      expect(carriedLoad(gifted.inventory).load).toBe(3);
+    }
+  });
+
   test("catalogue ENC follows purchased, gifted, and inherited items and survives reload", () => {
     const sword = item("one_handed-broadsword");
     expect(sword.enc_candidate).toBe(2);

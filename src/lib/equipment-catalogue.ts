@@ -127,7 +127,7 @@ export const EQUIPMENT_CATALOGUE: readonly ImportedEquipmentRecord[] = deepFreez
     if (field === "verification") fieldVerification[field] = "source_indexed";
     else if (field === "source_line" && value === "") fieldVerification[field] = "unresolved";
     else if (field === "price_cp_candidate" && value === null) fieldVerification[field] = "unresolved";
-    else if (field === "enc_candidate") fieldVerification[field] = "source_indexed";
+    else if (field === "enc_candidate") fieldVerification[field] = "provisional";
     else if (["id", "category", "name", "source_printed_page", "source_line"].includes(field)) fieldVerification[field] = "source_indexed";
     else fieldVerification[field] = checkedRecordPattern.test(source.verification) ? "visually_checked" : "provisional";
   }

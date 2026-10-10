@@ -64,6 +64,7 @@ test("weapon and shield details use player-facing labels and keep provisional so
   expect(broadsword?.source.source_printed_page).toBe(63);
   expect(broadsword?.source.verification).toContain("require visual row validation");
   expect(broadsword?.fieldVerification.ap_candidate).toBe("provisional");
+  expect(broadsword?.fieldVerification.enc_candidate).toBe("provisional");
   expect(buckler?.source.combat_profile_candidate).toEqual({ damage: "1d3", size: "M", reach: "S" });
   expect(buckler?.source.ap_candidate).toBe(6);
   expect(buckler?.source.hp_candidate).toBe(9);
@@ -75,7 +76,7 @@ test("weapon and shield details use player-facing labels and keep provisional so
   expect(inventory.match(/Mythras Core, p\. \{record\.source_printed_page\}/g)).toHaveLength(1);
   expect(inventory).toContain('unavailable ? "Price unavailable" : displayEquipmentPrice(record)');
   expect(inventory).toContain("ENC Unknown");
-  expect(inventory).not.toContain("Catalogue prices and figures are transcribed candidates");
+  expect(inventory).toContain("Catalogue prices and figures are transcribed candidates; verify them against Mythras Core");
   for (const text of ["Record {record.id}", "{record.source_line}", "Object.entries(selected.fieldVerification)", "{record.verification}", "Source IDs:"])
     expect(inventory).not.toContain(text);
   expect(inventory).not.toContain("<details><summary>Rules &amp; sources</summary><p>Mythras Core");
