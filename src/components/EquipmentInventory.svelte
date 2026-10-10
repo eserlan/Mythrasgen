@@ -4,17 +4,34 @@
   import { CORE_ENCUMBRANCE_RULES_VERIFICATION, encumbranceSummary } from "../lib/encumbrance";
   import { ARMOUR_CONSTRUCTIONS, ARMOUR_MATERIALS, ARMOUR_RULES_VERIFICATION, HIT_LOCATIONS, summarizeArmour, type HitLocationName } from "../lib/armour-rules";
 
-  const categories: (EquipmentCategory | "all")[] = ["all", ...new Set(EQUIPMENT_CATALOGUE.map(item => item.source.category))];
+  const categories: EquipmentCategory[] = [...new Set(EQUIPMENT_CATALOGUE.map(item => item.source.category))];
+  const categoryGroups: { name: string; categories: EquipmentCategory[] }[] = [
+    { name: "Weapons", categories: ["one_handed", "two_handed", "ranged", "ammunition", "siege", "vehicles"] },
+    { name: "Shields & armour", categories: ["shields", "armour", "materials"] },
+    { name: "Clothing & gear", categories: ["clothing", "tools"] },
+    { name: "Supplies & services", categories: ["food", "livestock", "accommodation"] },
+  ];
   let query = $state("");
-  let category = $state<EquipmentCategory | "all">("all");
+  let category = $state<EquipmentCategory | null>(null);
+  let selectedId = $state<string | null>(null);
+  let sort = $state<"name" | "price">("name");
   let quantity = $state<Record<string, string>>({});
   let gmPrice = $state<Record<string, string>>({});
   let message = $state("");
-  const shown = $derived(EQUIPMENT_CATALOGUE.filter(item => {
+  const matching = $derived(EQUIPMENT_CATALOGUE.filter(item => {
     const q = query.trim().toLowerCase();
-    return (category === "all" || item.source.category === category)
+    return (q || category === null || item.source.category === category)
       && (!q || `${item.source.name} ${item.source.category} ${item.source.source_line} ${item.source.id} ${item.source.verification}`.toLowerCase().includes(q));
   }));
+  const shown = $derived([...matching].sort((a, b) => sort === "price"
+    ? (a.source.price_cp_candidate ?? Number.MAX_SAFE_INTEGER) - (b.source.price_cp_candidate ?? Number.MAX_SAFE_INTEGER) || a.source.name.localeCompare(b.source.name)
+    : a.source.name.localeCompare(b.source.name)));
+  const selected = $derived(matching.find(item => item.source.id === selectedId) ?? null);
+  const categoryCount = (id: EquipmentCategory) => EQUIPMENT_CATALOGUE.filter(item => item.source.category === id).length;
+  const categoryLabel = (id: EquipmentCategory) => id.replaceAll("_", " ").replace(/\b\w/g, value => value.toUpperCase());
+  const kindLabel = (kind: typeof EQUIPMENT_CATALOGUE[number]["kind"]) => ({
+    physical_item: "Physical item", wielding_profile: "Wielding profile", non_carried_purchase: "Service or expense", armour_material_modifier: "Material modifier",
+  }[kind]);
   const amount = (id: string) => {
     const parsed = Number(quantity[id] || 1);
     return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : 0;
@@ -69,14 +86,17 @@
 </script>
 
 <section class="card inventory-ledger" aria-label="Inventory and equipment purchasing">
-  <h3>Inventory &amp; purchasing</h3>
+  <h3>Page VIII · Combat &amp; Equipment</h3>
+  <h4>Starting / spent / remaining</h4>
   <div class="money-summary" aria-live="polite">
-    <div><small>Starting Money</small><b>{formatCopperPrice(startingCp)}</b></div>
+    <div><small>Starting</small><b>{formatCopperPrice(startingCp)}</b></div>
     <div><small>Spent</small><b>{signedMoney(equipmentSpentCp())}</b></div>
     <div><small>Remaining</small><b>{signedMoney(currentBalanceCp)}</b></div>
   </div>
   {#if currentBalanceCp < 0}<p class="balance-warning" role="alert">Historical spending is {formatCopperPrice(-currentBalanceCp)} above current starting funds. Existing transactions are preserved.</p>{/if}
-  <p class="mute">Catalogue {EQUIPMENT_CATALOGUE_VERSION}. Prices and candidate stats are provisional; all spending is recorded in integer CP.</p>
+  <details class="catalogue-info"><summary>Catalogue information and source verification</summary>
+    <p class="mute">Catalogue {EQUIPMENT_CATALOGUE_VERSION}. Candidate prices and stats are provisional. Open an item for its source row, page, verification status, and field-level uncertainty. All spending is recorded in integer CP.</p>
+  </details>
   {#if message}<p class="hint" role="status">{message}</p>{/if}
 
   <h4>Owned equipment</h4>
@@ -123,41 +143,75 @@
     </ul>
   {:else}<p class="mute">No catalogue equipment recorded. Background descriptions and Combat Styles do not create inventory.</p>{/if}
 
-  <h4>Equipment catalogue</h4>
+  <h4>Browse equipment</h4>
   <div class="catalogue-filters">
-    <label>Search <input type="search" bind:value={query} placeholder="Name, source ID, or source text"></label>
-    <label>Category <select bind:value={category}>{#each categories as option}<option value={option}>{option === "all" ? "All categories" : option.replaceAll("_", " ")}</option>{/each}</select></label>
+    <label>Search all equipment <input type="search" bind:value={query} placeholder="Search all 206 records by name or source"></label>
+    <label>Sort by <select bind:value={sort}><option value="name">Name</option><option value="price">Price (lowest first)</option></select></label>
   </div>
-  <p class="mute">Showing all {shown.length} matching catalogue records. Unverified candidate values are labeled; unknown values remain unresolved.</p>
-  <div class="catalogue-list">
-    {#each shown as entry (entry.source.id)}
-      {@const record = entry.source}
-      {@const unavailable = record.price_cp_candidate === null}
-      {@const isMaterial = entry.kind === "armour_material_modifier"}
-      <article class="catalogue-item">
-        <div class="catalogue-heading"><h5>{record.name}</h5><span class="tag">{record.category.replaceAll("_", " ")}</span><span class="tag">{entry.kind.replaceAll("_", " ")}</span></div>
-        <p class="candidate">{statSummary(entry) || "No candidate combat stats"} · {unavailable ? "Price unavailable" : displayEquipmentPrice(record)}</p>
-        <p class="mute">Source {record.id} · Mythras Core p. {record.source_printed_page} · {record.verification}{#if entry.kind === "wielding_profile"} · wielding profile for a physical item{/if}</p>
-        {#if record.source_line}<details><summary>Source row and uncertainty</summary><p>{record.source_line}</p><p>{Object.entries(entry.fieldVerification).map(([field, status]) => `${field}: ${status}`).join(" · ")}</p></details>{/if}
-        {#if isMaterial}<p class="mute">Material modifier only; it cannot be purchased as a standalone inventory item.</p>
-        {:else}
-          <div class="purchase-controls">
-            <label>Quantity <input type="number" min="1" step="1" value={quantity[record.id] ?? "1"} onchange={event => quantity[record.id] = event.currentTarget.value}></label>
-            {#if unavailable}<label>GM price (CP) <input type="number" min="0" step="1" value={gmPrice[record.id] ?? ""} onchange={event => gmPrice[record.id] = event.currentTarget.value} placeholder="Required"></label>
-            {:else if amount(record.id) > 0}<span>Total: <b>{formatCopperPrice(record.price_cp_candidate * amount(record.id))}</b></span>
-            {:else}<span>Enter a positive whole quantity.</span>{/if}
-            {#if unavailable && customCp(record.id) !== undefined}<span>Total: <b>{formatCopperPrice((customCp(record.id) ?? 0) * amount(record.id))}</b>{customCp(record.id) === 0 ? " · GM-approved zero price" : " · GM-entered"}</span>{/if}
-            {#if entry.kind === "non_carried_purchase"}<button type="button" onclick={() => purchase(entry)}>Record expense</button>
-            {:else}<button type="button" onclick={() => purchase(entry)}>{entry.kind === "wielding_profile" ? "Purchase physical item" : "Purchase"}</button>
-              <label>Acquire as <select aria-label={`Acquisition source for ${record.name}`} onchange={event => { const value = event.currentTarget.value; if (value) acquire(entry, value as "gifted" | "inherited" | "granted"); event.currentTarget.value = "" }}>
-                <option value="">Choose…</option><option value="gifted">Gifted</option><option value="inherited">Inherited</option><option value="granted">Granted</option>
-              </select></label>
-            {/if}
+  {#if !query.trim() && category === null}
+    <p class="mute">Choose a group to browse the source categories. All {EQUIPMENT_CATALOGUE.length} catalogue records remain available below or through search.</p>
+    <div class="category-groups">
+      {#each categoryGroups as group}
+        <section class="category-group" aria-label={group.name}>
+          <h5>{group.name}</h5>
+          <div class="category-buttons">
+            {#each group.categories.filter(id => categories.includes(id)) as id}
+              <button type="button" class="category-button" onclick={() => category = id}>{categoryLabel(id)} <span>{categoryCount(id)}</span></button>
+            {/each}
           </div>
-        {/if}
-      </article>
-    {/each}
-  </div>
+        </section>
+      {/each}
+    </div>
+  {:else}
+    {#if category && !query.trim()}<p><button type="button" class="ghost" onclick={() => { category = null; selectedId = null; }}>All equipment groups</button> / {categoryLabel(category)} <span class="mute">· {categoryCount(category)} records</span></p>{/if}
+    {#if query.trim()}<p class="mute" aria-live="polite">Global search: {shown.length} matching records across all source categories.</p>
+    {:else}<p class="mute">{shown.length} records · choose an item for details and actions.</p>{/if}
+    {#if shown.length}
+      <ul class="catalogue-list" aria-label="Equipment results">
+        {#each shown as entry (entry.source.id)}
+          {@const record = entry.source}
+          <li><button type="button" class="catalogue-row" aria-pressed={selectedId === record.id} onclick={() => selectedId = record.id}>
+            <span class="row-main"><b>{record.name}</b><small>{kindLabel(entry.kind)} · {categoryLabel(record.category)}</small></span>
+            <span class="row-price">{displayEquipmentPrice(record)}</span>
+          </button></li>
+        {/each}
+      </ul>
+    {:else}<p class="empty-state" role="status">No equipment matches this search or category.</p>{/if}
+  {/if}
+
+  {#if selected && (query.trim() || category !== null)}
+    {@const record = selected.source}
+    {@const unavailable = record.price_cp_candidate === null}
+    <section class="item-detail" aria-labelledby="selected-item-title">
+      <div class="detail-title"><div><h5 id="selected-item-title">{record.name}</h5><p class="mute">{kindLabel(selected.kind)} · {categoryLabel(record.category)} · {unavailable ? "Price unavailable" : displayEquipmentPrice(record)}</p></div>
+        <button type="button" class="ghost" aria-label="Close item details" onclick={() => selectedId = null}>Close</button>
+      </div>
+      <p>{statSummary(selected) || "No candidate combat stats"}</p>
+      {#if selected.kind === "wielding_profile"}<p class="mute">This is a wielding profile, not a separate physical possession. Purchasing adds the associated physical item.</p>{/if}
+      {#if selected.kind === "armour_material_modifier"}<p class="balance-warning">Material modifier only; it is not a standalone purchasable item.</p>{/if}
+      {#if selected.kind === "non_carried_purchase"}<p class="mute">Services and expenses are recorded in the money ledger and do not create carried inventory.</p>{/if}
+      <details><summary>Source and verification</summary><p>Source {record.id} · Mythras Core p. {record.source_printed_page} · {record.verification}</p>
+        {#if record.source_line}<p>{record.source_line}</p>{/if}
+        <p>{Object.entries(selected.fieldVerification).map(([field, status]) => `${field}: ${status}`).join(" · ")}</p>
+        {#if record.base_enc_per_location === undefined && selected.kind === "physical_item" && record.category === "armour"}<p class="balance-warning">ENC per location is unknown; resolve it on the owned armour record when acquired.</p>{/if}
+      </details>
+      {#if selected.kind !== "armour_material_modifier"}
+        <div class="purchase-controls">
+          <label>Quantity <input type="number" min="1" step="1" value={quantity[record.id] ?? "1"} onchange={event => quantity[record.id] = event.currentTarget.value}></label>
+          {#if unavailable}<label>GM price (CP) <input type="number" min="0" step="1" value={gmPrice[record.id] ?? ""} onchange={event => gmPrice[record.id] = event.currentTarget.value} placeholder="Required"></label>
+          {:else if amount(record.id) > 0}<span>Total: <b>{formatCopperPrice(record.price_cp_candidate * amount(record.id))}</b></span>
+          {:else}<span>Enter a positive whole quantity.</span>{/if}
+          {#if unavailable && customCp(record.id) !== undefined}<span>Total: <b>{formatCopperPrice((customCp(record.id) ?? 0) * amount(record.id))}</b>{customCp(record.id) === 0 ? " · GM-approved zero price" : " · GM-entered"}</span>{/if}
+          {#if selected.kind === "non_carried_purchase"}<button type="button" onclick={() => purchase(selected)}>Record expense</button>
+          {:else}<button type="button" onclick={() => purchase(selected)}>{selected.kind === "wielding_profile" ? "Purchase physical item" : "Purchase"}</button>
+            <label>Acquire as <select aria-label={`Acquisition source for ${record.name}`} onchange={event => { const value = event.currentTarget.value; if (value) acquire(selected, value as "gifted" | "inherited" | "granted"); event.currentTarget.value = "" }}>
+              <option value="">Choose…</option><option value="gifted">Gifted</option><option value="inherited">Inherited</option><option value="granted">Granted</option>
+            </select></label>
+          {/if}
+        </div>
+      {/if}
+    </section>
+  {/if}
 
   <h4>Load and encumbrance</h4>
   <div class="load-summary" aria-live="polite">
@@ -204,13 +258,32 @@
   .money-summary > div { display:flex; flex-direction:column; gap:.2rem; padding:.65rem; border:1px solid var(--line); border-radius:.5rem; }
   .money-summary small,.mute { color:var(--muted); }
   .balance-warning { color:#9c2727; font-weight:700; }
+  .catalogue-info { margin:.5rem 0; color:var(--muted); }
+  .catalogue-info summary { cursor:pointer; }
   .catalogue-filters,.purchase-controls { display:flex; align-items:end; flex-wrap:wrap; gap:.65rem; }
-  .catalogue-list { display:grid; gap:.65rem; margin-top:.75rem; }
-  .catalogue-item { padding:.75rem; border:1px solid var(--line); border-radius:.5rem; }
-  .catalogue-heading { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
+  .catalogue-filters label:first-child { flex:1 1 18rem; }
+  .catalogue-filters input { width:100%; }
+  .category-groups { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,14rem),1fr)); gap:.65rem; margin-top:.75rem; }
+  .category-group,.item-detail { min-width:0; padding:.75rem; border:1px solid var(--line); border-radius:.5rem; }
+  .category-group h5 { margin-bottom:.5rem; }
+  .category-buttons { display:grid; gap:.35rem; }
+  .category-button { display:flex; justify-content:space-between; align-items:center; text-align:left; }
+  .category-button span { color:var(--muted); font-variant-numeric:tabular-nums; }
+  .catalogue-list { display:grid; gap:.25rem; list-style:none; margin:.5rem 0 0; padding:0; }
+  .catalogue-list li { min-width:0; }
+  .catalogue-row { width:100%; min-width:0; display:flex; justify-content:space-between; align-items:center; gap:.75rem; text-align:left; padding:.55rem .65rem; border:1px solid var(--line); border-radius:.35rem; background:transparent; color:inherit; }
+  .catalogue-row[aria-pressed="true"] { border-color:var(--accent); background:color-mix(in srgb,var(--accent) 10%,transparent); }
+  .row-main { min-width:0; display:grid; gap:.12rem; }
+  .row-main b { overflow-wrap:anywhere; }
+  .row-main small,.row-price { color:var(--muted); }
+  .row-price { flex:0 0 auto; text-align:right; font-size:.9rem; }
+  .item-detail { margin-top:.75rem; }
+  .detail-title { display:flex; align-items:start; justify-content:space-between; gap:.75rem; }
+  .detail-title h5 { font-size:1.15rem; }
+  .detail-title p { margin:.25rem 0; }
+  .empty-state { padding:.75rem; border:1px dashed var(--line); border-radius:.4rem; }
   h4 { margin:1.2rem 0 .5rem; }
   h5 { margin:0; font-size:1rem; }
-  .candidate { margin:.4rem 0; }
   .tag { display:inline-block; padding:.1rem .4rem; border:1px solid var(--line); border-radius:99px; font-size:.75rem; }
   .owned-list,.transaction-list { display:grid; gap:.5rem; padding-left:1.4rem; }
   .owned-list li { display:flex; align-items:center; flex-wrap:wrap; gap:.6rem; }
@@ -218,5 +291,10 @@
   .owned-list p { margin:.15rem 0 0; }
   .transaction-list li { padding:.35rem 0; }
   .transaction-list .mute { display:block; font-size:.8rem; }
-  @media(max-width:600px) { .money-summary { grid-template-columns:1fr; } }
+  @media(max-width:600px) {
+    .money-summary { grid-template-columns:repeat(3,minmax(0,1fr)); }
+    .money-summary > div { padding:.45rem; overflow-wrap:anywhere; }
+    .catalogue-row { align-items:flex-start; }
+    .row-price { max-width:40%; overflow-wrap:anywhere; }
+  }
 </style>
