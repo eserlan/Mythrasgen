@@ -358,7 +358,7 @@
   .catalogue-filters input { width:100%; }
   .group-buttons,.subcategory-buttons { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,13rem),1fr)); gap:.6rem; margin-top:.75rem; }
   .group-button,.subcategory-buttons button { min-width:0; min-height:3.25rem; display:flex; justify-content:space-between; align-items:center; gap:.5rem; text-align:left; overflow-wrap:anywhere; }
-  .group-button span,.subcategory-buttons button span { color:var(--mute); white-space:nowrap; font-size:.9rem; letter-spacing:0; text-transform:none; }
+  .group-button span,.subcategory-buttons button span { color:var(--fg); white-space:nowrap; font-size:.9rem; letter-spacing:0; text-transform:none; }
   .browse-trail { display:flex; flex-wrap:wrap; align-items:center; gap:.4rem; margin:.6rem 0; }
   .back-button,.breadcrumb-button { min-height:2.5rem; }
   .breadcrumb-button { padding:.45rem .7rem; text-transform:none; letter-spacing:0; }
