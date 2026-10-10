@@ -1,4 +1,8 @@
 import { describe, expect, test } from "bun:test";
+import { spawnSync } from "node:child_process";
+import { cpSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import {
   EQUIPMENT_CATALOGUE,
   acquireWithoutPurchase,
@@ -13,6 +17,29 @@ function item(id: string) {
 }
 
 describe("provisional equipment catalogue", () => {
+  test("catalogue validator rejects CSV values that diverge from JSON", () => {
+    const temporaryDirectory = mkdtempSync(join(tmpdir(), "mythras-catalogue-validation-"));
+    try {
+      mkdirSync(join(temporaryDirectory, "scripts"));
+      cpSync(resolve("scripts/validate-equipment-catalogue.mjs"), join(temporaryDirectory, "scripts/validate-equipment-catalogue.mjs"));
+      for (const file of ["catalogue_source_index.json", "catalogue_source_index.csv", "validation_report.json"]) {
+        cpSync(resolve(file), join(temporaryDirectory, file));
+      }
+      const csvPath = join(temporaryDirectory, "catalogue_source_index.csv");
+      const csv = readFileSync(csvPath, "utf8").replace(
+        "one_handed-ball-chain,one_handed,Ball & chain,63,2500,",
+        "one_handed-ball-chain,one_handed,Ball & chain,63,2501,",
+      );
+      writeFileSync(csvPath, csv);
+
+      const result = spawnSync("node", [join(temporaryDirectory, "scripts/validate-equipment-catalogue.mjs")], { encoding: "utf8" });
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain("CSV price_cp_candidate does not match JSON for one_handed-ball-chain");
+    } finally {
+      rmSync(temporaryDirectory, { recursive: true, force: true });
+    }
+  });
+
   test("imports all 206 source rows and leaves unavailable prices null and visible", () => {
     expect(EQUIPMENT_CATALOGUE).toHaveLength(206);
     const buckler = item("shields-buckler");
