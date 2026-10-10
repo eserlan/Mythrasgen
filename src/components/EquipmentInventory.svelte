@@ -14,7 +14,7 @@
     const q = query.trim().toLowerCase();
     return (category === "all" || item.source.category === category)
       && (!q || `${item.source.name} ${item.source.category} ${item.source.source_line} ${item.source.id} ${item.source.verification}`.toLowerCase().includes(q));
-  }).slice(0, 40));
+  }));
   const amount = (id: string) => {
     const parsed = Number(quantity[id] || 1);
     return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : 0;
@@ -77,25 +77,6 @@
   </div>
   {#if currentBalanceCp < 0}<p class="balance-warning" role="alert">Historical spending is {formatCopperPrice(-currentBalanceCp)} above current starting funds. Existing transactions are preserved.</p>{/if}
   <p class="mute">Catalogue {EQUIPMENT_CATALOGUE_VERSION}. Prices and candidate stats are provisional; all spending is recorded in integer CP.</p>
-  <h4>Load and encumbrance</h4>
-  <div class="load-summary" aria-live="polite">
-    <div><small>Load</small><b>{load.load === null ? `At least ${load.knownLoad} ENC · unknown` : `${load.load} ENC`}</b></div>
-    <div><small>Load band</small><b>{load.band}</b></div>
-    <div><small>Thresholds (STR {char.chars.STR})</small><b>{load.thresholds ? `2× ${load.thresholds.burdened} · 3× ${load.thresholds.overloaded} · 4× ${load.thresholds.unsustainable}` : "Unknown"}</b></div>
-    <div><small>Movement</small><b>{load.movement}</b></div>
-    <div><small>Skills / sprinting / fatigue</small><b>{load.skillDifficultyGrades === null ? "Unknown" : `${load.skillDifficultyGrades} grade${load.skillDifficultyGrades === 1 ? "" : "s"} harder`} · {load.sprinting} · {load.fatigue}</b></div>
-  </div>
-  {#if load.unresolvedItems.length}<p class="balance-warning" role="status">ENC unresolved for: {load.unresolvedItems.join(", ")}. Set a GM value to calculate a complete load.</p>{/if}
-  <p class="mute">Load rules: {CORE_ENCUMBRANCE_RULES_VERIFICATION}. Worn items contribute half ENC; stored items do not count. Twenty zero-ENC items count as 1 ENC.</p>
-  <h4>Armour by hit location</h4>
-  <div class="armour-summary" aria-live="polite">
-    {#each HIT_LOCATIONS as location}<div><small>{location}</small><b>{armourSummary.apByLocation[location] === null ? "Unknown AP" : `${armourSummary.apByLocation[location]} AP`}</b></div>{/each}
-    <div><small>Worn full ENC</small><b>{armourSummary.fullWornEnc ?? "Unknown"}</b></div>
-    <div><small>Worn load ENC</small><b>{armourSummary.loadEnc ?? "Unknown"}</b></div>
-    <div><small>Initiative penalty</small><b>{armourSummary.initiativePenalty === null ? "Unknown" : `−${armourSummary.initiativePenalty}`}</b></div>
-  </div>
-  {#if armourSummary.unresolved.length}<p class="balance-warning" role="status">Armour needs resolution: {armourSummary.unresolved.join("; ")}</p>{/if}
-  <p class="mute">Armour rules: {ARMOUR_RULES_VERIFICATION}. Material price adjustments are GM-defined. Compatibility is recorded per piece; fit must be explicitly set.</p>
   {#if message}<p class="hint" role="status">{message}</p>{/if}
 
   <h4>Owned equipment</h4>
@@ -147,7 +128,7 @@
     <label>Search <input type="search" bind:value={query} placeholder="Name, source ID, or source text"></label>
     <label>Category <select bind:value={category}>{#each categories as option}<option value={option}>{option === "all" ? "All categories" : option.replaceAll("_", " ")}</option>{/each}</select></label>
   </div>
-  <p class="mute">Showing {shown.length} of {EQUIPMENT_CATALOGUE.filter(item => category === "all" || item.source.category === category).length} matching records (up to 40).</p>
+  <p class="mute">Showing all {shown.length} matching catalogue records. Unverified candidate values are labeled; unknown values remain unresolved.</p>
   <div class="catalogue-list">
     {#each shown as entry (entry.source.id)}
       {@const record = entry.source}
@@ -178,6 +159,25 @@
     {/each}
   </div>
 
+  <h4>Load and encumbrance</h4>
+  <div class="load-summary" aria-live="polite">
+    <div><small>Load</small><b>{load.load === null ? `At least ${load.knownLoad} ENC · unknown` : `${load.load} ENC`}</b></div>
+    <div><small>Load band</small><b>{load.band}</b></div>
+    <div><small>Thresholds (STR {char.chars.STR})</small><b>{load.thresholds ? `2× ${load.thresholds.burdened} · 3× ${load.thresholds.overloaded} · 4× ${load.thresholds.unsustainable}` : "Unknown"}</b></div>
+    <div><small>Movement</small><b>{load.movement}</b></div>
+    <div><small>Skills / sprinting / fatigue</small><b>{load.skillDifficultyGrades === null ? "Unknown" : `${load.skillDifficultyGrades} grade${load.skillDifficultyGrades === 1 ? "" : "s"} harder`} · {load.sprinting} · {load.fatigue}</b></div>
+  </div>
+  {#if load.unresolvedItems.length}<p class="balance-warning" role="status">ENC unresolved for: {load.unresolvedItems.join(", ")}. Set a GM value to calculate a complete load.</p>{/if}
+  <p class="mute">Load rules: {CORE_ENCUMBRANCE_RULES_VERIFICATION}. Worn items contribute half ENC; stored items do not count. Twenty zero-ENC items count as 1 ENC.</p>
+  <h4>Armour by hit location</h4>
+  <div class="armour-summary" aria-live="polite">
+    {#each HIT_LOCATIONS as location}<div><small>{location}</small><b>{armourSummary.apByLocation[location] === null ? "Unknown AP" : `${armourSummary.apByLocation[location]} AP`}</b></div>{/each}
+    <div><small>Worn full ENC</small><b>{armourSummary.fullWornEnc ?? "Unknown"}</b></div>
+    <div><small>Worn load ENC</small><b>{armourSummary.loadEnc ?? "Unknown"}</b></div>
+    <div><small>Initiative penalty</small><b>{armourSummary.initiativePenalty === null ? "Unknown" : `−${armourSummary.initiativePenalty}`}</b></div>
+  </div>
+  {#if armourSummary.unresolved.length}<p class="balance-warning" role="status">Armour needs resolution: {armourSummary.unresolved.join("; ")}</p>{/if}
+  <p class="mute">Armour rules: {ARMOUR_RULES_VERIFICATION}. Material price adjustments are GM-defined. Compatibility is recorded per piece; fit must be explicitly set.</p>
   <h4>Transaction history</h4>
   {#if char.background.equipmentTransactions.length}
     <ol class="transaction-list">
