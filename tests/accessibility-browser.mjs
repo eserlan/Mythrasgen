@@ -18,7 +18,7 @@ async function freePort() {
   await new Promise(resolve => server.close(resolve));
   return address.port;
 }
-async function waitFor(url, attempts = 60) {
+async function waitFor(url, attempts = 120) {
   for (let i = 0; i < attempts; i++) {
     try { return await fetch(url).then(response => response.json()); } catch { await new Promise(resolve => setTimeout(resolve, 250)); }
   }
@@ -35,7 +35,7 @@ const previewPort = await freePort();
 const debugPort = await freePort();
 const profile = await fs.mkdtemp(join(tmpdir(), "mythrasgen-a11y-"));
 const preview = spawn("bun", ["run", "preview", "--", "--host", "127.0.0.1", "--port", String(previewPort), "--strictPort"], { stdio: "ignore", detached: true });
-const browser = spawn(chromium, ["--headless=new", "--no-sandbox", `--remote-debugging-port=${debugPort}`, `--user-data-dir=${profile}`], { stdio: "ignore", detached: true });
+const browser = spawn(chromium, ["--headless=new", "--no-sandbox", "--disable-dev-shm-usage", `--remote-debugging-port=${debugPort}`, `--user-data-dir=${profile}`], { stdio: "ignore", detached: true });
 try {
   const url = `http://127.0.0.1:${previewPort}/`;
   await waitForHttp(url);
