@@ -54,31 +54,35 @@ export function summarizeArmour(pieces: readonly ArmourPiece[]): ArmourSummary {
   let loadEncKnown = true;
   for (const piece of pieces) {
     if (piece.state === "stored") continue;
-    if (!piece.locations.length) {
-      if (!piece.coverageResolved) {
+    if (piece.state === "worn") {
+      if (!piece.locations.length && !piece.coverageResolved) {
         unresolved.push(`${piece.id}: coverage unresolved`);
         for (const location of HIT_LOCATIONS) apByLocation[location] = null;
-        if (piece.state === "worn") fullWornEncKnown = false;
+        fullWornEncKnown = false;
         loadEncKnown = false;
         continue;
       }
-    }
-    if (piece.fit !== "fitted") unresolved.push(`${piece.id}: fit ${piece.fit}`);
-    if (piece.compatibility === "unresolved" || piece.compatibility === "conditional"
-      || (piece.compatibility === "incompatible" && !piece.gmCompatibilityOverride)) {
-      unresolved.push(`${piece.id}: material compatibility ${piece.compatibility}`);
+      if (piece.fit !== "fitted") unresolved.push(`${piece.id}: fit ${piece.fit}`);
+      if (piece.compatibility === "unresolved" || piece.compatibility === "conditional"
+        || (piece.compatibility === "incompatible" && !piece.gmCompatibilityOverride)) {
+        unresolved.push(`${piece.id}: material compatibility ${piece.compatibility}`);
+      }
+      const construction = piece.construction ? ARMOUR_CONSTRUCTIONS[piece.construction] : undefined;
+      const material = piece.material ? ARMOUR_MATERIALS[piece.material] : undefined;
+      const ap = piece.apOverride ?? construction?.ap;
+      const enc = piece.encOverride ?? (construction && material ? construction.enc * material.encMultiplier : undefined);
+      if (ap === undefined || enc === undefined) unresolved.push(`${piece.id}: AP or ENC unresolved`);
+      const protectionResolved = piece.fit === "fitted"
+        && (piece.compatibility === "compatible" || (piece.compatibility === "incompatible" && piece.gmCompatibilityOverride));
+      for (const location of piece.locations) {
+        if (!protectionResolved || ap === undefined) apByLocation[location] = null;
+        else if (apByLocation[location] !== null) apByLocation[location] = Math.max(apByLocation[location] ?? 0, ap);
+      }
     }
     const construction = piece.construction ? ARMOUR_CONSTRUCTIONS[piece.construction] : undefined;
     const material = piece.material ? ARMOUR_MATERIALS[piece.material] : undefined;
-    const ap = piece.apOverride ?? construction?.ap;
     const enc = piece.encOverride ?? (construction && material ? construction.enc * material.encMultiplier : undefined);
-    if (ap === undefined || enc === undefined) unresolved.push(`${piece.id}: AP or ENC unresolved`);
-    const protectionResolved = piece.fit === "fitted"
-      && (piece.compatibility === "compatible" || (piece.compatibility === "incompatible" && piece.gmCompatibilityOverride));
-    for (const location of piece.locations) {
-      if (!protectionResolved || ap === undefined) apByLocation[location] = null;
-      else if (apByLocation[location] !== null) apByLocation[location] = Math.max(apByLocation[location] ?? 0, ap);
-    }
+    if (enc === undefined) unresolved.push(`${piece.id}: ENC unresolved`);
     if (piece.state === "worn") {
       if (enc === undefined) fullWornEncKnown = false;
       else fullWornEnc += enc * piece.locations.length;

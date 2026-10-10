@@ -63,12 +63,13 @@ describe("Page VIII equipment ledger", () => {
     let state = addPurchase(blank(), item("armour-half-plate"), 1);
     const owned = state.inventory[0];
     state = changeInventoryItem(state, owned.id, { armour: {
-      material: "steel", locations: ["Head", "Chest"], coverageResolved: true, fit: "fitted", compatibility: "compatible",
+      material: "steel", locations: ["Head", "Chest"], coverageResolved: true, fit: "fitted", compatibility: "compatible", encOverride: 1.25,
     } });
     state = changeInventoryItem(state, owned.id, { state: "carried" });
     const restored = normalizeInventoryState(structuredClone(state));
     expect(restored.inventory[0]).toMatchObject({ state: "carried", armour: {
       construction: "half_plate", material: "steel", locations: ["Head", "Chest"], state: "carried", fit: "fitted",
+      encOverride: 1.25,
     } });
   });
 });

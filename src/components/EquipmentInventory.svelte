@@ -110,8 +110,12 @@
           <label>State <select value={item.state} onchange={event => updateInventoryItem(item.id, { state: event.currentTarget.value as "carried" | "worn" | "stored" })}>
             <option value="carried">Carried</option><option value="worn">Worn</option><option value="stored">Stored</option>
           </select></label>
-          <label>ENC per item <input aria-label={`ENC per item for ${item.name}`} type="number" min="0" step="0.25" value={item.encPerUnit ?? ""} placeholder="Unknown" onchange={event => updateInventoryItem(item.id, { encPerUnit: event.currentTarget.value === "" ? null : Number(event.currentTarget.value) })}></label>
-          <span class="tag">{item.encPerUnit === null ? "ENC unresolved" : item.encSource === "gm_override" ? "GM ENC" : "Catalogue candidate ENC"}</span>
+          {#if item.armour}
+            <label>ENC per covered location <input aria-label={`ENC per covered location for ${item.name}`} type="number" min="0" step="0.25" value={item.armour.encOverride ?? ""} placeholder="Use construction" onchange={event => updateInventoryItem(item.id, { armour: { encOverride: event.currentTarget.value === "" ? undefined : Number(event.currentTarget.value) } })}></label>
+          {:else}
+            <label>ENC per item <input aria-label={`ENC per item for ${item.name}`} type="number" min="0" step="0.25" value={item.encPerUnit ?? ""} placeholder="Unknown" onchange={event => updateInventoryItem(item.id, { encPerUnit: event.currentTarget.value === "" ? null : Number(event.currentTarget.value) })}></label>
+            <span class="tag">{item.encPerUnit === null ? "ENC unresolved" : item.encSource === "gm_override" ? "GM ENC" : "Catalogue candidate ENC"}</span>
+          {/if}
           <label><input type="checkbox" checked={!!item.encumbranceExempt} onchange={event => updateInventoryItem(item.id, { encumbranceExempt: event.currentTarget.checked })}> Exempt (e.g. everyday clothing)</label>
           {#if item.armour}
             <details class="armour-editor"><summary>Armour locations and fit</summary>

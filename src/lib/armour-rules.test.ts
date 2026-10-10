@@ -26,6 +26,14 @@ describe("location armour calculations", () => {
   });
 
   test("carried armour adds full ENC but does not add a worn-armour initiative penalty", () => {
-    expect(summarizeArmour([{ ...plate(), state: "carried" }])).toMatchObject({ fullWornEnc: 0, loadEnc: 28, initiativePenalty: 0 });
+    expect(summarizeArmour([{ ...plate(), state: "carried" }])).toMatchObject({
+      apByLocation: { Head: 0, Chest: 0, Abdomen: 0, "Right Arm": 0, "Left Arm": 0, "Right Leg": 0, "Left Leg": 0 },
+      fullWornEnc: 0, loadEnc: 28, initiativePenalty: 0, unresolved: [],
+    });
+  });
+
+  test("applies a GM ENC override per covered location", () => {
+    expect(summarizeArmour([{ ...plate(), locations: ["Head", "Chest"], encOverride: 1.25 }]))
+      .toMatchObject({ fullWornEnc: 2.5, loadEnc: 1.25 });
   });
 });
