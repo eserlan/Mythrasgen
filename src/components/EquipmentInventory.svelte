@@ -40,6 +40,7 @@
   let customHands = $state("");
   let customTraits = $state("");
   let customLocations = $state<HitLocationName[]>([]);
+  let customLocationsError = $state(false);
   let customConstruction = $state("");
   let customMaterial = $state("");
   let customQuantity = $state<Record<string, string>>({});
@@ -55,7 +56,7 @@
     customAp = definition?.ap === undefined ? "" : String(definition.ap); customHp = definition?.hp === undefined ? "" : String(definition.hp);
     customHands = definition?.hands === undefined ? "" : String(definition.hands); customTraits = definition?.traits ?? "";
     customLocations = [...(definition?.protectedLocations ?? [])]; customConstruction = definition?.construction ?? "";
-    customMaterial = definition?.material ?? ""; customFormOpen = true;
+    customMaterial = definition?.material ?? ""; customLocationsError = false; customFormOpen = true;
   }
   function submitCustomDefinition() {
     const value = { name: customName.trim(), type: customType, description: customDescription,
@@ -70,7 +71,10 @@
     if (entered(customEnc) !== "" && (!Number.isFinite(value.enc) || value.enc! < 0)) errors.push("ENC must be zero or more.");
     if (entered(customAp) !== "" && (!Number.isSafeInteger(value.ap) || value.ap! < 0)) errors.push("AP must be a whole number of zero or more.");
     if (entered(customHp) !== "" && (!Number.isSafeInteger(value.hp) || value.hp! < 0)) errors.push("HP must be a whole number of zero or more.");
-    if (errors.length) { message = errors[0]; return; }
+    if (errors.length) {
+      customLocationsError = customType === "armour" && customLocations.length === 0;
+      message = errors[0]; return;
+    }
     const saved = saveCustomEquipment(value, editingCustomId ?? undefined);
     message = `${saved.name}: custom definition saved. Saving it did not change money or inventory.`;
     customFormOpen = false; editingCustomId = null;
@@ -309,10 +313,15 @@
           <label>Protection AP <input type="number" min="0" step="1" bind:value={customAp} placeholder="Unknown"></label>
           <label>Construction <select bind:value={customConstruction}><option value="">Unresolved / GM-defined</option>{#each Object.entries(ARMOUR_CONSTRUCTIONS) as [id, construction]}<option value={id}>{construction.name}</option>{/each}</select></label>
           <label>Material <select bind:value={customMaterial}><option value="">Unresolved / GM-defined</option>{#each Object.entries(ARMOUR_MATERIALS) as [id, material]}<option value={id}>{material.name}</option>{/each}</select></label>
-          <fieldset class="custom-locations"><legend>Protected hit locations (choose at least one)</legend>{#each HIT_LOCATIONS as location}<label><input type="checkbox" checked={customLocations.includes(location)} onchange={event => customLocations = event.currentTarget.checked ? [...new Set([...customLocations, location])] : customLocations.filter(item => item !== location)}>{location}</label>{/each}</fieldset>
-          <p class="mute">Custom AP applies only to selected locations. The existing fit and compatibility checks still govern worn armour.</p>
+          <fieldset class="custom-locations" aria-describedby="custom-locations-instruction{customLocationsError ? ' custom-locations-error' : ''}">
+            <legend>Protected hit locations</legend>
+            <p id="custom-locations-instruction">Select every body location this armour protects. Choose at least one.</p>
+            {#each HIT_LOCATIONS as location}<label><input type="checkbox" checked={customLocations.includes(location)} onchange={event => { customLocations = event.currentTarget.checked ? [...new Set([...customLocations, location])] : customLocations.filter(item => item !== location); if (customLocations.length) customLocationsError = false; }}>{location}</label>{/each}
+            {#if customLocationsError}<p id="custom-locations-error" class="custom-locations-error" role="alert">Select at least one protected hit location before saving.</p>{/if}
+          </fieldset>
         {/if}
       </div>
+      {#if customType === "armour"}<p class="mute custom-armour-help">Custom AP applies only to selected locations. The existing fit and compatibility checks still govern worn armour.</p>{/if}
       {#if customType === "weapon" || customType === "shield"}
         <label class="custom-field-wide">Special effects / traits <textarea bind:value={customTraits} rows="4" placeholder="GM-defined notes"></textarea><small>Notes only; these do not change combat calculations.</small></label>
       {/if}
@@ -519,8 +528,13 @@
   .custom-fields :is(input,select) { box-sizing:border-box; width:100%; min-width:0; }
   .custom-field-wide textarea { box-sizing:border-box; width:100%; min-width:0; min-height:6rem; resize:vertical; }
   .custom-fields small { color:var(--mute); }
-  .custom-locations { grid-column:1/-1; display:flex; flex-wrap:wrap; gap:.5rem; }
-  .custom-locations label { display:flex; align-items:center; }
+  .custom-locations { box-sizing:border-box; grid-column:1/-1; display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,9rem),1fr)); gap:.5rem; min-width:0; width:100%; }
+  .custom-locations legend { font-weight:700; }
+  .custom-locations > p { grid-column:1/-1; margin:.1rem 0 .25rem; }
+  .custom-locations label { box-sizing:border-box; display:flex; align-items:center; gap:.55rem; min-width:0; min-height:2.75rem; padding:.45rem .55rem; border:1px solid var(--line); border-radius:.35rem; cursor:pointer; white-space:nowrap; }
+  .custom-locations input[type="checkbox"] { flex:none; width:1.25rem; height:1.25rem; margin:0; accent-color:var(--bronze); }
+  .custom-locations-error { color:var(--acc); font-weight:700; }
+  .custom-armour-help { margin:.55rem 0 0; }
   .custom-entry { padding:.7rem; border:1px solid var(--line); border-radius:.4rem; }
   .custom-entry-title { display:grid; gap:.25rem; }
   .custom-entry-actions label { display:grid; gap:.25rem; }
