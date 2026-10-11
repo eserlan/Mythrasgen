@@ -187,6 +187,7 @@
     const total = item.encPerUnit * item.quantity / (item.state === "worn" ? 2 : 1);
     return `${total} ENC contribution`;
   };
+  const inventoryEncLabel = (item: typeof char.background.inventory[number]) => item.armour ? "ENC per covered location" : "ENC per item";
   const catalogueRecordFor = (item: typeof char.background.inventory[number]) => EQUIPMENT_CATALOGUE.find(record => record.source.id === item.catalogueId)?.source;
   const ownedWeaponRows = $derived(char.background.inventory.flatMap(item => {
     const record = catalogueRecordFor(item);
@@ -306,59 +307,41 @@
   {#if armourSummary.unresolved.length}<p class="balance-warning" role="status">Armour needs review: {armourSummary.unresolved.join("; ")}</p>{/if}
   <h5 class="owned-heading">Owned equipment</h5>
   {#if char.background.inventory.length}
-    <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-    <div class="table-scroll" role="region" aria-label="Owned equipment inventory" tabindex="0">
+    <div class="table-scroll inventory-scroll" aria-label="Owned equipment inventory">
     <table class="sheet-table inventory-table">
-      <thead><tr><th scope="col">Item</th><th scope="col">Qty</th><th scope="col">State</th><th scope="col">ENC</th><th scope="col">Actions</th></tr></thead>
+      <thead><tr><th scope="col">Item</th><th scope="col">Quantity</th><th scope="col">State</th><th scope="col">ENC per item</th><th scope="col">Exempt from load</th><th scope="col">Actions</th></tr></thead>
       <tbody>
       {#each char.background.inventory as item (item.id)}
         <tr>
-          <th scope="row"><span class="owned-name">{item.name}{#if item.customItem} <span class="tag">Custom</span>{/if}</span></th>
-          <td>{item.quantity}</td><td>{item.state[0].toUpperCase() + item.state.slice(1)}</td><td>{inventoryEncContribution(item)}</td>
-          <td class="row-actions">
-            <details class="item-source"><summary>Item details</summary><p class="mute">Acquired as {item.acquiredAs}.{#if item.customItem} Custom {item.customItem.type}. {item.customItem.description}{/if}</p>
-              {#if catalogueRecordFor(item)}
-                {@const record = catalogueRecordFor(item)!}
-                {#if hasCombatProfile(record)}<dl class="weapon-detail-stats">{#each combatStats(record) as [name, value]}<div><dt>{name}</dt><dd>{value}</dd></div>{/each}</dl>{/if}
-              {/if}
-              {#if item.armour}<div class="armour-summary">{#each HIT_LOCATIONS as location}{@const protection = summarizeArmour([{ id: item.id, ...item.armour }]).apByLocation[location]}<div><small>{location}</small><b>{item.armour.locations.includes(location) ? protection === null ? "Unknown AP" : `${protection} AP` : "Not covered"}</b></div>{/each}</div>{/if}
-            </details>
-            <details class="owned-actions"><summary>Edit / actions</summary>
-              <div class="owned-controls">
-                <label class="inventory-control">Quantity <input class="compact-number" aria-label={`Quantity of ${item.name}`} type="number" min="1" step="1" value={item.quantity} onchange={event => editInventoryQuantity(item.id, item.name, event.currentTarget.value)}></label>
-                <label class="inventory-control">State <select aria-label={`State of ${item.name}`} value={item.state} onchange={event => saveInventoryChange(item.id, item.name, { state: event.currentTarget.value as "carried" | "worn" | "stored" })}>
+          <th scope="row" data-label="Item"><span class="owned-name">{item.name}{#if item.customItem} <span class="tag">Custom</span>{/if}</span>
+            {#if item.armour}<details class="armour-editor"><summary>Armour locations and fit</summary>
+              <label>Construction <select value={item.armour.construction ?? ""} onchange={event => saveInventoryChange(item.id, item.name, { armour: { construction: event.currentTarget.value as keyof typeof ARMOUR_CONSTRUCTIONS || null } })}>
+                <option value="">Unresolved</option>{#each Object.entries(ARMOUR_CONSTRUCTIONS) as [id, construction]}<option value={id}>{construction.name}</option>{/each}
+              </select></label>
+              <label>Material <select value={item.armour.material ?? ""} onchange={event => setOwnedArmourMaterial(item, event.currentTarget.value as ArmourMaterialId)}>
+                <option value="">Unresolved</option>{#each Object.entries(ARMOUR_MATERIALS) as [id, material]}{@const status = item.armour.construction ? armourMaterialCompatibility(item.armour.construction, id as ArmourMaterialId) : "conditional"}<option value={id} disabled={status !== "compatible" && !item.armour.gmCompatibilityOverride}>{material.name} (ENC ×{material.encMultiplier}){status === "incompatible" ? " · incompatible" : status === "conditional" ? " · GM approval" : ""}</option>{/each}
+              </select></label>
+              <fieldset><legend>Covered locations</legend>{#each HIT_LOCATIONS as location}<label><input type="checkbox" checked={item.armour.locations.includes(location)} onchange={event => setArmourLocation(item, location, event.currentTarget.checked)}>{location}</label>{/each}</fieldset>
+              <label>Fit <select value={item.armour.fit} onchange={event => saveInventoryChange(item.id, item.name, { armour: { fit: event.currentTarget.value as "fitted" | "ill_fitting" | "unresolved" } })}>
+                <option value="unresolved">Unresolved</option><option value="fitted">Fitted</option><option value="ill_fitting">Ill fitting</option>
+              </select></label>
+              <label>Compatibility <select value={item.armour.compatibility} onchange={event => saveInventoryChange(item.id, item.name, { armour: { compatibility: event.currentTarget.value as "compatible" | "incompatible" | "conditional" | "unresolved" } })}>
+                <option value="unresolved">Unresolved</option><option value="compatible">Compatible</option><option value="conditional">Conditional</option><option value="incompatible">Incompatible</option>
+              </select></label>
+              <label class="material-override"><input type="checkbox" checked={!!item.armour.gmCompatibilityOverride} onchange={event => saveInventoryChange(item.id, item.name, { armour: { gmCompatibilityOverride: event.currentTarget.checked } })}> <span>Allow nonstandard material (GM approval)<small>Enables material combinations outside the standard rules when the GM approves.</small></span></label>
+              <p class="mute">Flexible armour typically fits SIZ ±1; rigid armour needs wearer-specific SIZ and proportions. Record fit explicitly. No automatic layering: overlapping pieces use highest AP and every worn piece adds ENC. Compatibility remains unresolved until confirmed or GM overridden.</p>
+            </details>{/if}
+          </th>
+          <td data-label="Quantity"><label class="sr-only" for={`owned-quantity-${item.id}`}>Quantity of {item.name}</label><input id={`owned-quantity-${item.id}`} class="compact-number" aria-label={`Quantity of ${item.name}`} type="number" min="1" step="1" value={item.quantity} onchange={event => editInventoryQuantity(item.id, item.name, event.currentTarget.value)}></td>
+          <td data-label="State"><label class="sr-only" for={`owned-state-${item.id}`}>State of {item.name}</label><select class="state-select" id={`owned-state-${item.id}`} aria-label={`State of ${item.name}`} value={item.state} onchange={event => saveInventoryChange(item.id, item.name, { state: event.currentTarget.value as "carried" | "worn" | "stored" })}>
                   <option value="carried">Carried</option><option value="worn">Worn</option><option value="stored">Stored</option>
-                </select></label>
-                {#if item.armour}
-                  <label class="inventory-control">ENC per covered location <input class="compact-number" aria-label={`ENC per covered location for ${item.name}`} type="number" min="0" step="0.25" value={item.armour.encOverride ?? ""} placeholder="Use construction" onchange={event => saveInventoryChange(item.id, item.name, { armour: { encOverride: event.currentTarget.value === "" ? undefined : Number(event.currentTarget.value) } })}></label>
-                {:else}
-                  <label class="inventory-control">ENC per item <input class="compact-number" aria-label={`ENC per item for ${item.name}`} type="number" min="0" step="0.25" value={item.encPerUnit ?? ""} placeholder="Unknown" onchange={event => saveInventoryChange(item.id, item.name, { encPerUnit: event.currentTarget.value === "" ? null : Number(event.currentTarget.value) })}></label>
-                  <span class="tag">{item.encPerUnit === null ? "ENC unresolved" : item.encSource === "gm_override" ? "GM ENC" : "ENC per item"}</span>
-                {/if}
-                <label class="exemption-control"><input type="checkbox" checked={!!item.encumbranceExempt} onchange={event => saveInventoryChange(item.id, item.name, { encumbranceExempt: event.currentTarget.checked })}> <span>Exempt from load<small>Use for items the rules exclude from ENC.</small></span></label>
-                {#if item.armour}
-                  <details class="armour-editor"><summary>Armour locations and fit</summary>
-                    <label>Construction <select value={item.armour.construction ?? ""} onchange={event => saveInventoryChange(item.id, item.name, { armour: { construction: event.currentTarget.value as keyof typeof ARMOUR_CONSTRUCTIONS || null } })}>
-                      <option value="">Unresolved</option>{#each Object.entries(ARMOUR_CONSTRUCTIONS) as [id, construction]}<option value={id}>{construction.name}</option>{/each}
-                    </select></label>
-                    <label>Material <select value={item.armour.material ?? ""} onchange={event => setOwnedArmourMaterial(item, event.currentTarget.value as ArmourMaterialId)}>
-                      <option value="">Unresolved</option>{#each Object.entries(ARMOUR_MATERIALS) as [id, material]}{@const status = item.armour.construction ? armourMaterialCompatibility(item.armour.construction, id as ArmourMaterialId) : "conditional"}<option value={id} disabled={status !== "compatible" && !item.armour.gmCompatibilityOverride}>{material.name} (ENC ×{material.encMultiplier}){status === "incompatible" ? " · incompatible" : status === "conditional" ? " · GM approval" : ""}</option>{/each}
-                    </select></label>
-                    <fieldset><legend>Covered locations</legend>{#each HIT_LOCATIONS as location}<label><input type="checkbox" checked={item.armour.locations.includes(location)} onchange={event => setArmourLocation(item, location, event.currentTarget.checked)}>{location}</label>{/each}</fieldset>
-                    <label>Fit <select value={item.armour.fit} onchange={event => saveInventoryChange(item.id, item.name, { armour: { fit: event.currentTarget.value as "fitted" | "ill_fitting" | "unresolved" } })}>
-                      <option value="unresolved">Unresolved</option><option value="fitted">Fitted</option><option value="ill_fitting">Ill fitting</option>
-                    </select></label>
-                    <label>Compatibility <select value={item.armour.compatibility} onchange={event => saveInventoryChange(item.id, item.name, { armour: { compatibility: event.currentTarget.value as "compatible" | "incompatible" | "conditional" | "unresolved" } })}>
-                      <option value="unresolved">Unresolved</option><option value="compatible">Compatible</option><option value="conditional">Conditional</option><option value="incompatible">Incompatible</option>
-                    </select></label>
-                    <label class="material-override"><input type="checkbox" checked={!!item.armour.gmCompatibilityOverride} onchange={event => saveInventoryChange(item.id, item.name, { armour: { gmCompatibilityOverride: event.currentTarget.checked } })}> <span>Allow nonstandard material (GM approval)<small>Enables material combinations outside the standard rules when the GM approves.</small></span></label>
-                    <p class="mute">Flexible armour typically fits SIZ ±1; rigid armour needs wearer-specific SIZ and proportions. Record fit explicitly. No automatic layering: overlapping pieces use highest AP and every worn piece adds ENC. Compatibility remains unresolved until confirmed or GM overridden.</p>
-                  </details>
-                {/if}
-                <button type="button" class="ghost" onclick={() => removeInventoryItem(item.id, item.name)}>Remove</button>
-              </div>
-            </details>
+          </select></td>
+          <td data-label="ENC per item"><label class="sr-only" for={`owned-enc-${item.id}`}>{inventoryEncLabel(item)} for {item.name}</label>
+            <input id={`owned-enc-${item.id}`} class="compact-number" aria-label={`${inventoryEncLabel(item)} for ${item.name}`} type="number" min="0" step="0.25" value={item.armour ? item.armour.encOverride ?? "" : item.encPerUnit ?? ""} placeholder={item.armour ? "Derived" : "Unknown"} title={item.armour ? "Armour ENC is per covered location; leave blank to use construction and material." : "ENC per item before quantity and state adjust the actual load."} onchange={event => saveInventoryChange(item.id, item.name, item.armour ? { armour: { encOverride: event.currentTarget.value === "" ? undefined : Number(event.currentTarget.value) } } : { encPerUnit: event.currentTarget.value === "" ? null : Number(event.currentTarget.value) })}>
+            <small class="enc-contribution">Load: {inventoryEncContribution(item)}</small>
           </td>
+          <td data-label="Exempt from load"><label class="exemption-control"><input type="checkbox" aria-label={`Exempt ${item.name} from load`} checked={!!item.encumbranceExempt} onchange={event => saveInventoryChange(item.id, item.name, { encumbranceExempt: event.currentTarget.checked })}><span>Exempt from load</span></label></td>
+          <td class="row-actions" data-label="Actions"><button type="button" class="ghost" aria-label={`Remove ${item.name}`} onclick={() => removeInventoryItem(item.id, item.name)}>Remove</button></td>
         </tr>
       {/each}
       </tbody>
@@ -614,7 +597,7 @@
   .review-summary > div { min-width:0; display:flex; flex-direction:column; gap:.25rem; padding:.75rem; border:1px solid var(--line); border-radius:.5rem; overflow-wrap:anywhere; }
   .review-summary small,.money-summary small { color:var(--mute); }
   .review-details { margin:.65rem 0; padding:.65rem; border:1px solid var(--line); border-radius:.5rem; }
-  .review-details summary,.item-source summary { min-height:1.5rem; cursor:pointer; font-weight:700; }
+  .review-details summary { min-height:1.5rem; cursor:pointer; font-weight:700; }
   .owned-heading { margin:.9rem 0 .35rem; }
   .sheet-section { margin-top:1.1rem; }
   .sheet-section h5 { margin:.4rem 0; }
@@ -624,19 +607,24 @@
   .sheet-table th,.sheet-table td { padding:.45rem .55rem; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; }
   .sheet-table thead th { background:color-mix(in srgb,var(--line) 30%,transparent); white-space:nowrap; }
   .sheet-table tbody tr:last-child > * { border-bottom:0; }
-  .inventory-table { min-width:38rem; }
+  .inventory-table { min-width:0; table-layout:fixed; }
+  .inventory-table th:nth-child(1) { width:27%; }
+  .inventory-table th:nth-child(2) { width:10%; }
+  .inventory-table th:nth-child(3) { width:14%; }
+  .inventory-table th:nth-child(4) { width:15%; }
+  .inventory-table th:nth-child(5) { width:22%; }
+  .inventory-table th:nth-child(6) { width:12%; }
   .weapon-table { min-width:58rem; }
-  .owned-name { overflow-wrap:anywhere; }
-  .row-actions { min-width:9rem; }
-  .row-actions details + details { margin-top:.3rem; }
-  .row-actions summary { min-height:1.7rem; cursor:pointer; font-weight:700; }
-  .owned-controls { display:flex; align-items:flex-start; flex-wrap:wrap; gap:.6rem; min-width:0; max-width:42rem; padding:.6rem 0; }
-  .owned-controls > * { flex:0 1 auto; }
-  .item-source p { max-width:36rem; }
+  .owned-name { overflow-wrap:break-word; word-break:normal; hyphens:none; }
+  .inventory-table td > .compact-number { box-sizing:border-box; width:4rem; min-height:2.75rem; }
+  .inventory-table td > .state-select { box-sizing:border-box; width:100%; min-width:0; min-height:2.75rem; }
+  .inventory-table td[data-label="Quantity"] > .compact-number { width:3.5rem; }
+  .inventory-table td[data-label="ENC per item"] > small { display:block; margin-top:.2rem; color:var(--mute); }
+  .row-actions button { min-height:2.75rem; }
+  .exemption-control { min-height:2.75rem; align-items:center; gap:.5rem; cursor:pointer; }
+  .exemption-control input { flex:none; width:1.2rem; height:1.2rem; accent-color:var(--bronze); }
   .load-summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(10rem,1fr)); gap:.5rem; margin:.75rem 0; }
   .load-summary > div { display:flex; flex-direction:column; gap:.2rem; padding:.65rem; border:1px solid var(--line); border-radius:.5rem; }
-  .armour-summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(8rem,1fr)); gap:.5rem; margin:.75rem 0; }
-  .armour-summary > div { display:flex; flex-direction:column; gap:.2rem; padding:.65rem; border:1px solid var(--line); border-radius:.5rem; }
   .armour-editor { flex:1 1 100%; display:flex; align-items:start; flex-wrap:wrap; gap:.6rem; padding:.65rem; border:1px solid var(--line); border-radius:.5rem; }
   .armour-editor summary { flex-basis:100%; cursor:pointer; }
   .armour-editor fieldset { display:flex; flex-wrap:wrap; gap:.45rem; }
@@ -710,16 +698,7 @@
   h5 { margin:0; font-size:1rem; }
   .tag { display:inline-block; padding:.1rem .4rem; border:1px solid var(--line); border-radius:99px; font-size:.75rem; }
   .transaction-list { display:grid; gap:.5rem; padding-left:1.4rem; }
-  .inventory-control { min-width:0; display:grid; align-content:start; gap:.25rem; }
-  .inventory-control input.compact-number { box-sizing:border-box; width:5.5rem; min-height:2.75rem; }
-  .inventory-control select { box-sizing:border-box; width:9.5rem; min-height:2.75rem; }
-  .exemption-control { min-width:0; display:flex; align-items:flex-start; gap:.45rem; grid-column:1/-1; cursor:pointer; }
-  .exemption-control input { flex:none; width:1.2rem; height:1.2rem; margin:.15rem 0 0; accent-color:var(--bronze); }
-  .exemption-control span { display:grid; gap:.1rem; }
-  .exemption-control small { color:var(--mute); }
-  .owned-controls button { min-height:2.75rem; }
-  .owned-controls .armour-editor { flex:1 1 100%; }
-  .owned-controls p { margin:.15rem 0 0; }
+  .exemption-control span { display:block; }
   .armour-totals { overflow-wrap:anywhere; }
   .transaction-list li { padding:.35rem 0; }
   .transaction-list .mute { display:block; font-size:.8rem; }
@@ -732,9 +711,21 @@
     .catalogue-row { align-items:flex-start; }
     .row-price { max-width:40%; overflow-wrap:anywhere; }
     .review-summary { grid-template-columns:1fr; }
-    .inventory-control input.compact-number,.inventory-control select { width:100%; }
-    .owned-controls { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,10rem),1fr)); max-width:20rem; }
-    .owned-controls > .exemption-control,.owned-controls > .armour-editor,.owned-controls > button { grid-column:1/-1; }
+    .inventory-scroll { overflow:visible; border:0; }
+    .inventory-table { display:block; width:100%; }
+    .inventory-table thead { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+    .inventory-table tbody { display:grid; gap:.45rem; }
+    .inventory-table tr { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); border:1px solid var(--line); border-radius:.4rem; }
+    .inventory-table tr > * { min-width:0; padding:.35rem .45rem; border:0; }
+    .inventory-table tr > th[data-label="Item"] { grid-column:1/-1; }
+    .inventory-table td { display:grid; align-content:start; gap:.15rem; }
+    .inventory-table td::before { content:attr(data-label); color:var(--mute); font-size:.8rem; font-weight:700; }
+    .inventory-table td > .compact-number { width:4rem; }
+    .inventory-table td > .state-select { width:100%; max-width:10rem; }
+    .inventory-table td[data-label="ENC per item"] > small { margin-top:.1rem; }
+    .inventory-table td[data-label="Exempt from load"] .exemption-control { min-height:2.75rem; }
+    .inventory-table td[data-label="Actions"] { justify-items:start; }
+    .inventory-table .armour-editor { margin-top:.35rem; }
     .acquisition-toolbar { align-items:stretch; gap:.65rem; }
     .purchase-values { flex:1 1 100%; align-items:end; }
     .purchase-values .quantity-control { flex:0 0 auto; }

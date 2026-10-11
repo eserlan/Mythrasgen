@@ -28,7 +28,15 @@ test("equipment starts with two activities and puts the character summary in own
   expect(inventory).toContain("inventoryEncContribution(item)");
   expect(inventory).toContain('class="compact-number"');
   expect(inventory).toContain('<table class="sheet-table inventory-table">');
-  expect(inventory).toContain('<summary>Edit / actions</summary>');
+  expect(inventory).toContain("ENC per item");
+  expect(inventory).toContain("Exempt from load");
+  expect(inventory).toContain('aria-label={`Remove ${item.name}`}');
+  expect(inventory).toContain('aria-label={`${inventoryEncLabel(item)} for ${item.name}`}');
+  expect(inventory).toContain('class="enc-contribution">Load: {inventoryEncContribution(item)}');
+  expect(inventory).not.toContain('<summary>Edit / actions</summary>');
+  expect(inventory).not.toContain('<summary>Item details</summary>');
+  expect(inventory).toContain("@media(max-width:600px)");
+  expect(inventory).toContain(".inventory-table tbody { display:grid; gap:.45rem; }");
   expect(inventory).toContain('window.confirm(`Remove ${itemName} from your equipment? This does not refund a purchase.`)');
   expect(inventory).toContain("Armour by hit location");
   expect(inventory).toContain('wornArmourItems = $derived(armourItems.filter(item => item.state === "worn"))');
