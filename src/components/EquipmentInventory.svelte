@@ -300,7 +300,7 @@
     <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
     <div class="table-scroll inventory-scroll" role="region" aria-label="Owned equipment inventory" tabindex="0">
     <table class="sheet-table inventory-table">
-      <thead><tr><th scope="col">Item</th><th scope="col">Quantity</th><th scope="col">State</th><th scope="col">ENC per item</th><th scope="col">Exempt from load</th><th scope="col">Actions</th></tr></thead>
+      <thead><tr><th scope="col">Item</th><th scope="col">Quantity</th><th scope="col">State</th><th scope="col">ENC/Item</th><th scope="col">ENC Exempt</th><th scope="col">Actions</th></tr></thead>
       <tbody>
       {#each char.background.inventory as item (item.id)}
         <tr>
@@ -327,10 +327,10 @@
           <td data-label="State"><label class="sr-only" for={`owned-state-${item.id}`}>State of {item.name}</label><select class="state-select" id={`owned-state-${item.id}`} aria-label={`State of ${item.name}`} value={item.state} onchange={event => saveInventoryChange(item.id, item.name, { state: event.currentTarget.value as "carried" | "worn" | "stored" })}>
                   <option value="carried">Carried</option><option value="worn">Worn</option><option value="stored">Stored</option>
           </select></td>
-          <td data-label="ENC per item"><label class="sr-only" for={`owned-enc-${item.id}`}>{inventoryEncLabel(item)} for {item.name}</label>
+          <td data-label="ENC/Item"><label class="sr-only" for={`owned-enc-${item.id}`}>{inventoryEncLabel(item)} for {item.name}</label>
             <input id={`owned-enc-${item.id}`} class="compact-number" aria-label={`${inventoryEncLabel(item)} for ${item.name}`} type="number" min="0" step="0.25" value={item.armour ? item.armour.encOverride ?? "" : item.encPerUnit ?? ""} placeholder={item.armour ? "Derived" : "Unknown"} onchange={event => saveInventoryChange(item.id, item.name, item.armour ? { armour: { encOverride: event.currentTarget.value === "" ? undefined : Number(event.currentTarget.value) } } : { encPerUnit: event.currentTarget.value === "" ? null : Number(event.currentTarget.value) })}>
           </td>
-          <td data-label="Exempt from load"><label class="exemption-control"><input type="checkbox" aria-label={`Exempt ${item.name} from load`} checked={!!item.encumbranceExempt} onchange={event => saveInventoryChange(item.id, item.name, { encumbranceExempt: event.currentTarget.checked })}></label></td>
+          <td data-label="ENC Exempt"><label class="exemption-control"><input type="checkbox" aria-label={`Exempt ${item.name} from load`} checked={!!item.encumbranceExempt} onchange={event => saveInventoryChange(item.id, item.name, { encumbranceExempt: event.currentTarget.checked })}></label></td>
           <td class="row-actions" data-label="Actions"><button type="button" class="ghost" aria-label={`Remove ${item.name}`} onclick={() => removeInventoryItem(item.id, item.name)}>Remove</button></td>
         </tr>
       {/each}
@@ -597,17 +597,16 @@
   .sheet-table th,.sheet-table td { padding:.45rem .55rem; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; }
   .sheet-table thead th { background:color-mix(in srgb,var(--line) 30%,transparent); white-space:nowrap; }
   .sheet-table tbody tr:last-child > * { border-bottom:0; }
-  .inventory-table { min-width:52rem; table-layout:fixed; }
-  .inventory-table th:nth-child(1) { width:27%; }
-  .inventory-table th:nth-child(2) { width:10%; }
-  .inventory-table th:nth-child(3) { width:14%; }
-  .inventory-table th:nth-child(4) { width:15%; }
-  .inventory-table th:nth-child(5) { width:22%; }
-  .inventory-table th:nth-child(6) { width:12%; }
+  .inventory-table { min-width:0; table-layout:fixed; }
+  .inventory-table th,.inventory-table td { padding:.35rem .3rem; }
+  .inventory-table th:nth-child(2) { width:4.5rem; }
+  .inventory-table th:nth-child(3) { width:7rem; }
+  .inventory-table th:nth-child(4) { width:6.5rem; }
+  .inventory-table th:nth-child(5) { width:6rem; }
+  .inventory-table th:nth-child(6) { width:5.5rem; }
   .weapon-table { min-width:58rem; }
   .owned-name { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .inventory-table th,.inventory-table td { vertical-align:middle; }
-  .inventory-table td { white-space:nowrap; }
   .inventory-table td > .compact-number { box-sizing:border-box; width:4rem; min-height:2.5rem; }
   .inventory-table td > .state-select { box-sizing:border-box; width:100%; min-width:0; min-height:2.5rem; }
   .inventory-table td[data-label="Quantity"] > .compact-number { width:3.5rem; }
@@ -713,7 +712,7 @@
     .inventory-table td::before { content:attr(data-label); color:var(--mute); font-size:.8rem; font-weight:700; }
     .inventory-table td > .compact-number { width:4rem; }
     .inventory-table td > .state-select { width:100%; max-width:10rem; }
-    .inventory-table td[data-label="Exempt from load"] .exemption-control { min-height:2.75rem; }
+    .inventory-table td[data-label="ENC Exempt"] .exemption-control { min-height:2.75rem; }
     .inventory-table td[data-label="Actions"] { justify-items:start; }
     .inventory-table .armour-editor { margin-top:.35rem; }
     .acquisition-toolbar { align-items:stretch; gap:.65rem; }
