@@ -16,7 +16,7 @@
     { name: "Supplies & services", categories: ["food", "livestock", "accommodation"] },
   ];
   let query = $state("");
-  let view = $state<"choose" | "owned" | "review">("choose");
+  let view = $state<"choose" | "owned">("choose");
   let group = $state<string | null>(null);
   let category = $state<EquipmentCategory | null>(null);
   let selectedId = $state<string | null>(null);
@@ -176,6 +176,17 @@
   const armourSummary = $derived(summarizeArmour(armourItems.flatMap(item => Array.from({ length: item.quantity }, (_, index) => ({
     id: `${item.id}-${index + 1}`, ...item.armour!, state: item.state,
   })))));
+  const inventoryEncContribution = (item: typeof char.background.inventory[number]) => {
+    if (item.encumbranceExempt || item.state === "stored") return "0 ENC contribution";
+    if (item.armour) {
+      const summary = summarizeArmour(Array.from({ length: item.quantity }, (_, index) => ({ id: `${item.id}-${index + 1}`, ...item.armour!, state: item.state })));
+      return summary.loadEnc === null ? "Unknown ENC contribution" : `${summary.loadEnc} ENC contribution`;
+    }
+    if (item.encPerUnit === null) return "Unknown ENC contribution";
+    const total = item.encPerUnit * item.quantity / (item.state === "worn" ? 2 : 1);
+    return `${total} ENC contribution`;
+  };
+  const catalogueRecordFor = (item: typeof char.background.inventory[number]) => EQUIPMENT_CATALOGUE.find(record => record.source.id === item.catalogueId)?.source;
   const statSummary = (record: typeof EQUIPMENT_CATALOGUE[number]) => [
     ...combatStats(record.source).map(([name, value]) => `${name} ${value}`),
     record.source.enc_candidate !== undefined ? `ENC ${record.source.enc_candidate}` : record.source.base_enc_per_location !== undefined ? `ENC ${record.source.base_enc_per_location}` : record.kind === "physical_item" ? "ENC Unknown" : undefined,
@@ -250,7 +261,6 @@
   <nav class="activity-nav" aria-label="Combat and equipment activities">
     <button type="button" aria-current={view === "choose" ? "page" : undefined} onclick={() => view = "choose"}>Choose equipment</button>
     <button type="button" aria-current={view === "owned" ? "page" : undefined} onclick={() => view = "owned"}>Your equipment <span>{char.background.inventory.length}</span></button>
-    <button type="button" aria-current={view === "review" ? "page" : undefined} onclick={() => view = "review"}>Review your character</button>
   </nav>
   {#if message}<p class="hint" role="status" aria-live="polite">{message}</p>{/if}
   {#if currentBalanceCp < 0}<p class="balance-warning" role="alert">Your recorded spending is {formatCopperPrice(-currentBalanceCp)} above your starting money. Existing purchases are preserved.</p>{/if}
@@ -262,30 +272,38 @@
 
   {#if view === "owned"}
   <h4>Your equipment</h4>
-  <h5 class="money-heading">Money remaining</h5>
-  <div class="money-summary" aria-live="polite">
-    <div><small>Starting</small><b>{formatCopperPrice(startingCp)}</b></div>
-    <div><small>Spent</small><b>{signedMoney(equipmentSpentCp())}</b></div>
-    <div><small>Remaining</small><b>{signedMoney(currentBalanceCp)}</b></div>
+  <div class="review-summary" aria-live="polite" aria-label="Equipment summary">
+    <div><small>Money remaining (SP)</small><b>{signedMoney(currentBalanceCp)}</b></div>
+    <div><small>Carrying load (ENC)</small><b>{load.load === null ? `At least ${load.knownLoad} ENC · unknown` : `${load.load} ENC · ${load.band}`}</b></div>
+    <div><small>Armour protection</small><b>{armourItems.length ? `${Object.values(armourSummary.apByLocation).filter(ap => ap !== null && ap > 0).length} locations protected` : "No armour recorded"}</b></div>
   </div>
+  {#if load.unresolvedItems.length}<p class="balance-warning" role="status">Load is incomplete. Add ENC for: {load.unresolvedItems.join(", ")}.</p>{/if}
+  {#if armourSummary.unresolved.length}<p class="balance-warning" role="status">Armour needs review: {armourSummary.unresolved.join("; ")}</p>{/if}
+  <h5 class="owned-heading">Owned equipment</h5>
   {#if char.background.inventory.length}
     <ul class="owned-list">
       {#each char.background.inventory as item (item.id)}
         <li>
-          <div><b>{item.name}</b> × {item.quantity} <span class="tag">{item.state}</span>{#if item.customItem}<span class="tag">Custom</span>{/if}
-            <details class="item-source"><summary>Item details</summary><p class="mute">Acquired as {item.acquiredAs}.{#if item.customItem} Custom {item.customItem.type}. {item.customItem.description}{/if}</p></details>
+          <div class="owned-item-heading"><b>{item.name}</b> <span class="tag">× {item.quantity}</span> <span class="tag">{item.state[0].toUpperCase() + item.state.slice(1)}</span>{#if item.customItem}<span class="tag">Custom</span>{/if}<small>{inventoryEncContribution(item)}</small>
+            <details class="item-source"><summary>Item details</summary><p class="mute">Acquired as {item.acquiredAs}.{#if item.customItem} Custom {item.customItem.type}. {item.customItem.description}{/if}</p>
+              {#if catalogueRecordFor(item)}
+                {@const record = catalogueRecordFor(item)!}
+                {#if hasCombatProfile(record)}<dl class="weapon-detail-stats">{#each combatStats(record) as [name, value]}<div><dt>{name}</dt><dd>{value}</dd></div>{/each}</dl>{/if}
+              {/if}
+              {#if item.armour}<div class="armour-summary">{#each HIT_LOCATIONS as location}{@const protection = summarizeArmour([{ id: item.id, ...item.armour }]).apByLocation[location]}<div><small>{location}</small><b>{item.armour.locations.includes(location) ? protection === null ? "Unknown AP" : `${protection} AP` : "Not covered"}</b></div>{/each}</div>{/if}
+            </details>
           </div>
-          <label>Quantity <input aria-label={`Quantity of ${item.name}`} type="number" min="1" step="1" value={item.quantity} onchange={event => editInventoryQuantity(item.id, item.name, event.currentTarget.value)}></label>
-          <label>State <select value={item.state} onchange={event => saveInventoryChange(item.id, item.name, { state: event.currentTarget.value as "carried" | "worn" | "stored" })}>
+          <label class="inventory-control">Quantity <input class="compact-number" aria-label={`Quantity of ${item.name}`} type="number" min="1" step="1" value={item.quantity} onchange={event => editInventoryQuantity(item.id, item.name, event.currentTarget.value)}></label>
+          <label class="inventory-control">State <select value={item.state} onchange={event => saveInventoryChange(item.id, item.name, { state: event.currentTarget.value as "carried" | "worn" | "stored" })}>
             <option value="carried">Carried</option><option value="worn">Worn</option><option value="stored">Stored</option>
           </select></label>
           {#if item.armour}
-            <label>ENC per covered location <input aria-label={`ENC per covered location for ${item.name}`} type="number" min="0" step="0.25" value={item.armour.encOverride ?? ""} placeholder="Use construction" onchange={event => saveInventoryChange(item.id, item.name, { armour: { encOverride: event.currentTarget.value === "" ? undefined : Number(event.currentTarget.value) } })}></label>
+            <label class="inventory-control">ENC per covered location <input class="compact-number" aria-label={`ENC per covered location for ${item.name}`} type="number" min="0" step="0.25" value={item.armour.encOverride ?? ""} placeholder="Use construction" onchange={event => saveInventoryChange(item.id, item.name, { armour: { encOverride: event.currentTarget.value === "" ? undefined : Number(event.currentTarget.value) } })}></label>
           {:else}
-            <label>ENC per item <input aria-label={`ENC per item for ${item.name}`} type="number" min="0" step="0.25" value={item.encPerUnit ?? ""} placeholder="Unknown" onchange={event => saveInventoryChange(item.id, item.name, { encPerUnit: event.currentTarget.value === "" ? null : Number(event.currentTarget.value) })}></label>
+            <label class="inventory-control">ENC per item <input class="compact-number" aria-label={`ENC per item for ${item.name}`} type="number" min="0" step="0.25" value={item.encPerUnit ?? ""} placeholder="Unknown" onchange={event => saveInventoryChange(item.id, item.name, { encPerUnit: event.currentTarget.value === "" ? null : Number(event.currentTarget.value) })}></label>
             <span class="tag">{item.encPerUnit === null ? "ENC unresolved" : item.encSource === "gm_override" ? "GM ENC" : "ENC per item"}</span>
           {/if}
-          <label><input type="checkbox" checked={!!item.encumbranceExempt} onchange={event => saveInventoryChange(item.id, item.name, { encumbranceExempt: event.currentTarget.checked })}> Exempt (e.g. everyday clothing)</label>
+          <label class="exemption-control"><input type="checkbox" checked={!!item.encumbranceExempt} onchange={event => saveInventoryChange(item.id, item.name, { encumbranceExempt: event.currentTarget.checked })}> <span>Exempt from load<small>Use for items the rules exclude from ENC.</small></span></label>
           {#if item.armour}
             <details class="armour-editor"><summary>Armour locations and fit</summary>
               <label>Construction <select value={item.armour.construction ?? ""} onchange={event => saveInventoryChange(item.id, item.name, { armour: { construction: event.currentTarget.value as keyof typeof ARMOUR_CONSTRUCTIONS || null } })}>
@@ -310,6 +328,39 @@
       {/each}
     </ul>
   {:else}<p class="empty-state">No equipment yet. Choose equipment to add an item.</p>{/if}
+  <details class="review-details"><summary>Load details</summary>
+  <div class="load-summary" aria-live="polite">
+    <div><small>Load</small><b>{load.load === null ? `At least ${load.knownLoad} ENC · unknown` : `${load.load} ENC`}</b></div>
+    <div><small>Load band</small><b>{load.band}</b></div>
+    <div><small>Thresholds (STR {char.chars.STR})</small><b>{load.thresholds ? `2× ${load.thresholds.burdened} · 3× ${load.thresholds.overloaded} · 4× ${load.thresholds.unsustainable}` : "Unknown"}</b></div>
+    <div><small>Movement</small><b>{load.movement}</b></div>
+    <div><small>Skills / sprinting / fatigue</small><b>{load.skillDifficultyGrades === null ? "Unknown" : load.skillDifficultyGrades === 0 ? "No skill penalty" : `${load.skillDifficultyGrades} grade${load.skillDifficultyGrades === 1 ? "" : "s"} harder`} · {load.sprinting} · {load.fatigue}</b></div>
+  </div>
+  <p class="mute">Worn items contribute half ENC; stored items do not count. Twenty zero-ENC items count as 1 ENC.</p>
+  </details>
+  {#if armourItems.length}
+  <details class="review-details"><summary>Armour protection by body location</summary>
+  <div class="armour-summary" aria-live="polite">
+    {#each HIT_LOCATIONS as location}<div><small>{location}</small><b>{armourSummary.apByLocation[location] === null ? "Unknown AP" : `${armourSummary.apByLocation[location]} AP`}</b></div>{/each}
+    <div><small>Worn full ENC</small><b>{armourSummary.fullWornEnc ?? "Unknown"}</b></div>
+    <div><small>Worn load ENC</small><b>{armourSummary.loadEnc ?? "Unknown"}</b></div>
+    {#if armourSummary.initiativePenalty}<div><small>Initiative effect</small><b>{armourSummary.initiativePenalty}</b></div>{/if}
+  </div>
+  </details>
+  {/if}
+  <details class="review-details"><summary>Money and transaction history</summary>
+  <div class="money-summary"><div><small>Starting</small><b>{formatCopperPrice(startingCp)}</b></div><div><small>Spent</small><b>{signedMoney(equipmentSpentCp())}</b></div><div><small>Remaining</small><b>{signedMoney(currentBalanceCp)}</b></div></div>
+  {#if char.background.equipmentTransactions.length}
+    <ol class="transaction-list">
+      {#each [...char.background.equipmentTransactions].reverse() as transaction (transaction.id)}
+        <li><b>{transaction.kind.replaceAll("_", " ")}</b>: {transaction.name} × {transaction.quantity} · {transaction.kind === "refund" ? "+" : "−"}{formatCopperPrice(transaction.amountCp)}
+          <span class="mute">{transaction.amountSource} · {transaction.catalogueVersion} · {transaction.recordedAt}{#if transaction.catalogueId} · {transaction.catalogueId}{/if}</span>
+          {#if transaction.kind === "purchase"}<button type="button" class="ghost" onclick={() => refund(transaction.id, transaction.amountCp)}>Record refund…</button>{/if}
+        </li>
+      {/each}
+    </ol>
+  {:else}<p class="mute">No spending transactions recorded.</p>{/if}
+  </details>
   {/if}
 
   {#if view === "choose"}
@@ -492,49 +543,6 @@
 
   {/if}
 
-  {#if view === "review"}
-  <h4>Review your character</h4>
-  <div class="review-summary" aria-live="polite">
-    <div><small>Money remaining</small><b>{signedMoney(currentBalanceCp)}</b></div>
-    <div><small>Carrying load</small><b>{load.load === null ? `At least ${load.knownLoad} ENC · unknown` : `${load.load} ENC · ${load.band}`}</b></div>
-    <div><small>Armour protection</small><b>{armourItems.length ? `${Object.values(armourSummary.apByLocation).filter(ap => ap !== null && ap > 0).length} locations protected` : "No armour recorded"}</b></div>
-  </div>
-  {#if load.unresolvedItems.length}<p class="balance-warning" role="status">Load is incomplete. Add ENC for: {load.unresolvedItems.join(", ")}.</p>{/if}
-  {#if armourSummary.unresolved.length}<p class="balance-warning" role="status">Armour needs review: {armourSummary.unresolved.join("; ")}</p>{/if}
-  <details class="review-details"><summary>Load details</summary>
-  <div class="load-summary" aria-live="polite">
-    <div><small>Load</small><b>{load.load === null ? `At least ${load.knownLoad} ENC · unknown` : `${load.load} ENC`}</b></div>
-    <div><small>Load band</small><b>{load.band}</b></div>
-    <div><small>Thresholds (STR {char.chars.STR})</small><b>{load.thresholds ? `2× ${load.thresholds.burdened} · 3× ${load.thresholds.overloaded} · 4× ${load.thresholds.unsustainable}` : "Unknown"}</b></div>
-    <div><small>Movement</small><b>{load.movement}</b></div>
-    <div><small>Skills / sprinting / fatigue</small><b>{load.skillDifficultyGrades === null ? "Unknown" : load.skillDifficultyGrades === 0 ? "No skill penalty" : `${load.skillDifficultyGrades} grade${load.skillDifficultyGrades === 1 ? "" : "s"} harder`} · {load.sprinting} · {load.fatigue}</b></div>
-  </div>
-  <p class="mute">Worn items contribute half ENC; stored items do not count. Twenty zero-ENC items count as 1 ENC.</p>
-  </details>
-  {#if armourItems.length}
-  <details class="review-details"><summary>Armour by body location</summary>
-  <div class="armour-summary" aria-live="polite">
-    {#each HIT_LOCATIONS as location}<div><small>{location}</small><b>{armourSummary.apByLocation[location] === null ? "Unknown AP" : `${armourSummary.apByLocation[location]} AP`}</b></div>{/each}
-    <div><small>Worn full ENC</small><b>{armourSummary.fullWornEnc ?? "Unknown"}</b></div>
-    <div><small>Worn load ENC</small><b>{armourSummary.loadEnc ?? "Unknown"}</b></div>
-    {#if armourSummary.initiativePenalty}<div><small>Initiative effect</small><b>{armourSummary.initiativePenalty}</b></div>{/if}
-  </div>
-  </details>
-  {/if}
-  <details class="review-details"><summary>Money and transaction history</summary>
-  <div class="money-summary"><div><small>Starting</small><b>{formatCopperPrice(startingCp)}</b></div><div><small>Spent</small><b>{signedMoney(equipmentSpentCp())}</b></div><div><small>Remaining</small><b>{signedMoney(currentBalanceCp)}</b></div></div>
-  {#if char.background.equipmentTransactions.length}
-    <ol class="transaction-list">
-      {#each [...char.background.equipmentTransactions].reverse() as transaction (transaction.id)}
-        <li><b>{transaction.kind.replaceAll("_", " ")}</b>: {transaction.name} × {transaction.quantity} · {transaction.kind === "refund" ? "+" : "−"}{formatCopperPrice(transaction.amountCp)}
-          <span class="mute">{transaction.amountSource} · {transaction.catalogueVersion} · {transaction.recordedAt}{#if transaction.catalogueId} · {transaction.catalogueId}{/if}</span>
-          {#if transaction.kind === "purchase"}<button type="button" class="ghost" onclick={() => refund(transaction.id, transaction.amountCp)}>Record refund…</button>{/if}
-        </li>
-      {/each}
-    </ol>
-  {:else}<p class="mute">No spending transactions recorded.</p>{/if}
-  </details>
-  {/if}
 </section>
 
 <style>
@@ -550,7 +558,7 @@
   .review-summary small,.money-summary small { color:var(--mute); }
   .review-details { margin:.65rem 0; padding:.65rem; border:1px solid var(--line); border-radius:.5rem; }
   .review-details summary,.item-source summary { min-height:1.5rem; cursor:pointer; font-weight:700; }
-  .money-heading { margin-top:.75rem; }
+  .owned-heading { margin:.9rem 0 .35rem; }
   .item-source { margin-top:.35rem; }
   .load-summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(10rem,1fr)); gap:.5rem; margin:.75rem 0; }
   .load-summary > div { display:flex; flex-direction:column; gap:.2rem; padding:.65rem; border:1px solid var(--line); border-radius:.5rem; }
@@ -629,8 +637,18 @@
   h5 { margin:0; font-size:1rem; }
   .tag { display:inline-block; padding:.1rem .4rem; border:1px solid var(--line); border-radius:99px; font-size:.75rem; }
   .owned-list,.transaction-list { display:grid; gap:.5rem; padding-left:1.4rem; }
-  .owned-list li { display:flex; align-items:center; flex-wrap:wrap; gap:.6rem; }
-  .owned-list li > div { flex:1 1 15rem; }
+  .owned-list li { min-width:0; display:grid; grid-template-columns:minmax(0,1fr) repeat(3,auto); align-items:end; gap:.6rem; padding:.7rem; border:1px solid var(--line); border-radius:.5rem; }
+  .owned-list li > .owned-item-heading { grid-column:1/-1; min-width:0; display:flex; align-items:center; flex-wrap:wrap; gap:.35rem; }
+  .owned-item-heading > small { flex-basis:100%; color:var(--mute); }
+  .inventory-control { min-width:0; display:grid; align-content:start; gap:.25rem; }
+  .inventory-control input.compact-number { box-sizing:border-box; width:5.5rem; min-height:2.75rem; }
+  .inventory-control select { box-sizing:border-box; width:9.5rem; min-height:2.75rem; }
+  .exemption-control { min-width:0; display:flex; align-items:flex-start; gap:.45rem; grid-column:1/-1; cursor:pointer; }
+  .exemption-control input { flex:none; width:1.2rem; height:1.2rem; margin:.15rem 0 0; accent-color:var(--bronze); }
+  .exemption-control span { display:grid; gap:.1rem; }
+  .exemption-control small { color:var(--mute); }
+  .owned-list .armour-editor { grid-column:1/-1; }
+  .owned-list li > button { justify-self:start; min-height:2.75rem; }
   .owned-list p { margin:.15rem 0 0; }
   .transaction-list li { padding:.35rem 0; }
   .transaction-list .mute { display:block; font-size:.8rem; }
@@ -642,7 +660,10 @@
     .money-summary > div { padding:.45rem; overflow-wrap:anywhere; }
     .catalogue-row { align-items:flex-start; }
     .row-price { max-width:40%; overflow-wrap:anywhere; }
-    .owned-list li > div { flex-basis:100%; }
+    .review-summary { grid-template-columns:1fr; }
+    .owned-list li { grid-template-columns:repeat(2,minmax(0,1fr)); align-items:start; }
+    .inventory-control input.compact-number,.inventory-control select { width:100%; }
+    .owned-list li > button { grid-column:1/-1; }
     .acquisition-toolbar { align-items:stretch; gap:.65rem; }
     .purchase-values { flex:1 1 100%; align-items:end; }
     .purchase-values .quantity-control { flex:0 0 auto; }

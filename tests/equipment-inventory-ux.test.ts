@@ -15,9 +15,19 @@ test("Page VIII separates combat training from possessions", () => {
   expect(compile(page, { filename: "src/components/Combat.svelte", generate: "client" }).warnings).toHaveLength(0);
 });
 
-test("equipment starts with three activities and four plain-language groups", () => {
-  for (const text of ["Choose equipment", "Your equipment", "Review your character", "Weapons", "Armour & shields", "Clothing & gear", "Supplies & services", "group-buttons"])
+test("equipment starts with two activities and puts the character summary in owned equipment", () => {
+  for (const text of ["Choose equipment", "Your equipment", "Weapons", "Armour & shields", "Clothing & gear", "Supplies & services", "group-buttons"])
     expect(inventory).toContain(text);
+  expect(inventory).not.toContain("Review your character");
+  expect(inventory).toContain("Money remaining (SP)");
+  expect(inventory).toContain("Carrying load (ENC)");
+  expect(inventory).toContain("Armour protection");
+  expect(inventory).toContain("<summary>Load details</summary>");
+  expect(inventory).toContain("<summary>Money and transaction history</summary>");
+  expect(inventory).toContain("Owned equipment");
+  expect(inventory).toContain("inventoryEncContribution(item)");
+  expect(inventory).toContain('class="compact-number"');
+  expect(inventory).toContain("Exempt from load");
   expect(inventory).toContain("aria-current={view === \"choose\" ? \"page\" : undefined}");
   expect(inventory).toContain("Searches all {EQUIPMENT_CATALOGUE.length} equipment records.");
   const groups = ["one_handed", "two_handed", "ranged", "ammunition", "siege", "vehicles", "armour", "shields", "materials", "clothing", "tools", "food", "livestock", "accommodation"];

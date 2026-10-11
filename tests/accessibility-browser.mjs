@@ -98,7 +98,8 @@ try {
   const clickText = async text => evaluate(`Array.from(document.querySelectorAll('.inventory-ledger button')).find(button => button.innerText.trim().toLowerCase().startsWith(${JSON.stringify(text.toLowerCase())}))?.click()`);
   await runAxe();
   assert.equal(await evaluate(`document.querySelectorAll('.group-button').length`), 4, "new characters should see four equipment groups, not the full catalogue");
-  assert.equal(await evaluate(`document.querySelectorAll('.armour-summary').length`), 0, "the new character review should not show an empty armour grid");
+  assert.equal(await evaluate(`document.querySelectorAll('.activity-nav button').length`), 2, "Page VIII should expose only Choose equipment and Your equipment");
+  assert.equal(await evaluate(`document.querySelectorAll('.armour-summary').length`), 0, "owned equipment should not show an empty armour grid");
   await call("Emulation.setEmulatedMedia", { features: [{ name: "prefers-color-scheme", value: "dark" }] });
   await new Promise(resolve => setTimeout(resolve, 250));
   await runAxe();
@@ -136,8 +137,7 @@ try {
   assert.ok(await evaluate(`document.activeElement?.id === 'equipment-result-one_handed-chain'`), "closing details should return focus to the selected result");
   await clickText("Your equipment");
   await runAxe();
-  await clickText("Review your character");
-  await runAxe();
+  assert.ok(await evaluate(`document.querySelector('.review-summary')?.innerText.includes('Money remaining')`), "equipment summary should be visible in Your equipment");
   await clickText("Choose equipment");
   await evaluate(`(() => { const input = document.querySelector('.catalogue-filters input[type="search"]'); input.value = 'Dagger'; input.dispatchEvent(new Event('input', { bubbles: true })); })()`);
   await new Promise(resolve => setTimeout(resolve, 100));
@@ -174,7 +174,16 @@ try {
   const ownedCustom = await evaluate(`JSON.stringify({ found: Array.from(document.querySelectorAll('.owned-list li')).some(item => item.innerText.includes('Accessibility sword') && item.innerText.includes('Custom')), status: document.querySelector('.inventory-ledger [role="status"]')?.innerText, rows: Array.from(document.querySelectorAll('.owned-list li')).map(item => item.innerText) })`);
   assert.ok(JSON.parse(ownedCustom).found, `purchased custom sword should appear in owned equipment: ${ownedCustom}`);
   assert.equal(await evaluate(`document.querySelector('input[aria-label="ENC per item for Accessibility sword"]')?.value`), "2", "custom sword should retain its ENC in owned equipment");
-  await clickText("Review your character");
+  const customRow = `Array.from(document.querySelectorAll('.owned-list li')).find(item => item.innerText.includes('Accessibility sword'))`;
+  assert.match(await evaluate(`${customRow}?.innerText ?? ''`), /2 ENC contribution/, "owned row should show the item's ENC contribution");
+  await evaluate(`(() => { const row = ${customRow}; const select = row.querySelector('select'); select.value = 'worn'; select.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+  assert.match(await evaluate(`${customRow}?.innerText ?? ''`), /1 ENC contribution/, "changing item state should update its ENC contribution");
+  await evaluate(`(() => { const row = ${customRow}; const enc = row.querySelector('input[aria-label="ENC per item for Accessibility sword"]'); enc.value = '4'; enc.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+  assert.match(await evaluate(`${customRow}?.innerText ?? ''`), /2 ENC contribution/, "changing ENC should update the row and character load");
+  await call("Emulation.setDeviceMetricsOverride", { width: 320, height: 900, deviceScaleFactor: 1, mobile: true });
+  const compactOwned = JSON.parse(await evaluate(`(() => { const row = ${customRow}; const controls = Array.from(row.querySelectorAll('input[type="number"],select')); return JSON.stringify({ page:row.parentElement.parentElement.clientWidth, overflow:row.parentElement.parentElement.scrollWidth, widths:controls.map(control => control.getBoundingClientRect().width) }); })()`));
+  assert.ok(compactOwned.overflow <= compactOwned.page && compactOwned.widths.every(width => width <= 150), `owned controls should remain compact without horizontal overflow at 320px: ${JSON.stringify(compactOwned)}`);
+  await call("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
   await runAxe();
   assert.ok(await evaluate(`document.querySelector('.review-summary')?.innerText.includes('2 ENC')`), "custom sword ENC should contribute to the displayed character load");
   await clickText("Choose equipment");
@@ -236,7 +245,6 @@ try {
   assert.match(JSON.parse(ownedText).body, /Dagger/, `purchased item should appear in owned equipment: ${ownedText}`);
   assert.ok(await evaluate(`!!document.querySelector('.owned-list select')`), `equipment state control should render: ${ownedText}`);
   await evaluate(`(() => { const select = document.querySelector('.owned-list select'); select.value = 'worn'; select.dispatchEvent(new Event('change', { bubbles: true })); })()`);
-  await clickText("Review your character");
   assert.match(await evaluate(`document.querySelector('.review-summary')?.innerText ?? ''`), /Carrying load/, "review should show carrying load after purchase");
   await clickText("Choose equipment");
   await evaluate(`if (!document.querySelector('.item-detail')) document.querySelector('.catalogue-row')?.click()`);
