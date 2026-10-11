@@ -31,6 +31,7 @@ test("equipment starts with two activities and puts the character summary in own
   expect(inventory).toContain('<summary>Edit / actions</summary>');
   expect(inventory).toContain('window.confirm(`Remove ${itemName} from your equipment? This does not refund a purchase.`)');
   expect(inventory).toContain("Armour by hit location");
+  expect(inventory).toContain('wornArmourItems = $derived(armourItems.filter(item => item.state === "worn"))');
   expect(inventory).toContain("Melee weapons &amp; shields");
   expect(inventory).toContain("Ranged weapons");
   expect(inventory).toContain('aria-label="Melee weapons and shields"');

@@ -173,7 +173,7 @@
   const signedMoney = formatCopperPrice;
   const load = $derived(encumbranceSummary(char.background.inventory, char.chars.STR));
   const armourItems = $derived(char.background.inventory.filter(item => item.armour));
-  const wornArmourItems = $derived(armourItems.filter(item => item.armour?.state === "worn"));
+  const wornArmourItems = $derived(armourItems.filter(item => item.state === "worn"));
   const armourSummary = $derived(summarizeArmour(armourItems.flatMap(item => Array.from({ length: item.quantity }, (_, index) => ({
     id: `${item.id}-${index + 1}`, ...item.armour!, state: item.state,
   })))));
