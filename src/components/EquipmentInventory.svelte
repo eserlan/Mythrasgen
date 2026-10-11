@@ -20,6 +20,7 @@
   let sort = $state<"name" | "price">("name");
   let quantity = $state<Record<string, string>>({});
   let gmPrice = $state<Record<string, string>>({});
+  let freeAcquisition = $state<Record<string, "gifted" | "inherited" | "granted" | "">>({});
   let message = $state("");
   let purchaseBusy = $state(false);
   const matching = $derived(EQUIPMENT_CATALOGUE.filter(item => {
@@ -105,6 +106,7 @@
       if (amount(record.source.id) < 1) throw new Error("Enter a positive whole quantity.");
       acquireEquipment(record.source.id, amount(record.source.id), acquiredAs);
       message = `${record.source.name}: added as ${acquiredAs}.`;
+      freeAcquisition[record.source.id] = "";
     } catch (error) { message = error instanceof Error ? error.message : "Could not add item."; }
   }
   function refund(transactionId: string, originalAmount: number) {
@@ -277,7 +279,7 @@
               {#if record.base_enc_per_location === undefined && selected.kind === "physical_item" && record.category === "armour"}<p class="balance-warning">ENC per location is unknown; resolve it on the owned armour record when acquired.</p>{/if}
               {#if selected.kind !== "armour_material_modifier"}
                 <div class="purchase-controls">
-                  <div class="paid-purchase">
+                  <div class="acquisition-toolbar">
                     <div class="purchase-values">
                       <label class="quantity-control">Quantity <input class="quantity-input" aria-label={`Quantity of ${record.name}`} aria-invalid={amount(record.id) < 1} aria-describedby={amount(record.id) < 1 ? `quantity-error-${record.id}` : undefined} type="number" min="1" step="1" value={quantity[record.id] ?? "1"} onchange={event => quantity[record.id] = event.currentTarget.value}></label>
                       {#if unavailable}<label class="gm-price-control">GM price (CP) <input aria-label={`GM price in CP for ${record.name}`} type="number" min="0" step="1" value={gmPrice[record.id] ?? ""} onchange={event => gmPrice[record.id] = event.currentTarget.value} placeholder="Required"><small>Enter 0 only when the GM approves a free item.</small></label>{/if}
@@ -288,15 +290,15 @@
                     </div>
                     {#if selected.kind === "non_carried_purchase"}<button type="button" disabled={!canTransact(record)} onclick={() => purchase(selected)}>Record expense</button>
                     {:else}<button type="button" class="primary buy-button" disabled={!canTransact(record)} onclick={() => purchase(selected)}>{selected.kind === "wielding_profile" ? "Buy weapon" : "Buy"}</button>{/if}
-                  </div>
                   {#if selected.kind !== "non_carried_purchase"}
                     <div class="free-acquisition">
-                      <b>Add without paying</b>
-                      <label>Acquisition type <select aria-label={`Add ${record.name} without paying`} disabled={amount(record.id) < 1} onchange={event => { const value = event.currentTarget.value; if (value) acquire(selected, value as "gifted" | "inherited" | "granted"); event.currentTarget.value = "" }}>
+                      <label>Add without paying <select aria-label={`Add ${record.name} without paying`} value={freeAcquisition[record.id] ?? ""} disabled={amount(record.id) < 1} onchange={event => freeAcquisition[record.id] = event.currentTarget.value as "gifted" | "inherited" | "granted" | ""}>
                         <option value="">Choose an option…</option><option value="gifted">Gifted</option><option value="inherited">Inherited</option><option value="granted">Granted</option>
                       </select></label>
+                      <button type="button" disabled={amount(record.id) < 1 || !freeAcquisition[record.id]} onclick={() => { const acquiredAs = freeAcquisition[record.id]; if (acquiredAs) acquire(selected, acquiredAs); }}>Add item</button>
                     </div>
                   {/if}
+                  </div>
                   {#if amount(record.id) < 1}<p class="balance-warning" id={`quantity-error-${record.id}`} role="status">Enter a positive whole quantity.</p>{/if}
                   {#if unavailable && gmPrice[record.id] !== undefined && gmPrice[record.id] !== "" && customCp(record.id) === undefined}<p class="balance-warning" role="status">Enter a whole number of CP that is zero or more.</p>{/if}
                   {#if amount(record.id) > 0 && priceFor(record) !== undefined && priceFor(record)! * amount(record.id) > currentBalanceCp}<p class="balance-warning" role="status">This costs more than your remaining money. Reduce the quantity or ask the GM about the price.</p>{/if}
@@ -386,22 +388,22 @@
   .catalogue-info { margin:.5rem 0; color:var(--mute); }
   .catalogue-info summary { cursor:pointer; }
   .catalogue-filters { display:flex; align-items:end; flex-wrap:wrap; gap:.65rem; }
-  .purchase-controls { display:grid; gap:.8rem; margin-top:1rem; }
-  .paid-purchase { display:flex; align-items:end; flex-wrap:wrap; gap:1rem; padding:.85rem; border:1px solid var(--line); border-radius:.5rem; }
-  .purchase-values { display:flex; align-items:end; flex:1 1 25rem; flex-wrap:wrap; gap:.85rem 1rem; min-width:0; }
+  .purchase-controls { margin-top:1rem; }
+  .acquisition-toolbar { display:flex; align-items:end; flex-wrap:wrap; gap:.75rem; min-width:0; }
+  .purchase-values { display:flex; align-items:end; flex:0 1 auto; flex-wrap:wrap; gap:.6rem .85rem; min-width:0; }
   .purchase-values label { display:grid; gap:.25rem; }
   .purchase-values .quantity-control { flex:0 0 auto; }
   .purchase-values .quantity-input { box-sizing:border-box; width:6.5rem; min-height:2.75rem; }
   .purchase-values .gm-price-control { flex:0 1 12rem; min-width:min(100%,10rem); }
   .purchase-values .gm-price-control input { width:100%; }
-  .purchase-total { display:grid; gap:.2rem; min-width:7.5rem; }
+  .purchase-total { display:grid; gap:.2rem; min-width:6rem; }
   .purchase-total span { color:var(--mute); font-size:.9rem; }
   .pending-total { align-self:center; margin:0; }
-  .buy-button { min-width:7rem; min-height:2.75rem; }
-  .free-acquisition { display:flex; align-items:end; flex-wrap:wrap; gap:.5rem 1rem; padding:.75rem .85rem; border:1px solid var(--line); border-left:4px solid var(--mute); border-radius:.5rem; background:color-mix(in srgb,var(--card2) 65%,transparent); }
-  .free-acquisition > b { flex:1 1 100%; }
+  .buy-button { min-width:6rem; min-height:2.75rem; }
+  .free-acquisition { display:flex; align-items:end; flex-wrap:wrap; gap:.5rem .65rem; min-width:0; }
   .free-acquisition label { display:grid; gap:.25rem; }
-  .free-acquisition select { min-width:14rem; min-height:2.75rem; }
+  .free-acquisition select { width:10rem; min-width:0; min-height:2.75rem; }
+  .free-acquisition button { min-height:2.75rem; }
   .catalogue-filters label:first-child { flex:1 1 18rem; }
   .catalogue-filters input { width:100%; }
   .group-buttons,.subcategory-buttons { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,13rem),1fr)); gap:.6rem; margin-top:.75rem; }
@@ -442,13 +444,14 @@
     .catalogue-row { align-items:flex-start; }
     .row-price { max-width:40%; overflow-wrap:anywhere; }
     .owned-list li > div { flex-basis:100%; }
-    .paid-purchase { align-items:stretch; }
-    .purchase-values { flex-basis:100%; align-items:end; }
-    .purchase-values .quantity-control { flex:1 1 100%; }
+    .acquisition-toolbar { align-items:stretch; gap:.65rem; }
+    .purchase-values { flex:1 1 100%; align-items:end; }
+    .purchase-values .quantity-control { flex:0 0 auto; }
     .purchase-values .quantity-input { width:6.5rem; max-width:100%; }
     .purchase-values .gm-price-control { flex:1 1 100%; min-width:0; }
     .purchase-total { min-width:0; }
     .buy-button { width:100%; }
-    .free-acquisition label,.free-acquisition select { width:100%; min-width:0; }
+    .free-acquisition { flex:1 1 100%; }
+    .free-acquisition label,.free-acquisition select,.free-acquisition button { width:100%; min-width:0; }
   }
 </style>

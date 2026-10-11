@@ -41,11 +41,16 @@ test("purchase safeguards and outcomes are accessible and preserve GM pricing", 
   expect(inventory).toContain('aria-describedby={amount(record.id) < 1 ? `quantity-error-${record.id}` : undefined}');
   expect(inventory).toContain('class="free-acquisition"');
   expect(inventory).toContain("Add without paying");
+  expect(inventory).toContain('class="acquisition-toolbar"');
+  expect(inventory).toContain('class="primary buy-button"');
+  expect(inventory).toContain('onclick={() => { const acquiredAs = freeAcquisition[record.id]; if (acquiredAs) acquire(selected, acquiredAs); }}');
+  expect(inventory).not.toContain('if (value) acquire(selected, value as');
   for (const acquisition of ['<option value="gifted">Gifted</option>', '<option value="inherited">Inherited</option>', '<option value="granted">Granted</option>'])
     expect(inventory).toContain(acquisition);
   expect(inventory).toContain("width:6.5rem");
-  expect(inventory).toContain(".buy-button { min-width:7rem; min-height:2.75rem; }");
-  expect(inventory).toContain(".free-acquisition label,.free-acquisition select { width:100%; min-width:0; }");
+  expect(inventory).toContain(".buy-button { min-width:6rem; min-height:2.75rem; }");
+  expect(inventory).toContain(".free-acquisition { flex:1 1 100%; }");
+  expect(inventory).toContain(".free-acquisition label,.free-acquisition select,.free-acquisition button { width:100%; min-width:0; }");
 });
 
 test("technical provenance and armour location data are secondary disclosures", () => {
