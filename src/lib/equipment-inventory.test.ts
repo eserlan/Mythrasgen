@@ -136,19 +136,47 @@ describe("Page VIII equipment ledger", () => {
     expect(normalizeInventoryState(structuredClone(steel)).inventory[0]).toMatchObject({ encPerUnit: 4.5, armour: { material: "steel" } });
   });
 
-  test("carries Half Plate construction AP through acquisition and legacy snapshot backfill", () => {
+  test("shows nominal Half Plate AP from a persisted unresolved-fit record and retains effective protection after reload", () => {
     const selected = ["Chest", "Abdomen", "Right Arm", "Left Arm"] as const;
     const bought = addPurchase(blank(), item("armour-half-plate"), 1, undefined, undefined, { material: "iron", locations: [...selected] });
     const owned = bought.inventory[0];
     expect(owned.armour).toMatchObject({ construction: "half_plate", material: "iron", locations: selected });
-    const fitted = changeInventoryItem(bought, owned.id, { armour: { fit: "fitted" } });
-    expect(summarizeArmour([{ id: fitted.inventory[0].id, name: fitted.inventory[0].name, ...fitted.inventory[0].armour! }]).apByLocation)
+    const persisted = structuredClone(bought);
+    const restored = normalizeInventoryState(persisted);
+    const unresolvedPiece = { id: restored.inventory[0].id, name: restored.inventory[0].name, ...restored.inventory[0].armour! };
+    const unresolvedSummary = summarizeArmour([unresolvedPiece]);
+    expect(selected.map(location => unresolvedSummary.nominalApByLocation[location])).toEqual([5, 5, 5, 5]);
+    expect(selected.map(location => unresolvedSummary.apByLocation[location])).toEqual([null, null, null, null]);
+    expect(unresolvedSummary).toMatchObject({ fullWornEnc: 16, loadEnc: 8 });
+    expect(carriedLoad(restored.inventory).load).toBe(8);
+
+    const fitted = changeInventoryItem(restored, owned.id, { armour: { fit: "fitted" } });
+    const fittedSummary = summarizeArmour([{ id: fitted.inventory[0].id, name: fitted.inventory[0].name, ...fitted.inventory[0].armour! }]);
+    expect(selected.map(location => fittedSummary.nominalApByLocation[location])).toEqual([5, 5, 5, 5]);
+    expect(fittedSummary.apByLocation)
       .toMatchObject({ Chest: 5, Abdomen: 5, "Right Arm": 5, "Left Arm": 5, Head: 0 });
 
     const legacy = normalizeInventoryState({ inventory: [{ id: "old-half-plate", catalogueId: "armour-half-plate", name: "Half Plate", quantity: 1,
       state: "worn", armour: { locations: [...selected], fit: "unresolved", compatibility: "compatible", state: "worn", coverageResolved: true } }] });
     expect(legacy.inventory[0].armour).toMatchObject({ construction: "half_plate", material: "iron", fit: "unresolved" });
-    expect(summarizeArmour([{ id: legacy.inventory[0].id, name: legacy.inventory[0].name, ...legacy.inventory[0].armour! }]).apByLocation.Chest).toBeNull();
+    const legacySummary = summarizeArmour([{ id: legacy.inventory[0].id, name: legacy.inventory[0].name, ...legacy.inventory[0].armour! }]);
+    expect(legacySummary.nominalApByLocation.Chest).toBe(5);
+    expect(legacySummary.apByLocation.Chest).toBeNull();
+
+    const nameOnly = normalizeInventoryState({ inventory: [{ id: "name-only-half-plate", name: "Half Plate", quantity: 1,
+      state: "worn", armour: { locations: [...selected], fit: "unresolved", compatibility: "compatible", state: "worn", coverageResolved: true } }] });
+    expect(nameOnly.inventory[0].armour).toMatchObject({ construction: "half_plate", material: "iron" });
+  });
+
+  test("does not infer catalogue armour from a custom item's name", () => {
+    const gear = normalizeInventoryState({ inventory: [{ id: "custom-gear-half-plate", name: "Half Plate", quantity: 1,
+      customItem: { id: "custom-gear", type: "gear", name: "Half Plate" } }] });
+    expect(gear.inventory[0].armour).toBeUndefined();
+
+    const customArmour = normalizeInventoryState({ inventory: [{ id: "custom-armour-half-plate", name: "Half Plate", quantity: 1,
+      customItem: { id: "custom-armour", type: "armour", name: "Half Plate" },
+      armour: { construction: null, material: null, locations: ["Chest"], fit: "fitted", compatibility: "compatible", state: "worn" } }] });
+    expect(customArmour.inventory[0].armour).toMatchObject({ construction: null, material: null });
   });
 
   test("rejects unlisted material combinations unless explicitly GM-authorized", () => {

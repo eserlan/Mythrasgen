@@ -49,14 +49,18 @@ const armourConstructionForCatalogue: Record<string, ArmourConstructionId> = {
   "armour-scaled": "scaled", "armour-half-plate": "half_plate", "armour-mail": "mail",
   "armour-plated-mail": "plated_mail", "armour-articulated-plate": "articulated_plate",
 };
+const armourConstructionFor = (catalogueId: unknown, name: string): ArmourConstructionId | null => {
+  if (typeof catalogueId === "string" && armourConstructionForCatalogue[catalogueId]) return armourConstructionForCatalogue[catalogueId];
+  return Object.entries(ARMOUR_CONSTRUCTIONS).find(([, construction]) => construction.name === name)?.[0] as ArmourConstructionId | undefined ?? null;
+};
 export interface ArmourAcquisitionSelection {
   material: ArmourMaterialId;
   locations: HitLocationName[];
   gmCompatibilityOverride?: boolean;
 }
 
-function newArmourConfig(catalogueId: string, state: EquipmentState, selection?: ArmourAcquisitionSelection): Omit<ArmourPiece, "id"> {
-  const construction = armourConstructionForCatalogue[catalogueId] ?? null;
+function newArmourConfig(catalogueId: string, state: EquipmentState, selection?: ArmourAcquisitionSelection, knownConstruction?: ArmourConstructionId | null): Omit<ArmourPiece, "id"> {
+  const construction = knownConstruction ?? armourConstructionFor(catalogueId, "");
   if (selection && (!Object.hasOwn(ARMOUR_MATERIALS, selection.material)
       || selection.locations.some(location => !HIT_LOCATIONS.includes(location))
       || new Set(selection.locations).size !== selection.locations.length)) throw new Error("Choose a valid material and unique protected locations.");
@@ -79,6 +83,9 @@ export function normalizeInventoryState(value: unknown): InventoryState {
       ? EQUIPMENT_CATALOGUE.find(entry => entry.source.id === row.catalogueId)?.source.enc_candidate
       : undefined;
     const savedEnc = typeof row.encPerUnit === "number" && Number.isFinite(row.encPerUnit) && row.encPerUnit >= 0 ? row.encPerUnit : null;
+    const identifiableConstruction = typeof row.catalogueId === "string" && armourConstructionForCatalogue[row.catalogueId]
+      ? armourConstructionForCatalogue[row.catalogueId]
+      : row.customItem && typeof row.customItem === "object" ? null : armourConstructionFor(null, row.name);
     const encPerUnit = savedEnc ?? catalogueEnc ?? null;
     const encSource = row.encSource === "gm_override" && savedEnc !== null ? "gm_override"
       : savedEnc !== null && row.encSource === "catalogue_candidate" ? "catalogue_candidate"
@@ -99,11 +106,11 @@ export function normalizeInventoryState(value: unknown): InventoryState {
       ...(row.armour && typeof row.armour === "object" ? { armour: {
         construction: typeof row.armour.construction === "string" && Object.hasOwn(ARMOUR_CONSTRUCTIONS, row.armour.construction)
           ? row.armour.construction as ArmourConstructionId
-          : typeof row.catalogueId === "string" ? armourConstructionForCatalogue[row.catalogueId] ?? null : null,
+          : identifiableConstruction,
         material: typeof row.armour.material === "string" && Object.hasOwn(ARMOUR_MATERIALS, row.armour.material)
           ? row.armour.material as ArmourMaterialId
-          : row.armour.material === undefined && typeof row.catalogueId === "string" && armourConstructionForCatalogue[row.catalogueId]
-            ? standardArmourMaterial(armourConstructionForCatalogue[row.catalogueId]) : null,
+          : row.armour.material === undefined && identifiableConstruction
+            ? standardArmourMaterial(identifiableConstruction) : null,
         locations: Array.isArray(row.armour.locations) ? row.armour.locations.filter((location): location is HitLocationName =>
           ["Head", "Chest", "Abdomen", "Right Arm", "Left Arm", "Right Leg", "Left Leg"].includes(location)) : [],
         coverageResolved: typeof row.armour.coverageResolved === "boolean" ? row.armour.coverageResolved : false,
@@ -116,8 +123,8 @@ export function normalizeInventoryState(value: unknown): InventoryState {
         ...(typeof row.armour.apOverride === "number" && row.armour.apOverride >= 0 ? { apOverride: row.armour.apOverride } : {}),
       } } : {}),
     } as InventoryItem;
-    if (!normalizedItem.armour && normalizedItem.catalogueId && armourConstructionForCatalogue[normalizedItem.catalogueId]) {
-      normalizedItem.armour = newArmourConfig(normalizedItem.catalogueId, normalizedItem.state);
+    if (!normalizedItem.armour && identifiableConstruction) {
+      normalizedItem.armour = newArmourConfig(normalizedItem.catalogueId ?? "", normalizedItem.state, undefined, identifiableConstruction);
     }
     return [normalizedItem];
   }) : [];

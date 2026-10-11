@@ -193,7 +193,7 @@
   const ownedArmourRows = $derived(HIT_LOCATIONS.map(location => {
     const pieces = wornArmourItems.filter(item => item.armour?.locations.includes(location));
     const unresolvedCoverage = wornArmourItems.filter(item => !item.armour?.locations.length && !item.armour?.coverageResolved);
-    const ap = armourSummary.apByLocation[location];
+    const ap = armourSummary.nominalApByLocation[location];
     const enc = unresolvedCoverage.length ? null : pieces.reduce<number | null>((total, item) => {
       if (total === null) return null;
       const piece = item.armour!;
@@ -291,7 +291,7 @@
   <div class="review-summary" aria-live="polite" aria-label="Equipment summary">
     <div><small>Money remaining (SP)</small><b>{signedMoney(currentBalanceCp)}</b></div>
     <div><small>Carrying load (ENC)</small><b>{load.load === null ? `At least ${load.knownLoad} ENC · unknown` : `${load.load} ENC · ${load.band}`}</b></div>
-    <div><small>Armour protection</small><b>{armourItems.length ? `${Object.values(armourSummary.apByLocation).filter(ap => ap !== null && ap > 0).length} locations protected` : "No armour recorded"}</b></div>
+    <div><small>Armour protection</small><b>{armourItems.length ? `${Object.values(armourSummary.apByLocation).filter(ap => ap !== null && ap > 0).length} locations effectively protected` : "No armour recorded"}</b></div>
   </div>
   {#if load.unresolvedItems.length}<p class="balance-warning" role="status">Load is incomplete. Add ENC for: {load.unresolvedItems.join(", ")}.</p>{/if}
   {#if armourSummary.unresolved.length}<p class="balance-warning" role="status">Armour needs review: {armourSummary.unresolved.join("; ")}</p>{/if}
@@ -343,10 +343,11 @@
     {#if wornArmourItems.length}
       <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
       <div class="table-scroll" role="region" aria-label="Armour by hit location" tabindex="0">
-        <table class="sheet-table"><thead><tr><th scope="col">Hit location</th><th scope="col">Armour worn</th><th scope="col">AP</th><th scope="col">ENC</th></tr></thead>
+        <table class="sheet-table"><thead><tr><th scope="col">Hit location</th><th scope="col">Armour worn</th><th scope="col">Nominal AP</th><th scope="col">ENC</th></tr></thead>
           <tbody>{#each ownedArmourRows as row}<tr><th scope="row">{row.location}</th><td>{[...row.pieces.map(item => item.quantity > 1 ? `${item.name} × ${item.quantity}` : item.name), ...row.unresolvedCoverage.map(item => `${item.name} (coverage unknown)`)].join(", ") || "—"}</td><td>{row.ap === null ? "Unknown" : row.ap || "—"}</td><td>{row.enc === null ? "Unknown" : row.enc || "—"}</td></tr>{/each}</tbody>
         </table>
       </div>
+      <p class="mute">Nominal AP comes from armour construction. Fit and material compatibility determine whether that protection is effective.</p>
       <p class="armour-totals">Worn full ENC: <b>{armourSummary.fullWornEnc ?? "Unknown"}</b> · Worn load ENC: <b>{armourSummary.loadEnc ?? "Unknown"}</b> · Armour penalty: <b>{armourSummary.initiativePenalty === null ? "Unknown" : `${armourSummary.initiativePenalty} initiative penalty`}</b></p>
     {:else}<p class="empty-state">No worn armour.</p>{/if}
   </section>
