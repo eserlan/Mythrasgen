@@ -4,6 +4,8 @@
   import { acquireEquipment, char, deleteInventoryItem, equipmentBalanceCp, equipmentSpentCp, purchaseEquipment, recordEquipmentExpense, refundEquipmentPurchase, startingMoney, updateInventoryItem } from "../lib/store.svelte";
   import { encumbranceSummary } from "../lib/encumbrance";
   import { ARMOUR_CONSTRUCTIONS, ARMOUR_MATERIALS, HIT_LOCATIONS, summarizeArmour, type HitLocationName } from "../lib/armour-rules";
+  import { validateCustomEquipment, type CustomEquipmentDefinition, type CustomEquipmentType } from "../lib/custom-equipment";
+  import { acquireCustomEquipment, deleteCustomEquipment, purchaseCustomEquipment, saveCustomEquipment } from "../lib/store.svelte";
 
   const categories: EquipmentCategory[] = [...new Set(EQUIPMENT_CATALOGUE.map(item => item.source.category))];
   const categoryGroups: { name: string; categories: EquipmentCategory[] }[] = [
@@ -23,6 +25,72 @@
   let freeAcquisition = $state<Record<string, "gifted" | "inherited" | "granted" | "">>({});
   let message = $state("");
   let purchaseBusy = $state(false);
+  let customFormOpen = $state(false);
+  let editingCustomId = $state<string | null>(null);
+  let customName = $state("");
+  let customType = $state<CustomEquipmentType>("weapon");
+  let customDescription = $state("");
+  let customPriceSp = $state("");
+  let customEnc = $state("");
+  let customDamage = $state("");
+  let customSize = $state("");
+  let customReach = $state("");
+  let customAp = $state("");
+  let customHp = $state("");
+  let customHands = $state("");
+  let customTraits = $state("");
+  let customLocations = $state<HitLocationName[]>([]);
+  let customConstruction = $state("");
+  let customMaterial = $state("");
+  let customQuantity = $state<Record<string, string>>({});
+  const entered = (value: string | number) => String(value).trim();
+  const customPriceCp = () => entered(customPriceSp) === "" ? null : Number(customPriceSp) * 10;
+  const customDefinitions = $derived(char.background.customEquipment);
+  function resetCustomForm(definition?: CustomEquipmentDefinition) {
+    editingCustomId = definition?.id ?? null;
+    customName = definition?.name ?? ""; customType = definition?.type ?? "weapon"; customDescription = definition?.description ?? "";
+    customPriceSp = definition?.priceCp === null || definition?.priceCp === undefined ? "" : String(definition.priceCp / 10);
+    customEnc = definition?.enc === null || definition?.enc === undefined ? "" : String(definition.enc);
+    customDamage = definition?.damage ?? ""; customSize = definition?.size ?? ""; customReach = definition?.reach ?? "";
+    customAp = definition?.ap === undefined ? "" : String(definition.ap); customHp = definition?.hp === undefined ? "" : String(definition.hp);
+    customHands = definition?.hands === undefined ? "" : String(definition.hands); customTraits = definition?.traits ?? "";
+    customLocations = [...(definition?.protectedLocations ?? [])]; customConstruction = definition?.construction ?? "";
+    customMaterial = definition?.material ?? ""; customFormOpen = true;
+  }
+  function submitCustomDefinition() {
+    const value = { name: customName.trim(), type: customType, description: customDescription,
+      priceCp: customPriceCp(), enc: entered(customEnc) === "" ? null : Number(customEnc),
+      ...(customType === "weapon" || customType === "shield" ? { damage: customDamage, size: customSize, reach: customReach,
+        ...(entered(customAp) !== "" ? { ap: Number(customAp) } : {}), ...(entered(customHp) !== "" ? { hp: Number(customHp) } : {}),
+        ...(customType === "weapon" ? { hands: Number(customHands) } : {}), traits: customTraits } : {}),
+      ...(customType === "armour" ? { ...(entered(customAp) !== "" ? { ap: Number(customAp) } : {}), protectedLocations: customLocations,
+        construction: customConstruction, material: customMaterial } : {}) };
+    const errors = validateCustomEquipment(value);
+    if (entered(customPriceSp) !== "" && (!Number.isFinite(value.priceCp) || !Number.isSafeInteger(value.priceCp) || value.priceCp! < 0)) errors.push("Price must be zero or more SP, with at most one decimal place.");
+    if (entered(customEnc) !== "" && (!Number.isFinite(value.enc) || value.enc! < 0)) errors.push("ENC must be zero or more.");
+    if (entered(customAp) !== "" && (!Number.isSafeInteger(value.ap) || value.ap! < 0)) errors.push("AP must be a whole number of zero or more.");
+    if (entered(customHp) !== "" && (!Number.isSafeInteger(value.hp) || value.hp! < 0)) errors.push("HP must be a whole number of zero or more.");
+    if (errors.length) { message = errors[0]; return; }
+    const saved = saveCustomEquipment(value, editingCustomId ?? undefined);
+    message = `${saved.name}: custom definition saved. Saving it did not change money or inventory.`;
+    customFormOpen = false; editingCustomId = null;
+  }
+  function removeCustomDefinition(definition: CustomEquipmentDefinition) {
+    const owned = char.background.inventory.some(item => item.customItem?.id === definition.id);
+    if (owned && !window.confirm(`${definition.name} is still owned. Remove its definition? Existing inventory and purchase snapshots will be preserved.`)) return;
+    deleteCustomEquipment(definition.id);
+    message = owned ? `${definition.name}: definition removed; owned item snapshots are preserved.` : `${definition.name}: custom definition removed.`;
+  }
+  function buyCustom(definition: CustomEquipmentDefinition) {
+    const qty = Number(customQuantity[definition.id] ?? "1");
+    try { purchaseCustomEquipment(definition.id, qty); message = `${definition.name}: ${definition.type === "service" ? "expense recorded" : "purchased"}.`; }
+    catch (error) { message = error instanceof Error ? error.message : "Could not purchase custom item."; }
+  }
+  function giftCustom(definition: CustomEquipmentDefinition) {
+    const qty = Number(customQuantity[definition.id] ?? "1");
+    try { acquireCustomEquipment(definition.id, qty, "granted"); message = `${definition.name}: added without paying.`; }
+    catch (error) { message = error instanceof Error ? error.message : "Could not add custom item."; }
+  }
   const matching = $derived(EQUIPMENT_CATALOGUE.filter(item => {
     const q = query.trim().toLowerCase();
     const inGroup = group === null || categoryGroups.find(entry => entry.name === group)?.categories.includes(item.source.category) === true;
@@ -173,8 +241,8 @@
     <ul class="owned-list">
       {#each char.background.inventory as item (item.id)}
         <li>
-          <div><b>{item.name}</b> × {item.quantity} <span class="tag">{item.state}</span>
-            <details class="item-source"><summary>Item details</summary><p class="mute">Acquired as {item.acquiredAs}.</p></details>
+          <div><b>{item.name}</b> × {item.quantity} <span class="tag">{item.state}</span>{#if item.customItem}<span class="tag">Custom</span>{/if}
+            <details class="item-source"><summary>Item details</summary><p class="mute">Acquired as {item.acquiredAs}.{#if item.customItem} Custom {item.customItem.type}. {item.customItem.description}{/if}</p></details>
           </div>
           <label>Quantity <input aria-label={`Quantity of ${item.name}`} type="number" min="1" step="1" value={item.quantity} onchange={event => editInventoryQuantity(item.id, item.name, event.currentTarget.value)}></label>
           <label>State <select value={item.state} onchange={event => saveInventoryChange(item.id, item.name, { state: event.currentTarget.value as "carried" | "worn" | "stored" })}>
@@ -216,6 +284,57 @@
   {#if view === "choose"}
   <h4>Choose equipment</h4>
   <p class="mute">Choose a group or search everything. Select an item to see its details and options.</p>
+  <div class="choose-actions"><button type="button" class="primary" onclick={() => resetCustomForm()}>Create custom item</button>
+    <button type="button" onclick={() => { query = ""; group = null; category = null; }}>Browse Core catalogue</button></div>
+  {#if customFormOpen}
+    <section class="item-detail custom-form" aria-labelledby="custom-form-title">
+      <h5 id="custom-form-title">{editingCustomId ? "Edit custom item" : "Create custom item"}</h5>
+      <p class="mute">Custom definitions belong to this character. Saving a definition does not buy it or add it to inventory.</p>
+      <div class="custom-fields">
+        <label>Item type <select bind:value={customType}><option value="weapon">Weapon</option><option value="shield">Shield</option><option value="armour">Armour</option><option value="clothing">Clothing</option><option value="gear">Tools / gear</option><option value="ammunition">Ammunition</option><option value="vehicle">Vehicle</option><option value="supply">Supply</option><option value="service">Service</option><option value="other">Other</option></select></label>
+        <label>Item name <input bind:value={customName} required maxlength="100" autocomplete="off"></label>
+        <label>Description / notes <textarea bind:value={customDescription} rows="2" maxlength="1000"></textarea></label>
+        <label>Price (SP) <input type="number" min="0" step="0.1" bind:value={customPriceSp} placeholder="Unknown / ask GM"><small>Blank means unknown. Decimal tenths of an SP record CP remainder.</small></label>
+        <label>ENC <input type="number" min="0" step="0.25" bind:value={customEnc} placeholder="Unknown"><small>Blank stays unresolved in load calculations.</small></label>
+        {#if customType === "weapon" || customType === "shield"}
+          <label>Base damage <input bind:value={customDamage} placeholder="e.g. 1d8" aria-describedby="custom-damage-help"><small id="custom-damage-help">Dice expression only; apply Damage Modifier separately where appropriate.</small></label>
+          <label>Size <select bind:value={customSize}><option value="">Choose…</option><option>Tiny</option><option>Small</option><option>Medium</option><option>Large</option><option>Huge</option></select></label>
+          <label>Reach <select bind:value={customReach}><option value="">Choose…</option><option>Touch</option><option>Short</option><option>Medium</option><option>Long</option><option>Very Long</option></select></label>
+          <label>{customType === "shield" ? "Shield AP" : "Weapon AP"} <input type="number" min="0" step="1" bind:value={customAp} placeholder="Unknown"></label>
+          <label>{customType === "shield" ? "Shield HP" : "Weapon HP"} <input type="number" min="0" step="1" bind:value={customHp} placeholder="Unknown"></label>
+          {#if customType === "weapon"}<label>Hands required <select bind:value={customHands}><option value="">Choose…</option><option value="1">One hand</option><option value="2">Two hands</option></select></label>{/if}
+          <label>Special effects / traits <textarea bind:value={customTraits} rows="2" placeholder="GM-defined notes"></textarea><small>Notes only; these do not change combat calculations.</small></label>
+        {:else if customType === "armour"}
+          <label>Protection AP <input type="number" min="0" step="1" bind:value={customAp} placeholder="Unknown"></label>
+          <label>Construction <select bind:value={customConstruction}><option value="">Unresolved / GM-defined</option>{#each Object.entries(ARMOUR_CONSTRUCTIONS) as [id, construction]}<option value={id}>{construction.name}</option>{/each}</select></label>
+          <label>Material <select bind:value={customMaterial}><option value="">Unresolved / GM-defined</option>{#each Object.entries(ARMOUR_MATERIALS) as [id, material]}<option value={id}>{material.name}</option>{/each}</select></label>
+          <fieldset class="custom-locations"><legend>Protected hit locations (choose at least one)</legend>{#each HIT_LOCATIONS as location}<label><input type="checkbox" checked={customLocations.includes(location)} onchange={event => customLocations = event.currentTarget.checked ? [...new Set([...customLocations, location])] : customLocations.filter(item => item !== location)}>{location}</label>{/each}</fieldset>
+          <p class="mute">Custom AP applies only to selected locations. The existing fit and compatibility checks still govern worn armour.</p>
+        {/if}
+      </div>
+      <div class="choose-actions"><button type="button" class="primary" onclick={submitCustomDefinition}>{editingCustomId ? "Save changes" : "Save custom item"}</button><button type="button" onclick={() => { customFormOpen = false; editingCustomId = null; }}>Cancel</button></div>
+    </section>
+  {/if}
+  {#if customDefinitions.length}
+    <section class="my-custom-items" aria-labelledby="my-custom-items-title">
+      <h5 id="my-custom-items-title">My Custom Items</h5>
+      <ul class="catalogue-list">
+        {#each customDefinitions as definition (definition.id)}
+          <li class="custom-entry"><div class="custom-entry-title"><b>{definition.name}</b><span class="tag">Custom · {definition.type}</span><span>{definition.priceCp === null ? "Price unknown" : formatCopperPrice(definition.priceCp)} · {definition.enc === null ? "ENC unknown" : `${definition.enc} ENC`}</span>
+            {#if definition.description}<p class="mute">{definition.description}</p>{/if}
+            {#if definition.damage}<small>{definition.damage} · {definition.size} size · {definition.reach} reach · AP {definition.ap} · HP {definition.hp}{#if definition.type === "weapon"} · {definition.hands} hand(s){/if}</small>{/if}
+            {#if definition.traits}<small>GM-defined traits: {definition.traits}</small>{/if}
+            {#if definition.type === "armour"}<small>AP {definition.ap} · Locations: {definition.protectedLocations?.join(", ")}</small>{/if}
+          </div>
+          <div class="custom-entry-actions"><label>Quantity <input type="number" min="1" step="1" value={customQuantity[definition.id] ?? "1"} onchange={event => customQuantity[definition.id] = event.currentTarget.value}></label>
+            <button type="button" disabled={definition.priceCp === null || Number(customQuantity[definition.id] ?? "1") < 1 || definition.priceCp * Number(customQuantity[definition.id] ?? "1") > currentBalanceCp} onclick={() => buyCustom(definition)}>{definition.type === "service" ? "Buy / record expense" : "Buy"}</button>
+            {#if definition.type !== "service"}<button type="button" onclick={() => giftCustom(definition)}>Add without paying</button>{/if}
+            <button type="button" onclick={() => resetCustomForm(definition)}>Edit</button><button type="button" class="ghost" onclick={() => removeCustomDefinition(definition)}>Remove definition</button>
+          </div></li>
+        {/each}
+      </ul>
+    </section>
+  {/if}
   <div class="catalogue-filters">
     <label>Search all equipment <input type="search" bind:value={query} placeholder="Search all 206 records by name or source"></label>
     <label>Sort by <select bind:value={sort}><option value="name">Name</option><option value="price">Price (lowest first)</option></select></label>
@@ -388,6 +507,19 @@
   .catalogue-info { margin:.5rem 0; color:var(--mute); }
   .catalogue-info summary { cursor:pointer; }
   .catalogue-filters { display:flex; align-items:end; flex-wrap:wrap; gap:.65rem; }
+  .choose-actions,.custom-entry-actions { display:flex; align-items:end; flex-wrap:wrap; gap:.5rem; margin:.6rem 0; }
+  .custom-fields { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,13rem),1fr)); gap:.65rem; margin-top:.75rem; }
+  .custom-fields label { min-width:0; display:grid; align-content:start; gap:.25rem; }
+  .custom-fields :is(input,select,textarea) { box-sizing:border-box; width:100%; min-width:0; }
+  .custom-fields textarea { resize:vertical; }
+  .custom-fields small { color:var(--mute); }
+  .custom-locations { grid-column:1/-1; display:flex; flex-wrap:wrap; gap:.5rem; }
+  .custom-locations label { display:flex; align-items:center; }
+  .custom-entry { padding:.7rem; border:1px solid var(--line); border-radius:.4rem; }
+  .custom-entry-title { display:grid; gap:.25rem; }
+  .custom-entry-actions label { display:grid; gap:.25rem; }
+  .custom-entry-actions input { width:5rem; min-height:2.5rem; }
+  .my-custom-items { margin:.8rem 0; }
   .purchase-controls { margin-top:1rem; }
   .acquisition-toolbar { display:flex; align-items:end; flex-wrap:wrap; gap:.75rem; min-width:0; }
   .purchase-values { display:flex; align-items:end; flex:0 1 auto; flex-wrap:wrap; gap:.6rem .85rem; min-width:0; }

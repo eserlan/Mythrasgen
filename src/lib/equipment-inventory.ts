@@ -1,6 +1,7 @@
 import { EQUIPMENT_CATALOGUE, EQUIPMENT_CATALOGUE_VERSION, createEquipmentPurchase, type EquipmentSourceRecord } from "./equipment-catalogue";
 import type { ArmourPiece, ArmourConstructionId, ArmourMaterialId, CompatibilityState, FitState, HitLocationName } from "./armour-rules";
 import { ARMOUR_CONSTRUCTIONS, ARMOUR_MATERIALS } from "./armour-rules";
+import type { CustomEquipmentDefinition } from "./custom-equipment";
 
 export type EquipmentState = "carried" | "worn" | "stored";
 export type EquipmentAcquisition = "purchased" | "gifted" | "inherited" | "granted";
@@ -20,6 +21,7 @@ export interface InventoryItem {
   /** Everyday clothing does not count toward load; otherwise zero-ENC stacks count in groups of 20. */
   encumbranceExempt?: boolean;
   armour?: Omit<ArmourPiece, "id">;
+  customItem?: CustomEquipmentDefinition;
 }
 export interface InventoryTransaction {
   id: string;
@@ -79,6 +81,7 @@ export function normalizeInventoryState(value: unknown): InventoryState {
       encPerUnit,
       encSource,
       ...(typeof row.encumbranceExempt === "boolean" ? { encumbranceExempt: row.encumbranceExempt } : {}),
+      ...(row.customItem && typeof row.customItem === "object" ? { customItem: row.customItem } : {}),
       ...(row.armour && typeof row.armour === "object" ? { armour: {
         construction: typeof row.armour.construction === "string" && Object.hasOwn(ARMOUR_CONSTRUCTIONS, row.armour.construction)
           ? row.armour.construction as ArmourConstructionId : null,

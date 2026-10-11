@@ -81,7 +81,7 @@
           <tr>
             <th scope="row">{item.name}</th><td>{item.quantity}</td><td>{item.state}</td><td>{item.acquiredAs}</td>
             <td>{#if item.armour}{item.armour.encOverride !== undefined ? `${item.armour.encOverride} per covered location (GM value)` : item.armour.construction && item.armour.material && ARMOUR_CONSTRUCTIONS[item.armour.construction] && ARMOUR_MATERIALS[item.armour.material] ? "Derived" : "Unresolved"}{:else if item.encPerUnit === null}Unresolved{:else}{item.encPerUnit} per item{item.encSource === "gm_override" ? " (GM value)" : ""}{/if}</td>
-            <td>{item.sourceIds.length ? item.sourceIds.join(", ") : "Unresolved"}</td>
+            <td>{item.customItem ? `Custom · ${item.customItem.type}` : item.sourceIds.length ? item.sourceIds.join(", ") : "Unresolved"}</td>
           </tr>
         {/each}</tbody>
       </table></div>

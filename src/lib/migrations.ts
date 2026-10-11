@@ -4,6 +4,7 @@ import type { BackgroundEvent } from "./background-rules";
 import { CORE_BACKGROUND_EVENTS, coreBackgroundEventForRoll } from "./background-events";
 import { ALL_RELATIONSHIP_TYPES, type FamilyRelationship, type RelationshipType } from "./family-relationships";
 import type { InventoryItem, InventoryTransaction } from "./equipment-inventory";
+import type { CustomEquipmentDefinition } from "./custom-equipment";
 
 export type { AgeCategory } from "./rules";
 
@@ -39,6 +40,7 @@ export interface BackgroundData {
   purchases: { name: string; cost: number }[];
   inventory: InventoryItem[];
   equipmentTransactions: InventoryTransaction[];
+  customEquipment: CustomEquipmentDefinition[];
 }
 
 /** Keep old saves on the same logical screen when Magic is inserted before Background. */
@@ -185,5 +187,6 @@ export function normalizeBackground(value: unknown, fallback: BackgroundData): B
       : fallback.purchases,
     inventory: Array.isArray(saved.inventory) ? saved.inventory as InventoryItem[] : [],
     equipmentTransactions: Array.isArray(saved.equipmentTransactions) ? saved.equipmentTransactions as InventoryTransaction[] : [],
+    customEquipment: Array.isArray(saved.customEquipment) ? saved.customEquipment as CustomEquipmentDefinition[] : [],
   };
 }
