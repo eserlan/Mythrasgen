@@ -1,4 +1,4 @@
-import { ARMOUR_CONSTRUCTIONS, ARMOUR_MATERIALS, HIT_LOCATIONS, type HitLocationName } from "./armour-rules";
+import { ARMOUR_CONSTRUCTIONS, ARMOUR_MATERIALS, HIT_LOCATIONS, armourMaterialCompatibility, type HitLocationName } from "./armour-rules";
 import type { InventoryItem } from "./equipment-inventory";
 
 export const CUSTOM_EQUIPMENT_TYPES = ["weapon", "shield", "armour", "clothing", "gear", "ammunition", "vehicle", "supply", "service", "other"] as const;
@@ -20,6 +20,7 @@ export interface CustomEquipmentDefinition {
   protectedLocations?: HitLocationName[];
   construction?: string;
   material?: string;
+  gmCompatibilityOverride?: boolean;
   updatedAt: string;
 }
 
@@ -40,6 +41,10 @@ export function validateCustomEquipment(value: Omit<CustomEquipmentDefinition, "
   if (value.type === "armour") {
     if (value.ap !== undefined && (!Number.isSafeInteger(value.ap) || value.ap < 0)) errors.push("Protection AP must be a whole number of zero or more.");
     if (!value.protectedLocations?.length || value.protectedLocations.some(location => !HIT_LOCATIONS.includes(location))) errors.push("Select at least one valid protected hit location.");
+    if (value.construction && Object.hasOwn(ARMOUR_CONSTRUCTIONS, value.construction)
+        && value.material && Object.hasOwn(ARMOUR_MATERIALS, value.material)
+        && armourMaterialCompatibility(value.construction as keyof typeof ARMOUR_CONSTRUCTIONS, value.material as keyof typeof ARMOUR_MATERIALS) !== "compatible"
+        && !value.gmCompatibilityOverride) errors.push("This construction and material need an explicit GM compatibility override.");
   }
   return errors;
 }
@@ -64,6 +69,7 @@ export function normalizeCustomEquipment(value: unknown): CustomEquipmentDefinit
       reach: typeof row.reach === "string" ? row.reach : undefined,
       ap: numericField(row.ap), hp: numericField(row.hp), hands: numericField(row.hands),
       traits: typeof row.traits === "string" ? row.traits : undefined,
+      gmCompatibilityOverride: row.gmCompatibilityOverride === true,
       protectedLocations: Array.isArray(row.protectedLocations) ? row.protectedLocations.filter((location): location is HitLocationName => HIT_LOCATIONS.includes(location)) : [],
       updatedAt: typeof row.updatedAt === "string" ? row.updatedAt : new Date(0).toISOString() };
     if (validateCustomEquipment(candidate).length) return [];
@@ -74,14 +80,19 @@ export function normalizeCustomEquipment(value: unknown): CustomEquipmentDefinit
 export function customEquipmentInventoryItem(definition: CustomEquipmentDefinition, acquiredAs: "purchased" | "gifted" | "inherited" | "granted", quantity: number, id: string): InventoryItem {
   if (definition.type === "service") throw new Error("Services do not create inventory.");
   if (!Number.isSafeInteger(quantity) || quantity < 1) throw new Error("Quantity must be a positive whole number.");
+  const construction = definition.construction && Object.hasOwn(ARMOUR_CONSTRUCTIONS, definition.construction)
+    ? definition.construction as keyof typeof ARMOUR_CONSTRUCTIONS : null;
+  const material = definition.material && Object.hasOwn(ARMOUR_MATERIALS, definition.material)
+    ? definition.material as keyof typeof ARMOUR_MATERIALS : null;
+  const compatibility = construction && material ? armourMaterialCompatibility(construction, material) : "compatible";
   return { id, catalogueId: null, sourceIds: [], name: definition.name, quantity, acquiredAs,
     state: definition.type === "armour" ? "worn" : "carried", encPerUnit: definition.enc,
     encSource: definition.enc === null ? "unresolved" : "gm_override",
     customItem: { ...definition, ...(definition.protectedLocations ? { protectedLocations: [...definition.protectedLocations] } : {}) },
-    ...(definition.type === "armour" ? { armour: { construction: definition.construction && Object.hasOwn(ARMOUR_CONSTRUCTIONS, definition.construction)
-      ? definition.construction as keyof typeof ARMOUR_CONSTRUCTIONS : null,
-    material: definition.material && Object.hasOwn(ARMOUR_MATERIALS, definition.material) ? definition.material as keyof typeof ARMOUR_MATERIALS : null,
+    ...(definition.type === "armour" ? { armour: { construction,
+    material,
     locations: [...(definition.protectedLocations ?? [])], coverageResolved: true, state: "worn" as const,
-    fit: "fitted" as const, compatibility: "compatible" as const, apOverride: definition.ap,
+    fit: "fitted" as const, compatibility: compatibility === "compatible" ? "compatible" as const : "incompatible" as const,
+    ...(definition.gmCompatibilityOverride ? { gmCompatibilityOverride: true } : {}), apOverride: definition.ap,
     ...(definition.enc !== null ? { encOverride: definition.enc } : {}) } } : {}) };
 }

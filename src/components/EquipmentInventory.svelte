@@ -3,7 +3,7 @@
   import { EQUIPMENT_CATALOGUE, displayEquipmentPrice, formatCopperPrice, type EquipmentCategory } from "../lib/equipment-catalogue";
   import { acquireEquipment, char, deleteInventoryItem, equipmentBalanceCp, equipmentSpentCp, purchaseEquipment, recordEquipmentExpense, refundEquipmentPurchase, startingMoney, updateInventoryItem } from "../lib/store.svelte";
   import { encumbranceSummary } from "../lib/encumbrance";
-  import { ARMOUR_CONSTRUCTIONS, ARMOUR_MATERIALS, HIT_LOCATIONS, summarizeArmour, type HitLocationName } from "../lib/armour-rules";
+  import { ARMOUR_CONSTRUCTIONS, ARMOUR_MATERIALS, HIT_LOCATIONS, armourEncumbrance, armourMaterialCompatibility, standardArmourMaterial, summarizeArmour, type ArmourConstructionId, type ArmourMaterialId, type HitLocationName } from "../lib/armour-rules";
   import { validateCustomEquipment, type CustomEquipmentDefinition, type CustomEquipmentType } from "../lib/custom-equipment";
   import { acquireCustomEquipment, deleteCustomEquipment, purchaseCustomEquipment, saveCustomEquipment } from "../lib/store.svelte";
 
@@ -22,6 +22,9 @@
   let sort = $state<"name" | "price">("name");
   let quantity = $state<Record<string, string>>({});
   let gmPrice = $state<Record<string, string>>({});
+  let armourMaterial = $state<Record<string, ArmourMaterialId>>({});
+  let armourLocations = $state<Record<string, HitLocationName[]>>({});
+  let armourGmOverride = $state<Record<string, boolean>>({});
   let freeAcquisition = $state<Record<string, "gifted" | "inherited" | "granted" | "">>({});
   let message = $state("");
   let purchaseBusy = $state(false);
@@ -43,6 +46,7 @@
   let customLocationsError = $state(false);
   let customConstruction = $state("");
   let customMaterial = $state("");
+  let customArmourGmOverride = $state(false);
   let customQuantity = $state<Record<string, string>>({});
   const entered = (value: string | number) => String(value).trim();
   const customPriceCp = () => entered(customPriceSp) === "" ? null : Number(customPriceSp) * 10;
@@ -56,7 +60,7 @@
     customAp = definition?.ap === undefined ? "" : String(definition.ap); customHp = definition?.hp === undefined ? "" : String(definition.hp);
     customHands = definition?.hands === undefined ? "" : String(definition.hands); customTraits = definition?.traits ?? "";
     customLocations = [...(definition?.protectedLocations ?? [])]; customConstruction = definition?.construction ?? "";
-    customMaterial = definition?.material ?? ""; customLocationsError = false; customFormOpen = true;
+    customMaterial = definition?.material ?? ""; customArmourGmOverride = !!definition?.gmCompatibilityOverride; customLocationsError = false; customFormOpen = true;
   }
   function submitCustomDefinition() {
     const value = { name: customName.trim(), type: customType, description: customDescription,
@@ -65,7 +69,7 @@
         ...(entered(customAp) !== "" ? { ap: Number(customAp) } : {}), ...(entered(customHp) !== "" ? { hp: Number(customHp) } : {}),
         ...(customType === "weapon" ? { hands: Number(customHands) } : {}), traits: customTraits } : {}),
       ...(customType === "armour" ? { ...(entered(customAp) !== "" ? { ap: Number(customAp) } : {}), protectedLocations: customLocations,
-        construction: customConstruction, material: customMaterial } : {}) };
+        construction: customConstruction, material: customMaterial, gmCompatibilityOverride: customArmourGmOverride } : {}) };
     const errors = validateCustomEquipment(value);
     if (entered(customPriceSp) !== "" && (!Number.isFinite(value.priceCp) || !Number.isSafeInteger(value.priceCp) || value.priceCp! < 0)) errors.push("Price must be zero or more SP, with at most one decimal place.");
     if (entered(customEnc) !== "" && (!Number.isFinite(value.enc) || value.enc! < 0)) errors.push("ENC must be zero or more.");
@@ -140,10 +144,27 @@
     const parsed = Number(gmPrice[id]);
     return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : undefined;
   };
-  const priceFor = (record: typeof EQUIPMENT_CATALOGUE[number]["source"]) => record.price_cp_candidate ?? customCp(record.id);
+  const armourConstructionFor = (record: typeof EQUIPMENT_CATALOGUE[number]["source"]) =>
+    Object.entries(ARMOUR_CONSTRUCTIONS).find(([, construction]) => construction.name === record.name)?.[0] as ArmourConstructionId | undefined;
+  const materialFor = (record: typeof EQUIPMENT_CATALOGUE[number]["source"]) => armourMaterial[record.id] ?? (armourConstructionFor(record) ? standardArmourMaterial(armourConstructionFor(record)!) : "iron");
+  const locationsFor = (record: typeof EQUIPMENT_CATALOGUE[number]["source"]) => armourLocations[record.id] ?? [];
+  const armourSelectionFor = (record: typeof EQUIPMENT_CATALOGUE[number]["source"]) => ({
+    material: materialFor(record), locations: locationsFor(record), gmCompatibilityOverride: !!armourGmOverride[record.id],
+  });
+  const perLocationPrice = (record: typeof EQUIPMENT_CATALOGUE[number]["source"]) => record.price_cp_candidate ?? customCp(record.id);
+  const priceFor = (record: typeof EQUIPMENT_CATALOGUE[number]["source"]) => {
+    const price = perLocationPrice(record);
+    if (record.category === "armour" && !locationsFor(record).length) return undefined;
+    return record.category === "armour" ? price === undefined ? undefined : price * locationsFor(record).length : price;
+  };
+  const canAcquireArmour = (record: typeof EQUIPMENT_CATALOGUE[number]["source"]) => {
+    const construction = armourConstructionFor(record);
+    if (!construction || !locationsFor(record).length) return false;
+    return armourMaterialCompatibility(construction, materialFor(record)) === "compatible" || !!armourGmOverride[record.id];
+  };
   const canTransact = (record: typeof EQUIPMENT_CATALOGUE[number]["source"]) => {
     const price = priceFor(record);
-    return !purchaseBusy && amount(record.id) > 0 && price !== undefined && Number.isSafeInteger(price)
+    return !purchaseBusy && amount(record.id) > 0 && (record.category !== "armour" || canAcquireArmour(record)) && price !== undefined && Number.isSafeInteger(price)
       && price >= 0 && price * amount(record.id) <= currentBalanceCp;
   };
   const currentBalanceCp = $derived(equipmentBalanceCp());
@@ -168,7 +189,7 @@
       if (record.source.price_cp_candidate === null && price === undefined) throw new Error("Ask the GM for a price before purchasing this item.");
       if (priceFor(record.source)! * quantityValue > currentBalanceCp) throw new Error("This purchase costs more than your remaining money.");
       if (record.kind === "non_carried_purchase") recordEquipmentExpense(record.source.id, quantityValue, price);
-      else purchaseEquipment(record.source.id, quantityValue, price);
+      else purchaseEquipment(record.source.id, quantityValue, record.source.category === "armour" ? perLocationPrice(record.source) : price, record.source.category === "armour" ? armourSelectionFor(record.source) : undefined);
       message = `${record.source.name}: ${record.kind === "non_carried_purchase" ? "expense recorded" : "added to your equipment"}. Money remaining: ${signedMoney(equipmentBalanceCp())}.`;
     } catch (error) { message = error instanceof Error ? error.message : "Could not record transaction."; }
     finally { purchaseBusy = false; }
@@ -176,7 +197,7 @@
   function acquire(record: typeof EQUIPMENT_CATALOGUE[number], acquiredAs: "gifted" | "inherited" | "granted") {
     try {
       if (amount(record.source.id) < 1) throw new Error("Enter a positive whole quantity.");
-      acquireEquipment(record.source.id, amount(record.source.id), acquiredAs);
+      acquireEquipment(record.source.id, amount(record.source.id), acquiredAs, record.source.category === "armour" ? armourSelectionFor(record.source) : undefined);
       message = `${record.source.name}: added as ${acquiredAs}.`;
       freeAcquisition[record.source.id] = "";
     } catch (error) { message = error instanceof Error ? error.message : "Could not add item."; }
@@ -192,6 +213,11 @@
   function setArmourLocation(item: typeof char.background.inventory[number], location: HitLocationName, checked: boolean) {
     const locations = item.armour?.locations ?? [];
     saveInventoryChange(item.id, item.name, { armour: { locations: checked ? [...new Set([...locations, location])] : locations.filter(value => value !== location), coverageResolved: true } });
+  }
+  function setOwnedArmourMaterial(item: typeof char.background.inventory[number], material: ArmourMaterialId) {
+    const construction = item.armour?.construction;
+    const status = construction ? armourMaterialCompatibility(construction, material) : "conditional";
+    saveInventoryChange(item.id, item.name, { armour: { material, compatibility: status === "compatible" ? "compatible" : "incompatible" } });
   }
   function saveInventoryChange(itemId: string, itemName: string, update: Parameters<typeof updateInventoryItem>[1]) {
     try {
@@ -264,8 +290,8 @@
               <label>Construction <select value={item.armour.construction ?? ""} onchange={event => saveInventoryChange(item.id, item.name, { armour: { construction: event.currentTarget.value as keyof typeof ARMOUR_CONSTRUCTIONS || null } })}>
                 <option value="">Unresolved</option>{#each Object.entries(ARMOUR_CONSTRUCTIONS) as [id, construction]}<option value={id}>{construction.name}</option>{/each}
               </select></label>
-              <label>Material <select value={item.armour.material ?? ""} onchange={event => saveInventoryChange(item.id, item.name, { armour: { material: event.currentTarget.value as keyof typeof ARMOUR_MATERIALS || null } })}>
-                <option value="">Unresolved</option>{#each Object.entries(ARMOUR_MATERIALS) as [id, material]}<option value={id}>{material.name} (ENC ×{material.encMultiplier})</option>{/each}
+              <label>Material <select value={item.armour.material ?? ""} onchange={event => setOwnedArmourMaterial(item, event.currentTarget.value as ArmourMaterialId)}>
+                <option value="">Unresolved</option>{#each Object.entries(ARMOUR_MATERIALS) as [id, material]}{@const status = item.armour.construction ? armourMaterialCompatibility(item.armour.construction, id as ArmourMaterialId) : "conditional"}<option value={id} disabled={status !== "compatible" && !item.armour.gmCompatibilityOverride}>{material.name} (ENC ×{material.encMultiplier}){status === "incompatible" ? " · incompatible" : status === "conditional" ? " · GM approval" : ""}</option>{/each}
               </select></label>
               <fieldset><legend>Covered locations</legend>{#each HIT_LOCATIONS as location}<label><input type="checkbox" checked={item.armour.locations.includes(location)} onchange={event => setArmourLocation(item, location, event.currentTarget.checked)}>{location}</label>{/each}</fieldset>
               <label>Fit <select value={item.armour.fit} onchange={event => saveInventoryChange(item.id, item.name, { armour: { fit: event.currentTarget.value as "fitted" | "ill_fitting" | "unresolved" } })}>
@@ -274,7 +300,7 @@
               <label>Compatibility <select value={item.armour.compatibility} onchange={event => saveInventoryChange(item.id, item.name, { armour: { compatibility: event.currentTarget.value as "compatible" | "incompatible" | "conditional" | "unresolved" } })}>
                 <option value="unresolved">Unresolved</option><option value="compatible">Compatible</option><option value="conditional">Conditional</option><option value="incompatible">Incompatible</option>
               </select></label>
-              {#if item.armour.compatibility === "incompatible"}<label><input type="checkbox" checked={!!item.armour.gmCompatibilityOverride} onchange={event => saveInventoryChange(item.id, item.name, { armour: { gmCompatibilityOverride: event.currentTarget.checked } })}> GM compatibility override</label>{/if}
+              <label><input type="checkbox" checked={!!item.armour.gmCompatibilityOverride} onchange={event => saveInventoryChange(item.id, item.name, { armour: { gmCompatibilityOverride: event.currentTarget.checked } })}> GM-authorized custom material override (enables nonstandard combinations)</label>
               <p class="mute">Flexible armour typically fits SIZ ±1; rigid armour needs wearer-specific SIZ and proportions. Record fit explicitly. No automatic layering: overlapping pieces use highest AP and every worn piece adds ENC. Compatibility remains unresolved until confirmed or GM overridden.</p>
             </details>
           {/if}
@@ -312,7 +338,12 @@
         {:else if customType === "armour"}
           <label>Protection AP <input type="number" min="0" step="1" bind:value={customAp} placeholder="Unknown"></label>
           <label>Construction <select bind:value={customConstruction}><option value="">Unresolved / GM-defined</option>{#each Object.entries(ARMOUR_CONSTRUCTIONS) as [id, construction]}<option value={id}>{construction.name}</option>{/each}</select></label>
-          <label>Material <select bind:value={customMaterial}><option value="">Unresolved / GM-defined</option>{#each Object.entries(ARMOUR_MATERIALS) as [id, material]}<option value={id}>{material.name}</option>{/each}</select></label>
+          <label>Material <select bind:value={customMaterial}><option value="">Unresolved / GM-defined</option>{#each Object.entries(ARMOUR_MATERIALS) as [id, material]}<option value={id}>{material.name} · ENC ×{material.encMultiplier}</option>{/each}</select></label>
+          {#if Object.hasOwn(ARMOUR_CONSTRUCTIONS, customConstruction) && Object.hasOwn(ARMOUR_MATERIALS, customMaterial)}
+            {@const customMaterialStatus = armourMaterialCompatibility(customConstruction as ArmourConstructionId, customMaterial as ArmourMaterialId)}
+            {#if customMaterialStatus !== "compatible"}<p class="balance-warning">{customMaterialStatus === "incompatible" ? "Core notes do not list this combination." : "Core notes do not establish this combination as standard."} Use an explicit GM override if approved.</p>{/if}
+            <label class="custom-field-wide"><input type="checkbox" bind:checked={customArmourGmOverride}> GM-authorized custom material override</label>
+          {/if}
           <fieldset class="custom-locations" aria-describedby="custom-locations-instruction{customLocationsError ? ' custom-locations-error' : ''}">
             <legend>Protected hit locations</legend>
             <p id="custom-locations-instruction">Select every body location this armour protects. Choose at least one.</p>
@@ -321,7 +352,7 @@
           </fieldset>
         {/if}
       </div>
-      {#if customType === "armour"}<p class="mute custom-armour-help">Custom AP applies only to selected locations. The existing fit and compatibility checks still govern worn armour.</p>{/if}
+      {#if customType === "armour"}<p class="mute custom-armour-help">Custom AP applies only to selected locations. Enter effective ENC for this custom piece; the selected material multiplier does not change its price. The existing fit and compatibility checks still govern worn armour.</p>{/if}
       {#if customType === "weapon" || customType === "shield"}
         <label class="custom-field-wide">Special effects / traits <textarea bind:value={customTraits} rows="4" placeholder="GM-defined notes"></textarea><small>Notes only; these do not change combat calculations.</small></label>
       {/if}
@@ -409,12 +440,32 @@
               {#if selected.kind === "armour_material_modifier"}<p class="balance-warning">This modifier is not a separate item to buy.</p>{/if}
               {#if selected.kind === "non_carried_purchase"}<p class="mute">This is a service or expense. It changes your money without adding carried equipment.</p>{/if}
               {#if record.base_enc_per_location === undefined && selected.kind === "physical_item" && record.category === "armour"}<p class="balance-warning">ENC per location is unknown; resolve it on the owned armour record when acquired.</p>{/if}
+              {#if record.category === "armour" && selected.kind === "physical_item" && armourConstructionFor(record)}
+                {@const constructionId = armourConstructionFor(record)!}
+                {@const chosenMaterial = materialFor(record)}
+                {@const materialStatus = armourMaterialCompatibility(constructionId, chosenMaterial)}
+                <div class="catalogue-armour-options">
+                  <label>Material <select aria-label={`Material for ${record.name}`} value={chosenMaterial} onchange={event => armourMaterial[record.id] = event.currentTarget.value as ArmourMaterialId}>
+                    {#each Object.entries(ARMOUR_MATERIALS) as [id, material]}
+                      {@const status = armourMaterialCompatibility(constructionId, id as ArmourMaterialId)}
+                      <option value={id} disabled={status !== "compatible" && !armourGmOverride[record.id]}>{material.name}{id === standardArmourMaterial(constructionId) ? " · Standard material" : ""} · ENC ×{material.encMultiplier}{status === "incompatible" ? " · incompatible" : status === "conditional" ? " · GM approval" : ""}</option>
+                    {/each}
+                  </select></label>
+                  <p class="mute">{ARMOUR_MATERIALS[chosenMaterial].name} gives {armourEncumbrance(constructionId, chosenMaterial)} ENC per protected location (raw multiplier; fractions are retained). Standard construction price is per location and does not change with material.</p>
+                  {#if materialStatus !== "compatible"}<p class="balance-warning">{materialStatus === "incompatible" ? "Core notes do not list this material for this construction." : "Core notes do not establish this combination as standard."} Ask the GM before using it.</p>{/if}
+                  <label><input type="checkbox" checked={!!armourGmOverride[record.id]} onchange={event => armourGmOverride[record.id] = event.currentTarget.checked}> GM-authorized custom material override (enables nonstandard combinations)</label>
+                  <fieldset class="catalogue-armour-locations"><legend>Protected hit locations</legend><p id={`armour-locations-help-${record.id}`}>Choose the locations this piece covers. Price and total ENC use this selection.</p>
+                    {#each HIT_LOCATIONS as location}<label><input type="checkbox" checked={locationsFor(record).includes(location)} onchange={event => armourLocations[record.id] = event.currentTarget.checked ? [...locationsFor(record), location] : locationsFor(record).filter(value => value !== location)}>{location}</label>{/each}
+                  </fieldset>
+                  <p class="mute" aria-live="polite">{locationsFor(record).length} locations · {armourEncumbrance(constructionId, chosenMaterial) * locationsFor(record).length} ENC full worn ENC · {armourEncumbrance(constructionId, chosenMaterial) * locationsFor(record).length / 2} ENC worn load{perLocationPrice(record) === undefined ? "" : ` · ${formatCopperPrice(perLocationPrice(record)! * locationsFor(record).length)} total for selected locations`}</p>
+                </div>
+              {/if}
               {#if selected.kind !== "armour_material_modifier"}
                 <div class="purchase-controls">
                   <div class="acquisition-toolbar">
                     <div class="purchase-values">
                       <label class="quantity-control">Quantity <input class="quantity-input" aria-label={`Quantity of ${record.name}`} aria-invalid={amount(record.id) < 1} aria-describedby={amount(record.id) < 1 ? `quantity-error-${record.id}` : undefined} type="number" min="1" step="1" value={quantity[record.id] ?? "1"} onchange={event => quantity[record.id] = event.currentTarget.value}></label>
-                      {#if unavailable}<label class="gm-price-control">GM price (CP) <input aria-label={`GM price in CP for ${record.name}`} type="number" min="0" step="1" value={gmPrice[record.id] ?? ""} onchange={event => gmPrice[record.id] = event.currentTarget.value} placeholder="Required"><small>Enter 0 only when the GM approves a free item.</small></label>{/if}
+                      {#if unavailable}<label class="gm-price-control">GM price (CP) {#if record.category === "armour"}<small>per protected location</small>{/if}<input aria-label={`GM price in CP${record.category === "armour" ? " per location " : " "}for ${record.name}`} type="number" min="0" step="1" value={gmPrice[record.id] ?? ""} onchange={event => gmPrice[record.id] = event.currentTarget.value} placeholder="Required"><small>Enter 0 only when the GM approves a free item.</small></label>{/if}
                       {#if amount(record.id) > 0 && (!unavailable || customCp(record.id) !== undefined)}
                         {@const totalCp = (priceFor(record) ?? 0) * amount(record.id)}
                         <div class="purchase-total" aria-live="polite"><span>Total price</span><b>{formatCopperPrice(totalCp)}</b>{#if unavailable}<span>{customCp(record.id) === 0 ? "GM-approved zero price" : "GM-entered"}</span>{/if}</div>
@@ -427,7 +478,7 @@
                       <label>Add without paying <select aria-label={`Add ${record.name} without paying`} value={freeAcquisition[record.id] ?? ""} disabled={amount(record.id) < 1} onchange={event => freeAcquisition[record.id] = event.currentTarget.value as "gifted" | "inherited" | "granted" | ""}>
                         <option value="">Choose an option…</option><option value="gifted">Gifted</option><option value="inherited">Inherited</option><option value="granted">Granted</option>
                       </select></label>
-                      <button type="button" disabled={amount(record.id) < 1 || !freeAcquisition[record.id]} onclick={() => { const acquiredAs = freeAcquisition[record.id]; if (acquiredAs) acquire(selected, acquiredAs); }}>Add item</button>
+                      <button type="button" disabled={amount(record.id) < 1 || !freeAcquisition[record.id] || (record.category === "armour" && !canAcquireArmour(record))} onclick={() => { const acquiredAs = freeAcquisition[record.id]; if (acquiredAs) acquire(selected, acquiredAs); }}>Add item</button>
                     </div>
                   {/if}
                   </div>
@@ -514,6 +565,13 @@
   .armour-editor { flex:1 1 100%; display:flex; align-items:start; flex-wrap:wrap; gap:.6rem; padding:.65rem; border:1px solid var(--line); border-radius:.5rem; }
   .armour-editor summary { flex-basis:100%; cursor:pointer; }
   .armour-editor fieldset { display:flex; flex-wrap:wrap; gap:.45rem; }
+  .catalogue-armour-options { display:grid; gap:.55rem; margin:1rem 0; padding:.75rem; border:1px solid var(--line); border-radius:.5rem; }
+  .catalogue-armour-options > label { display:grid; gap:.25rem; max-width:28rem; }
+  .catalogue-armour-options select { width:100%; min-height:2.75rem; }
+  .catalogue-armour-locations { display:flex; flex-wrap:wrap; gap:.45rem .7rem; min-width:0; }
+  .catalogue-armour-locations legend { font-weight:600; }
+  .catalogue-armour-locations p { flex-basis:100%; margin:0; color:var(--mute); }
+  .catalogue-armour-locations label { display:flex; align-items:center; gap:.3rem; }
   .money-summary > div { display:flex; flex-direction:column; gap:.2rem; padding:.65rem; border:1px solid var(--line); border-radius:.5rem; }
   .money-summary small,.mute { color:var(--mute); }
   .balance-warning { color:var(--acc); font-weight:700; }

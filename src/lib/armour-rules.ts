@@ -1,5 +1,5 @@
-/** Values transcribed from issue #191; project Core PDF verification is still pending. */
-export const ARMOUR_RULES_VERIFICATION = "issue-provided; Core PDF verification pending";
+/** Construction and material values follow the Core table data supplied with issue #219. */
+export const ARMOUR_RULES_VERIFICATION = "Mythras Core 3rd ed. pp. 57–58; issue #219 source notes";
 export const HIT_LOCATIONS = ["Head", "Chest", "Abdomen", "Right Arm", "Left Arm", "Right Leg", "Left Leg"] as const;
 export type HitLocationName = typeof HIT_LOCATIONS[number];
 export const ARMOUR_CONSTRUCTIONS = {
@@ -22,6 +22,31 @@ export const ARMOUR_MATERIALS = {
   stone: { name: "Stone", encMultiplier: 3 },
 } as const;
 export type ArmourMaterialId = keyof typeof ARMOUR_MATERIALS;
+export type ArmourMaterialCompatibility = "compatible" | "incompatible" | "conditional";
+
+/** Compatibility notes transcribed from the issue's Core material table. */
+export function armourMaterialCompatibility(constructionId: ArmourConstructionId, materialId: ArmourMaterialId): ArmourMaterialCompatibility {
+  const flexible = ARMOUR_CONSTRUCTIONS[constructionId].flexibility === "flexible";
+  switch (materialId) {
+    case "bone": case "chitin": case "shell":
+      return ["laminated", "scaled", "half_plate", "articulated_plate"].includes(constructionId) ? "compatible" : "incompatible";
+    case "leather": return ["mail", "plated_mail"].includes(constructionId) ? "incompatible" : "compatible";
+    case "silk": return flexible ? "compatible" : "incompatible";
+    case "steel": return flexible ? "incompatible" : "compatible";
+    case "stone": return ["laminated", "scaled", "half_plate"].includes(constructionId) ? "compatible" : "incompatible";
+    case "linen": return flexible ? "compatible" : "incompatible";
+    case "bronze": case "iron": return flexible ? "incompatible" : "compatible";
+    case "ivory": return "conditional";
+  }
+}
+
+export function standardArmourMaterial(constructionId: ArmourConstructionId): ArmourMaterialId {
+  return ARMOUR_CONSTRUCTIONS[constructionId].flexibility === "flexible" ? "linen" : "iron";
+}
+
+export function armourEncumbrance(constructionId: ArmourConstructionId, materialId: ArmourMaterialId): number {
+  return ARMOUR_CONSTRUCTIONS[constructionId].enc * ARMOUR_MATERIALS[materialId].encMultiplier;
+}
 export type FitState = "fitted" | "ill_fitting" | "unresolved";
 export type CompatibilityState = "compatible" | "incompatible" | "conditional" | "unresolved";
 export interface ArmourPiece {

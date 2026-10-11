@@ -1,6 +1,6 @@
 import { EQUIPMENT_CATALOGUE, EQUIPMENT_CATALOGUE_VERSION, createEquipmentPurchase, type EquipmentSourceRecord } from "./equipment-catalogue";
 import type { ArmourPiece, ArmourConstructionId, ArmourMaterialId, CompatibilityState, FitState, HitLocationName } from "./armour-rules";
-import { ARMOUR_CONSTRUCTIONS, ARMOUR_MATERIALS } from "./armour-rules";
+import { ARMOUR_CONSTRUCTIONS, ARMOUR_MATERIALS, HIT_LOCATIONS, armourEncumbrance, armourMaterialCompatibility, standardArmourMaterial } from "./armour-rules";
 import type { CustomEquipmentDefinition } from "./custom-equipment";
 
 export type EquipmentState = "carried" | "worn" | "stored";
@@ -49,10 +49,24 @@ const armourConstructionForCatalogue: Record<string, ArmourConstructionId> = {
   "armour-scaled": "scaled", "armour-half-plate": "half_plate", "armour-mail": "mail",
   "armour-plated-mail": "plated_mail", "armour-articulated-plate": "articulated_plate",
 };
-function newArmourConfig(catalogueId: string, state: EquipmentState): Omit<ArmourPiece, "id"> {
-  return { construction: armourConstructionForCatalogue[catalogueId] ?? null, material: null, locations: [], coverageResolved: false,
+export interface ArmourAcquisitionSelection {
+  material: ArmourMaterialId;
+  locations: HitLocationName[];
+  gmCompatibilityOverride?: boolean;
+}
+
+function newArmourConfig(catalogueId: string, state: EquipmentState, selection?: ArmourAcquisitionSelection): Omit<ArmourPiece, "id"> {
+  const construction = armourConstructionForCatalogue[catalogueId] ?? null;
+  if (selection && (!Object.hasOwn(ARMOUR_MATERIALS, selection.material)
+      || selection.locations.some(location => !HIT_LOCATIONS.includes(location))
+      || new Set(selection.locations).size !== selection.locations.length)) throw new Error("Choose a valid material and unique protected locations.");
+  const material = selection?.material ?? (construction ? standardArmourMaterial(construction) : null);
+  const materialStatus = construction && material ? armourMaterialCompatibility(construction, material) : "conditional";
+  if (materialStatus !== "compatible" && !selection?.gmCompatibilityOverride) throw new Error("This material needs an explicit GM compatibility override.");
+  return { construction, material, locations: selection?.locations ?? [], coverageResolved: !!selection?.locations.length,
     state: state === "stored" ? "stored" : state === "carried" ? "carried" : "worn",
-    fit: "unresolved", compatibility: "unresolved" };
+    fit: "unresolved", compatibility: materialStatus === "compatible" ? "compatible" : "incompatible",
+    ...(selection?.gmCompatibilityOverride ? { gmCompatibilityOverride: true } : {}) };
 }
 
 export function normalizeInventoryState(value: unknown): InventoryState {
@@ -150,14 +164,23 @@ export function addPurchase(
   quantity: number,
   gmEnteredPriceCp?: number,
   recordedAt?: string,
+  armourSelection?: ArmourAcquisitionSelection,
 ): InventoryState {
   if (!validInt(quantity, 1)) throw new Error("Quantity must be a positive integer");
+  const locationCount = record.category === "armour" ? armourSelection?.locations.length ?? 0 : 1;
+  if (record.category === "armour" && locationCount < 1) throw new Error("Select at least one protected hit location.");
+  if (!Number.isSafeInteger(quantity * locationCount)) throw new Error("Total price is too large");
   const created = createEquipmentPurchase(record.id, { quantity, ...(gmEnteredPriceCp !== undefined ? { gmEnteredPriceCp } : {}), recordedAt });
   const group = record.physical_item_key;
   const inventory = state.inventory.map(item => ({ ...item, sourceIds: [...item.sourceIds] }));
+  const armourConfig = record.category === "armour" ? newArmourConfig(record.id, "worn", armourSelection) : undefined;
+  const encPerUnit = armourConfig?.construction && armourConfig.material
+    ? armourEncumbrance(armourConfig.construction, armourConfig.material) : encumbranceForRecord(record);
   const existing = inventory.find(item => item.acquiredAs === "purchased"
     && (group ? item.physicalItemKey === group : item.catalogueId === record.id)
-    && item.encPerUnit === encumbranceForRecord(record));
+    && item.encPerUnit === encPerUnit
+    && (!armourSelection || (item.armour?.material === armourSelection.material
+      && item.armour.locations.join("|") === armourSelection.locations.join("|"))));
   const sourceIds = [...new Set([...(existing?.sourceIds ?? []), record.id])];
   if (existing) {
     if (!Number.isSafeInteger(existing.quantity + quantity)) throw new Error("Quantity is too large");
@@ -165,21 +188,27 @@ export function addPurchase(
     existing.sourceIds = sourceIds;
   } else inventory.push({ id: uid(), catalogueId: record.id, sourceIds, ...(group ? { physicalItemKey: group } : {}),
     name: record.name, quantity, acquiredAs: "purchased", state: record.category === "armour" ? "worn" : "carried",
-    encPerUnit: encumbranceForRecord(record),
-    encSource: encumbranceForRecord(record) === null ? "unresolved" : "catalogue_candidate",
-    ...(record.category === "armour" ? { armour: newArmourConfig(record.id, "worn") } : {}) });
+    encPerUnit,
+    encSource: encPerUnit === null ? "unresolved" : "catalogue_candidate",
+    ...(armourConfig ? { armour: armourConfig } : {}) });
   const transaction: InventoryTransaction = { id: uid(), kind: "purchase", catalogueId: record.id, name: record.name,
-    quantity, amountCp: created.transaction.amountCp * quantity, amountSource: created.transaction.amountSource,
+    quantity, amountCp: created.transaction.amountCp * quantity * locationCount, amountSource: created.transaction.amountSource,
     catalogueVersion: created.transaction.catalogueVersion, recordedAt: created.transaction.recordedAt };
   if (!Number.isSafeInteger(transaction.amountCp)) throw new Error("Total price is too large");
   return { inventory, equipmentTransactions: [...state.equipmentTransactions, transaction] };
 }
 
-export function addGift(state: InventoryState, record: EquipmentSourceRecord, quantity: number, acquiredAs: "gifted" | "inherited" | "granted"): InventoryState {
+export function addGift(state: InventoryState, record: EquipmentSourceRecord, quantity: number, acquiredAs: "gifted" | "inherited" | "granted", armourSelection?: ArmourAcquisitionSelection): InventoryState {
   if (!validInt(quantity, 1)) throw new Error("Quantity must be a positive integer");
+  if (record.category === "armour" && !armourSelection?.locations.length) throw new Error("Select at least one protected hit location.");
+  const armourConfig = record.category === "armour" ? newArmourConfig(record.id, "worn", armourSelection) : undefined;
+  const encPerUnit = armourConfig?.construction && armourConfig.material
+    ? armourEncumbrance(armourConfig.construction, armourConfig.material) : encumbranceForRecord(record);
   const existing = state.inventory.find(item => item.acquiredAs === acquiredAs && (record.physical_item_key
     ? item.physicalItemKey === record.physical_item_key : item.catalogueId === record.id)
-    && item.encPerUnit === encumbranceForRecord(record));
+    && item.encPerUnit === encPerUnit
+    && (!armourSelection || (item.armour?.material === armourSelection.material
+      && item.armour.locations.join("|") === armourSelection.locations.join("|"))));
   if (existing) {
     if (!Number.isSafeInteger(existing.quantity + quantity)) throw new Error("Quantity is too large");
     return { ...state, inventory: state.inventory.map(item => item.id === existing.id
@@ -188,9 +217,9 @@ export function addGift(state: InventoryState, record: EquipmentSourceRecord, qu
   return { ...state, inventory: [...state.inventory, { id: uid(), catalogueId: record.id, sourceIds: [record.id],
     ...(record.physical_item_key ? { physicalItemKey: record.physical_item_key } : {}), name: record.name, quantity,
     acquiredAs, state: record.category === "armour" ? "worn" : "carried",
-    encPerUnit: encumbranceForRecord(record),
-    encSource: encumbranceForRecord(record) === null ? "unresolved" : "catalogue_candidate",
-    ...(record.category === "armour" ? { armour: newArmourConfig(record.id, "worn") } : {}) }] };
+    encPerUnit,
+    encSource: encPerUnit === null ? "unresolved" : "catalogue_candidate",
+    ...(armourConfig ? { armour: armourConfig } : {}) }] };
 }
 
 export function addExpense(state: InventoryState, record: EquipmentSourceRecord, quantity: number, gmEnteredPriceCp?: number, recordedAt?: string): InventoryState {
@@ -211,10 +240,19 @@ export function changeInventoryItem(state: InventoryState, id: string, update: P
   if (update.quantity !== undefined && !validInt(update.quantity, 1)) throw new Error("Quantity must be a positive integer");
   if (update.encPerUnit !== undefined && update.encPerUnit !== null && (!Number.isFinite(update.encPerUnit) || update.encPerUnit < 0)) throw new Error("ENC must be a non-negative number");
   const { armour: armourUpdate, ...fields } = update;
-  return { ...state, inventory: state.inventory.map(item => item.id === id ? { ...item, ...fields,
-    ...(armourUpdate || (fields.state && item.armour) ? { armour: { ...(item.armour ?? newArmourConfig(item.catalogueId ?? "", item.state)), ...armourUpdate,
-      ...(fields.state ? { state: fields.state } : {}) } } : {}),
-    ...(Object.hasOwn(update, "encPerUnit") ? { encSource: update.encPerUnit === null ? "unresolved" as const : "gm_override" as const } : {}) } : item) };
+  return { ...state, inventory: state.inventory.map(item => {
+    if (item.id !== id) return item;
+    const armourChanged = !!armourUpdate || (!!fields.state && !!item.armour);
+    const armour = armourChanged ? { ...(item.armour ?? newArmourConfig(item.catalogueId ?? "", item.state)), ...armourUpdate,
+      ...(fields.state ? { state: fields.state } : {}) } : item.armour;
+    const armourEncChanged = !!armourUpdate && ["construction", "material", "encOverride"].some(key => Object.hasOwn(armourUpdate, key));
+    const derivedArmourEnc = armour?.encOverride ?? (armour?.construction && armour.material
+      ? armourEncumbrance(armour.construction, armour.material) : null);
+    return { ...item, ...fields,
+      ...(armourChanged ? { armour } : {}),
+      ...(armourEncChanged ? { encPerUnit: derivedArmourEnc, encSource: derivedArmourEnc === null ? "unresolved" as const : armour?.encOverride !== undefined ? "gm_override" as const : "catalogue_candidate" as const } : {}),
+      ...(Object.hasOwn(update, "encPerUnit") ? { encSource: update.encPerUnit === null ? "unresolved" as const : "gm_override" as const } : {}) };
+  }) };
 }
 
 export function refundPurchase(state: InventoryState, transactionId: string, amountCp: number, recordedAt?: string): InventoryState {

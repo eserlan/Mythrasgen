@@ -30,6 +30,13 @@ describe("character custom equipment", () => {
     expect(saved.inventory[0].customItem?.id).toBe(armour.id);
   });
 
+  test("requires an explicit GM override for nonstandard custom armour materials", () => {
+    const customArmour = { name: "Silk plate", type: "armour" as const, description: "", priceCp: null, enc: 2,
+      ap: 4, protectedLocations: ["Chest" as const], construction: "plated_mail", material: "silk" };
+    expect(validateCustomEquipment(customArmour)).toContain("This construction and material need an explicit GM compatibility override.");
+    expect(validateCustomEquipment({ ...customArmour, gmCompatibilityOverride: true })).toEqual([]);
+  });
+
   test("keeps missing price and ENC unresolved and drops duplicate saved definition IDs", () => {
     const clothing = { id: "custom-tunic", name: "Tunic", type: "clothing", description: "", priceCp: null, enc: null, updatedAt: "2026-01-01" };
     expect(normalizeCustomEquipment([clothing, clothing])).toHaveLength(1);

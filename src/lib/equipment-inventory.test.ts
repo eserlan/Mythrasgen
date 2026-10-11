@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { EQUIPMENT_CATALOGUE } from "./equipment-catalogue";
+import { HIT_LOCATIONS } from "./armour-rules";
 import { carriedLoad } from "./encumbrance";
 import { addExpense, addGift, addPurchase, changeInventoryItem, ledgerSpentCp, normalizeInventoryState, reconcileBalance, refundPurchase, removeInventoryItem, type InventoryState } from "./equipment-inventory";
 
@@ -108,7 +109,7 @@ describe("Page VIII equipment ledger", () => {
   });
 
   test("persists armour coverage and fit, and keeps inventory state synchronized", () => {
-    let state = addPurchase(blank(), item("armour-half-plate"), 1);
+    let state = addPurchase(blank(), item("armour-half-plate"), 1, undefined, undefined, { material: "iron", locations: ["Head"] });
     const owned = state.inventory[0];
     state = changeInventoryItem(state, owned.id, { armour: {
       material: "steel", locations: ["Head", "Chest"], coverageResolved: true, fit: "fitted", compatibility: "compatible", encOverride: 1.25,
@@ -119,5 +120,33 @@ describe("Page VIII equipment ledger", () => {
       construction: "half_plate", material: "steel", locations: ["Head", "Chest"], state: "carried", fit: "fitted",
       encOverride: 1.25,
     } });
+  });
+
+  test("records selected armour material, locations, adjusted ENC, and per-location price snapshots", () => {
+    const selection = { material: "iron" as const, locations: [...HIT_LOCATIONS] };
+    const purchased = addPurchase(blank(), item("armour-plated-mail"), 1, undefined, "2026-01-02T03:04:05.000Z", selection);
+    expect(item("armour-plated-mail")).toMatchObject({ price_cp_candidate: 14000, base_enc_per_location: 6 });
+    expect(purchased.equipmentTransactions[0]).toMatchObject({ amountCp: 98000, quantity: 1 });
+    expect(purchased.inventory[0]).toMatchObject({ encPerUnit: 6, armour: { material: "iron", locations: HIT_LOCATIONS, coverageResolved: true } });
+    expect(normalizeInventoryState(structuredClone(purchased))).toEqual(purchased);
+
+    const steel = addGift(blank(), item("armour-plated-mail"), 1, "gifted", { material: "steel", locations: ["Head", "Chest"] });
+    expect(steel.inventory[0]).toMatchObject({ encPerUnit: 4.5, armour: { material: "steel", locations: ["Head", "Chest"] } });
+    expect(carriedLoad(steel.inventory).load).toBe(4.5);
+    expect(normalizeInventoryState(structuredClone(steel)).inventory[0]).toMatchObject({ encPerUnit: 4.5, armour: { material: "steel" } });
+  });
+
+  test("rejects unlisted material combinations unless explicitly GM-authorized", () => {
+    const selection = { material: "silk" as const, locations: ["Chest" as const] };
+    expect(() => addGift(blank(), item("armour-plated-mail"), 1, "gifted", selection)).toThrow("explicit GM compatibility override");
+    const allowed = addGift(blank(), item("armour-plated-mail"), 1, "gifted", { ...selection, gmCompatibilityOverride: true });
+    expect(allowed.inventory[0].armour).toMatchObject({ material: "silk", compatibility: "incompatible", gmCompatibilityOverride: true });
+  });
+
+  test("material edits update the persisted effective ENC snapshot", () => {
+    const state = addGift(blank(), item("armour-half-plate"), 1, "gifted", { material: "iron", locations: ["Chest"] });
+    const changed = changeInventoryItem(state, state.inventory[0].id, { armour: { material: "steel" } });
+    expect(changed.inventory[0]).toMatchObject({ encPerUnit: 3, encSource: "catalogue_candidate", armour: { material: "steel" } });
+    expect(normalizeInventoryState(structuredClone(changed)).inventory[0].encPerUnit).toBe(3);
   });
 });
