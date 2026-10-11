@@ -290,10 +290,12 @@
     <section class="item-detail custom-form" aria-labelledby="custom-form-title">
       <h5 id="custom-form-title">{editingCustomId ? "Edit custom item" : "Create custom item"}</h5>
       <p class="mute">Custom definitions belong to this character. Saving a definition does not buy it or add it to inventory.</p>
-      <div class="custom-fields">
+      <div class="custom-identity">
         <label>Item type <select bind:value={customType}><option value="weapon">Weapon</option><option value="shield">Shield</option><option value="armour">Armour</option><option value="clothing">Clothing</option><option value="gear">Tools / gear</option><option value="ammunition">Ammunition</option><option value="vehicle">Vehicle</option><option value="supply">Supply</option><option value="service">Service</option><option value="other">Other</option></select></label>
         <label>Item name <input bind:value={customName} required maxlength="100" autocomplete="off"></label>
-        <label>Description / notes <textarea bind:value={customDescription} rows="2" maxlength="1000"></textarea></label>
+      </div>
+      <label class="custom-field-wide">Description / notes <textarea bind:value={customDescription} rows="4" maxlength="1000"></textarea></label>
+      <div class="custom-fields">
         <label>Price (SP) <input type="number" min="0" step="0.1" bind:value={customPriceSp} placeholder="Unknown / ask GM"><small>Blank means unknown. Decimal tenths of an SP record CP remainder.</small></label>
         <label>ENC <input type="number" min="0" step="0.25" bind:value={customEnc} placeholder="Unknown"><small>Blank stays unresolved in load calculations.</small></label>
         {#if customType === "weapon" || customType === "shield"}
@@ -303,7 +305,6 @@
           <label>{customType === "shield" ? "Shield AP" : "Weapon AP"} <input type="number" min="0" step="1" bind:value={customAp} placeholder="Unknown"></label>
           <label>{customType === "shield" ? "Shield HP" : "Weapon HP"} <input type="number" min="0" step="1" bind:value={customHp} placeholder="Unknown"></label>
           {#if customType === "weapon"}<label>Hands required <select bind:value={customHands}><option value="">Choose…</option><option value="1">One hand</option><option value="2">Two hands</option></select></label>{/if}
-          <label>Special effects / traits <textarea bind:value={customTraits} rows="2" placeholder="GM-defined notes"></textarea><small>Notes only; these do not change combat calculations.</small></label>
         {:else if customType === "armour"}
           <label>Protection AP <input type="number" min="0" step="1" bind:value={customAp} placeholder="Unknown"></label>
           <label>Construction <select bind:value={customConstruction}><option value="">Unresolved / GM-defined</option>{#each Object.entries(ARMOUR_CONSTRUCTIONS) as [id, construction]}<option value={id}>{construction.name}</option>{/each}</select></label>
@@ -312,6 +313,9 @@
           <p class="mute">Custom AP applies only to selected locations. The existing fit and compatibility checks still govern worn armour.</p>
         {/if}
       </div>
+      {#if customType === "weapon" || customType === "shield"}
+        <label class="custom-field-wide">Special effects / traits <textarea bind:value={customTraits} rows="4" placeholder="GM-defined notes"></textarea><small>Notes only; these do not change combat calculations.</small></label>
+      {/if}
       <div class="choose-actions"><button type="button" class="primary" onclick={submitCustomDefinition}>{editingCustomId ? "Save changes" : "Save custom item"}</button><button type="button" onclick={() => { customFormOpen = false; editingCustomId = null; }}>Cancel</button></div>
     </section>
   {/if}
@@ -508,10 +512,12 @@
   .catalogue-info summary { cursor:pointer; }
   .catalogue-filters { display:flex; align-items:end; flex-wrap:wrap; gap:.65rem; }
   .choose-actions,.custom-entry-actions { display:flex; align-items:end; flex-wrap:wrap; gap:.5rem; margin:.6rem 0; }
-  .custom-fields { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,13rem),1fr)); gap:.65rem; margin-top:.75rem; }
-  .custom-fields label { min-width:0; display:grid; align-content:start; gap:.25rem; }
-  .custom-fields :is(input,select,textarea) { box-sizing:border-box; width:100%; min-width:0; }
-  .custom-fields textarea { resize:vertical; }
+  .custom-identity { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,13rem),1fr)); gap:.65rem; margin-top:.75rem; }
+  .custom-identity label,.custom-fields label,.custom-field-wide { min-width:0; display:grid; align-content:start; gap:.25rem; }
+  .custom-field-wide { margin-top:.65rem; }
+  .custom-fields { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,13rem),1fr)); gap:.65rem; margin-top:.65rem; }
+  .custom-fields :is(input,select) { box-sizing:border-box; width:100%; min-width:0; }
+  .custom-field-wide textarea { box-sizing:border-box; width:100%; min-width:0; min-height:6rem; resize:vertical; }
   .custom-fields small { color:var(--mute); }
   .custom-locations { grid-column:1/-1; display:flex; flex-wrap:wrap; gap:.5rem; }
   .custom-locations label { display:flex; align-items:center; }

@@ -53,6 +53,21 @@ test("purchase safeguards and outcomes are accessible and preserve GM pricing", 
   expect(inventory).toContain(".free-acquisition label,.free-acquisition select,.free-acquisition button { width:100%; min-width:0; }");
 });
 
+test("custom item multiline fields use full-width rows outside the compact field grid", () => {
+  expect(inventory).toContain('<div class="custom-identity">');
+  expect(inventory).toContain('<label class="custom-field-wide">Description / notes <textarea bind:value={customDescription} rows="4"');
+  expect(inventory).toContain('<label class="custom-field-wide">Special effects / traits <textarea bind:value={customTraits} rows="4"');
+  expect(inventory).toContain('.custom-field-wide textarea { box-sizing:border-box; width:100%; min-width:0; min-height:6rem; resize:vertical; }');
+  const compactGridStart = inventory.indexOf('<div class="custom-fields">');
+  const compactGridEnd = inventory.indexOf('\n      </div>\n      {#if customType === "weapon" || customType === "shield"}', compactGridStart);
+  expect(compactGridStart).toBeGreaterThan(-1);
+  expect(compactGridEnd).toBeGreaterThan(compactGridStart);
+  expect(inventory.slice(compactGridStart, compactGridEnd)).not.toContain('<textarea');
+  expect(inventory).toContain('class="custom-field-wide">Description / notes');
+  expect(inventory).toContain('class="custom-field-wide">Special effects / traits');
+  expect(compile(inventory, { filename: "src/components/EquipmentInventory.svelte", generate: "client" }).warnings).toHaveLength(0);
+});
+
 test("technical provenance and armour location data are secondary disclosures", () => {
   expect(inventory).toContain("<summary>Rules &amp; sources</summary>");
   expect(inventory).toContain("<summary>Money and transaction history</summary>");
