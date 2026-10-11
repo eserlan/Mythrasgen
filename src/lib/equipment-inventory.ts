@@ -83,7 +83,9 @@ export function normalizeInventoryState(value: unknown): InventoryState {
       ? EQUIPMENT_CATALOGUE.find(entry => entry.source.id === row.catalogueId)?.source.enc_candidate
       : undefined;
     const savedEnc = typeof row.encPerUnit === "number" && Number.isFinite(row.encPerUnit) && row.encPerUnit >= 0 ? row.encPerUnit : null;
-    const identifiableConstruction = armourConstructionFor(row.catalogueId, row.name);
+    const identifiableConstruction = typeof row.catalogueId === "string" && armourConstructionForCatalogue[row.catalogueId]
+      ? armourConstructionForCatalogue[row.catalogueId]
+      : row.customItem && typeof row.customItem === "object" ? null : armourConstructionFor(null, row.name);
     const encPerUnit = savedEnc ?? catalogueEnc ?? null;
     const encSource = row.encSource === "gm_override" && savedEnc !== null ? "gm_override"
       : savedEnc !== null && row.encSource === "catalogue_candidate" ? "catalogue_candidate"

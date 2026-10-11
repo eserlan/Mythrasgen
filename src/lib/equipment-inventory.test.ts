@@ -168,6 +168,17 @@ describe("Page VIII equipment ledger", () => {
     expect(nameOnly.inventory[0].armour).toMatchObject({ construction: "half_plate", material: "iron" });
   });
 
+  test("does not infer catalogue armour from a custom item's name", () => {
+    const gear = normalizeInventoryState({ inventory: [{ id: "custom-gear-half-plate", name: "Half Plate", quantity: 1,
+      customItem: { id: "custom-gear", type: "gear", name: "Half Plate" } }] });
+    expect(gear.inventory[0].armour).toBeUndefined();
+
+    const customArmour = normalizeInventoryState({ inventory: [{ id: "custom-armour-half-plate", name: "Half Plate", quantity: 1,
+      customItem: { id: "custom-armour", type: "armour", name: "Half Plate" },
+      armour: { construction: null, material: null, locations: ["Chest"], fit: "fitted", compatibility: "compatible", state: "worn" } }] });
+    expect(customArmour.inventory[0].armour).toMatchObject({ construction: null, material: null });
+  });
+
   test("rejects unlisted material combinations unless explicitly GM-authorized", () => {
     const selection = { material: "silk" as const, locations: ["Chest" as const] };
     expect(() => addGift(blank(), item("armour-plated-mail"), 1, "gifted", selection)).toThrow("explicit GM compatibility override");
