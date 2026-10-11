@@ -25,7 +25,7 @@ export function carriedLoad(items: readonly InventoryItem[]): { load: number | n
   for (const item of items) {
     if (item.state === "stored" || item.encumbranceExempt) continue;
     if (item.armour) {
-      for (let index = 0; index < item.quantity; index++) armourPieces.push({ id: `${item.id}-${index + 1}`, ...item.armour, state: item.state });
+      for (let index = 0; index < item.quantity; index++) armourPieces.push({ id: `${item.id}-${index + 1}`, name: item.name, ...item.armour, state: item.state });
       continue;
     }
     if (item.encPerUnit === null) {

@@ -175,7 +175,7 @@
   const armourItems = $derived(char.background.inventory.filter(item => item.armour));
   const wornArmourItems = $derived(armourItems.filter(item => item.state === "worn"));
   const armourSummary = $derived(summarizeArmour(armourItems.flatMap(item => Array.from({ length: item.quantity }, (_, index) => ({
-    id: `${item.id}-${index + 1}`, ...item.armour!, state: item.state,
+    id: `${item.id}-${index + 1}`, name: item.name, ...item.armour!, state: item.state,
   })))));
   const inventoryEncLabel = (item: typeof char.background.inventory[number]) => item.armour ? "ENC per covered location" : "ENC per item";
   const catalogueRecordFor = (item: typeof char.background.inventory[number]) => EQUIPMENT_CATALOGUE.find(record => record.source.id === item.catalogueId)?.source;

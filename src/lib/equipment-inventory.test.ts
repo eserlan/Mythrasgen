@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { EQUIPMENT_CATALOGUE } from "./equipment-catalogue";
-import { HIT_LOCATIONS } from "./armour-rules";
+import { HIT_LOCATIONS, summarizeArmour } from "./armour-rules";
 import { carriedLoad } from "./encumbrance";
 import { addExpense, addGift, addPurchase, changeInventoryItem, ledgerSpentCp, normalizeInventoryState, reconcileBalance, refundPurchase, removeInventoryItem, type InventoryState } from "./equipment-inventory";
 
@@ -134,6 +134,21 @@ describe("Page VIII equipment ledger", () => {
     expect(steel.inventory[0]).toMatchObject({ encPerUnit: 4.5, armour: { material: "steel", locations: ["Head", "Chest"] } });
     expect(carriedLoad(steel.inventory).load).toBe(4.5);
     expect(normalizeInventoryState(structuredClone(steel)).inventory[0]).toMatchObject({ encPerUnit: 4.5, armour: { material: "steel" } });
+  });
+
+  test("carries Half Plate construction AP through acquisition and legacy snapshot backfill", () => {
+    const selected = ["Chest", "Abdomen", "Right Arm", "Left Arm"] as const;
+    const bought = addPurchase(blank(), item("armour-half-plate"), 1, undefined, undefined, { material: "iron", locations: [...selected] });
+    const owned = bought.inventory[0];
+    expect(owned.armour).toMatchObject({ construction: "half_plate", material: "iron", locations: selected });
+    const fitted = changeInventoryItem(bought, owned.id, { armour: { fit: "fitted" } });
+    expect(summarizeArmour([{ id: fitted.inventory[0].id, name: fitted.inventory[0].name, ...fitted.inventory[0].armour! }]).apByLocation)
+      .toMatchObject({ Chest: 5, Abdomen: 5, "Right Arm": 5, "Left Arm": 5, Head: 0 });
+
+    const legacy = normalizeInventoryState({ inventory: [{ id: "old-half-plate", catalogueId: "armour-half-plate", name: "Half Plate", quantity: 1,
+      state: "worn", armour: { locations: [...selected], fit: "unresolved", compatibility: "compatible", state: "worn", coverageResolved: true } }] });
+    expect(legacy.inventory[0].armour).toMatchObject({ construction: "half_plate", material: "iron", fit: "unresolved" });
+    expect(summarizeArmour([{ id: legacy.inventory[0].id, name: legacy.inventory[0].name, ...legacy.inventory[0].armour! }]).apByLocation.Chest).toBeNull();
   });
 
   test("rejects unlisted material combinations unless explicitly GM-authorized", () => {
