@@ -98,9 +98,12 @@ export function normalizeInventoryState(value: unknown): InventoryState {
       ...(row.customItem && typeof row.customItem === "object" ? { customItem: row.customItem } : {}),
       ...(row.armour && typeof row.armour === "object" ? { armour: {
         construction: typeof row.armour.construction === "string" && Object.hasOwn(ARMOUR_CONSTRUCTIONS, row.armour.construction)
-          ? row.armour.construction as ArmourConstructionId : null,
+          ? row.armour.construction as ArmourConstructionId
+          : typeof row.catalogueId === "string" ? armourConstructionForCatalogue[row.catalogueId] ?? null : null,
         material: typeof row.armour.material === "string" && Object.hasOwn(ARMOUR_MATERIALS, row.armour.material)
-          ? row.armour.material as ArmourMaterialId : null,
+          ? row.armour.material as ArmourMaterialId
+          : row.armour.material === undefined && typeof row.catalogueId === "string" && armourConstructionForCatalogue[row.catalogueId]
+            ? standardArmourMaterial(armourConstructionForCatalogue[row.catalogueId]) : null,
         locations: Array.isArray(row.armour.locations) ? row.armour.locations.filter((location): location is HitLocationName =>
           ["Head", "Chest", "Abdomen", "Right Arm", "Left Arm", "Right Leg", "Left Leg"].includes(location)) : [],
         coverageResolved: typeof row.armour.coverageResolved === "boolean" ? row.armour.coverageResolved : false,

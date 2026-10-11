@@ -19,6 +19,7 @@ export function sheetEquipmentSummary(
   const armourPieces = inventory.filter(item => item.armour).flatMap(item =>
     Array.from({ length: item.quantity }, (_, index) => ({
       id: `${item.id}-${index + 1}`,
+      name: item.name,
       ...item.armour!,
       state: item.state,
     })),

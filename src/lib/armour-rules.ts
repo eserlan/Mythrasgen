@@ -51,6 +51,8 @@ export type FitState = "fitted" | "ill_fitting" | "unresolved";
 export type CompatibilityState = "compatible" | "incompatible" | "conditional" | "unresolved";
 export interface ArmourPiece {
   id: string;
+  /** Human-readable label used in player-facing review warnings. */
+  name?: string;
   construction: ArmourConstructionId | null;
   material: ArmourMaterialId | null;
   locations: HitLocationName[];
@@ -80,7 +82,7 @@ export function summarizeArmour(pieces: readonly ArmourPiece[]): ArmourSummary {
   for (const piece of pieces) {
     if (piece.state === "stored") continue;
     if (!piece.locations.length && !piece.coverageResolved) {
-      unresolved.push(`${piece.id}: coverage unresolved`);
+      unresolved.push(`${piece.name ?? piece.id}: armour coverage needs attention. Select the locations this armour covers.`);
       if (piece.state === "worn") {
         for (const location of HIT_LOCATIONS) apByLocation[location] = null;
         fullWornEncKnown = false;
@@ -89,16 +91,17 @@ export function summarizeArmour(pieces: readonly ArmourPiece[]): ArmourSummary {
       continue;
     }
     if (piece.state === "worn") {
-      if (piece.fit !== "fitted") unresolved.push(`${piece.id}: fit ${piece.fit}`);
+      if (piece.fit === "unresolved") unresolved.push(`${piece.name ?? piece.id}: armour fit needs attention. Open Armour locations and fit, then check the armour's size and fit settings.`);
+      else if (piece.fit === "ill_fitting") unresolved.push(`${piece.name ?? piece.id}: armour is marked ill fitting. Correct its size and fit settings before relying on its protection.`);
       if (piece.compatibility === "unresolved" || piece.compatibility === "conditional"
         || (piece.compatibility === "incompatible" && !piece.gmCompatibilityOverride)) {
-        unresolved.push(`${piece.id}: material compatibility ${piece.compatibility}`);
+        unresolved.push(`${piece.name ?? piece.id}: armour material compatibility needs attention. Choose a compatible material or record GM approval.`);
       }
       const construction = piece.construction ? ARMOUR_CONSTRUCTIONS[piece.construction] : undefined;
       const material = piece.material ? ARMOUR_MATERIALS[piece.material] : undefined;
       const ap = piece.apOverride ?? construction?.ap;
       const enc = piece.encOverride ?? (construction && material ? construction.enc * material.encMultiplier : undefined);
-      if (ap === undefined) unresolved.push(`${piece.id}: AP unresolved`);
+      if (ap === undefined) unresolved.push(`${piece.name ?? piece.id}: armour protection AP is unresolved. Check its construction.`);
       const protectionResolved = piece.fit === "fitted"
         && (piece.compatibility === "compatible" || (piece.compatibility === "incompatible" && piece.gmCompatibilityOverride));
       for (const location of piece.locations) {
@@ -109,7 +112,7 @@ export function summarizeArmour(pieces: readonly ArmourPiece[]): ArmourSummary {
     const construction = piece.construction ? ARMOUR_CONSTRUCTIONS[piece.construction] : undefined;
     const material = piece.material ? ARMOUR_MATERIALS[piece.material] : undefined;
     const enc = piece.encOverride ?? (construction && material ? construction.enc * material.encMultiplier : undefined);
-    if (enc === undefined) unresolved.push(`${piece.id}: ENC unresolved`);
+    if (enc === undefined) unresolved.push(`${piece.name ?? piece.id}: armour ENC is unresolved. Check its construction and material.`);
     if (piece.state === "worn") {
       if (enc === undefined) fullWornEncKnown = false;
       else fullWornEnc += enc * piece.locations.length;

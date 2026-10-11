@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { armourEncumbrance, armourMaterialCompatibility, summarizeArmour, type ArmourPiece } from "./armour-rules";
+import { ARMOUR_CONSTRUCTIONS, armourEncumbrance, armourMaterialCompatibility, summarizeArmour, type ArmourPiece } from "./armour-rules";
 
 const plate = (material: "iron" | "steel" = "iron"): ArmourPiece => ({
   id: "plate", construction: "half_plate", material,
@@ -8,6 +8,10 @@ const plate = (material: "iron" | "steel" = "iron"): ArmourPiece => ({
 });
 
 describe("location armour calculations", () => {
+  test("retains the Core construction AP sequence", () => {
+    expect(Object.values(ARMOUR_CONSTRUCTIONS).map(construction => construction.ap)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+  });
+
   test("applies Core material multipliers without rounding fractional ENC early", () => {
     expect(armourEncumbrance("plated_mail", "iron")).toBe(6);
     expect(armourEncumbrance("plated_mail", "steel")).toBe(4.5);
@@ -24,6 +28,27 @@ describe("location armour calculations", () => {
   test("calculates seven-location iron and steel Half Plate without intermediate rounding", () => {
     expect(summarizeArmour([plate()])).toMatchObject({ fullWornEnc: 28, loadEnc: 14, initiativePenalty: 6 });
     expect(summarizeArmour([plate("steel")])).toMatchObject({ fullWornEnc: 21, loadEnc: 10.5, initiativePenalty: 5 });
+  });
+
+  test("catalogue Half Plate AP protects only selected locations and material changes ENC only", () => {
+    const halfPlate = { ...plate("iron"), locations: ["Chest", "Abdomen", "Right Arm", "Left Arm"] as ArmourPiece["locations"] };
+    const iron = summarizeArmour([halfPlate]);
+    const steel = summarizeArmour([{ ...halfPlate, material: "steel" }]);
+    for (const location of halfPlate.locations) {
+      expect(iron.apByLocation[location]).toBe(5);
+      expect(steel.apByLocation[location]).toBe(5);
+    }
+    expect(iron.apByLocation.Head).toBe(0);
+    expect(iron.fullWornEnc).toBe(16);
+    expect(steel.fullWornEnc).toBe(12);
+  });
+
+  test("fit warnings use a readable name and unresolved fit grants no protection", () => {
+    const summary = summarizeArmour([{ ...plate(), id: "aaf8c360-42d8-4b2a-a06c-7093466715cf-1", name: "Half Plate", fit: "unresolved",
+      locations: ["Chest", "Abdomen", "Right Arm", "Left Arm"] }]);
+    expect(summary.apByLocation.Chest).toBeNull();
+    expect(summary.unresolved.join("; ")).toContain("Half Plate: armour fit needs attention. Open Armour locations and fit, then check the armour's size and fit settings.");
+    expect(summary.unresolved.join("; ")).not.toContain("aaf8c360-42d8-4b2a-a06c-7093466715cf");
   });
 
   test("uses the highest overlapping AP while counting every worn piece ENC", () => {
@@ -47,7 +72,8 @@ describe("location armour calculations", () => {
 
   test("keeps carried armour load unknown until its covered locations are resolved", () => {
     expect(summarizeArmour([{ ...plate(), state: "carried", locations: [], coverageResolved: false }]))
-      .toMatchObject({ fullWornEnc: 0, loadEnc: null, unresolved: ["plate: coverage unresolved"] });
+      .toMatchObject({ fullWornEnc: 0, loadEnc: null });
+    expect(summarizeArmour([{ ...plate(), state: "carried", locations: [], coverageResolved: false }]).unresolved[0]).toContain("armour coverage needs attention");
   });
 
   test("applies a GM ENC override per covered location", () => {
