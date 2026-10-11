@@ -37,6 +37,7 @@ test("equipment starts with two activities and puts the character summary in own
   expect(inventory).toContain('aria-label={`Exempt ${item.name} from load`}');
   expect(inventory).not.toContain('<span>Exempt from load</span>');
   expect(inventory).toContain(".inventory-table { min-width:52rem; table-layout:fixed; }");
+  expect(inventory).toContain('<div class="table-scroll inventory-scroll" role="region" aria-label="Owned equipment inventory" tabindex="0">');
   expect(inventory).toContain(".inventory-table th,.inventory-table td { vertical-align:middle; }");
   expect(inventory).toContain(".inventory-table { display:block; width:100%; min-width:0; }");
   expect(inventory).not.toContain('<summary>Edit / actions</summary>');

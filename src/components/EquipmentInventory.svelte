@@ -297,7 +297,8 @@
   {#if armourSummary.unresolved.length}<p class="balance-warning" role="status">Armour needs review: {armourSummary.unresolved.join("; ")}</p>{/if}
   <h5 class="owned-heading">Owned equipment</h5>
   {#if char.background.inventory.length}
-    <div class="table-scroll inventory-scroll" aria-label="Owned equipment inventory">
+    <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+    <div class="table-scroll inventory-scroll" role="region" aria-label="Owned equipment inventory" tabindex="0">
     <table class="sheet-table inventory-table">
       <thead><tr><th scope="col">Item</th><th scope="col">Quantity</th><th scope="col">State</th><th scope="col">ENC per item</th><th scope="col">Exempt from load</th><th scope="col">Actions</th></tr></thead>
       <tbody>
