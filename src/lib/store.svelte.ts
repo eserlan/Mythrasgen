@@ -566,20 +566,20 @@ export function setStartingMoneyRoll(roll: number) {
 export const startingMoney = () => char.background.startingMoneyTotal;
 export const equipmentSpentCp = () => ledgerSpentCp(char.background.equipmentTransactions);
 export const equipmentBalanceCp = () => reconcileBalance(char.background.startingMoneyTotal, char.background.equipmentTransactions).remainingCp;
-export function purchaseEquipment(catalogueId: string, quantity: number, gmEnteredPriceCp?: number) {
+export function purchaseEquipment(catalogueId: string, quantity: number, gmEnteredPriceCp?: number, armourSelection?: import("./equipment-inventory").ArmourAcquisitionSelection) {
   const record = EQUIPMENT_CATALOGUE.find(item => item.source.id === catalogueId)?.source;
   if (!record) throw new Error(`Unknown equipment catalogue id: ${catalogueId}`);
-  const next = addPurchase({ inventory: char.background.inventory, equipmentTransactions: char.background.equipmentTransactions }, record, quantity, gmEnteredPriceCp);
+  const next = addPurchase({ inventory: char.background.inventory, equipmentTransactions: char.background.equipmentTransactions }, record, quantity, gmEnteredPriceCp, undefined, armourSelection);
   const spend = ledgerSpentCp(next.equipmentTransactions);
   if (spend > Math.round(char.background.startingMoneyTotal * 10)) throw new Error("Purchase exceeds available funds");
   char.background.inventory = next.inventory;
   char.background.equipmentTransactions = next.equipmentTransactions;
   char.background.currentMoney = equipmentBalanceCp() / 10;
 }
-export function acquireEquipment(catalogueId: string, quantity: number, acquiredAs: "gifted" | "inherited" | "granted") {
+export function acquireEquipment(catalogueId: string, quantity: number, acquiredAs: "gifted" | "inherited" | "granted", armourSelection?: import("./equipment-inventory").ArmourAcquisitionSelection) {
   const record = EQUIPMENT_CATALOGUE.find(item => item.source.id === catalogueId)?.source;
   if (!record) throw new Error(`Unknown equipment catalogue id: ${catalogueId}`);
-  const next = addGift({ inventory: char.background.inventory, equipmentTransactions: char.background.equipmentTransactions }, record, quantity, acquiredAs);
+  const next = addGift({ inventory: char.background.inventory, equipmentTransactions: char.background.equipmentTransactions }, record, quantity, acquiredAs, armourSelection);
   char.background.inventory = next.inventory;
 }
 export function recordEquipmentExpense(catalogueId: string, quantity: number, gmEnteredPriceCp?: number) {

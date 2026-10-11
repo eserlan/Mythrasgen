@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { summarizeArmour, type ArmourPiece } from "./armour-rules";
+import { armourEncumbrance, armourMaterialCompatibility, summarizeArmour, type ArmourPiece } from "./armour-rules";
 
 const plate = (material: "iron" | "steel" = "iron"): ArmourPiece => ({
   id: "plate", construction: "half_plate", material,
@@ -8,6 +8,19 @@ const plate = (material: "iron" | "steel" = "iron"): ArmourPiece => ({
 });
 
 describe("location armour calculations", () => {
+  test("applies Core material multipliers without rounding fractional ENC early", () => {
+    expect(armourEncumbrance("plated_mail", "iron")).toBe(6);
+    expect(armourEncumbrance("plated_mail", "steel")).toBe(4.5);
+    expect(summarizeArmour([{ ...plate(), construction: "plated_mail", material: "steel" }]))
+      .toMatchObject({ fullWornEnc: 31.5, loadEnc: 15.75, initiativePenalty: 7 });
+  });
+
+  test("enforces construction notes and keeps GM material overrides explicit", () => {
+    expect(armourMaterialCompatibility("half_plate", "leather")).toBe("compatible");
+    expect(armourMaterialCompatibility("mail", "leather")).toBe("incompatible");
+    expect(armourMaterialCompatibility("plated_mail", "silk")).toBe("incompatible");
+  });
+
   test("calculates seven-location iron and steel Half Plate without intermediate rounding", () => {
     expect(summarizeArmour([plate()])).toMatchObject({ fullWornEnc: 28, loadEnc: 14, initiativePenalty: 6 });
     expect(summarizeArmour([plate("steel")])).toMatchObject({ fullWornEnc: 21, loadEnc: 10.5, initiativePenalty: 5 });
