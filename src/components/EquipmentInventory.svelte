@@ -173,6 +173,7 @@
   const signedMoney = formatCopperPrice;
   const load = $derived(encumbranceSummary(char.background.inventory, char.chars.STR));
   const armourItems = $derived(char.background.inventory.filter(item => item.armour));
+  const wornArmourItems = $derived(armourItems.filter(item => item.armour?.state === "worn"));
   const armourSummary = $derived(summarizeArmour(armourItems.flatMap(item => Array.from({ length: item.quantity }, (_, index) => ({
     id: `${item.id}-${index + 1}`, ...item.armour!, state: item.state,
   })))));
@@ -187,6 +188,29 @@
     return `${total} ENC contribution`;
   };
   const catalogueRecordFor = (item: typeof char.background.inventory[number]) => EQUIPMENT_CATALOGUE.find(record => record.source.id === item.catalogueId)?.source;
+  const ownedWeaponRows = $derived(char.background.inventory.flatMap(item => {
+    const record = catalogueRecordFor(item);
+    const custom = item.customItem;
+    const ranged = record?.category === "ranged";
+    const melee = record ? ["one_handed", "two_handed", "shields"].includes(record.category)
+      : custom?.type === "weapon" || custom?.type === "shield";
+    if (!ranged && !melee) return [];
+    return [{ item, record, custom, ranged }];
+  }));
+  const meleeWeaponRows = $derived(ownedWeaponRows.filter(row => !row.ranged));
+  const rangedWeaponRows = $derived(ownedWeaponRows.filter(row => row.ranged));
+  const ownedArmourRows = $derived(HIT_LOCATIONS.map(location => {
+    const pieces = wornArmourItems.filter(item => item.armour?.locations.includes(location));
+    const unresolvedCoverage = wornArmourItems.filter(item => !item.armour?.locations.length && !item.armour?.coverageResolved);
+    const ap = armourSummary.apByLocation[location];
+    const enc = unresolvedCoverage.length ? null : pieces.reduce<number | null>((total, item) => {
+      if (total === null) return null;
+      const piece = item.armour!;
+      const unitEnc = piece.encOverride ?? (piece.construction && piece.material ? armourEncumbrance(piece.construction, piece.material) : null);
+      return unitEnc === null ? null : total + unitEnc * item.quantity;
+    }, 0);
+    return { location, pieces, unresolvedCoverage, ap, enc };
+  }));
   const statSummary = (record: typeof EQUIPMENT_CATALOGUE[number]) => [
     ...combatStats(record.source).map(([name, value]) => `${name} ${value}`),
     record.source.enc_candidate !== undefined ? `ENC ${record.source.enc_candidate}` : record.source.base_enc_per_location !== undefined ? `ENC ${record.source.base_enc_per_location}` : record.kind === "physical_item" ? "ENC Unknown" : undefined,
@@ -238,6 +262,7 @@
     } catch (error) { message = error instanceof Error ? error.message : `Could not update ${itemName}.`; }
   }
   function removeInventoryItem(itemId: string, itemName: string) {
+    if (!window.confirm(`Remove ${itemName} from your equipment? This does not refund a purchase.`)) return;
     deleteInventoryItem(itemId);
     message = `${itemName}: removed from your equipment. This does not refund a purchase.`;
   }
@@ -281,10 +306,16 @@
   {#if armourSummary.unresolved.length}<p class="balance-warning" role="status">Armour needs review: {armourSummary.unresolved.join("; ")}</p>{/if}
   <h5 class="owned-heading">Owned equipment</h5>
   {#if char.background.inventory.length}
-    <ul class="owned-list">
+    <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+    <div class="table-scroll" role="region" aria-label="Owned equipment inventory" tabindex="0">
+    <table class="sheet-table inventory-table">
+      <thead><tr><th scope="col">Item</th><th scope="col">Qty</th><th scope="col">State</th><th scope="col">ENC</th><th scope="col">Actions</th></tr></thead>
+      <tbody>
       {#each char.background.inventory as item (item.id)}
-        <li>
-          <div class="owned-item-heading"><b>{item.name}</b> <span class="tag">× {item.quantity}</span> <span class="tag">{item.state[0].toUpperCase() + item.state.slice(1)}</span>{#if item.customItem}<span class="tag">Custom</span>{/if}<small>{inventoryEncContribution(item)}</small>
+        <tr>
+          <th scope="row"><span class="owned-name">{item.name}{#if item.customItem} <span class="tag">Custom</span>{/if}</span></th>
+          <td>{item.quantity}</td><td>{item.state[0].toUpperCase() + item.state.slice(1)}</td><td>{inventoryEncContribution(item)}</td>
+          <td class="row-actions">
             <details class="item-source"><summary>Item details</summary><p class="mute">Acquired as {item.acquiredAs}.{#if item.customItem} Custom {item.customItem.type}. {item.customItem.description}{/if}</p>
               {#if catalogueRecordFor(item)}
                 {@const record = catalogueRecordFor(item)!}
@@ -292,42 +323,78 @@
               {/if}
               {#if item.armour}<div class="armour-summary">{#each HIT_LOCATIONS as location}{@const protection = summarizeArmour([{ id: item.id, ...item.armour }]).apByLocation[location]}<div><small>{location}</small><b>{item.armour.locations.includes(location) ? protection === null ? "Unknown AP" : `${protection} AP` : "Not covered"}</b></div>{/each}</div>{/if}
             </details>
-          </div>
-          <label class="inventory-control">Quantity <input class="compact-number" aria-label={`Quantity of ${item.name}`} type="number" min="1" step="1" value={item.quantity} onchange={event => editInventoryQuantity(item.id, item.name, event.currentTarget.value)}></label>
-          <label class="inventory-control">State <select value={item.state} onchange={event => saveInventoryChange(item.id, item.name, { state: event.currentTarget.value as "carried" | "worn" | "stored" })}>
-            <option value="carried">Carried</option><option value="worn">Worn</option><option value="stored">Stored</option>
-          </select></label>
-          {#if item.armour}
-            <label class="inventory-control">ENC per covered location <input class="compact-number" aria-label={`ENC per covered location for ${item.name}`} type="number" min="0" step="0.25" value={item.armour.encOverride ?? ""} placeholder="Use construction" onchange={event => saveInventoryChange(item.id, item.name, { armour: { encOverride: event.currentTarget.value === "" ? undefined : Number(event.currentTarget.value) } })}></label>
-          {:else}
-            <label class="inventory-control">ENC per item <input class="compact-number" aria-label={`ENC per item for ${item.name}`} type="number" min="0" step="0.25" value={item.encPerUnit ?? ""} placeholder="Unknown" onchange={event => saveInventoryChange(item.id, item.name, { encPerUnit: event.currentTarget.value === "" ? null : Number(event.currentTarget.value) })}></label>
-            <span class="tag">{item.encPerUnit === null ? "ENC unresolved" : item.encSource === "gm_override" ? "GM ENC" : "ENC per item"}</span>
-          {/if}
-          <label class="exemption-control"><input type="checkbox" checked={!!item.encumbranceExempt} onchange={event => saveInventoryChange(item.id, item.name, { encumbranceExempt: event.currentTarget.checked })}> <span>Exempt from load<small>Use for items the rules exclude from ENC.</small></span></label>
-          {#if item.armour}
-            <details class="armour-editor"><summary>Armour locations and fit</summary>
-              <label>Construction <select value={item.armour.construction ?? ""} onchange={event => saveInventoryChange(item.id, item.name, { armour: { construction: event.currentTarget.value as keyof typeof ARMOUR_CONSTRUCTIONS || null } })}>
-                <option value="">Unresolved</option>{#each Object.entries(ARMOUR_CONSTRUCTIONS) as [id, construction]}<option value={id}>{construction.name}</option>{/each}
-              </select></label>
-              <label>Material <select value={item.armour.material ?? ""} onchange={event => setOwnedArmourMaterial(item, event.currentTarget.value as ArmourMaterialId)}>
-                <option value="">Unresolved</option>{#each Object.entries(ARMOUR_MATERIALS) as [id, material]}{@const status = item.armour.construction ? armourMaterialCompatibility(item.armour.construction, id as ArmourMaterialId) : "conditional"}<option value={id} disabled={status !== "compatible" && !item.armour.gmCompatibilityOverride}>{material.name} (ENC ×{material.encMultiplier}){status === "incompatible" ? " · incompatible" : status === "conditional" ? " · GM approval" : ""}</option>{/each}
-              </select></label>
-              <fieldset><legend>Covered locations</legend>{#each HIT_LOCATIONS as location}<label><input type="checkbox" checked={item.armour.locations.includes(location)} onchange={event => setArmourLocation(item, location, event.currentTarget.checked)}>{location}</label>{/each}</fieldset>
-              <label>Fit <select value={item.armour.fit} onchange={event => saveInventoryChange(item.id, item.name, { armour: { fit: event.currentTarget.value as "fitted" | "ill_fitting" | "unresolved" } })}>
-                <option value="unresolved">Unresolved</option><option value="fitted">Fitted</option><option value="ill_fitting">Ill fitting</option>
-              </select></label>
-              <label>Compatibility <select value={item.armour.compatibility} onchange={event => saveInventoryChange(item.id, item.name, { armour: { compatibility: event.currentTarget.value as "compatible" | "incompatible" | "conditional" | "unresolved" } })}>
-                <option value="unresolved">Unresolved</option><option value="compatible">Compatible</option><option value="conditional">Conditional</option><option value="incompatible">Incompatible</option>
-              </select></label>
-              <label class="material-override"><input type="checkbox" checked={!!item.armour.gmCompatibilityOverride} onchange={event => saveInventoryChange(item.id, item.name, { armour: { gmCompatibilityOverride: event.currentTarget.checked } })}> <span>Allow nonstandard material (GM approval)<small>Enables material combinations outside the standard rules when the GM approves.</small></span></label>
-              <p class="mute">Flexible armour typically fits SIZ ±1; rigid armour needs wearer-specific SIZ and proportions. Record fit explicitly. No automatic layering: overlapping pieces use highest AP and every worn piece adds ENC. Compatibility remains unresolved until confirmed or GM overridden.</p>
+            <details class="owned-actions"><summary>Edit / actions</summary>
+              <div class="owned-controls">
+                <label class="inventory-control">Quantity <input class="compact-number" aria-label={`Quantity of ${item.name}`} type="number" min="1" step="1" value={item.quantity} onchange={event => editInventoryQuantity(item.id, item.name, event.currentTarget.value)}></label>
+                <label class="inventory-control">State <select aria-label={`State of ${item.name}`} value={item.state} onchange={event => saveInventoryChange(item.id, item.name, { state: event.currentTarget.value as "carried" | "worn" | "stored" })}>
+                  <option value="carried">Carried</option><option value="worn">Worn</option><option value="stored">Stored</option>
+                </select></label>
+                {#if item.armour}
+                  <label class="inventory-control">ENC per covered location <input class="compact-number" aria-label={`ENC per covered location for ${item.name}`} type="number" min="0" step="0.25" value={item.armour.encOverride ?? ""} placeholder="Use construction" onchange={event => saveInventoryChange(item.id, item.name, { armour: { encOverride: event.currentTarget.value === "" ? undefined : Number(event.currentTarget.value) } })}></label>
+                {:else}
+                  <label class="inventory-control">ENC per item <input class="compact-number" aria-label={`ENC per item for ${item.name}`} type="number" min="0" step="0.25" value={item.encPerUnit ?? ""} placeholder="Unknown" onchange={event => saveInventoryChange(item.id, item.name, { encPerUnit: event.currentTarget.value === "" ? null : Number(event.currentTarget.value) })}></label>
+                  <span class="tag">{item.encPerUnit === null ? "ENC unresolved" : item.encSource === "gm_override" ? "GM ENC" : "ENC per item"}</span>
+                {/if}
+                <label class="exemption-control"><input type="checkbox" checked={!!item.encumbranceExempt} onchange={event => saveInventoryChange(item.id, item.name, { encumbranceExempt: event.currentTarget.checked })}> <span>Exempt from load<small>Use for items the rules exclude from ENC.</small></span></label>
+                {#if item.armour}
+                  <details class="armour-editor"><summary>Armour locations and fit</summary>
+                    <label>Construction <select value={item.armour.construction ?? ""} onchange={event => saveInventoryChange(item.id, item.name, { armour: { construction: event.currentTarget.value as keyof typeof ARMOUR_CONSTRUCTIONS || null } })}>
+                      <option value="">Unresolved</option>{#each Object.entries(ARMOUR_CONSTRUCTIONS) as [id, construction]}<option value={id}>{construction.name}</option>{/each}
+                    </select></label>
+                    <label>Material <select value={item.armour.material ?? ""} onchange={event => setOwnedArmourMaterial(item, event.currentTarget.value as ArmourMaterialId)}>
+                      <option value="">Unresolved</option>{#each Object.entries(ARMOUR_MATERIALS) as [id, material]}{@const status = item.armour.construction ? armourMaterialCompatibility(item.armour.construction, id as ArmourMaterialId) : "conditional"}<option value={id} disabled={status !== "compatible" && !item.armour.gmCompatibilityOverride}>{material.name} (ENC ×{material.encMultiplier}){status === "incompatible" ? " · incompatible" : status === "conditional" ? " · GM approval" : ""}</option>{/each}
+                    </select></label>
+                    <fieldset><legend>Covered locations</legend>{#each HIT_LOCATIONS as location}<label><input type="checkbox" checked={item.armour.locations.includes(location)} onchange={event => setArmourLocation(item, location, event.currentTarget.checked)}>{location}</label>{/each}</fieldset>
+                    <label>Fit <select value={item.armour.fit} onchange={event => saveInventoryChange(item.id, item.name, { armour: { fit: event.currentTarget.value as "fitted" | "ill_fitting" | "unresolved" } })}>
+                      <option value="unresolved">Unresolved</option><option value="fitted">Fitted</option><option value="ill_fitting">Ill fitting</option>
+                    </select></label>
+                    <label>Compatibility <select value={item.armour.compatibility} onchange={event => saveInventoryChange(item.id, item.name, { armour: { compatibility: event.currentTarget.value as "compatible" | "incompatible" | "conditional" | "unresolved" } })}>
+                      <option value="unresolved">Unresolved</option><option value="compatible">Compatible</option><option value="conditional">Conditional</option><option value="incompatible">Incompatible</option>
+                    </select></label>
+                    <label class="material-override"><input type="checkbox" checked={!!item.armour.gmCompatibilityOverride} onchange={event => saveInventoryChange(item.id, item.name, { armour: { gmCompatibilityOverride: event.currentTarget.checked } })}> <span>Allow nonstandard material (GM approval)<small>Enables material combinations outside the standard rules when the GM approves.</small></span></label>
+                    <p class="mute">Flexible armour typically fits SIZ ±1; rigid armour needs wearer-specific SIZ and proportions. Record fit explicitly. No automatic layering: overlapping pieces use highest AP and every worn piece adds ENC. Compatibility remains unresolved until confirmed or GM overridden.</p>
+                  </details>
+                {/if}
+                <button type="button" class="ghost" onclick={() => removeInventoryItem(item.id, item.name)}>Remove</button>
+              </div>
             </details>
-          {/if}
-          <button type="button" class="ghost" onclick={() => removeInventoryItem(item.id, item.name)}>Remove</button>
-        </li>
+          </td>
+        </tr>
       {/each}
-    </ul>
+      </tbody>
+    </table>
+    </div>
   {:else}<p class="empty-state">No equipment yet. Choose equipment to add an item.</p>{/if}
+  <section class="sheet-section" aria-labelledby="armour-table-heading">
+    <h5 id="armour-table-heading">Armour by hit location</h5>
+    {#if wornArmourItems.length}
+      <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+      <div class="table-scroll" role="region" aria-label="Armour by hit location" tabindex="0">
+        <table class="sheet-table"><thead><tr><th scope="col">Hit location</th><th scope="col">Armour worn</th><th scope="col">AP</th><th scope="col">ENC</th></tr></thead>
+          <tbody>{#each ownedArmourRows as row}<tr><th scope="row">{row.location}</th><td>{[...row.pieces.map(item => item.quantity > 1 ? `${item.name} × ${item.quantity}` : item.name), ...row.unresolvedCoverage.map(item => `${item.name} (coverage unknown)`)].join(", ") || "—"}</td><td>{row.ap === null ? "Unknown" : row.ap || "—"}</td><td>{row.enc === null ? "Unknown" : row.enc || "—"}</td></tr>{/each}</tbody>
+        </table>
+      </div>
+      <p class="armour-totals">Worn full ENC: <b>{armourSummary.fullWornEnc ?? "Unknown"}</b> · Worn load ENC: <b>{armourSummary.loadEnc ?? "Unknown"}</b> · Armour penalty: <b>{armourSummary.initiativePenalty === null ? "Unknown" : `${armourSummary.initiativePenalty} initiative penalty`}</b></p>
+    {:else}<p class="empty-state">No worn armour.</p>{/if}
+  </section>
+  <section class="sheet-section" aria-labelledby="melee-table-heading">
+    <h5 id="melee-table-heading">Melee weapons &amp; shields</h5>
+    {#if meleeWeaponRows.length}
+      <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+      <div class="table-scroll" role="region" aria-label="Melee weapons and shields" tabindex="0"><table class="sheet-table weapon-table"><thead><tr><th scope="col">Weapon</th><th scope="col">Damage</th><th scope="col">Size</th><th scope="col">Reach</th><th scope="col">Traits</th><th scope="col">Combat effects</th><th scope="col">AP</th><th scope="col">HP</th><th scope="col">ENC</th></tr></thead>
+        <tbody>{#each meleeWeaponRows as row (row.item.id)}{@const profile = row.record?.combat_profile_candidate}<tr><th scope="row">{row.item.name}{#if row.item.quantity > 1} × {row.item.quantity}{/if}</th><td>{row.custom?.damage ?? profile?.damage ?? "—"}</td><td>{row.custom?.size ?? (profile?.size === "M" ? "Medium" : profile?.size) ?? "—"}</td><td>{row.custom?.reach ?? (profile?.reach === "M" ? "Medium" : profile?.reach) ?? "—"}</td><td>{row.custom?.traits || "—"}</td><td>—</td><td>{row.custom?.ap ?? row.record?.ap_candidate ?? "—"}</td><td>{row.custom?.hp ?? row.record?.hp_candidate ?? "—"}</td><td>{row.item.encPerUnit === null ? "Unknown" : row.item.encPerUnit}</td></tr>{/each}</tbody>
+      </table></div>
+    {:else}<p class="empty-state">No owned melee weapons or shields.</p>{/if}
+  </section>
+  <section class="sheet-section" aria-labelledby="ranged-table-heading">
+    <h5 id="ranged-table-heading">Ranged weapons</h5>
+    {#if rangedWeaponRows.length}
+      <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+      <div class="table-scroll" role="region" aria-label="Ranged weapons" tabindex="0"><table class="sheet-table weapon-table"><thead><tr><th scope="col">Weapon</th><th scope="col">Damage</th><th scope="col">Force</th><th scope="col">DM</th><th scope="col">Range</th><th scope="col">Load</th><th scope="col">Combat effects</th><th scope="col">AP</th><th scope="col">HP</th><th scope="col">ENC</th></tr></thead>
+        <tbody>{#each rangedWeaponRows as row (row.item.id)}{@const profile = row.record?.combat_profile_candidate}<tr><th scope="row">{row.item.name}{#if row.item.quantity > 1} × {row.item.quantity}{/if}</th><td>{row.custom?.damage ?? profile?.damage ?? "—"}</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>{row.custom?.ap ?? row.record?.ap_candidate ?? "—"}</td><td>{row.custom?.hp ?? row.record?.hp_candidate ?? "—"}</td><td>{row.item.encPerUnit === null ? "Unknown" : row.item.encPerUnit}</td></tr>{/each}</tbody>
+      </table></div>
+    {:else}<p class="empty-state">No owned ranged weapons.</p>{/if}
+  </section>
   <details class="review-details"><summary>Load details</summary>
   <div class="load-summary" aria-live="polite">
     <div><small>Load</small><b>{load.load === null ? `At least ${load.knownLoad} ENC · unknown` : `${load.load} ENC`}</b></div>
@@ -338,16 +405,6 @@
   </div>
   <p class="mute">Worn items contribute half ENC; stored items do not count. Twenty zero-ENC items count as 1 ENC.</p>
   </details>
-  {#if armourItems.length}
-  <details class="review-details"><summary>Armour protection by body location</summary>
-  <div class="armour-summary" aria-live="polite">
-    {#each HIT_LOCATIONS as location}<div><small>{location}</small><b>{armourSummary.apByLocation[location] === null ? "Unknown AP" : `${armourSummary.apByLocation[location]} AP`}</b></div>{/each}
-    <div><small>Worn full ENC</small><b>{armourSummary.fullWornEnc ?? "Unknown"}</b></div>
-    <div><small>Worn load ENC</small><b>{armourSummary.loadEnc ?? "Unknown"}</b></div>
-    {#if armourSummary.initiativePenalty}<div><small>Initiative effect</small><b>{armourSummary.initiativePenalty}</b></div>{/if}
-  </div>
-  </details>
-  {/if}
   <details class="review-details"><summary>Money and transaction history</summary>
   <div class="money-summary"><div><small>Starting</small><b>{formatCopperPrice(startingCp)}</b></div><div><small>Spent</small><b>{signedMoney(equipmentSpentCp())}</b></div><div><small>Remaining</small><b>{signedMoney(currentBalanceCp)}</b></div></div>
   {#if char.background.equipmentTransactions.length}
@@ -559,7 +616,23 @@
   .review-details { margin:.65rem 0; padding:.65rem; border:1px solid var(--line); border-radius:.5rem; }
   .review-details summary,.item-source summary { min-height:1.5rem; cursor:pointer; font-weight:700; }
   .owned-heading { margin:.9rem 0 .35rem; }
-  .item-source { margin-top:.35rem; }
+  .sheet-section { margin-top:1.1rem; }
+  .sheet-section h5 { margin:.4rem 0; }
+  .table-scroll { max-width:100%; overflow:auto; border:1px solid var(--line); border-radius:.4rem; }
+  .table-scroll:focus-visible { outline:3px solid var(--acc); outline-offset:2px; }
+  .sheet-table { width:100%; border-collapse:collapse; font-size:.9rem; }
+  .sheet-table th,.sheet-table td { padding:.45rem .55rem; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; }
+  .sheet-table thead th { background:color-mix(in srgb,var(--line) 30%,transparent); white-space:nowrap; }
+  .sheet-table tbody tr:last-child > * { border-bottom:0; }
+  .inventory-table { min-width:38rem; }
+  .weapon-table { min-width:58rem; }
+  .owned-name { overflow-wrap:anywhere; }
+  .row-actions { min-width:9rem; }
+  .row-actions details + details { margin-top:.3rem; }
+  .row-actions summary { min-height:1.7rem; cursor:pointer; font-weight:700; }
+  .owned-controls { display:flex; align-items:flex-start; flex-wrap:wrap; gap:.6rem; min-width:0; max-width:42rem; padding:.6rem 0; }
+  .owned-controls > * { flex:0 1 auto; }
+  .item-source p { max-width:36rem; }
   .load-summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(10rem,1fr)); gap:.5rem; margin:.75rem 0; }
   .load-summary > div { display:flex; flex-direction:column; gap:.2rem; padding:.65rem; border:1px solid var(--line); border-radius:.5rem; }
   .armour-summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(8rem,1fr)); gap:.5rem; margin:.75rem 0; }
@@ -636,10 +709,7 @@
   h4 { margin:1.2rem 0 .5rem; }
   h5 { margin:0; font-size:1rem; }
   .tag { display:inline-block; padding:.1rem .4rem; border:1px solid var(--line); border-radius:99px; font-size:.75rem; }
-  .owned-list,.transaction-list { display:grid; gap:.5rem; padding-left:1.4rem; }
-  .owned-list li { min-width:0; display:grid; grid-template-columns:minmax(0,1fr) repeat(3,auto); align-items:end; gap:.6rem; padding:.7rem; border:1px solid var(--line); border-radius:.5rem; }
-  .owned-list li > .owned-item-heading { grid-column:1/-1; min-width:0; display:flex; align-items:center; flex-wrap:wrap; gap:.35rem; }
-  .owned-item-heading > small { flex-basis:100%; color:var(--mute); }
+  .transaction-list { display:grid; gap:.5rem; padding-left:1.4rem; }
   .inventory-control { min-width:0; display:grid; align-content:start; gap:.25rem; }
   .inventory-control input.compact-number { box-sizing:border-box; width:5.5rem; min-height:2.75rem; }
   .inventory-control select { box-sizing:border-box; width:9.5rem; min-height:2.75rem; }
@@ -647,9 +717,10 @@
   .exemption-control input { flex:none; width:1.2rem; height:1.2rem; margin:.15rem 0 0; accent-color:var(--bronze); }
   .exemption-control span { display:grid; gap:.1rem; }
   .exemption-control small { color:var(--mute); }
-  .owned-list .armour-editor { grid-column:1/-1; }
-  .owned-list li > button { justify-self:start; min-height:2.75rem; }
-  .owned-list p { margin:.15rem 0 0; }
+  .owned-controls button { min-height:2.75rem; }
+  .owned-controls .armour-editor { flex:1 1 100%; }
+  .owned-controls p { margin:.15rem 0 0; }
+  .armour-totals { overflow-wrap:anywhere; }
   .transaction-list li { padding:.35rem 0; }
   .transaction-list .mute { display:block; font-size:.8rem; }
   .inventory-ledger :is(p,small,b,span,li,label,summary) { overflow-wrap:anywhere; }
@@ -661,9 +732,9 @@
     .catalogue-row { align-items:flex-start; }
     .row-price { max-width:40%; overflow-wrap:anywhere; }
     .review-summary { grid-template-columns:1fr; }
-    .owned-list li { grid-template-columns:repeat(2,minmax(0,1fr)); align-items:start; }
     .inventory-control input.compact-number,.inventory-control select { width:100%; }
-    .owned-list li > button { grid-column:1/-1; }
+    .owned-controls { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,10rem),1fr)); max-width:20rem; }
+    .owned-controls > .exemption-control,.owned-controls > .armour-editor,.owned-controls > button { grid-column:1/-1; }
     .acquisition-toolbar { align-items:stretch; gap:.65rem; }
     .purchase-values { flex:1 1 100%; align-items:end; }
     .purchase-values .quantity-control { flex:0 0 auto; }

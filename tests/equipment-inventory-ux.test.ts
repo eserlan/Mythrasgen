@@ -27,6 +27,16 @@ test("equipment starts with two activities and puts the character summary in own
   expect(inventory).toContain("Owned equipment");
   expect(inventory).toContain("inventoryEncContribution(item)");
   expect(inventory).toContain('class="compact-number"');
+  expect(inventory).toContain('<table class="sheet-table inventory-table">');
+  expect(inventory).toContain('<summary>Edit / actions</summary>');
+  expect(inventory).toContain('window.confirm(`Remove ${itemName} from your equipment? This does not refund a purchase.`)');
+  expect(inventory).toContain("Armour by hit location");
+  expect(inventory).toContain("Melee weapons &amp; shields");
+  expect(inventory).toContain("Ranged weapons");
+  expect(inventory).toContain('aria-label="Melee weapons and shields"');
+  expect(inventory).toContain('aria-label="Ranged weapons"');
+  expect(inventory).toContain("meleeWeaponRows = $derived(ownedWeaponRows.filter(row => !row.ranged))");
+  expect(inventory).toContain("rangedWeaponRows = $derived(ownedWeaponRows.filter(row => row.ranged))");
   expect(inventory).toContain("Exempt from load");
   expect(inventory).toContain("aria-current={view === \"choose\" ? \"page\" : undefined}");
   expect(inventory).toContain("Searches all {EQUIPMENT_CATALOGUE.length} equipment records.");
@@ -109,7 +119,8 @@ test("GM material override is a compact label with explanatory secondary text", 
 test("technical provenance and armour location data are secondary disclosures", () => {
   expect(inventory).toContain("<summary>Rules &amp; sources</summary>");
   expect(inventory).toContain("<summary>Money and transaction history</summary>");
-  expect(inventory).toContain("{#if armourItems.length}");
+  expect(inventory).toContain("{#if wornArmourItems.length}");
+  expect(inventory).toContain("coverage unknown");
   expect(inventory).toContain("No armour recorded");
   expect(inventory).toContain("filter(ap => ap !== null && ap > 0).length} locations protected");
   expect(inventory).toContain("No equipment yet. Choose equipment to add an item.");
