@@ -177,16 +177,6 @@
   const armourSummary = $derived(summarizeArmour(armourItems.flatMap(item => Array.from({ length: item.quantity }, (_, index) => ({
     id: `${item.id}-${index + 1}`, ...item.armour!, state: item.state,
   })))));
-  const inventoryEncContribution = (item: typeof char.background.inventory[number]) => {
-    if (item.encumbranceExempt || item.state === "stored") return "0 ENC contribution";
-    if (item.armour) {
-      const summary = summarizeArmour(Array.from({ length: item.quantity }, (_, index) => ({ id: `${item.id}-${index + 1}`, ...item.armour!, state: item.state })));
-      return summary.loadEnc === null ? "Unknown ENC contribution" : `${summary.loadEnc} ENC contribution`;
-    }
-    if (item.encPerUnit === null) return "Unknown ENC contribution";
-    const total = item.encPerUnit * item.quantity / (item.state === "worn" ? 2 : 1);
-    return `${total} ENC contribution`;
-  };
   const inventoryEncLabel = (item: typeof char.background.inventory[number]) => item.armour ? "ENC per covered location" : "ENC per item";
   const catalogueRecordFor = (item: typeof char.background.inventory[number]) => EQUIPMENT_CATALOGUE.find(record => record.source.id === item.catalogueId)?.source;
   const ownedWeaponRows = $derived(char.background.inventory.flatMap(item => {
@@ -307,7 +297,8 @@
   {#if armourSummary.unresolved.length}<p class="balance-warning" role="status">Armour needs review: {armourSummary.unresolved.join("; ")}</p>{/if}
   <h5 class="owned-heading">Owned equipment</h5>
   {#if char.background.inventory.length}
-    <div class="table-scroll inventory-scroll" aria-label="Owned equipment inventory">
+    <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+    <div class="table-scroll inventory-scroll" role="region" aria-label="Owned equipment inventory" tabindex="0">
     <table class="sheet-table inventory-table">
       <thead><tr><th scope="col">Item</th><th scope="col">Quantity</th><th scope="col">State</th><th scope="col">ENC per item</th><th scope="col">Exempt from load</th><th scope="col">Actions</th></tr></thead>
       <tbody>
@@ -337,10 +328,9 @@
                   <option value="carried">Carried</option><option value="worn">Worn</option><option value="stored">Stored</option>
           </select></td>
           <td data-label="ENC per item"><label class="sr-only" for={`owned-enc-${item.id}`}>{inventoryEncLabel(item)} for {item.name}</label>
-            <input id={`owned-enc-${item.id}`} class="compact-number" aria-label={`${inventoryEncLabel(item)} for ${item.name}`} type="number" min="0" step="0.25" value={item.armour ? item.armour.encOverride ?? "" : item.encPerUnit ?? ""} placeholder={item.armour ? "Derived" : "Unknown"} title={item.armour ? "Armour ENC is per covered location; leave blank to use construction and material." : "ENC per item before quantity and state adjust the actual load."} onchange={event => saveInventoryChange(item.id, item.name, item.armour ? { armour: { encOverride: event.currentTarget.value === "" ? undefined : Number(event.currentTarget.value) } } : { encPerUnit: event.currentTarget.value === "" ? null : Number(event.currentTarget.value) })}>
-            <small class="enc-contribution">Load: {inventoryEncContribution(item)}</small>
+            <input id={`owned-enc-${item.id}`} class="compact-number" aria-label={`${inventoryEncLabel(item)} for ${item.name}`} type="number" min="0" step="0.25" value={item.armour ? item.armour.encOverride ?? "" : item.encPerUnit ?? ""} placeholder={item.armour ? "Derived" : "Unknown"} onchange={event => saveInventoryChange(item.id, item.name, item.armour ? { armour: { encOverride: event.currentTarget.value === "" ? undefined : Number(event.currentTarget.value) } } : { encPerUnit: event.currentTarget.value === "" ? null : Number(event.currentTarget.value) })}>
           </td>
-          <td data-label="Exempt from load"><label class="exemption-control"><input type="checkbox" aria-label={`Exempt ${item.name} from load`} checked={!!item.encumbranceExempt} onchange={event => saveInventoryChange(item.id, item.name, { encumbranceExempt: event.currentTarget.checked })}><span>Exempt from load</span></label></td>
+          <td data-label="Exempt from load"><label class="exemption-control"><input type="checkbox" aria-label={`Exempt ${item.name} from load`} checked={!!item.encumbranceExempt} onchange={event => saveInventoryChange(item.id, item.name, { encumbranceExempt: event.currentTarget.checked })}></label></td>
           <td class="row-actions" data-label="Actions"><button type="button" class="ghost" aria-label={`Remove ${item.name}`} onclick={() => removeInventoryItem(item.id, item.name)}>Remove</button></td>
         </tr>
       {/each}
@@ -607,7 +597,7 @@
   .sheet-table th,.sheet-table td { padding:.45rem .55rem; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; }
   .sheet-table thead th { background:color-mix(in srgb,var(--line) 30%,transparent); white-space:nowrap; }
   .sheet-table tbody tr:last-child > * { border-bottom:0; }
-  .inventory-table { min-width:0; table-layout:fixed; }
+  .inventory-table { min-width:52rem; table-layout:fixed; }
   .inventory-table th:nth-child(1) { width:27%; }
   .inventory-table th:nth-child(2) { width:10%; }
   .inventory-table th:nth-child(3) { width:14%; }
@@ -615,17 +605,19 @@
   .inventory-table th:nth-child(5) { width:22%; }
   .inventory-table th:nth-child(6) { width:12%; }
   .weapon-table { min-width:58rem; }
-  .owned-name { overflow-wrap:break-word; word-break:normal; hyphens:none; }
-  .inventory-table td > .compact-number { box-sizing:border-box; width:4rem; min-height:2.75rem; }
-  .inventory-table td > .state-select { box-sizing:border-box; width:100%; min-width:0; min-height:2.75rem; }
+  .owned-name { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .inventory-table th,.inventory-table td { vertical-align:middle; }
+  .inventory-table td { white-space:nowrap; }
+  .inventory-table td > .compact-number { box-sizing:border-box; width:4rem; min-height:2.5rem; }
+  .inventory-table td > .state-select { box-sizing:border-box; width:100%; min-width:0; min-height:2.5rem; }
   .inventory-table td[data-label="Quantity"] > .compact-number { width:3.5rem; }
-  .inventory-table td[data-label="ENC per item"] > small { display:block; margin-top:.2rem; color:var(--mute); }
-  .row-actions button { min-height:2.75rem; }
-  .exemption-control { min-height:2.75rem; align-items:center; gap:.5rem; cursor:pointer; }
+  .row-actions button { min-height:2.5rem; }
+  .exemption-control { display:inline-flex; min-width:2.75rem; min-height:2.5rem; align-items:center; justify-content:center; cursor:pointer; }
   .exemption-control input { flex:none; width:1.2rem; height:1.2rem; accent-color:var(--bronze); }
   .load-summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(10rem,1fr)); gap:.5rem; margin:.75rem 0; }
   .load-summary > div { display:flex; flex-direction:column; gap:.2rem; padding:.65rem; border:1px solid var(--line); border-radius:.5rem; }
   .armour-editor { flex:1 1 100%; display:flex; align-items:start; flex-wrap:wrap; gap:.6rem; padding:.65rem; border:1px solid var(--line); border-radius:.5rem; }
+  .armour-editor { white-space:normal; }
   .armour-editor summary { flex-basis:100%; cursor:pointer; }
   .armour-editor fieldset { display:flex; flex-wrap:wrap; gap:.45rem; }
   .catalogue-armour-options { display:grid; gap:.55rem; margin:1rem 0; padding:.75rem; border:1px solid var(--line); border-radius:.5rem; }
@@ -698,7 +690,6 @@
   h5 { margin:0; font-size:1rem; }
   .tag { display:inline-block; padding:.1rem .4rem; border:1px solid var(--line); border-radius:99px; font-size:.75rem; }
   .transaction-list { display:grid; gap:.5rem; padding-left:1.4rem; }
-  .exemption-control span { display:block; }
   .armour-totals { overflow-wrap:anywhere; }
   .transaction-list li { padding:.35rem 0; }
   .transaction-list .mute { display:block; font-size:.8rem; }
@@ -712,7 +703,7 @@
     .row-price { max-width:40%; overflow-wrap:anywhere; }
     .review-summary { grid-template-columns:1fr; }
     .inventory-scroll { overflow:visible; border:0; }
-    .inventory-table { display:block; width:100%; }
+    .inventory-table { display:block; width:100%; min-width:0; }
     .inventory-table thead { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
     .inventory-table tbody { display:grid; gap:.45rem; }
     .inventory-table tr { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); border:1px solid var(--line); border-radius:.4rem; }
@@ -722,7 +713,6 @@
     .inventory-table td::before { content:attr(data-label); color:var(--mute); font-size:.8rem; font-weight:700; }
     .inventory-table td > .compact-number { width:4rem; }
     .inventory-table td > .state-select { width:100%; max-width:10rem; }
-    .inventory-table td[data-label="ENC per item"] > small { margin-top:.1rem; }
     .inventory-table td[data-label="Exempt from load"] .exemption-control { min-height:2.75rem; }
     .inventory-table td[data-label="Actions"] { justify-items:start; }
     .inventory-table .armour-editor { margin-top:.35rem; }
