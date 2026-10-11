@@ -59,12 +59,25 @@ test("custom item multiline fields use full-width rows outside the compact field
   expect(inventory).toContain('<label class="custom-field-wide">Special effects / traits <textarea bind:value={customTraits} rows="4"');
   expect(inventory).toContain('.custom-field-wide textarea { box-sizing:border-box; width:100%; min-width:0; min-height:6rem; resize:vertical; }');
   const compactGridStart = inventory.indexOf('<div class="custom-fields">');
-  const compactGridEnd = inventory.indexOf('\n      </div>\n      {#if customType === "weapon" || customType === "shield"}', compactGridStart);
+  const compactGridEnd = inventory.indexOf('\n      </div>\n      {#if customType === "armour"}', compactGridStart);
   expect(compactGridStart).toBeGreaterThan(-1);
   expect(compactGridEnd).toBeGreaterThan(compactGridStart);
   expect(inventory.slice(compactGridStart, compactGridEnd)).not.toContain('<textarea');
   expect(inventory).toContain('class="custom-field-wide">Description / notes');
   expect(inventory).toContain('class="custom-field-wide">Special effects / traits');
+  expect(compile(inventory, { filename: "src/components/EquipmentInventory.svelte", generate: "client" }).warnings).toHaveLength(0);
+});
+
+test("custom armour locations use a responsive accessible checkbox grid", () => {
+  expect(inventory).toContain('<legend>Protected hit locations</legend>');
+  expect(inventory).toContain("Select every body location this armour protects. Choose at least one.");
+  expect(inventory).toContain("aria-describedby=\"custom-locations-instruction{customLocationsError ? ' custom-locations-error' : ''}\"");
+  expect(inventory).toContain('role="alert">Select at least one protected hit location before saving.');
+  expect(inventory).toContain('grid-template-columns:repeat(auto-fit,minmax(min(100%,9rem),1fr))');
+  expect(inventory).toContain('min-height:2.75rem');
+  expect(inventory).toContain('white-space:nowrap');
+  expect(inventory).toContain('class="mute custom-armour-help"');
+  expect(inventory).toContain('customLocations = [...(definition?.protectedLocations ?? [])]');
   expect(compile(inventory, { filename: "src/components/EquipmentInventory.svelte", generate: "client" }).warnings).toHaveLength(0);
 });
 
