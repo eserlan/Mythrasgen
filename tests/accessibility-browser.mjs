@@ -186,6 +186,43 @@ try {
   assert.equal(toolbar.price, "25 SP", `Flail total should remain silver-first: ${JSON.stringify(toolbar)}`);
   assert.ok(toolbar.quantity.left < toolbar.total.left && toolbar.total.left < toolbar.buy.left && toolbar.buy.left < toolbar.free.left, `Flail controls should appear in acquisition order: ${JSON.stringify(toolbar)}`);
   assert.ok([toolbar.total, toolbar.buy, toolbar.free].every(control => Math.abs(control.centerY - toolbar.quantity.centerY) < 8), `Flail acquisition controls should share one desktop row: ${JSON.stringify(toolbar)}`);
+  await evaluate(`(() => { const input = document.querySelector('.catalogue-filters input[type="search"]'); input.value = 'Half Plate'; input.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+  await new Promise(resolve => setTimeout(resolve, 100));
+  await evaluate(`document.querySelector('.catalogue-row')?.click()`);
+  const halfPlateInitial = JSON.parse(await evaluate(`(() => { const detail = document.querySelector('.item-detail'); const fieldset = detail?.querySelector('.protected-locations'); return JSON.stringify({ name:detail?.querySelector('#selected-item-title')?.textContent.trim(), inline:detail?.previousElementSibling?.classList.contains('catalogue-row'), legend:fieldset?.querySelector('legend')?.textContent, options:fieldset?.querySelectorAll('input[type="checkbox"]').length, help:fieldset?.getAttribute('aria-describedby'), price:detail?.querySelector('.purchase-total b')?.textContent.trim() }); })()`));
+  assert.equal(halfPlateInitial.name, "Half Plate");
+  assert.ok(halfPlateInitial.inline, "Half Plate material and location controls should remain inside its expanded catalogue panel");
+  assert.equal(halfPlateInitial.legend, "Protected hit locations");
+  assert.equal(halfPlateInitial.options, 7);
+  assert.ok(halfPlateInitial.help, "the fieldset should expose its guidance to assistive technology");
+  await evaluate(`(() => { const inputs = Array.from(document.querySelectorAll('.protected-locations .location-options input')); inputs[0].closest('label').click(); inputs[1].closest('label').click(); })()`);
+  const halfPlateSelected = JSON.parse(await evaluate(`(() => { const detail = document.querySelector('.item-detail'); return JSON.stringify({ count:detail.querySelector('.location-count')?.textContent.trim(), totals:detail.querySelector('.catalogue-armour-options .mute[aria-live="polite"]')?.textContent.trim(), price:detail.querySelector('.purchase-total b')?.textContent.trim() }); })()`));
+  assert.match(halfPlateSelected.count, /2 of 7 locations selected/);
+  assert.match(halfPlateSelected.totals, /8 ENC full worn ENC · 4 ENC worn load/);
+  assert.equal(halfPlateSelected.price, "1000 SP");
+  await evaluate(`document.querySelector('.protected-locations input').focus()`);
+  assert.ok(await evaluate(`document.activeElement === document.querySelector('.protected-locations input')`), "hit locations should remain keyboard focusable");
+  await call("Input.dispatchKeyEvent", { type:"keyDown", key:" ", code:"Space" });
+  await call("Input.dispatchKeyEvent", { type:"keyUp", key:" ", code:"Space" });
+  assert.ok(await evaluate(`!document.querySelector('.protected-locations input').checked && document.querySelector('.location-count').textContent.includes('1 of 7')`), "Space should toggle a focused location and announce the updated count");
+  await call("Input.dispatchKeyEvent", { type:"keyDown", key:" ", code:"Space" });
+  await call("Input.dispatchKeyEvent", { type:"keyUp", key:" ", code:"Space" });
+  assert.ok(await evaluate(`document.querySelector('.protected-locations input').checked && document.querySelector('.location-count').textContent.includes('2 of 7')`), "keyboard location selection should restore its prior state");
+  await evaluate(`document.querySelector('.material-override input').closest('label').click()`);
+  await new Promise(resolve => setTimeout(resolve, 100));
+  await evaluate(`(() => { const material = document.querySelector('[aria-label="Material for Half Plate"]'); material.value = 'ivory'; material.dispatchEvent(new Event('change', { bubbles:true })); })()`);
+  await new Promise(resolve => setTimeout(resolve, 100));
+  assert.ok(await evaluate(`document.querySelector('.material-override input').checked && document.querySelector('.protected-locations input').checked`), "GM override and selected locations should persist through material changes");
+  assert.equal(await evaluate(`document.querySelector('[aria-label="Material for Half Plate"]').value`), "ivory", "the explicit GM override should allow conditional material selection");
+  await runAxe();
+  await call("Emulation.setDeviceMetricsOverride", { width: 320, height: 900, deviceScaleFactor: 1, mobile: true });
+  const armourNarrow = JSON.parse(await evaluate(`(() => { const panel = document.querySelector('.item-detail'); const fieldset = panel.querySelector('.protected-locations'); return JSON.stringify({ panel:panel.clientWidth, panelScroll:panel.scrollWidth, fieldset:fieldset.clientWidth, fieldsetScroll:fieldset.scrollWidth, options:Array.from(fieldset.querySelectorAll('label')).map(label => ({ width:label.clientWidth, scroll:label.scrollWidth })) }); })()`));
+  assert.ok(armourNarrow.panelScroll <= armourNarrow.panel && armourNarrow.fieldsetScroll <= armourNarrow.fieldset && armourNarrow.options.every(option => option.scroll <= option.width), `Half Plate hit locations must reflow without horizontal scrolling at 320 CSS px: ${JSON.stringify(armourNarrow)}`);
+  await call("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+  await evaluate(`document.querySelector('.item-detail button[aria-label="Close item details"]')?.click()`);
+  await evaluate(`(() => { const input = document.querySelector('.catalogue-filters input[type="search"]'); input.value = 'Flail'; input.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+  await new Promise(resolve => setTimeout(resolve, 100));
+  await evaluate(`document.querySelector('.catalogue-row')?.click()`);
   const inventoryCount = () => evaluate(`document.querySelector('.activity-nav button:nth-child(2)')?.innerText.match(/\\d+/)?.[0] ?? '0'`);
   const beforeFree = await inventoryCount();
   await evaluate(`(() => { const select = document.querySelector('.free-acquisition select'); select.value = 'gifted'; select.dispatchEvent(new Event('change', { bubbles: true })); })()`);
@@ -215,7 +252,7 @@ try {
   assert.ok(JSON.parse(spaced).content <= JSON.parse(spaced).page, `Page VIII must reflow with WCAG text-spacing overrides: ${spaced}`);
   await call("Emulation.clearDeviceMetricsOverride");
   socket.close();
-  console.log("axe-core WCAG 2.2 A/AA checks passed for equipment group, category, selected item, owned equipment, and review views; dagger purchase, state edit, and load review passed.");
+  console.log("axe-core WCAG 2.2 A/AA checks passed; Half Plate coverage, price, ENC, keyboard selection, override, and 320px reflow passed alongside the Page VIII purchase and inventory checks.");
 } finally {
   for (const child of [browser, preview]) { try { globalThis.process.kill(-child.pid, "SIGTERM"); } catch {} }
   await Promise.all([browser, preview].map(child => new Promise(resolve => {

@@ -6,6 +6,7 @@
   import { ARMOUR_CONSTRUCTIONS, ARMOUR_MATERIALS, HIT_LOCATIONS, armourEncumbrance, armourMaterialCompatibility, standardArmourMaterial, summarizeArmour, type ArmourConstructionId, type ArmourMaterialId, type HitLocationName } from "../lib/armour-rules";
   import { validateCustomEquipment, type CustomEquipmentDefinition, type CustomEquipmentType } from "../lib/custom-equipment";
   import { acquireCustomEquipment, deleteCustomEquipment, purchaseCustomEquipment, saveCustomEquipment } from "../lib/store.svelte";
+  import ProtectedHitLocations from "./ProtectedHitLocations.svelte";
 
   const categories: EquipmentCategory[] = [...new Set(EQUIPMENT_CATALOGUE.map(item => item.source.category))];
   const categoryGroups: { name: string; categories: EquipmentCategory[] }[] = [
@@ -300,7 +301,7 @@
               <label>Compatibility <select value={item.armour.compatibility} onchange={event => saveInventoryChange(item.id, item.name, { armour: { compatibility: event.currentTarget.value as "compatible" | "incompatible" | "conditional" | "unresolved" } })}>
                 <option value="unresolved">Unresolved</option><option value="compatible">Compatible</option><option value="conditional">Conditional</option><option value="incompatible">Incompatible</option>
               </select></label>
-              <label><input type="checkbox" checked={!!item.armour.gmCompatibilityOverride} onchange={event => saveInventoryChange(item.id, item.name, { armour: { gmCompatibilityOverride: event.currentTarget.checked } })}> GM-authorized custom material override (enables nonstandard combinations)</label>
+              <label class="material-override"><input type="checkbox" checked={!!item.armour.gmCompatibilityOverride} onchange={event => saveInventoryChange(item.id, item.name, { armour: { gmCompatibilityOverride: event.currentTarget.checked } })}> <span>Allow nonstandard material (GM approval)<small>Enables material combinations outside the standard rules when the GM approves.</small></span></label>
               <p class="mute">Flexible armour typically fits SIZ ±1; rigid armour needs wearer-specific SIZ and proportions. Record fit explicitly. No automatic layering: overlapping pieces use highest AP and every worn piece adds ENC. Compatibility remains unresolved until confirmed or GM overridden.</p>
             </details>
           {/if}
@@ -342,14 +343,9 @@
           {#if Object.hasOwn(ARMOUR_CONSTRUCTIONS, customConstruction) && Object.hasOwn(ARMOUR_MATERIALS, customMaterial)}
             {@const customMaterialStatus = armourMaterialCompatibility(customConstruction as ArmourConstructionId, customMaterial as ArmourMaterialId)}
             {#if customMaterialStatus !== "compatible"}<p class="balance-warning">{customMaterialStatus === "incompatible" ? "Core notes do not list this combination." : "Core notes do not establish this combination as standard."} Use an explicit GM override if approved.</p>{/if}
-            <label class="custom-field-wide"><input type="checkbox" bind:checked={customArmourGmOverride}> GM-authorized custom material override</label>
+            <label class="material-override"><input type="checkbox" bind:checked={customArmourGmOverride}> <span>Allow nonstandard material (GM approval)<small>Enables material combinations outside the standard rules when the GM approves.</small></span></label>
           {/if}
-          <fieldset class="custom-locations" aria-describedby="custom-locations-instruction{customLocationsError ? ' custom-locations-error' : ''}">
-            <legend>Protected hit locations</legend>
-            <p id="custom-locations-instruction">Select every body location this armour protects. Choose at least one.</p>
-            {#each HIT_LOCATIONS as location}<label><input type="checkbox" checked={customLocations.includes(location)} onchange={event => { customLocations = event.currentTarget.checked ? [...new Set([...customLocations, location])] : customLocations.filter(item => item !== location); if (customLocations.length) customLocationsError = false; }}>{location}</label>{/each}
-            {#if customLocationsError}<p id="custom-locations-error" class="custom-locations-error" role="alert">Select at least one protected hit location before saving.</p>{/if}
-          </fieldset>
+          <ProtectedHitLocations idPrefix="custom-locations" selected={customLocations} guidance="Select every body location this armour protects. Choose at least one." error={customLocationsError ? "Select at least one protected hit location before saving." : ""} onchange={(location, checked) => { customLocations = checked ? [...new Set([...customLocations, location])] : customLocations.filter(item => item !== location); if (customLocations.length) customLocationsError = false; }} />
         {/if}
       </div>
       {#if customType === "armour"}<p class="mute custom-armour-help">Custom AP applies only to selected locations. Enter effective ENC for this custom piece; the selected material multiplier does not change its price. The existing fit and compatibility checks still govern worn armour.</p>{/if}
@@ -453,10 +449,8 @@
                   </select></label>
                   <p class="mute">{ARMOUR_MATERIALS[chosenMaterial].name} gives {armourEncumbrance(constructionId, chosenMaterial)} ENC per protected location (raw multiplier; fractions are retained). Standard construction price is per location and does not change with material.</p>
                   {#if materialStatus !== "compatible"}<p class="balance-warning">{materialStatus === "incompatible" ? "Core notes do not list this material for this construction." : "Core notes do not establish this combination as standard."} Ask the GM before using it.</p>{/if}
-                  <label><input type="checkbox" checked={!!armourGmOverride[record.id]} onchange={event => armourGmOverride[record.id] = event.currentTarget.checked}> GM-authorized custom material override (enables nonstandard combinations)</label>
-                  <fieldset class="catalogue-armour-locations"><legend>Protected hit locations</legend><p id={`armour-locations-help-${record.id}`}>Choose the locations this piece covers. Price and total ENC use this selection.</p>
-                    {#each HIT_LOCATIONS as location}<label><input type="checkbox" checked={locationsFor(record).includes(location)} onchange={event => armourLocations[record.id] = event.currentTarget.checked ? [...locationsFor(record), location] : locationsFor(record).filter(value => value !== location)}>{location}</label>{/each}
-                  </fieldset>
+                  <label class="material-override"><input type="checkbox" checked={!!armourGmOverride[record.id]} onchange={event => armourGmOverride[record.id] = event.currentTarget.checked}> <span>Allow nonstandard material (GM approval)<small>Enables material combinations outside the standard rules when the GM approves.</small></span></label>
+                  <ProtectedHitLocations idPrefix={`armour-locations-${record.id}`} selected={locationsFor(record)} guidance="Choose the locations this piece covers. Price and total ENC use this selection; choose at least one." validation={!locationsFor(record).length ? "Select at least one protected hit location before buying or adding armour." : ""} onchange={(location, checked) => armourLocations[record.id] = checked ? [...new Set([...locationsFor(record), location])] : locationsFor(record).filter(value => value !== location)} />
                   <p class="mute" aria-live="polite">{locationsFor(record).length} locations · {armourEncumbrance(constructionId, chosenMaterial) * locationsFor(record).length} ENC full worn ENC · {armourEncumbrance(constructionId, chosenMaterial) * locationsFor(record).length / 2} ENC worn load{perLocationPrice(record) === undefined ? "" : ` · ${formatCopperPrice(perLocationPrice(record)! * locationsFor(record).length)} total for selected locations`}</p>
                 </div>
               {/if}
@@ -567,11 +561,12 @@
   .armour-editor fieldset { display:flex; flex-wrap:wrap; gap:.45rem; }
   .catalogue-armour-options { display:grid; gap:.55rem; margin:1rem 0; padding:.75rem; border:1px solid var(--line); border-radius:.5rem; }
   .catalogue-armour-options > label { display:grid; gap:.25rem; max-width:28rem; }
+  .material-override { display:flex; align-items:flex-start; gap:.55rem; min-width:0; cursor:pointer; }
+  .custom-fields .material-override,.catalogue-armour-options > label.material-override { display:flex; }
+  .material-override input[type="checkbox"] { flex:none; width:1.2rem; height:1.2rem; margin:.2rem 0 0; accent-color:var(--bronze); }
+  .material-override span { display:grid; gap:.2rem; }
+  .material-override small { color:var(--mute); }
   .catalogue-armour-options select { width:100%; min-height:2.75rem; }
-  .catalogue-armour-locations { display:flex; flex-wrap:wrap; gap:.45rem .7rem; min-width:0; }
-  .catalogue-armour-locations legend { font-weight:600; }
-  .catalogue-armour-locations p { flex-basis:100%; margin:0; color:var(--mute); }
-  .catalogue-armour-locations label { display:flex; align-items:center; gap:.3rem; }
   .money-summary > div { display:flex; flex-direction:column; gap:.2rem; padding:.65rem; border:1px solid var(--line); border-radius:.5rem; }
   .money-summary small,.mute { color:var(--mute); }
   .balance-warning { color:var(--acc); font-weight:700; }
@@ -586,12 +581,6 @@
   .custom-fields :is(input,select) { box-sizing:border-box; width:100%; min-width:0; }
   .custom-field-wide textarea { box-sizing:border-box; width:100%; min-width:0; min-height:6rem; resize:vertical; }
   .custom-fields small { color:var(--mute); }
-  .custom-locations { box-sizing:border-box; grid-column:1/-1; display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,9rem),1fr)); gap:.5rem; min-width:0; width:100%; }
-  .custom-locations legend { font-weight:700; }
-  .custom-locations > p { grid-column:1/-1; margin:.1rem 0 .25rem; }
-  .custom-locations label { box-sizing:border-box; display:flex; align-items:center; gap:.55rem; min-width:0; min-height:2.75rem; padding:.45rem .55rem; border:1px solid var(--line); border-radius:.35rem; cursor:pointer; white-space:nowrap; }
-  .custom-locations input[type="checkbox"] { flex:none; width:1.25rem; height:1.25rem; margin:0; accent-color:var(--bronze); }
-  .custom-locations-error { color:var(--acc); font-weight:700; }
   .custom-armour-help { margin:.55rem 0 0; }
   .custom-entry { padding:.7rem; border:1px solid var(--line); border-radius:.4rem; }
   .custom-entry-title { display:grid; gap:.25rem; }
