@@ -23,6 +23,7 @@ import { CORE_SORCERY_SCHOOLS } from "./sorcery";
 import { syncMagicOrganisationMemberships } from "./magic-organisations";
 import { addExpense, addGift, addPurchase, changeInventoryItem, ledgerSpentCp, migrateLegacyPurchases, normalizeInventoryState, reconcileBalance, removeInventoryItem, refundPurchase, type EquipmentState, type InventoryTransaction } from "./equipment-inventory";
 import { EQUIPMENT_CATALOGUE } from "./equipment-catalogue";
+import { customEquipmentInventoryItem, normalizeCustomEquipment, validateCustomEquipment, type CustomEquipmentDefinition } from "./custom-equipment";
 
 export interface Passion {
   type: "Loyalty" | "Love" | "Hate";
@@ -54,6 +55,7 @@ export interface Character {
     purchases: { name: string; cost: number }[];
     inventory: import("./equipment-inventory").InventoryItem[];
     equipmentTransactions: InventoryTransaction[];
+    customEquipment: CustomEquipmentDefinition[];
   };
   magic: MagicState;
   organisations: Organisation[];
@@ -95,7 +97,7 @@ const blank = (): Character => ({
     parentsRoll: 0, parents: "", siblingsRoll: 0, siblings: "", extendedFamilyRoll: 0, extendedFamily: "",
     standingRoll: 0, standingResolved: false, familyReputationCountRoll: 0, familyTies: [], connectionsRoll: 0,
     connectionsResolved: false, connections: [], relationships: [], startingMoneyRoll: 14, startingMoneyKey: "", startingMoneyTotal: 700, currentMoney: 700,
-    equipment: "Tools; simple weapons; rented accommodation", purchases: [], inventory: [], equipmentTransactions: [] },
+    equipment: "Tools; simple weapons; rented accommodation", purchases: [], inventory: [], equipmentTransactions: [], customEquipment: [] },
   generation: "pointBuy", rollResults: null, rollAssignments: STATS.map((_, i) => i), home: true,
 });
 function resolveNativeTongue(skills: string[], language = char.nativeLanguage) { return skills.map(name => name === "Native Tongue" ? nativeTongueName(language) : name); }
@@ -267,6 +269,7 @@ export function normalizeCharacter(value: Partial<Character> | null, home = true
   const hasSavedInventoryLedger = Array.isArray(savedInventoryLedger?.equipmentTransactions);
   const normalizedInventory = normalizeInventoryState(normalized.background);
   normalized.background.inventory = normalizedInventory.inventory;
+  normalized.background.customEquipment = normalizeCustomEquipment(normalized.background.customEquipment);
   normalized.background.equipmentTransactions = hasSavedInventoryLedger
     ? normalizedInventory.equipmentTransactions
     : migrateLegacyPurchases(normalized.background.purchases);
@@ -596,6 +599,54 @@ export function deleteInventoryItem(id: string) {
 export function refundEquipmentPurchase(transactionId: string, amountCp: number) {
   const next = refundPurchase({ inventory: char.background.inventory, equipmentTransactions: char.background.equipmentTransactions }, transactionId, amountCp);
   char.background.equipmentTransactions = next.equipmentTransactions;
+  char.background.currentMoney = equipmentBalanceCp() / 10;
+}
+export function saveCustomEquipment(definition: Omit<CustomEquipmentDefinition, "id" | "updatedAt">, existingId?: string) {
+  const errors = validateCustomEquipment(definition);
+  if (errors.length) throw new Error(errors[0]);
+  const id = existingId ?? `custom-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`}`;
+  const existing = char.background.customEquipment.find(item => item.id === id);
+  if (!existing && char.background.customEquipment.some(item => item.id === id)) throw new Error("Duplicate custom item ID.");
+  const previousTime = existing ? Date.parse(existing.updatedAt) : 0;
+  const updatedAt = new Date(Math.max(Date.now(), Number.isFinite(previousTime) ? previousTime + 1 : 0)).toISOString();
+  const saved: CustomEquipmentDefinition = { ...definition, id, updatedAt };
+  char.background.customEquipment = existing
+    ? char.background.customEquipment.map(item => item.id === id ? saved : item)
+    : [...char.background.customEquipment, saved];
+  return saved;
+}
+export function deleteCustomEquipment(id: string) {
+  char.background.customEquipment = char.background.customEquipment.filter(item => item.id !== id);
+}
+export function acquireCustomEquipment(id: string, quantity: number, acquiredAs: "purchased" | "gifted" | "inherited" | "granted") {
+  const definition = char.background.customEquipment.find(item => item.id === id);
+  if (!definition) throw new Error("Custom item not found for this character.");
+  if (!Number.isSafeInteger(quantity) || quantity < 1) throw new Error("Quantity must be a positive whole number.");
+  if (definition.type === "service") throw new Error("Services do not create inventory.");
+  const inventory = [...char.background.inventory];
+  const existing = inventory.find(item => item.customItem?.id === id && item.customItem.updatedAt === definition.updatedAt
+    && item.acquiredAs === acquiredAs);
+  if (existing) {
+    if (!Number.isSafeInteger(existing.quantity + quantity)) throw new Error("Quantity is too large.");
+    inventory[inventory.indexOf(existing)] = { ...existing, quantity: existing.quantity + quantity };
+  }
+  else inventory.push(customEquipmentInventoryItem(definition, acquiredAs, quantity,
+    `owned-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`}`));
+  char.background.inventory = inventory;
+}
+export function purchaseCustomEquipment(id: string, quantity: number) {
+  const definition = char.background.customEquipment.find(item => item.id === id);
+  if (!definition) throw new Error("Custom item not found for this character.");
+  if (definition.priceCp === null) throw new Error("Enter an explicit GM price before purchasing this item.");
+  if (!Number.isSafeInteger(quantity) || quantity < 1) throw new Error("Quantity must be a positive whole number.");
+  const amountCp = definition.priceCp * quantity;
+  if (!Number.isSafeInteger(amountCp)) throw new Error("Total price is too large.");
+  const transactions = [...char.background.equipmentTransactions, { id: `transaction-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`}`,
+    kind: definition.type === "service" ? "expense" as const : "purchase" as const, catalogueId: null, name: definition.name,
+    quantity, amountCp, amountSource: "gm_entered" as const, catalogueVersion: "custom-definition-v1", recordedAt: new Date().toISOString() }];
+  if (ledgerSpentCp(transactions) > Math.round(char.background.startingMoneyTotal * 10)) throw new Error("Purchase exceeds available funds.");
+  if (definition.type !== "service") acquireCustomEquipment(id, quantity, "purchased");
+  char.background.equipmentTransactions = transactions;
   char.background.currentMoney = equipmentBalanceCp() / 10;
 }
 export const socialClassMoney = (kind: CultureKind, rank: string) => classMoneyMultiplier(kind, rank);
