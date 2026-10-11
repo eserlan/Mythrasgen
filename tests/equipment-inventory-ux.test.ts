@@ -112,7 +112,7 @@ test("custom item multiline fields use full-width rows outside the compact field
 });
 
 test("custom and catalogue armour share a responsive accessible hit-location grid", () => {
-  expect(inventory.match(/<ProtectedHitLocations /g)).toHaveLength(2);
+  expect(inventory.match(/<ProtectedHitLocations /g)).toHaveLength(3);
   expect(inventory).toContain('guidance="Select every body location this armour protects. Choose at least one."');
   expect(inventory).toContain('error={customLocationsError ? "Select at least one protected hit location before saving." : ""}');
   expect(protectedLocations).toContain('<legend>Protected hit locations</legend>');
@@ -129,6 +129,26 @@ test("custom and catalogue armour share a responsive accessible hit-location gri
   expect(inventory).toContain('customLocations = [...(definition?.protectedLocations ?? [])]');
   expect(compile(inventory, { filename: "src/components/EquipmentInventory.svelte", generate: "client" }).warnings).toHaveLength(0);
   expect(compile(protectedLocations, { filename: "src/components/ProtectedHitLocations.svelte", generate: "client" }).warnings).toHaveLength(0);
+});
+
+test("owned armour opens in an accessible full-width detail row with focused disclosures", () => {
+  expect(inventory).toContain('class="armour-editor-toggle" aria-expanded={openArmourEditorId === item.id}');
+  expect(inventory).toContain('aria-controls={`owned-armour-editor-${item.id}`}');
+  expect(inventory).toContain('<tr class="armour-detail-row"><td colspan="6">');
+  expect(inventory).toContain('<section class="armour-editor" id={`owned-armour-editor-${item.id}`}');
+  expect(inventory).toContain('<h6>Armour properties</h6>');
+  expect(inventory).toContain('<div class="armour-properties">');
+  expect(inventory).toContain('guidance="Choose the locations this piece protects. This selection is saved for this armour item." onSelectAll=');
+  expect(inventory).toContain('onClearAll={() => saveInventoryChange(item.id, item.name, { armour: { locations: [], coverageResolved: true } })}');
+  expect(inventory).toContain('<details class="armour-secondary-disclosure"><summary>Advanced / GM options</summary>');
+  expect(inventory).toContain('<details class="armour-secondary-disclosure"><summary>Rules help</summary>');
+  expect(inventory).toContain('Fit or compatibility needs review. Resolve both settings to confirm effective protection; nominal AP remains listed by hit location.');
+  expect(protectedLocations).toContain('{#if onSelectAll && onClearAll}');
+  expect(protectedLocations).toContain('>Select all</button>');
+  expect(protectedLocations).toContain('>Clear all</button>');
+  expect(inventory).toContain('.armour-editor { box-sizing:border-box; display:grid;');
+  expect(inventory).toContain('.inventory-table tr.armour-detail-row { grid-column:1/-1; display:block; }');
+  expect(compile(inventory, { filename: "src/components/EquipmentInventory.svelte", generate: "client" }).warnings).toHaveLength(0);
 });
 
 test("GM material override is a compact label with explanatory secondary text", () => {

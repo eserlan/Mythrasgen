@@ -274,9 +274,40 @@ try {
   await evaluate(`(() => { const style = document.createElement('style'); style.id = 'text-spacing-check'; style.textContent = 'p,li,label,summary { line-height: 1.5 !important; margin-bottom: 2em !important; letter-spacing: .12em !important; word-spacing: .16em !important; }'; document.head.append(style); })()`);
   const spaced = await evaluate(`JSON.stringify({ page: document.querySelector('.inventory-ledger').clientWidth, content: document.querySelector('.inventory-ledger').scrollWidth })`);
   assert.ok(JSON.parse(spaced).content <= JSON.parse(spaced).page, `Page VIII must reflow with WCAG text-spacing overrides: ${spaced}`);
+  await evaluate(`document.querySelector('.activity-nav button:first-child')?.click()`);
+  await new Promise(resolve => setTimeout(resolve, 100));
+  await evaluate(`(() => { const input = document.querySelector('.catalogue-filters input[type="search"]'); input.value = 'Half Plate'; input.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+  await new Promise(resolve => setTimeout(resolve, 100));
+  await evaluate(`document.querySelector('.catalogue-row')?.click()`);
+  const halfPlateSelection = await evaluate(`JSON.stringify({ view:document.querySelector('.activity-nav button[aria-current="page"]')?.innerText, title:document.querySelector('#selected-item-title')?.innerText, rows:Array.from(document.querySelectorAll('.catalogue-row')).map(row => row.innerText) })`);
+  assert.equal(JSON.parse(halfPlateSelection).title, "Half Plate", `Half Plate should be selected before free acquisition: ${halfPlateSelection}`);
+  await evaluate(`(() => { const select = document.querySelector('.free-acquisition select'); select.value = 'gifted'; select.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+  await new Promise(resolve => setTimeout(resolve, 100));
+  await evaluate(`document.querySelector('.free-acquisition button')?.click()`);
+  await new Promise(resolve => setTimeout(resolve, 100));
+  await clickText("Your equipment");
+  const halfPlateAcquisition = await evaluate(`JSON.stringify({ status:document.querySelector('.inventory-ledger [role="status"]')?.innerText, matches:Array.from(document.querySelectorAll('.inventory-table tbody tr')).map(row => row.innerText) })`);
+  assert.ok(JSON.parse(halfPlateAcquisition).matches.some(text => text.includes('Half Plate')), `Half Plate should be added for the owned editor check: ${halfPlateAcquisition}`);
+  await call("Emulation.setDeviceMetricsOverride", { width: 1240, height: 900, deviceScaleFactor: 1, mobile: false });
+  await evaluate(`document.querySelector('#text-spacing-check')?.remove()`);
+  const armourRow = `Array.from(document.querySelectorAll('.inventory-table tbody tr')).find(row => row.querySelector('[data-label="Item"]')?.innerText.includes('Half Plate'))`;
+  await evaluate(`(${armourRow}?.querySelector('.armour-editor-toggle'))?.click()`);
+  const ownedArmourPanel = JSON.parse(await evaluate(`(() => { const row = ${armourRow}; const panelRow = row?.nextElementSibling; const panel = panelRow?.querySelector('.armour-editor'); return JSON.stringify({ expanded:row?.querySelector('.armour-editor-toggle')?.getAttribute('aria-expanded'), rowHeight:row?.getBoundingClientRect().height, nextIsPanel:panelRow?.classList.contains('armour-detail-row'), colspan:panelRow?.querySelector('td')?.colSpan, panelWidth:panel?.clientWidth, panelScroll:panel?.scrollWidth, locations:panel?.querySelectorAll('.protected-locations input[type="checkbox"]').length, advancedOpen:panel?.querySelector('.armour-secondary-disclosure')?.open, rulesOpen:panel?.querySelectorAll('.armour-secondary-disclosure')[1]?.open, columns:Array.from(panel?.querySelectorAll('.armour-properties label') ?? []).map(label => label.getBoundingClientRect().left) }); })()`));
+  assert.equal(ownedArmourPanel.expanded, "true", "owned armour toggle should expose its expanded state");
+  assert.ok(ownedArmourPanel.nextIsPanel && ownedArmourPanel.colspan === 6, `owned armour editor should occupy a sibling full-width row: ${JSON.stringify(ownedArmourPanel)}`);
+  assert.ok(ownedArmourPanel.rowHeight <= 60, `opening owned armour should keep its inventory row compact: ${JSON.stringify(ownedArmourPanel)}`);
+  assert.ok(ownedArmourPanel.panelWidth > 700 && ownedArmourPanel.panelScroll <= ownedArmourPanel.panelWidth, `owned armour panel should use the available desktop width without overflow: ${JSON.stringify(ownedArmourPanel)}`);
+  assert.equal(ownedArmourPanel.locations, 7, "owned armour editor should show all seven hit locations");
+  assert.equal(ownedArmourPanel.advancedOpen, false, "advanced GM options should start closed");
+  assert.equal(ownedArmourPanel.rulesOpen, false, "rules help should start closed");
+  await evaluate(`document.querySelector('.armour-editor .location-actions button')?.click()`);
+  assert.match(await evaluate(`document.querySelector('.armour-editor .location-count')?.innerText ?? ''`), /7 of 7 locations selected/);
+  await evaluate(`document.querySelectorAll('.armour-editor .location-actions button')[1]?.click()`);
+  assert.match(await evaluate(`document.querySelector('.armour-editor .location-count')?.innerText ?? ''`), /0 of 7 locations selected/);
+  await runAxe();
   await call("Emulation.clearDeviceMetricsOverride");
   socket.close();
-  console.log("axe-core WCAG 2.2 A/AA checks passed; Half Plate coverage, price, ENC, keyboard selection, override, and 320px reflow passed alongside the Page VIII purchase and inventory checks.");
+  console.log("axe-core WCAG 2.2 A/AA checks passed; Half Plate coverage, price, ENC, keyboard selection, override, full-width owned editor, and responsive reflow passed alongside the Page VIII purchase and inventory checks.");
 } finally {
   for (const child of [browser, preview]) { try { globalThis.process.kill(-child.pid, "SIGTERM"); } catch {} }
   await Promise.all([browser, preview].map(child => new Promise(resolve => {
