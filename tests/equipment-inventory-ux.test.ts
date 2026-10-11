@@ -5,6 +5,7 @@ import { EQUIPMENT_CATALOGUE } from "../src/lib/equipment-catalogue";
 
 const page = readFileSync(new URL("../src/components/Combat.svelte", import.meta.url), "utf8");
 const inventory = readFileSync(new URL("../src/components/EquipmentInventory.svelte", import.meta.url), "utf8");
+const protectedLocations = readFileSync(new URL("../src/components/ProtectedHitLocations.svelte", import.meta.url), "utf8");
 const sheet = readFileSync(new URL("../src/components/Sheet.svelte", import.meta.url), "utf8");
 
 test("Page VIII separates combat training from possessions", () => {
@@ -68,17 +69,31 @@ test("custom item multiline fields use full-width rows outside the compact field
   expect(compile(inventory, { filename: "src/components/EquipmentInventory.svelte", generate: "client" }).warnings).toHaveLength(0);
 });
 
-test("custom armour locations use a responsive accessible checkbox grid", () => {
-  expect(inventory).toContain('<legend>Protected hit locations</legend>');
-  expect(inventory).toContain("Select every body location this armour protects. Choose at least one.");
-  expect(inventory).toContain("aria-describedby=\"custom-locations-instruction{customLocationsError ? ' custom-locations-error' : ''}\"");
-  expect(inventory).toContain('role="alert">Select at least one protected hit location before saving.');
-  expect(inventory).toContain('grid-template-columns:repeat(auto-fit,minmax(min(100%,9rem),1fr))');
-  expect(inventory).toContain('min-height:2.75rem');
-  expect(inventory).toContain('white-space:nowrap');
+test("custom and catalogue armour share a responsive accessible hit-location grid", () => {
+  expect(inventory.match(/<ProtectedHitLocations /g)).toHaveLength(2);
+  expect(inventory).toContain('guidance="Select every body location this armour protects. Choose at least one."');
+  expect(inventory).toContain('error={customLocationsError ? "Select at least one protected hit location before saving." : ""}');
+  expect(protectedLocations).toContain('<legend>Protected hit locations</legend>');
+  expect(protectedLocations).toContain('aria-describedby={`${instructionId}${validation ? ` ${validationId}` : ""}${error ? ` ${errorId}` : ""}`}');
+  expect(protectedLocations).toContain('{selected.length} of {HIT_LOCATIONS.length} locations selected.');
+  expect(protectedLocations).toContain('role="status">{validation}</p>');
+  expect(inventory).toContain('validation={!locationsFor(record).length ? "Select at least one protected hit location before buying or adding armour." : ""}');
+  expect(protectedLocations).toContain('role="alert">{error}</p>');
+  expect(protectedLocations).toContain('grid-template-columns:repeat(auto-fit,minmax(min(100%,9rem),1fr))');
+  expect(protectedLocations).toContain('min-height:2.75rem');
+  expect(protectedLocations).toContain('white-space:nowrap');
+  expect(protectedLocations).toContain(':focus-visible');
   expect(inventory).toContain('class="mute custom-armour-help"');
   expect(inventory).toContain('customLocations = [...(definition?.protectedLocations ?? [])]');
   expect(compile(inventory, { filename: "src/components/EquipmentInventory.svelte", generate: "client" }).warnings).toHaveLength(0);
+  expect(compile(protectedLocations, { filename: "src/components/ProtectedHitLocations.svelte", generate: "client" }).warnings).toHaveLength(0);
+});
+
+test("GM material override is a compact label with explanatory secondary text", () => {
+  expect(inventory.match(/class="material-override"/g)?.length).toBeGreaterThanOrEqual(3);
+  expect(inventory).toContain("Allow nonstandard material (GM approval)");
+  expect(inventory).toContain("Enables material combinations outside the standard rules when the GM approves.");
+  expect(inventory).toContain(".material-override { display:flex; align-items:flex-start;");
 });
 
 test("technical provenance and armour location data are secondary disclosures", () => {
