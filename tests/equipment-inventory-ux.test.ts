@@ -144,7 +144,10 @@ test("technical provenance and armour location data are secondary disclosures", 
   expect(inventory).toContain("{#if wornArmourItems.length}");
   expect(inventory).toContain("coverage unknown");
   expect(inventory).toContain("No armour recorded");
-  expect(inventory).toContain("filter(ap => ap !== null && ap > 0).length} locations protected");
+  expect(inventory).toContain("filter(ap => ap !== null && ap > 0).length} locations effectively protected");
+  expect(inventory).toContain("armourSummary.nominalApByLocation[location]");
+  expect(inventory).toContain("<th scope=\"col\">Nominal AP</th>");
+  expect(inventory).toContain("Fit and material compatibility determine whether that protection is effective.");
   expect(inventory).toContain("No equipment yet. Choose equipment to add an item.");
 });
 

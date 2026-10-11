@@ -65,6 +65,9 @@ export interface ArmourPiece {
   apOverride?: number;
 }
 export interface ArmourSummary {
+  /** Known construction AP for covered locations, regardless of fit validity. */
+  nominalApByLocation: Record<HitLocationName, number | null>;
+  /** AP currently effective after fit and material compatibility are resolved. */
   apByLocation: Record<HitLocationName, number | null>;
   fullWornEnc: number | null;
   loadEnc: number | null;
@@ -73,6 +76,7 @@ export interface ArmourSummary {
 }
 
 export function summarizeArmour(pieces: readonly ArmourPiece[]): ArmourSummary {
+  const nominalApByLocation = Object.fromEntries(HIT_LOCATIONS.map(location => [location, 0])) as Record<HitLocationName, number | null>;
   const apByLocation = Object.fromEntries(HIT_LOCATIONS.map(location => [location, 0])) as Record<HitLocationName, number | null>;
   const unresolved: string[] = [];
   let fullWornEnc = 0;
@@ -84,7 +88,10 @@ export function summarizeArmour(pieces: readonly ArmourPiece[]): ArmourSummary {
     if (!piece.locations.length && !piece.coverageResolved) {
       unresolved.push(`${piece.name ?? piece.id}: armour coverage needs attention. Select the locations this armour covers.`);
       if (piece.state === "worn") {
-        for (const location of HIT_LOCATIONS) apByLocation[location] = null;
+        for (const location of HIT_LOCATIONS) {
+          nominalApByLocation[location] = null;
+          apByLocation[location] = null;
+        }
         fullWornEncKnown = false;
       }
       loadEncKnown = false;
@@ -105,6 +112,8 @@ export function summarizeArmour(pieces: readonly ArmourPiece[]): ArmourSummary {
       const protectionResolved = piece.fit === "fitted"
         && (piece.compatibility === "compatible" || (piece.compatibility === "incompatible" && piece.gmCompatibilityOverride));
       for (const location of piece.locations) {
+        if (ap === undefined) nominalApByLocation[location] = null;
+        else if (nominalApByLocation[location] !== null) nominalApByLocation[location] = Math.max(nominalApByLocation[location] ?? 0, ap);
         if (!protectionResolved || ap === undefined) apByLocation[location] = null;
         else if (apByLocation[location] !== null) apByLocation[location] = Math.max(apByLocation[location] ?? 0, ap);
       }
@@ -123,6 +132,7 @@ export function summarizeArmour(pieces: readonly ArmourPiece[]): ArmourSummary {
     }
   }
   return {
+    nominalApByLocation,
     apByLocation,
     fullWornEnc: fullWornEncKnown ? fullWornEnc : null,
     loadEnc: loadEncKnown ? loadEnc : null,

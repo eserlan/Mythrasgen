@@ -47,6 +47,7 @@ describe("location armour calculations", () => {
     const summary = summarizeArmour([{ ...plate(), id: "aaf8c360-42d8-4b2a-a06c-7093466715cf-1", name: "Half Plate", fit: "unresolved",
       locations: ["Chest", "Abdomen", "Right Arm", "Left Arm"] }]);
     expect(summary.apByLocation.Chest).toBeNull();
+    expect(summary.nominalApByLocation.Chest).toBe(5);
     expect(summary.unresolved.join("; ")).toContain("Half Plate: armour fit needs attention. Open Armour locations and fit, then check the armour's size and fit settings.");
     expect(summary.unresolved.join("; ")).not.toContain("aaf8c360-42d8-4b2a-a06c-7093466715cf");
   });
