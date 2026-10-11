@@ -248,69 +248,69 @@
           <li><button id={`equipment-result-${record.id}`} type="button" class="catalogue-row" aria-expanded={selectedId === record.id} aria-controls={selectedId === record.id ? "selected-item-detail" : undefined} onclick={() => selectedId = selectedId === record.id ? null : record.id}>
             <span class="row-main"><b>{record.name}</b><small>{categorySummary(record.category)}</small></span>
             <span class="row-price">{displayEquipmentPrice(record)}</span>
-          </button></li>
+          </button>
+          {#if selected && selected.source.id === record.id}
+            {@const unavailable = record.price_cp_candidate === null}
+            <section id="selected-item-detail" class="item-detail" aria-labelledby="selected-item-title">
+              <div class="detail-title"><div><h5 id="selected-item-title">{record.name}</h5><p class="mute">{categorySummary(record.category)} · {unavailable ? "Price unavailable" : displayEquipmentPrice(record)}</p></div>
+                <button type="button" class="ghost" aria-label="Close item details" onclick={() => closeDetails(record.id)}>Close</button>
+              </div>
+              {#if hasCombatProfile(record)}
+                <dl class="weapon-detail-stats">
+                  {#each combatStats(record) as [name, value]}
+                    <div><dt>{name}</dt><dd>{value}</dd></div>
+                  {/each}
+                </dl>
+                <details class="rules-help"><summary aria-label={`Rules help for ${record.name}`}>Rules help</summary>
+                  <p>Listed dice are base damage. Add your character’s Damage Modifier when the rules call for it.</p>
+                  <p>Size compares a weapon with an incoming attack when parrying. Reach describes how far the weapon can engage and can affect who controls the distance.</p>
+                  <p>Encumbrance (ENC) measures the item's contribution to carried load. Worn armour uses its separate half-ENC rule; stored items add no carried load.</p>
+                  <p>{record.category === "shields" ? "Shield" : "Weapon"} AP and {record.category === "shields" ? "shield" : "weapon"} HP measure the item's durability. They are not character armour points or character hit points. Hands required tells you how to wield it.</p>
+                </details>
+              {:else}
+                <p>{statSummary(selected) || "No combat details available."}</p>
+              {/if}
+              <p class="mute">Source: Mythras Core, p. {record.source_printed_page}.</p>
+              {#if selected.kind === "wielding_profile"}<p class="mute">Choose this option for a weapon you own. It does not add a second item.</p>{/if}
+              {#if selected.kind === "armour_material_modifier"}<p class="balance-warning">This modifier is not a separate item to buy.</p>{/if}
+              {#if selected.kind === "non_carried_purchase"}<p class="mute">This is a service or expense. It changes your money without adding carried equipment.</p>{/if}
+              {#if record.base_enc_per_location === undefined && selected.kind === "physical_item" && record.category === "armour"}<p class="balance-warning">ENC per location is unknown; resolve it on the owned armour record when acquired.</p>{/if}
+              {#if selected.kind !== "armour_material_modifier"}
+                <div class="purchase-controls">
+                  <div class="paid-purchase">
+                    <div class="purchase-values">
+                      <label class="quantity-control">Quantity <input class="quantity-input" aria-label={`Quantity of ${record.name}`} aria-invalid={amount(record.id) < 1} aria-describedby={amount(record.id) < 1 ? `quantity-error-${record.id}` : undefined} type="number" min="1" step="1" value={quantity[record.id] ?? "1"} onchange={event => quantity[record.id] = event.currentTarget.value}></label>
+                      {#if unavailable}<label class="gm-price-control">GM price (CP) <input aria-label={`GM price in CP for ${record.name}`} type="number" min="0" step="1" value={gmPrice[record.id] ?? ""} onchange={event => gmPrice[record.id] = event.currentTarget.value} placeholder="Required"><small>Enter 0 only when the GM approves a free item.</small></label>{/if}
+                      {#if amount(record.id) > 0 && (!unavailable || customCp(record.id) !== undefined)}
+                        {@const totalCp = (priceFor(record) ?? 0) * amount(record.id)}
+                        <div class="purchase-total" aria-live="polite"><span>Total price</span><b>{formatCopperPrice(totalCp)}</b>{#if unavailable}<span>{customCp(record.id) === 0 ? "GM-approved zero price" : "GM-entered"}</span>{/if}</div>
+                      {:else}<p class="purchase-total pending-total">{unavailable ? "Enter a GM price to see the total." : "Enter a positive whole quantity."}</p>{/if}
+                    </div>
+                    {#if selected.kind === "non_carried_purchase"}<button type="button" disabled={!canTransact(record)} onclick={() => purchase(selected)}>Record expense</button>
+                    {:else}<button type="button" class="primary buy-button" disabled={!canTransact(record)} onclick={() => purchase(selected)}>{selected.kind === "wielding_profile" ? "Buy weapon" : "Buy"}</button>{/if}
+                  </div>
+                  {#if selected.kind !== "non_carried_purchase"}
+                    <div class="free-acquisition">
+                      <b>Add without paying</b>
+                      <label>Acquisition type <select aria-label={`Add ${record.name} without paying`} disabled={amount(record.id) < 1} onchange={event => { const value = event.currentTarget.value; if (value) acquire(selected, value as "gifted" | "inherited" | "granted"); event.currentTarget.value = "" }}>
+                        <option value="">Choose an option…</option><option value="gifted">Gifted</option><option value="inherited">Inherited</option><option value="granted">Granted</option>
+                      </select></label>
+                    </div>
+                  {/if}
+                  {#if amount(record.id) < 1}<p class="balance-warning" id={`quantity-error-${record.id}`} role="status">Enter a positive whole quantity.</p>{/if}
+                  {#if unavailable && gmPrice[record.id] !== undefined && gmPrice[record.id] !== "" && customCp(record.id) === undefined}<p class="balance-warning" role="status">Enter a whole number of CP that is zero or more.</p>{/if}
+                  {#if amount(record.id) > 0 && priceFor(record) !== undefined && priceFor(record)! * amount(record.id) > currentBalanceCp}<p class="balance-warning" role="status">This costs more than your remaining money. Reduce the quantity or ask the GM about the price.</p>{/if}
+                </div>
+              {/if}
+            </section>
+          {/if}
+          </li>
         {/each}
       </ul>
     {:else}<p class="empty-state" role="status">No equipment matches. Try another name or category.</p>{/if}
     {/if}
   {/if}
 
-  {#if selected && (query.trim() || category !== null)}
-    {@const record = selected.source}
-    {@const unavailable = record.price_cp_candidate === null}
-    <section id="selected-item-detail" class="item-detail" aria-labelledby="selected-item-title">
-      <div class="detail-title"><div><h5 id="selected-item-title">{record.name}</h5><p class="mute">{categorySummary(record.category)} · {unavailable ? "Price unavailable" : displayEquipmentPrice(record)}</p></div>
-        <button type="button" class="ghost" aria-label="Close item details" onclick={() => closeDetails(record.id)}>Close</button>
-      </div>
-      {#if hasCombatProfile(record)}
-        <dl class="weapon-detail-stats">
-          {#each combatStats(record) as [name, value]}
-            <div><dt>{name}</dt><dd>{value}</dd></div>
-          {/each}
-        </dl>
-        <details class="rules-help"><summary aria-label={`Rules help for ${record.name}`}>Rules help</summary>
-          <p>Listed dice are base damage. Add your character’s Damage Modifier when the rules call for it.</p>
-          <p>Size compares a weapon with an incoming attack when parrying. Reach describes how far the weapon can engage and can affect who controls the distance.</p>
-          <p>Encumbrance (ENC) measures the item's contribution to carried load. Worn armour uses its separate half-ENC rule; stored items add no carried load.</p>
-          <p>{record.category === "shields" ? "Shield" : "Weapon"} AP and {record.category === "shields" ? "shield" : "weapon"} HP measure the item's durability. They are not character armour points or character hit points. Hands required tells you how to wield it.</p>
-        </details>
-      {:else}
-        <p>{statSummary(selected) || "No combat details available."}</p>
-      {/if}
-      <p class="mute">Source: Mythras Core, p. {record.source_printed_page}.</p>
-      {#if selected.kind === "wielding_profile"}<p class="mute">Choose this option for a weapon you own. It does not add a second item.</p>{/if}
-      {#if selected.kind === "armour_material_modifier"}<p class="balance-warning">This modifier is not a separate item to buy.</p>{/if}
-      {#if selected.kind === "non_carried_purchase"}<p class="mute">This is a service or expense. It changes your money without adding carried equipment.</p>{/if}
-      {#if record.base_enc_per_location === undefined && selected.kind === "physical_item" && record.category === "armour"}<p class="balance-warning">ENC per location is unknown; resolve it on the owned armour record when acquired.</p>{/if}
-      {#if selected.kind !== "armour_material_modifier"}
-        <div class="purchase-controls">
-          <div class="paid-purchase">
-            <div class="purchase-values">
-              <label class="quantity-control">Quantity <input class="quantity-input" aria-label={`Quantity of ${record.name}`} aria-invalid={amount(record.id) < 1} aria-describedby={amount(record.id) < 1 ? `quantity-error-${record.id}` : undefined} type="number" min="1" step="1" value={quantity[record.id] ?? "1"} onchange={event => quantity[record.id] = event.currentTarget.value}></label>
-              {#if unavailable}<label class="gm-price-control">GM price (CP) <input aria-label={`GM price in CP for ${record.name}`} type="number" min="0" step="1" value={gmPrice[record.id] ?? ""} onchange={event => gmPrice[record.id] = event.currentTarget.value} placeholder="Required"><small>Enter 0 only when the GM approves a free item.</small></label>{/if}
-              {#if amount(record.id) > 0 && (!unavailable || customCp(record.id) !== undefined)}
-                {@const totalCp = (priceFor(record) ?? 0) * amount(record.id)}
-                <div class="purchase-total" aria-live="polite"><span>Total price</span><b>{formatCopperPrice(totalCp)}</b>{#if unavailable}<span>{customCp(record.id) === 0 ? "GM-approved zero price" : "GM-entered"}</span>{/if}</div>
-              {:else}<p class="purchase-total pending-total">{unavailable ? "Enter a GM price to see the total." : "Enter a positive whole quantity."}</p>{/if}
-            </div>
-            {#if selected.kind === "non_carried_purchase"}<button type="button" disabled={!canTransact(record)} onclick={() => purchase(selected)}>Record expense</button>
-            {:else}<button type="button" class="primary buy-button" disabled={!canTransact(record)} onclick={() => purchase(selected)}>{selected.kind === "wielding_profile" ? "Buy weapon" : "Buy"}</button>{/if}
-          </div>
-          {#if selected.kind !== "non_carried_purchase"}
-            <div class="free-acquisition">
-              <b>Add without paying</b>
-              <label>Acquisition type <select aria-label={`Add ${record.name} without paying`} disabled={amount(record.id) < 1} onchange={event => { const value = event.currentTarget.value; if (value) acquire(selected, value as "gifted" | "inherited" | "granted"); event.currentTarget.value = "" }}>
-                <option value="">Choose an option…</option><option value="gifted">Gifted</option><option value="inherited">Inherited</option><option value="granted">Granted</option>
-              </select></label>
-            </div>
-          {/if}
-          {#if amount(record.id) < 1}<p class="balance-warning" id={`quantity-error-${record.id}`} role="status">Enter a positive whole quantity.</p>{/if}
-          {#if unavailable && gmPrice[record.id] !== undefined && gmPrice[record.id] !== "" && customCp(record.id) === undefined}<p class="balance-warning" role="status">Enter a whole number of CP that is zero or more.</p>{/if}
-          {#if amount(record.id) > 0 && priceFor(record) !== undefined && priceFor(record)! * amount(record.id) > currentBalanceCp}<p class="balance-warning" role="status">This costs more than your remaining money. Reduce the quantity or ask the GM about the price.</p>{/if}
-        </div>
-      {/if}
-    </section>
-  {/if}
   {/if}
 
   {#if view === "review"}
