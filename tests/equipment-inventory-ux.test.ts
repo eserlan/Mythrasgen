@@ -21,12 +21,14 @@ test("equipment starts with two activities and puts the character summary in own
   for (const text of ["Choose equipment", "Your equipment", "Weapons", "Armour & shields", "Clothing & gear", "Supplies & services", "group-buttons"])
     expect(inventory).toContain(text);
   expect(inventory).not.toContain("Review your character");
-  expect(inventory).toContain("Money remaining (SP)");
   expect(inventory).toContain("Carried load (ENC)");
   expect(inventory).toContain("Protected locations");
   expect(inventory).toContain("Armour initiative penalty");
   expect(inventory).toContain("<summary>How load is calculated / Load breakdown</summary>");
-  expect(inventory).toContain("<summary>Money and transaction history</summary>");
+  expect(inventory).toContain('<section class="money-summary" aria-label="Money summary in SP">');
+  for (const label of ["Starting", "Spent", "Remaining", "Reset to calculated"] ) expect(inventory).toContain(label);
+  expect(inventory).toContain("Purchases and refunds update calculated amounts. Manually entered values stay as entered until reset.");
+  expect(inventory).not.toContain("Money and transaction history");
   expect(inventory).toContain("Owned equipment");
   expect(inventory).toContain("encumbranceSummary(char.background.inventory, char.chars.STR)");
   expect(inventory).toContain('class="compact-number"');
@@ -84,7 +86,7 @@ test("equipment starts with two activities and puts the character summary in own
 
 test("equipment summary and load disclosures distinguish armour ENC from carried load", () => {
   for (const text of [
-    "Money remaining (SP)", "Carried load (ENC)", "Protected locations", "Armour initiative penalty",
+    "Carried load (ENC)", "Protected locations", "Armour initiative penalty",
     "Total worn armour ENC", "Armour ENC counted toward load", "Shown in Equipment summary above",
     "Item ENC is the item's listed ENC before state adjustments", "Current load:", "Encumbrance thresholds",
     "Movement", "Skills", "Sprinting", "Fatigue", "Twenty zero-ENC items count as 1 ENC",
@@ -110,7 +112,7 @@ test("equipment summary and load disclosures distinguish armour ENC from carried
   expect(inventory).toContain("<table class=\"sheet-table inventory-table\">");
   expect(inventory).toContain("Melee weapons &amp; shields");
   expect(inventory).toContain("Ranged weapons");
-  expect(inventory).toContain("Money and transaction history");
+  expect(inventory).toContain('<section class="money-summary" aria-label="Money summary in SP">');
   expect(inventory).toContain("<details class=\"review-details load-breakdown\"><summary>How load is calculated / Load breakdown</summary>");
   expect(inventory).not.toContain("<details open");
   expect(inventory).toContain(".review-summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,11rem),1fr));");
@@ -227,7 +229,9 @@ test("GM material override is a compact label with explanatory secondary text", 
 
 test("technical provenance and armour location data are secondary disclosures", () => {
   expect(inventory).toContain("<summary>Rules &amp; sources</summary>");
-  expect(inventory).toContain("<summary>Money and transaction history</summary>");
+  expect(inventory).not.toContain("Money and transaction history");
+  for (const text of ["Record refund", "transaction-list", "catalogueVersion", "recordedAt", "amountSource", "transaction.id", "transaction.catalogueId"])
+    expect(inventory).not.toContain(text);
   expect(inventory).toContain("{#if wornArmourItems.length}");
   expect(inventory).toContain("coverage unknown");
   expect(inventory).toContain("No armour recorded");

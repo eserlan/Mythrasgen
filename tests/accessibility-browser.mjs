@@ -137,7 +137,7 @@ try {
   assert.ok(await evaluate(`document.activeElement?.id === 'equipment-result-one_handed-chain'`), "closing details should return focus to the selected result");
   await clickText("Your equipment");
   await runAxe();
-  assert.ok(await evaluate(`document.querySelector('.review-summary')?.innerText.includes('Money remaining')`), "equipment summary should be visible in Your equipment");
+  assert.ok(await evaluate(`document.querySelector('.money-summary')?.innerText.includes('Remaining (SP)')`), "money summary should be visible in Your equipment");
   await call("Emulation.setDeviceMetricsOverride", { width: 1200, height: 900, deviceScaleFactor: 1, mobile: false });
   await evaluate(`document.querySelector('.load-breakdown').open = true`);
   await new Promise(resolve => setTimeout(resolve, 100));

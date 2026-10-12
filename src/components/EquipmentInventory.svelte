@@ -2,7 +2,7 @@
   import { tick } from "svelte";
   import { EQUIPMENT_CATALOGUE, displayEquipmentPrice, formatCopperPrice, type EquipmentCategory } from "../lib/equipment-catalogue";
   import { RANGED_WEAPON_STATS, formatRangedRange, rangedCellText } from "../lib/ranged-weapons";
-  import { acquireEquipment, char, deleteInventoryItem, equipmentBalanceCp, equipmentSpentCp, moveOwnedInventoryItem, purchaseEquipment, recordEquipmentExpense, refundEquipmentPurchase, startingMoney, updateInventoryItem } from "../lib/store.svelte";
+  import { acquireEquipment, char, deleteInventoryItem, equipmentAvailableCp, equipmentBalanceCp, equipmentMoneyIsOverridden, equipmentMoneyValueCp, moveOwnedInventoryItem, purchaseEquipment, recordEquipmentExpense, resetEquipmentMoney, setEquipmentMoney, updateInventoryItem } from "../lib/store.svelte";
   import { carriedLoad, encumbranceSummary } from "../lib/encumbrance";
   import { encumbranceThresholdRows } from "../lib/encumbrance-presentation";
   import { normalizeInventoryOrder } from "../lib/equipment-inventory";
@@ -17,6 +17,9 @@
     { name: "Armour & shields", categories: ["armour", "shields", "materials"] },
     { name: "Clothing & gear", categories: ["clothing", "tools"] },
     { name: "Supplies & services", categories: ["food", "livestock", "accommodation"] },
+  ];
+  const moneyFields: { field: "startingCp" | "spentCp" | "remainingCp"; label: string }[] = [
+    { field: "startingCp", label: "Starting" }, { field: "spentCp", label: "Spent" }, { field: "remainingCp", label: "Remaining" },
   ];
   let query = $state("");
   let view = $state<"choose" | "owned">("choose");
@@ -189,10 +192,9 @@
   const canTransact = (record: typeof EQUIPMENT_CATALOGUE[number]["source"]) => {
     const price = priceFor(record);
     return !purchaseBusy && amount(record.id) > 0 && (record.category !== "armour" || canAcquireArmour(record)) && price !== undefined && Number.isSafeInteger(price)
-      && price >= 0 && price * amount(record.id) <= currentBalanceCp;
+      && price >= 0 && price * amount(record.id) <= equipmentAvailableCp();
   };
-  const currentBalanceCp = $derived(equipmentBalanceCp());
-  const startingCp = $derived(startingMoney() * 10);
+  const availableBalanceCp = $derived(equipmentAvailableCp());
   const signedMoney = formatCopperPrice;
   const load = $derived(encumbranceSummary(char.background.inventory, char.chars.STR));
   const thresholdRows = $derived(encumbranceThresholdRows(load.thresholds));
@@ -263,7 +265,7 @@
       const price = customCp(record.source.id);
       if (quantityValue < 1) throw new Error("Enter a positive whole quantity.");
       if (record.source.price_cp_candidate === null && price === undefined) throw new Error("Ask the GM for a price before purchasing this item.");
-      if (priceFor(record.source)! * quantityValue > currentBalanceCp) throw new Error("This purchase costs more than your remaining money.");
+      if (priceFor(record.source)! * quantityValue > equipmentAvailableCp()) throw new Error("This purchase costs more than your remaining money.");
       if (record.kind === "non_carried_purchase") recordEquipmentExpense(record.source.id, quantityValue, price);
       else purchaseEquipment(record.source.id, quantityValue, record.source.category === "armour" ? perLocationPrice(record.source) : price, record.source.category === "armour" ? armourSelectionFor(record.source) : undefined);
       message = `${record.source.name}: ${record.kind === "non_carried_purchase" ? "expense recorded" : "added to your equipment"}. Money remaining: ${signedMoney(equipmentBalanceCp())}.`;
@@ -278,13 +280,15 @@
       freeAcquisition[record.source.id] = "";
     } catch (error) { message = error instanceof Error ? error.message : "Could not add item."; }
   }
-  function refund(transactionId: string, originalAmount: number) {
-    const entered = window.prompt("Refund amount in CP (recorded as a separate transaction):", String(originalAmount));
-    if (entered === null || entered.trim() === "") return;
+  function changeMoney(field: "startingCp" | "spentCp" | "remainingCp", value: string) {
     try {
-      refundEquipmentPurchase(transactionId, Number(entered));
-      message = "Refund recorded as a separate transaction.";
-    } catch (error) { message = error instanceof Error ? error.message : "Could not record refund."; }
+      setEquipmentMoney(field, Number(value));
+      message = "Money value updated. Purchases and refunds keep manually entered values until reset.";
+    } catch (error) { message = error instanceof Error ? error.message : "Could not update money value."; }
+  }
+  function resetMoney(field: "startingCp" | "spentCp" | "remainingCp") {
+    resetEquipmentMoney(field);
+    message = "Money value reset to its calculated amount.";
   }
   function setArmourLocation(item: typeof char.background.inventory[number], location: HitLocationName, checked: boolean) {
     const locations = item.armour?.locations ?? [];
@@ -331,7 +335,6 @@
     <button type="button" aria-current={view === "owned" ? "page" : undefined} onclick={() => view = "owned"}>Your equipment <span>{char.background.inventory.length}</span></button>
   </nav>
   {#if message}<p class="hint" role="status" aria-live="polite">{message}</p>{/if}
-  {#if currentBalanceCp < 0}<p class="balance-warning" role="alert">Your recorded spending is {formatCopperPrice(-currentBalanceCp)} above your starting money. Existing purchases are preserved.</p>{/if}
   <details class="catalogue-info"><summary>Rules &amp; sources</summary>
     <p class="mute">All purchases and expenses are recorded in integer CP. Source records distinguish physical items, weapon profiles, material modifiers, and non-carried services.</p>
     <p class="mute">Weapon profiles describe how an item is used and do not create a second possession. Material modifiers are not standalone items. Services and expenses affect money without adding carried inventory.</p>
@@ -341,7 +344,6 @@
   {#if view === "owned"}
   <h4>Your equipment</h4>
   <div class="review-summary" aria-live="polite" aria-label="Equipment summary">
-    <div><small>Money remaining (SP)</small><b>{signedMoney(currentBalanceCp)}</b></div>
     <div><small>Carried load (ENC)</small><b>{load.load === null ? `At least ${load.knownLoad} ENC · unknown` : `${load.load} ENC · ${load.band}`}</b></div>
     <div><small>Protected locations</small><b>{armourItems.length ? `${Object.values(armourSummary.apByLocation).filter(ap => ap !== null && ap > 0).length} effectively protected` : "No armour recorded"}</b></div>
     {#if wornArmourItems.length}<div><small>Armour initiative penalty</small><b>{armourSummary.initiativePenalty === null ? "Unknown" : armourSummary.initiativePenalty}</b></div>{/if}
@@ -475,19 +477,19 @@
   </div>
   <p class="mute">Stored and load-exempt items do not count. Twenty zero-ENC items count as 1 ENC. Armour ENC is based on construction, material, coverage, and any item override.</p>
   </details>
-  <details class="review-details"><summary>Money and transaction history</summary>
-  <div class="money-summary"><div><small>Starting</small><b>{formatCopperPrice(startingCp)}</b></div><div><small>Spent</small><b>{signedMoney(equipmentSpentCp())}</b></div><div><small>Remaining</small><b>{signedMoney(currentBalanceCp)}</b></div></div>
-  {#if char.background.equipmentTransactions.length}
-    <ol class="transaction-list">
-      {#each [...char.background.equipmentTransactions].reverse() as transaction (transaction.id)}
-        <li><b>{transaction.kind.replaceAll("_", " ")}</b>: {transaction.name} × {transaction.quantity} · {transaction.kind === "refund" ? "+" : "−"}{formatCopperPrice(transaction.amountCp)}
-          <span class="mute">{transaction.amountSource} · {transaction.catalogueVersion} · {transaction.recordedAt}{#if transaction.catalogueId} · {transaction.catalogueId}{/if}</span>
-          {#if transaction.kind === "purchase"}<button type="button" class="ghost" onclick={() => refund(transaction.id, transaction.amountCp)}>Record refund…</button>{/if}
-        </li>
-      {/each}
-    </ol>
-  {:else}<p class="mute">No spending transactions recorded.</p>{/if}
-  </details>
+  <section class="money-summary" aria-label="Money summary in SP">
+    {#each moneyFields as amount (amount.field)}
+      <div class="money-summary-card">
+        <label for={`money-${amount.field}`}>{amount.label} (SP)</label>
+        <div class="money-edit-row">
+          <input id={`money-${amount.field}`} type="number" min="0" step="0.1" value={equipmentMoneyValueCp(amount.field) / 10}
+            aria-label={`${amount.label} money in SP`} onchange={event => changeMoney(amount.field, event.currentTarget.value)} />
+          <button type="button" class="ghost" aria-label={`Reset to calculated ${amount.label} money`} disabled={!equipmentMoneyIsOverridden(amount.field)} onclick={() => resetMoney(amount.field)}>Reset to calculated</button>
+        </div>
+      </div>
+    {/each}
+  </section>
+  <p class="money-guidance">Purchases and refunds update calculated amounts. Manually entered values stay as entered until reset.</p>
   {/if}
 
   {#if view === "choose"}
@@ -545,7 +547,7 @@
             {#if definition.type === "armour"}<small>AP {definition.ap} · Locations: {definition.protectedLocations?.join(", ")}</small>{/if}
           </div>
           <div class="custom-entry-actions"><label>Quantity <input type="number" min="1" step="1" value={customQuantity[definition.id] ?? "1"} onchange={event => customQuantity[definition.id] = event.currentTarget.value}></label>
-            <button type="button" disabled={definition.priceCp === null || Number(customQuantity[definition.id] ?? "1") < 1 || definition.priceCp * Number(customQuantity[definition.id] ?? "1") > currentBalanceCp} onclick={() => buyCustom(definition)}>{definition.type === "service" ? "Buy / record expense" : "Buy"}</button>
+            <button type="button" disabled={definition.priceCp === null || Number(customQuantity[definition.id] ?? "1") < 1 || definition.priceCp * Number(customQuantity[definition.id] ?? "1") > availableBalanceCp} onclick={() => buyCustom(definition)}>{definition.type === "service" ? "Buy / record expense" : "Buy"}</button>
             {#if definition.type !== "service"}<button type="button" onclick={() => giftCustom(definition)}>Add without paying</button>{/if}
             <button type="button" onclick={() => resetCustomForm(definition)}>Edit</button><button type="button" class="ghost" onclick={() => removeCustomDefinition(definition)}>Remove definition</button>
           </div></li>
@@ -662,7 +664,7 @@
                   </div>
                   {#if amount(record.id) < 1}<p class="balance-warning" id={`quantity-error-${record.id}`} role="status">Enter a positive whole quantity.</p>{/if}
                   {#if unavailable && gmPrice[record.id] !== undefined && gmPrice[record.id] !== "" && customCp(record.id) === undefined}<p class="balance-warning" role="status">Enter a whole number of CP that is zero or more.</p>{/if}
-                  {#if amount(record.id) > 0 && priceFor(record) !== undefined && priceFor(record)! * amount(record.id) > currentBalanceCp}<p class="balance-warning" role="status">This costs more than your remaining money. Reduce the quantity or ask the GM about the price.</p>{/if}
+                  {#if amount(record.id) > 0 && priceFor(record) !== undefined && priceFor(record)! * amount(record.id) > availableBalanceCp}<p class="balance-warning" role="status">This costs more than your available funds. Reduce the quantity or ask the GM about the price.</p>{/if}
                 </div>
               {/if}
             </section>
@@ -685,10 +687,16 @@
   .activity-nav button[aria-current="page"] { border-color:var(--acc); box-shadow:inset 0 -3px var(--acc); }
   .inventory-ledger :is(button,input,select,summary):focus-visible { outline:3px solid var(--acc); outline-offset:2px; }
   .activity-nav span { display:inline-grid; place-items:center; min-width:1.5rem; min-height:1.5rem; margin-left:.25rem; border:1px solid currentColor; border-radius:50%; font-size:.8rem; letter-spacing:0; }
-  .money-summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.5rem; margin:1rem 0; }
+  .money-summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,15rem),1fr)); gap:.5rem; margin:.75rem 0 .35rem; }
+  .money-summary-card { min-width:0; display:grid; gap:.35rem; padding:.55rem; border:1px solid var(--line); border-radius:.5rem; }
+  .money-summary-card > label { color:var(--mute); font-size:.85rem; }
+  .money-edit-row { display:flex; align-items:center; gap:.4rem; min-width:0; }
+  .money-edit-row input { box-sizing:border-box; width:7rem; min-width:0; min-height:2.5rem; }
+  .money-edit-row button { min-height:2.5rem; padding:.35rem .5rem; font-size:.8rem; }
+  .money-guidance { margin:.25rem 0 .8rem; color:var(--mute); font-size:.85rem; }
   .review-summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,11rem),1fr)); gap:.5rem; margin:.75rem 0; }
   .review-summary > div { min-width:0; display:flex; flex-direction:column; gap:.25rem; padding:.65rem; border:1px solid var(--line); border-radius:.5rem; overflow-wrap:anywhere; }
-  .review-summary small,.money-summary small { color:var(--mute); }
+  .review-summary small { color:var(--mute); }
   .review-details { margin:.65rem 0; padding:.65rem; border:1px solid var(--line); border-radius:.5rem; }
   .review-details summary { min-height:1.5rem; cursor:pointer; font-weight:700; }
   .owned-heading { margin:.9rem 0 .35rem; }
@@ -777,13 +785,13 @@
   .material-override span { display:grid; gap:.2rem; }
   .material-override small { color:var(--mute); }
   .catalogue-armour-options select { width:100%; min-height:2.75rem; }
-  .money-summary > div { display:flex; flex-direction:column; gap:.2rem; padding:.65rem; border:1px solid var(--line); border-radius:.5rem; }
-  .money-summary small,.mute { color:var(--mute); }
+  .mute { color:var(--mute); }
   .balance-warning { color:var(--acc); font-weight:700; }
   .catalogue-info { margin:.5rem 0; color:var(--mute); }
   .catalogue-info summary { cursor:pointer; }
   .catalogue-filters { display:flex; align-items:end; flex-wrap:wrap; gap:.65rem; }
-  .choose-actions,.custom-entry-actions { display:flex; align-items:end; flex-wrap:wrap; gap:.5rem; margin:.6rem 0; }
+  .choose-actions,.custom-entry-actions { display:flex; align-items:end; flex-wrap:wrap; gap:1rem; margin:.6rem 0; }
+  .choose-actions > button.primary { min-height:3rem; }
   .custom-identity { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,13rem),1fr)); gap:.65rem; margin-top:.75rem; }
   .custom-identity label,.custom-fields label,.custom-field-wide { min-width:0; display:grid; align-content:start; gap:.25rem; }
   .custom-field-wide { margin-top:.65rem; }
@@ -838,9 +846,6 @@
   h4 { margin:1.2rem 0 .5rem; }
   h5 { margin:0; font-size:1rem; }
   .tag { display:inline-block; padding:.1rem .4rem; border:1px solid var(--line); border-radius:99px; font-size:.75rem; }
-  .transaction-list { display:grid; gap:.5rem; padding-left:1.4rem; }
-  .transaction-list li { padding:.35rem 0; }
-  .transaction-list .mute { display:block; font-size:.8rem; }
   .inventory-ledger :is(p,small,b,span,li,label,summary) { overflow-wrap:anywhere; }
   .inventory-ledger input,.inventory-ledger select { max-width:100%; }
   .inventory-ledger :is(button,input,select,summary) { scroll-margin-block:5rem; }
@@ -851,7 +856,7 @@
   }
   @media(max-width:600px) {
     .money-summary { grid-template-columns:1fr; }
-    .money-summary > div { padding:.45rem; overflow-wrap:anywhere; }
+    .money-edit-row { flex-wrap:wrap; }
     .catalogue-row { align-items:flex-start; }
     .row-price { max-width:40%; overflow-wrap:anywhere; }
     .review-summary { grid-template-columns:repeat(2,minmax(0,1fr)); gap:.35rem; }
