@@ -484,7 +484,7 @@
         <div class="money-edit-row">
           <input id={`money-${amount.field}`} type="number" min="0" step="0.1" value={equipmentMoneyValueCp(amount.field) / 10}
             aria-label={`${amount.label} money in SP`} onchange={event => changeMoney(amount.field, event.currentTarget.value)} />
-          <button type="button" class="ghost" aria-label={`Reset ${amount.label} to calculated`} disabled={!equipmentMoneyIsOverridden(amount.field)} onclick={() => resetMoney(amount.field)}>Reset to calculated</button>
+          <button type="button" class="ghost" aria-label={`Reset to calculated ${amount.label} money`} disabled={!equipmentMoneyIsOverridden(amount.field)} onclick={() => resetMoney(amount.field)}>Reset to calculated</button>
         </div>
       </div>
     {/each}
