@@ -2,6 +2,8 @@ import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { compile } from "svelte/compiler";
 import { EQUIPMENT_CATALOGUE } from "../src/lib/equipment-catalogue";
+import { encumbranceSummary } from "../src/lib/encumbrance";
+import { encumbranceThresholdRows } from "../src/lib/encumbrance-presentation";
 
 const page = readFileSync(new URL("../src/components/Combat.svelte", import.meta.url), "utf8");
 const inventory = readFileSync(new URL("../src/components/EquipmentInventory.svelte", import.meta.url), "utf8");
@@ -84,10 +86,15 @@ test("equipment summary and load disclosures distinguish armour ENC from carried
   for (const text of [
     "Money remaining (SP)", "Carried load (ENC)", "Protected locations", "Armour initiative penalty",
     "Total worn armour ENC", "Armour ENC counted toward load", "Shown in Equipment summary above",
-    "Item ENC is the item's listed ENC before state adjustments", "Current load:", "STR thresholds",
+    "Item ENC is the item's listed ENC before state adjustments", "Current load:", "Encumbrance thresholds",
     "Movement", "Skills", "Sprinting", "Fatigue", "Twenty zero-ENC items count as 1 ENC",
     "Stored and load-exempt items do not count", "Overlapping armour uses the highest AP; protection does not stack",
   ]) expect(inventory).toContain(text);
+  expect(inventory).toContain('role="group" aria-label={`Encumbrance thresholds for STR ${char.chars.STR}`}');
+  expect(inventory).toContain("Encumbrance thresholds (STR {char.chars.STR})");
+  expect(inventory).toContain("{row.label}");
+  expect(inventory).toContain("{row.multiplier} ({row.enc} ENC)");
+  expect(inventory).toContain(".load-thresholds dl { display:grid;");
   expect(inventory).not.toContain("Worn full ENC");
   expect(inventory).not.toContain("Worn load ENC");
   expect(inventory).not.toContain("<summary>Load details</summary>");
@@ -99,6 +106,23 @@ test("equipment summary and load disclosures distinguish armour ENC from carried
   expect(inventory).not.toContain("<details open");
   expect(inventory).toContain(".review-summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,11rem),1fr));");
   expect(inventory).toContain(".review-summary { grid-template-columns:repeat(2,minmax(0,1fr));");
+});
+
+test("load breakdown presents readable threshold labels for different STR values", () => {
+  const visibleThresholds = (strength: number) => {
+    const summary = encumbranceSummary([], strength);
+    return {
+      title: `Encumbrance thresholds (STR ${strength})`,
+      rows: encumbranceThresholdRows(summary.thresholds).map(row => `${row.label}: ${row.multiplier} (${row.enc} ENC)`),
+    };
+  };
+
+  expect(visibleThresholds(16)).toEqual({ title: "Encumbrance thresholds (STR 16)", rows: [
+    "Burdened: 2× (32 ENC)", "Overloaded: 3× (48 ENC)", "4× threshold: 4× (64 ENC)",
+  ] });
+  expect(visibleThresholds(12)).toEqual({ title: "Encumbrance thresholds (STR 12)", rows: [
+    "Burdened: 2× (24 ENC)", "Overloaded: 3× (36 ENC)", "4× threshold: 4× (48 ENC)",
+  ] });
 });
 
 test("purchase safeguards and outcomes are accessible and preserve GM pricing", () => {
