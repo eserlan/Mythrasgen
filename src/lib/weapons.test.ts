@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { resolveWeapon, WEAPON_CATALOGUE } from "./weapons";
+import { CORE_COMBAT_STYLE_WEAPONS, isCoreCombatStyleWeaponName, resolveCoreCombatStyleWeapon, resolveWeapon, WEAPON_CATALOGUE } from "./weapons";
 
 describe("Combat Style weapon resolution", () => {
   test("resolves catalogue keys and normalized catalogue names to weapon statistics", () => {
@@ -14,5 +14,14 @@ describe("Combat Style weapon resolution", () => {
     expect(resolveWeapon(undefined, "Peltast Shield")).toBeUndefined();
     expect(resolveWeapon(undefined, "Moonsteel glaive")).toBeUndefined();
     expect(WEAPON_CATALOGUE.length).toBeGreaterThan(0);
+  });
+
+  test("recognizes standard Core style weapons by normalized names and stable catalogue IDs", () => {
+    expect(resolveCoreCombatStyleWeapon(undefined, " great sword ")).toMatchObject({ id: "two_handed-greatsword", name: "Greatsword" });
+    expect(resolveCoreCombatStyleWeapon("one_handed-broadsword", "Campaign sword")).toMatchObject({ name: "Broadsword" });
+    expect(isCoreCombatStyleWeaponName(" battleaxe ")).toBe(true);
+    expect(resolveCoreCombatStyleWeapon(undefined, "Battleaxe")).toBeUndefined();
+    expect(isCoreCombatStyleWeaponName("Moonsteel glaive")).toBe(false);
+    expect(CORE_COMBAT_STYLE_WEAPONS.some(item => item.name === "Battleaxe")).toBe(true);
   });
 });
