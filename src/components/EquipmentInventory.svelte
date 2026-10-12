@@ -1,8 +1,9 @@
 <script lang="ts">
   import { tick } from "svelte";
   import { EQUIPMENT_CATALOGUE, displayEquipmentPrice, formatCopperPrice, type EquipmentCategory } from "../lib/equipment-catalogue";
-  import { acquireEquipment, char, deleteInventoryItem, equipmentBalanceCp, equipmentSpentCp, purchaseEquipment, recordEquipmentExpense, refundEquipmentPurchase, startingMoney, updateInventoryItem } from "../lib/store.svelte";
+  import { acquireEquipment, char, deleteInventoryItem, equipmentBalanceCp, equipmentSpentCp, moveOwnedInventoryItem, purchaseEquipment, recordEquipmentExpense, refundEquipmentPurchase, startingMoney, updateInventoryItem } from "../lib/store.svelte";
   import { encumbranceSummary } from "../lib/encumbrance";
+  import { normalizeInventoryOrder } from "../lib/equipment-inventory";
   import { ARMOUR_CONSTRUCTIONS, ARMOUR_MATERIALS, HIT_LOCATIONS, armourEncumbrance, armourMaterialCompatibility, standardArmourMaterial, summarizeArmour, type ArmourConstructionId, type ArmourMaterialId, type HitLocationName } from "../lib/armour-rules";
   import { validateCustomEquipment, type CustomEquipmentDefinition, type CustomEquipmentType } from "../lib/custom-equipment";
   import { acquireCustomEquipment, deleteCustomEquipment, purchaseCustomEquipment, saveCustomEquipment } from "../lib/store.svelte";
@@ -173,6 +174,11 @@
   const startingCp = $derived(startingMoney() * 10);
   const signedMoney = formatCopperPrice;
   const load = $derived(encumbranceSummary(char.background.inventory, char.chars.STR));
+  const orderedInventory = $derived.by(() => {
+    const itemsById = new Map(char.background.inventory.map(item => [item.id, item]));
+    return normalizeInventoryOrder(char.background.inventoryOrder, char.background.inventory)
+      .flatMap(id => itemsById.has(id) ? [itemsById.get(id)!] : []);
+  });
   const armourItems = $derived(char.background.inventory.filter(item => item.armour));
   const wornArmourItems = $derived(armourItems.filter(item => item.state === "worn"));
   const armourSummary = $derived(summarizeArmour(armourItems.flatMap(item => Array.from({ length: item.quantity }, (_, index) => ({
@@ -306,7 +312,7 @@
     <table class="sheet-table inventory-table">
       <thead><tr><th scope="col">Item</th><th scope="col">Quantity</th><th scope="col">State</th><th scope="col">ENC/Item</th><th scope="col">ENC Exempt</th><th scope="col">Actions</th></tr></thead>
       <tbody>
-      {#each char.background.inventory as item (item.id)}
+      {#each orderedInventory as item, index (item.id)}
         <tr>
           <th scope="row" data-label="Item"><div class="owned-item-line"><span class="owned-name">{item.name}{#if item.customItem} <span class="tag">Custom</span>{/if}</span>
             {#if item.armour}<button type="button" class="armour-editor-toggle" aria-expanded={openArmourEditorId === item.id} aria-controls={`owned-armour-editor-${item.id}`} onclick={() => openArmourEditorId = openArmourEditorId === item.id ? null : item.id}>Armour locations and fit</button>{/if}
@@ -319,7 +325,11 @@
             <input id={`owned-enc-${item.id}`} class="compact-number" aria-label={`${inventoryEncLabel(item)} for ${item.name}`} type="number" min="0" step="0.25" value={item.armour ? item.armour.encOverride ?? "" : item.encPerUnit ?? ""} placeholder={item.armour ? "Derived" : "Unknown"} onchange={event => saveInventoryChange(item.id, item.name, item.armour ? { armour: { encOverride: event.currentTarget.value === "" ? undefined : Number(event.currentTarget.value) } } : { encPerUnit: event.currentTarget.value === "" ? null : Number(event.currentTarget.value) })}>
           </td>
           <td data-label="ENC Exempt"><label class="exemption-control"><input type="checkbox" aria-label={`Exempt ${item.name} from load`} checked={!!item.encumbranceExempt} onchange={event => saveInventoryChange(item.id, item.name, { encumbranceExempt: event.currentTarget.checked })}></label></td>
-          <td class="row-actions" data-label="Actions"><button type="button" class="ghost" aria-label={`Remove ${item.name}`} onclick={() => removeInventoryItem(item.id, item.name)}>Remove</button></td>
+          <td class="row-actions" data-label="Actions"><div class="inventory-reorder-actions">
+            <button type="button" class="ghost reorder-button" aria-label={`Move ${item.name} up`} title="Move up" disabled={index === 0} onclick={() => moveOwnedInventoryItem(item.id, -1)}>▲</button>
+            <button type="button" class="ghost reorder-button" aria-label={`Move ${item.name} down`} title="Move down" disabled={index === orderedInventory.length - 1} onclick={() => moveOwnedInventoryItem(item.id, 1)}>▼</button>
+            <button type="button" class="ghost" aria-label={`Remove ${item.name}`} onclick={() => removeInventoryItem(item.id, item.name)}>Remove</button>
+          </div></td>
         </tr>
         {#if item.armour && openArmourEditorId === item.id}
           {@const ownedMaterialNeedsApproval = !!(item.armour.construction && item.armour.material && armourMaterialCompatibility(item.armour.construction, item.armour.material) !== "compatible")}
@@ -622,7 +632,7 @@
   .inventory-table th:nth-child(3) { width:7rem; }
   .inventory-table th:nth-child(4) { width:6.5rem; }
   .inventory-table th:nth-child(5) { width:6rem; }
-  .inventory-table th:nth-child(6) { width:5.5rem; }
+  .inventory-table th:nth-child(6) { width:8rem; }
   .weapon-table { min-width:58rem; }
   .owned-item-line { display:flex; align-items:center; flex-wrap:wrap; gap:.3rem .65rem; min-width:0; }
   .owned-name { display:block; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -646,6 +656,9 @@
   .inventory-table td > .state-select { box-sizing:border-box; width:100%; min-width:0; min-height:2.5rem; }
   .inventory-table td[data-label="Quantity"] > .compact-number { width:3.5rem; }
   .row-actions button { min-height:2.5rem; }
+  .inventory-reorder-actions { display:flex; align-items:center; gap:.2rem; white-space:nowrap; }
+  .inventory-reorder-actions .reorder-button { box-sizing:border-box; width:1.5rem; min-width:1.5rem; padding:.2rem; }
+  .inventory-reorder-actions button:disabled { opacity:.45; cursor:not-allowed; }
   .exemption-control { display:inline-flex; min-width:2.75rem; min-height:2.5rem; align-items:center; justify-content:center; cursor:pointer; }
   .exemption-control input { flex:none; width:1.2rem; height:1.2rem; accent-color:var(--bronze); }
   .load-summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(10rem,1fr)); gap:.5rem; margin:.75rem 0; }

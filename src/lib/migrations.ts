@@ -39,6 +39,7 @@ export interface BackgroundData {
   equipment: string;
   purchases: { name: string; cost: number }[];
   inventory: InventoryItem[];
+  inventoryOrder: string[];
   equipmentTransactions: InventoryTransaction[];
   customEquipment: CustomEquipmentDefinition[];
 }
@@ -186,6 +187,7 @@ export function normalizeBackground(value: unknown, fallback: BackgroundData): B
           !!item && typeof item === "object" && typeof item.name === "string" && Number.isFinite(item.cost) && item.cost >= 0)
       : fallback.purchases,
     inventory: Array.isArray(saved.inventory) ? saved.inventory as InventoryItem[] : [],
+    inventoryOrder: Array.isArray(saved.inventoryOrder) ? saved.inventoryOrder as string[] : [],
     equipmentTransactions: Array.isArray(saved.equipmentTransactions) ? saved.equipmentTransactions as InventoryTransaction[] : [],
     customEquipment: Array.isArray(saved.customEquipment) ? saved.customEquipment as CustomEquipmentDefinition[] : [],
   };

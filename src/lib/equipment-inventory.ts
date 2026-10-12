@@ -41,6 +41,24 @@ export interface InventoryState {
   equipmentTransactions: InventoryTransaction[];
 }
 
+/** Character-local presentation order for the Owned equipment table. */
+export function normalizeInventoryOrder(order: unknown, inventory: readonly InventoryItem[]): string[] {
+  const available = new Set(inventory.map(item => item.id));
+  const ordered = Array.isArray(order)
+    ? order.filter((id): id is string => typeof id === "string" && available.has(id))
+    : [];
+  return [...new Set(ordered), ...inventory.map(item => item.id).filter(id => !ordered.includes(id))];
+}
+
+export function moveInventoryItem(inventory: readonly InventoryItem[], order: unknown, id: string, offset: -1 | 1): string[] {
+  const next = normalizeInventoryOrder(order, inventory);
+  const index = next.indexOf(id);
+  const destination = index + offset;
+  if (index < 0 || destination < 0 || destination >= next.length) return next;
+  [next[index], next[destination]] = [next[destination], next[index]];
+  return next;
+}
+
 const validInt = (value: unknown, minimum = 0): value is number => Number.isSafeInteger(value) && (value as number) >= minimum;
 const uid = () => globalThis.crypto?.randomUUID?.() ?? `equipment-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 const encumbranceForRecord = (record: EquipmentSourceRecord) => record.enc_candidate ?? record.base_enc_per_location ?? null;
