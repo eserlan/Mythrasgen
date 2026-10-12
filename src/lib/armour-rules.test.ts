@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { ARMOUR_CONSTRUCTIONS, armourEncumbrance, armourMaterialCompatibility, summarizeArmour, type ArmourPiece } from "./armour-rules";
+import { ARMOUR_CONSTRUCTIONS, armourEncumbrance, armourMaterialCompatibility, fullArmourEncumbrance, summarizeArmour, type ArmourPiece } from "./armour-rules";
 
 const plate = (material: "iron" | "steel" = "iron"): ArmourPiece => ({
   id: "plate", construction: "half_plate", material,
@@ -75,6 +75,13 @@ describe("location armour calculations", () => {
     expect(summarizeArmour([{ ...plate(), state: "carried", locations: [], coverageResolved: false }]))
       .toMatchObject({ fullWornEnc: 0, loadEnc: null });
     expect(summarizeArmour([{ ...plate(), state: "carried", locations: [], coverageResolved: false }]).unresolved[0]).toContain("armour coverage needs attention");
+  });
+
+  test("keeps full ENC unknown when coverage is unresolved but treats resolved empty coverage as zero", () => {
+    const unresolved = { ...plate(), locations: [], coverageResolved: false };
+    expect(fullArmourEncumbrance(unresolved, 2)).toBeNull();
+    expect(fullArmourEncumbrance({ ...unresolved, coverageResolved: true }, 2)).toBe(0);
+    expect(fullArmourEncumbrance({ ...plate(), locations: ["Chest"] }, 2)).toBe(8);
   });
 
   test("applies a GM ENC override per covered location", () => {

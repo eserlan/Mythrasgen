@@ -5,7 +5,7 @@
   import { acquireEquipment, char, deleteInventoryItem, equipmentBalanceCp, equipmentSpentCp, moveOwnedInventoryItem, purchaseEquipment, recordEquipmentExpense, refundEquipmentPurchase, startingMoney, updateInventoryItem } from "../lib/store.svelte";
   import { carriedLoad, encumbranceSummary } from "../lib/encumbrance";
   import { normalizeInventoryOrder } from "../lib/equipment-inventory";
-  import { ARMOUR_CONSTRUCTIONS, ARMOUR_MATERIALS, HIT_LOCATIONS, armourEncumbrance, armourMaterialCompatibility, standardArmourMaterial, summarizeArmour, type ArmourConstructionId, type ArmourMaterialId, type HitLocationName } from "../lib/armour-rules";
+  import { ARMOUR_CONSTRUCTIONS, ARMOUR_MATERIALS, HIT_LOCATIONS, armourEncumbrance, armourMaterialCompatibility, fullArmourEncumbrance, standardArmourMaterial, summarizeArmour, type ArmourConstructionId, type ArmourMaterialId, type HitLocationName } from "../lib/armour-rules";
   import { validateCustomEquipment, type CustomEquipmentDefinition, type CustomEquipmentType } from "../lib/custom-equipment";
   import { acquireCustomEquipment, deleteCustomEquipment, purchaseCustomEquipment, saveCustomEquipment } from "../lib/store.svelte";
   import ProtectedHitLocations from "./ProtectedHitLocations.svelte";
@@ -218,7 +218,7 @@
   const armourBreakdownRows = $derived(armourItems.map(item => {
     const armour = item.armour!;
     const unitEnc = armour.encOverride ?? (armour.construction && armour.material ? armourEncumbrance(armour.construction, armour.material) : null);
-    return { item, unitEnc, fullEnc: unitEnc === null ? null : unitEnc * armour.locations.length * item.quantity,
+    return { item, unitEnc, fullEnc: fullArmourEncumbrance(armour, item.quantity),
       contribution: carriedLoad([item]).load };
   }));
   const armourSummary = $derived(summarizeArmour(armourItems.flatMap(item => Array.from({ length: item.quantity }, (_, index) => ({
@@ -452,7 +452,7 @@
           <tr><th scope="row">{row.item.name}{#if row.item.encumbranceExempt} <span class="mute">(load exempt)</span>{/if}</th><td>{row.item.encPerUnit === null ? "Unknown" : `${row.item.encPerUnit} each`}</td><td>{row.item.quantity} · {row.item.state}</td><td>{row.excluded ? "Not counted" : row.item.encPerUnit === null ? "Unknown" : row.item.encPerUnit === 0 ? "Counted by zero-ENC rule" : `${row.contribution} ENC`}</td></tr>
         {/each}
         {#each armourBreakdownRows as row (row.item.id)}
-          <tr><th scope="row">{row.item.name}{#if row.item.encumbranceExempt} <span class="mute">(load exempt)</span>{/if}</th><td>{row.unitEnc === null ? "Unknown" : `${row.unitEnc} per covered location · ${row.fullEnc} full ENC`}</td><td>{row.item.quantity} · {row.item.state}</td><td>{row.item.state === "stored" || row.item.encumbranceExempt ? "Not counted" : row.contribution === null ? "Unknown" : `${row.contribution} ENC`}</td></tr>
+          <tr><th scope="row">{row.item.name}{#if row.item.encumbranceExempt} <span class="mute">(load exempt)</span>{/if}</th><td>{row.unitEnc === null ? "Unknown" : `${row.unitEnc} per covered location · ${row.fullEnc === null ? "full ENC unknown" : `${row.fullEnc} full ENC`}`}</td><td>{row.item.quantity} · {row.item.state}</td><td>{row.item.state === "stored" || row.item.encumbranceExempt ? "Not counted" : row.contribution === null ? "Unknown" : `${row.contribution} ENC`}</td></tr>
         {/each}
         {#if loadBreakdown.zeroEncItems}<tr><th scope="row">Zero-ENC items</th><td>0 ENC each</td><td>{loadBreakdown.zeroEncItems} carried or worn</td><td>{Math.floor(loadBreakdown.zeroEncItems / 20)} ENC ({loadBreakdown.zeroEncItems} items count as 1 ENC per 20)</td></tr>{/if}
       </tbody>

@@ -47,6 +47,15 @@ export function standardArmourMaterial(constructionId: ArmourConstructionId): Ar
 export function armourEncumbrance(constructionId: ArmourConstructionId, materialId: ArmourMaterialId): number {
   return ARMOUR_CONSTRUCTIONS[constructionId].enc * ARMOUR_MATERIALS[materialId].encMultiplier;
 }
+
+export function fullArmourEncumbrance(piece: Pick<ArmourPiece, "construction" | "material" | "locations" | "coverageResolved" | "encOverride">, quantity = 1): number | null {
+  if (!piece.locations.length && !piece.coverageResolved) return null;
+  const unitEnc = piece.encOverride ?? (piece.construction && piece.material
+    ? armourEncumbrance(piece.construction, piece.material)
+    : null);
+  return unitEnc === null ? null : unitEnc * piece.locations.length * quantity;
+}
+
 export type FitState = "fitted" | "ill_fitting" | "unresolved";
 export type CompatibilityState = "compatible" | "incompatible" | "conditional" | "unresolved";
 export interface ArmourPiece {
