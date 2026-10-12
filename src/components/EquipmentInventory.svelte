@@ -247,6 +247,9 @@
     const status = construction ? armourMaterialCompatibility(construction, material) : "conditional";
     saveInventoryChange(item.id, item.name, { armour: { material, compatibility: status === "compatible" ? "compatible" : "incompatible" } });
   }
+  function setOwnedArmourOverride(item: typeof char.background.inventory[number], checked: boolean) {
+    saveInventoryChange(item.id, item.name, { armour: { gmCompatibilityOverride: checked } });
+  }
   function saveInventoryChange(itemId: string, itemName: string, update: Parameters<typeof updateInventoryItem>[1]) {
     try {
       updateInventoryItem(itemId, update);
@@ -319,9 +322,13 @@
           <td class="row-actions" data-label="Actions"><button type="button" class="ghost" aria-label={`Remove ${item.name}`} onclick={() => removeInventoryItem(item.id, item.name)}>Remove</button></td>
         </tr>
         {#if item.armour && openArmourEditorId === item.id}
+          {@const ownedMaterialNeedsApproval = !!(item.armour.construction && item.armour.material && armourMaterialCompatibility(item.armour.construction, item.armour.material) !== "compatible")}
           <tr class="armour-detail-row"><td colspan="6">
             <section class="armour-editor" id={`owned-armour-editor-${item.id}`} aria-label={`Armour locations and fit for ${item.name}`}>
-              <h6>Armour properties</h6>
+              <div class="armour-editor-heading"><h6>Armour properties</h6>
+                <label class="material-override owned-material-override"><input type="checkbox" checked={!!item.armour.gmCompatibilityOverride} disabled={!!item.armour.gmCompatibilityOverride && ownedMaterialNeedsApproval} onchange={event => setOwnedArmourOverride(item, event.currentTarget.checked)}> <span>Allow Nonstandard Material — GM Approval</span></label>
+                {#if item.armour.gmCompatibilityOverride && ownedMaterialNeedsApproval}<small class="owned-material-warning" role="status">Choose a standard compatible material before turning approval off.</small>{/if}
+              </div>
               <div class="armour-properties">
                 <label>Construction <select aria-label={`Construction for ${item.name}`} value={item.armour.construction ?? ""} onchange={event => saveInventoryChange(item.id, item.name, { armour: { construction: event.currentTarget.value as keyof typeof ARMOUR_CONSTRUCTIONS || null } })}>
                 <option value="">Unresolved</option>{#each Object.entries(ARMOUR_CONSTRUCTIONS) as [id, construction]}<option value={id}>{construction.name}</option>{/each}
@@ -338,9 +345,6 @@
               </div>
               {#if item.armour.fit === "unresolved" || item.armour.compatibility === "unresolved"}<p class="armour-editor-warning" role="status">Fit or compatibility needs review. Resolve both settings to confirm effective protection; nominal AP remains listed by hit location.</p>{/if}
               <ProtectedHitLocations idPrefix={`owned-armour-locations-${item.id}`} selected={item.armour.locations} guidance="Choose the locations this piece protects. This selection is saved for this armour item." onSelectAll={() => saveInventoryChange(item.id, item.name, { armour: { locations: [...HIT_LOCATIONS], coverageResolved: true } })} onClearAll={() => saveInventoryChange(item.id, item.name, { armour: { locations: [], coverageResolved: true } })} onchange={(location, checked) => setArmourLocation(item, location, checked)} />
-              <details class="armour-secondary-disclosure"><summary>Advanced / GM options</summary>
-                <label class="material-override"><input type="checkbox" checked={!!item.armour.gmCompatibilityOverride} onchange={event => saveInventoryChange(item.id, item.name, { armour: { gmCompatibilityOverride: event.currentTarget.checked } })}> <span>Allow nonstandard material (GM approval)<small>Enables material combinations outside the standard rules when the GM approves.</small></span></label>
-              </details>
               <details class="armour-secondary-disclosure"><summary>Rules help</summary>
                 <p class="mute">Flexible armour typically fits SIZ ±1; rigid armour needs wearer-specific SIZ and proportions. Record fit explicitly. No automatic layering: overlapping pieces use highest AP and every worn piece adds ENC. Compatibility remains unresolved until confirmed or GM overridden.</p>
               </details>
@@ -625,14 +629,17 @@
   .armour-editor-toggle { flex:none; min-height:2rem; padding:.2rem .45rem; text-align:left; }
   .armour-detail-row > td { padding:.45rem !important; }
   .armour-editor { box-sizing:border-box; display:grid; grid-template-columns:minmax(0,1fr); gap:.85rem; width:100%; min-width:0; padding:.85rem; border:1px solid var(--line); border-radius:.5rem; white-space:normal; }
+  .armour-editor-heading { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:.5rem 1rem; min-width:0; }
   .armour-editor h6 { margin:0; font-size:1rem; }
+  .owned-material-override { align-items:center; }
+  .owned-material-override input[type="checkbox"] { margin:.1rem 0 0; }
+  .owned-material-warning { color:var(--acc); }
   .armour-properties { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.75rem; }
   .armour-properties label { display:grid; align-content:start; gap:.3rem; min-width:0; font-weight:600; }
   .armour-properties select { box-sizing:border-box; width:100%; min-width:0; min-height:2.75rem; font-weight:400; }
   .armour-editor-warning { margin:0; padding:.65rem .75rem; border-inline-start:4px solid var(--acc); background:color-mix(in srgb,var(--acc) 10%,transparent); }
   .armour-secondary-disclosure { min-width:0; padding:.65rem; border:1px solid var(--line); border-radius:.4rem; }
   .armour-secondary-disclosure summary { min-height:2rem; cursor:pointer; font-weight:700; }
-  .armour-secondary-disclosure .material-override { margin-top:.55rem; }
   .armour-secondary-disclosure p { margin:.55rem 0 0; }
   .inventory-table th,.inventory-table td { vertical-align:middle; }
   .inventory-table td > .compact-number { box-sizing:border-box; width:4rem; min-height:2.5rem; }

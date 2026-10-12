@@ -136,23 +136,28 @@ test("owned armour opens in an accessible full-width detail row with focused dis
   expect(inventory).toContain('aria-controls={`owned-armour-editor-${item.id}`}');
   expect(inventory).toContain('<tr class="armour-detail-row"><td colspan="6">');
   expect(inventory).toContain('<section class="armour-editor" id={`owned-armour-editor-${item.id}`}');
-  expect(inventory).toContain('<h6>Armour properties</h6>');
+  expect(inventory).toContain('<div class="armour-editor-heading"><h6>Armour properties</h6>');
+  expect(inventory).toContain('class="material-override owned-material-override"');
+  expect(inventory).toContain('Allow Nonstandard Material — GM Approval');
+  expect(inventory).toContain('function setOwnedArmourOverride');
+  expect(inventory).toContain('Choose a standard compatible material before turning approval off.');
+  expect(inventory).not.toContain('<details class="armour-secondary-disclosure"><summary>Advanced / GM options</summary>');
   expect(inventory).toContain('<div class="armour-properties">');
   expect(inventory).toContain('guidance="Choose the locations this piece protects. This selection is saved for this armour item." onSelectAll=');
   expect(inventory).toContain('onClearAll={() => saveInventoryChange(item.id, item.name, { armour: { locations: [], coverageResolved: true } })}');
-  expect(inventory).toContain('<details class="armour-secondary-disclosure"><summary>Advanced / GM options</summary>');
   expect(inventory).toContain('<details class="armour-secondary-disclosure"><summary>Rules help</summary>');
   expect(inventory).toContain('Fit or compatibility needs review. Resolve both settings to confirm effective protection; nominal AP remains listed by hit location.');
   expect(protectedLocations).toContain('{#if onSelectAll && onClearAll}');
   expect(protectedLocations).toContain('>Select all</button>');
   expect(protectedLocations).toContain('>Clear all</button>');
   expect(inventory).toContain('.armour-editor { box-sizing:border-box; display:grid;');
+  expect(inventory).toContain('.armour-editor-heading { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap;');
   expect(inventory).toContain('.inventory-table tr.armour-detail-row { grid-column:1/-1; display:block; }');
   expect(compile(inventory, { filename: "src/components/EquipmentInventory.svelte", generate: "client" }).warnings).toHaveLength(0);
 });
 
 test("GM material override is a compact label with explanatory secondary text", () => {
-  expect(inventory.match(/class="material-override"/g)?.length).toBeGreaterThanOrEqual(3);
+  expect(inventory.match(/class="material-override/g)?.length).toBeGreaterThanOrEqual(2);
   expect(inventory).toContain("Allow nonstandard material (GM approval)");
   expect(inventory).toContain("Enables material combinations outside the standard rules when the GM approves.");
   expect(inventory).toContain(".material-override { display:flex; align-items:flex-start;");
