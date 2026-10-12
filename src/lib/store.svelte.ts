@@ -21,7 +21,7 @@ import { genericRankForTitle, normalizeOrganisationMemberships, normalizeOrganis
 import { CORE_MYSTICISM_ORGANISATIONS } from "./mysticism";
 import { CORE_SORCERY_SCHOOLS } from "./sorcery";
 import { syncMagicOrganisationMemberships } from "./magic-organisations";
-import { addExpense, addGift, addPurchase, changeInventoryItem, ledgerSpentCp, migrateLegacyPurchases, normalizeInventoryState, reconcileBalance, removeInventoryItem, refundPurchase, type EquipmentState, type InventoryTransaction } from "./equipment-inventory";
+import { addExpense, addGift, addPurchase, changeInventoryItem, ledgerSpentCp, migrateLegacyPurchases, moveInventoryItem, normalizeInventoryOrder, normalizeInventoryState, reconcileBalance, removeInventoryItem, refundPurchase, type EquipmentState, type InventoryTransaction } from "./equipment-inventory";
 import { EQUIPMENT_CATALOGUE } from "./equipment-catalogue";
 import { customEquipmentInventoryItem, normalizeCustomEquipment, validateCustomEquipment, type CustomEquipmentDefinition } from "./custom-equipment";
 
@@ -54,6 +54,7 @@ export interface Character {
     startingMoneyKey: string; startingMoneyTotal: number; currentMoney: number; equipment: string;
     purchases: { name: string; cost: number }[];
     inventory: import("./equipment-inventory").InventoryItem[];
+    inventoryOrder: string[];
     equipmentTransactions: InventoryTransaction[];
     customEquipment: CustomEquipmentDefinition[];
   };
@@ -97,7 +98,7 @@ const blank = (): Character => ({
     parentsRoll: 0, parents: "", siblingsRoll: 0, siblings: "", extendedFamilyRoll: 0, extendedFamily: "",
     standingRoll: 0, standingResolved: false, familyReputationCountRoll: 0, familyTies: [], connectionsRoll: 0,
     connectionsResolved: false, connections: [], relationships: [], startingMoneyRoll: 14, startingMoneyKey: "", startingMoneyTotal: 700, currentMoney: 700,
-    equipment: "Tools; simple weapons; rented accommodation", purchases: [], inventory: [], equipmentTransactions: [], customEquipment: [] },
+    equipment: "Tools; simple weapons; rented accommodation", purchases: [], inventory: [], inventoryOrder: [], equipmentTransactions: [], customEquipment: [] },
   generation: "pointBuy", rollResults: null, rollAssignments: STATS.map((_, i) => i), home: true,
 });
 function resolveNativeTongue(skills: string[], language = char.nativeLanguage) { return skills.map(name => name === "Native Tongue" ? nativeTongueName(language) : name); }
@@ -269,6 +270,7 @@ export function normalizeCharacter(value: Partial<Character> | null, home = true
   const hasSavedInventoryLedger = Array.isArray(savedInventoryLedger?.equipmentTransactions);
   const normalizedInventory = normalizeInventoryState(normalized.background);
   normalized.background.inventory = normalizedInventory.inventory;
+  normalized.background.inventoryOrder = normalizeInventoryOrder(normalized.background.inventoryOrder, normalizedInventory.inventory);
   normalized.background.customEquipment = normalizeCustomEquipment(normalized.background.customEquipment);
   normalized.background.equipmentTransactions = hasSavedInventoryLedger
     ? normalizedInventory.equipmentTransactions
@@ -595,6 +597,9 @@ export function updateInventoryItem(id: string, update: { quantity?: number; sta
 }
 export function deleteInventoryItem(id: string) {
   char.background.inventory = removeInventoryItem({ inventory: char.background.inventory, equipmentTransactions: char.background.equipmentTransactions }, id).inventory;
+}
+export function moveOwnedInventoryItem(id: string, offset: -1 | 1) {
+  char.background.inventoryOrder = moveInventoryItem(char.background.inventory, char.background.inventoryOrder, id, offset);
 }
 export function refundEquipmentPurchase(transactionId: string, amountCp: number) {
   const next = refundPurchase({ inventory: char.background.inventory, equipmentTransactions: char.background.equipmentTransactions }, transactionId, amountCp);

@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { EQUIPMENT_CATALOGUE } from "./equipment-catalogue";
 import { HIT_LOCATIONS, summarizeArmour } from "./armour-rules";
 import { carriedLoad } from "./encumbrance";
-import { addExpense, addGift, addPurchase, changeInventoryItem, ledgerSpentCp, normalizeInventoryState, reconcileBalance, refundPurchase, removeInventoryItem, type InventoryState } from "./equipment-inventory";
+import { addExpense, addGift, addPurchase, changeInventoryItem, ledgerSpentCp, moveInventoryItem, normalizeInventoryOrder, normalizeInventoryState, reconcileBalance, refundPurchase, removeInventoryItem, type InventoryState } from "./equipment-inventory";
 
 const item = (id: string) => {
   const found = EQUIPMENT_CATALOGUE.find(entry => entry.source.id === id);
@@ -12,6 +12,21 @@ const item = (id: string) => {
 const blank = (): InventoryState => ({ inventory: [], equipmentTransactions: [] });
 
 describe("Page VIII equipment ledger", () => {
+  test("moves only adjacent owned equipment positions and normalizes legacy ordering", () => {
+    const state = addGift(addGift(addGift(blank(), item("one_handed-dagger"), 1, "gifted"), item("one_handed-broadsword"), 2, "gifted"), item("one_handed-battleaxe"), 1, "gifted");
+    const original = structuredClone(state);
+    const ids = state.inventory.map(owned => owned.id);
+    expect(normalizeInventoryOrder(undefined, state.inventory)).toEqual(ids);
+    expect(moveInventoryItem(state.inventory, ids, ids[1], -1)).toEqual([ids[1], ids[0], ids[2]]);
+    expect(moveInventoryItem(state.inventory, ids, ids[1], 1)).toEqual([ids[0], ids[2], ids[1]]);
+    expect(moveInventoryItem(state.inventory, ids, ids[0], -1)).toEqual(ids);
+    expect(moveInventoryItem(state.inventory, ids, ids[2], 1)).toEqual(ids);
+    expect(state).toEqual(original);
+    const moved = moveInventoryItem(state.inventory, ids, ids[1], -1);
+    expect(normalizeInventoryOrder(moved, state.inventory)).toEqual([ids[1], ids[0], ids[2]]);
+    expect(normalizeInventoryState(structuredClone({ ...state, inventoryOrder: moved }))).toEqual(state);
+  });
+
   test("purchases a known-price quantity in integer CP and preserves transaction snapshot", () => {
     const state = addPurchase(blank(), item("one_handed-dagger"), 3, undefined, "2026-01-02T03:04:05.000Z");
     expect(state.inventory[0].quantity).toBe(3);
