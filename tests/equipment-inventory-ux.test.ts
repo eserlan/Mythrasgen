@@ -235,6 +235,17 @@ test("ranged equipment uses the character-sheet columns in details and owned equ
   ]) expect(inventory).toContain(text);
   expect(inventory).toContain('if (record.category === "ranged")');
   expect(inventory).toContain("ranged-table-scroll");
-  expect(inventory).toContain(".ranged-weapon-table { min-width:0; table-layout:fixed;");
+  expect(inventory).toContain(".weapon-table { min-width:0; table-layout:fixed; font-size:.78rem; line-height:1.25; }");
+  expect(inventory).toContain(".weapon-table th,.weapon-table td { padding:.35rem .3rem; overflow-wrap:anywhere; }");
+  expect(inventory).toContain(".weapon-table thead th { white-space:normal; }");
   expect(inventory).not.toContain('"Combat profile", "Unresolved" as [string, string][] : []');
+});
+
+test("melee and ranged weapon tables share compact typography and keep narrow-screen overflow", () => {
+  expect(inventory).toContain('class="sheet-table weapon-table melee-weapon-table"');
+  expect(inventory).toContain('class="sheet-table weapon-table ranged-weapon-table"');
+  expect(inventory).not.toContain(".weapon-table { min-width:58rem;");
+  expect(inventory).toContain(".melee-weapon-table th:nth-child(6) { width:18%; }");
+  expect(inventory).toContain(".melee-weapon-table th:nth-child(7),.melee-weapon-table th:nth-child(8),.melee-weapon-table th:nth-child(9) { width:7%; }");
+  expect(inventory).toContain(".weapon-table { min-width:42rem; }");
 });
