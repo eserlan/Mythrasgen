@@ -122,6 +122,19 @@ describe("Page VIII equipment ledger", () => {
     } });
   });
 
+  test("persists the owned armour GM material override with its selected material", () => {
+    let state = addPurchase(blank(), item("armour-half-plate"), 1, undefined, undefined, { material: "iron", locations: ["Chest"] });
+    const ownedId = state.inventory[0].id;
+    state = changeInventoryItem(state, ownedId, { armour: {
+      material: "ivory", compatibility: "incompatible", gmCompatibilityOverride: true,
+    } });
+    const restored = normalizeInventoryState(structuredClone(state));
+    expect(restored.inventory[0]).toMatchObject({ id: ownedId, armour: {
+      material: "ivory", compatibility: "incompatible", gmCompatibilityOverride: true,
+    } });
+    expect(restored.inventory[0].encPerUnit).toBe(state.inventory[0].encPerUnit);
+  });
+
   test("records selected armour material, locations, adjusted ENC, and per-location price snapshots", () => {
     const selection = { material: "iron" as const, locations: [...HIT_LOCATIONS] };
     const purchased = addPurchase(blank(), item("armour-plated-mail"), 1, undefined, "2026-01-02T03:04:05.000Z", selection);
