@@ -1,6 +1,7 @@
 <script lang="ts">
   import { tick } from "svelte";
   import { EQUIPMENT_CATALOGUE, displayEquipmentPrice, formatCopperPrice, type EquipmentCategory } from "../lib/equipment-catalogue";
+  import { RANGED_WEAPON_STATS, formatRangedRange, rangedCellText } from "../lib/ranged-weapons";
   import { acquireEquipment, char, deleteInventoryItem, equipmentBalanceCp, equipmentSpentCp, moveOwnedInventoryItem, purchaseEquipment, recordEquipmentExpense, refundEquipmentPurchase, startingMoney, updateInventoryItem } from "../lib/store.svelte";
   import { encumbranceSummary } from "../lib/encumbrance";
   import { normalizeInventoryOrder } from "../lib/equipment-inventory";
@@ -126,8 +127,27 @@
     ["one_handed", "two_handed", "ranged"].includes(record.category);
   const hasCombatProfile = (record: typeof EQUIPMENT_CATALOGUE[number]["source"]) =>
     isWeapon(record) || record.category === "shields";
+  const rangedImpaleSize = (record: typeof EQUIPMENT_CATALOGUE[number]["source"]) => {
+    const size = RANGED_WEAPON_STATS[record.id]?.impaleSize;
+    return size?.status === "value" ? size.value : undefined;
+  };
   const combatStats = (record: typeof EQUIPMENT_CATALOGUE[number]["source"]) => {
     if (!hasCombatProfile(record)) return [] as [string, string][];
+    if (record.category === "ranged") {
+      const stats = RANGED_WEAPON_STATS[record.id];
+      if (!stats) return [] as [string, string][];
+      return [
+        ["Damage", rangedCellText(stats.damage)],
+        ["Force", rangedCellText(stats.force)],
+        ["DM", rangedCellText(stats.damageModifier)],
+        ["Range", formatRangedRange(stats.range)],
+        ["Load", rangedCellText(stats.load)],
+        ["Combat Effects", rangedCellText(stats.combatEffects)],
+        ["AP", rangedCellText(stats.ap)],
+        ["HP", rangedCellText(stats.hp)],
+        ["ENC", rangedCellText(stats.enc)],
+      ];
+    }
     const itemType = record.category === "shields" ? "Shield" : "Weapon";
     const profile = record.combat_profile_candidate;
     return [
@@ -392,8 +412,8 @@
     <h5 id="ranged-table-heading">Ranged weapons</h5>
     {#if rangedWeaponRows.length}
       <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-      <div class="table-scroll" role="region" aria-label="Ranged weapons" tabindex="0"><table class="sheet-table weapon-table"><thead><tr><th scope="col">Weapon</th><th scope="col">Damage</th><th scope="col">Force</th><th scope="col">DM</th><th scope="col">Range</th><th scope="col">Load</th><th scope="col">Combat effects</th><th scope="col">AP</th><th scope="col">HP</th><th scope="col">ENC</th></tr></thead>
-        <tbody>{#each rangedWeaponRows as row (row.item.id)}{@const profile = row.record?.combat_profile_candidate}<tr><th scope="row">{row.item.name}{#if row.item.quantity > 1} × {row.item.quantity}{/if}</th><td>{row.custom?.damage ?? profile?.damage ?? "—"}</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>{row.custom?.ap ?? row.record?.ap_candidate ?? "—"}</td><td>{row.custom?.hp ?? row.record?.hp_candidate ?? "—"}</td><td>{row.item.encPerUnit === null ? "Unknown" : row.item.encPerUnit}</td></tr>{/each}</tbody>
+      <div class="table-scroll ranged-table-scroll" role="region" aria-label="Ranged weapons" tabindex="0"><table class="sheet-table weapon-table ranged-weapon-table"><thead><tr><th scope="col">Weapon</th><th scope="col">Damage</th><th scope="col">Force</th><th scope="col">DM</th><th scope="col">Range</th><th scope="col">Load</th><th scope="col">Combat effects</th><th scope="col">AP</th><th scope="col">HP</th><th scope="col">ENC</th></tr></thead>
+        <tbody>{#each rangedWeaponRows as row (row.item.id)}{@const stats = row.record ? RANGED_WEAPON_STATS[row.record.id] : undefined}<tr><th scope="row">{row.item.name}{#if row.item.quantity > 1} × {row.item.quantity}{/if}</th><td>{stats ? rangedCellText(stats.damage) : "Unknown"}</td><td>{stats ? rangedCellText(stats.force) : "Unknown"}</td><td>{stats ? rangedCellText(stats.damageModifier) : "Unknown"}</td><td>{stats ? formatRangedRange(stats.range) : "Unknown"}</td><td>{stats ? rangedCellText(stats.load) : "Unknown"}</td><td>{stats ? rangedCellText(stats.combatEffects) : "Unknown"}</td><td>{stats ? rangedCellText(stats.ap) : "Unknown"}</td><td>{stats ? rangedCellText(stats.hp) : "Unknown"}</td><td>{stats ? rangedCellText(stats.enc) : "Unknown"}</td></tr>{/each}</tbody>
       </table></div>
     {:else}<p class="empty-state">No owned ranged weapons.</p>{/if}
   </section>
@@ -533,10 +553,16 @@
                   {/each}
                 </dl>
                 <details class="rules-help"><summary aria-label={`Rules help for ${record.name}`}>Rules help</summary>
-                  <p>Listed dice are base damage. Add your character’s Damage Modifier when the rules call for it.</p>
-                  <p>Size compares a weapon with an incoming attack when parrying. Reach describes how far the weapon can engage and can affect who controls the distance.</p>
-                  <p>Encumbrance (ENC) measures the item's contribution to carried load. Worn armour uses its separate half-ENC rule; stored items add no carried load.</p>
-                  <p>{record.category === "shields" ? "Shield" : "Weapon"} AP and {record.category === "shields" ? "shield" : "weapon"} HP measure the item's durability. They are not character armour points or character hit points. Hands required tells you how to wield it.</p>
+                  {#if record.category === "ranged"}
+                    <p>Damage, Force, Damage Modifier, range bands, Load, Combat Effects, AP, HP and ENC follow the Ranged Weapons table. A dash preserves a rulebook dash; projectile-dependent damage is not assigned to the weapon.</p>
+                    {#if rangedImpaleSize(record)}<p>Impale size: {rangedImpaleSize(record)}.</p>{/if}
+                    <p>Weapon AP and HP measure durability, not character armour or hit points.</p>
+                  {:else}
+                    <p>Listed dice are base damage. Add your character’s Damage Modifier when the rules call for it.</p>
+                    <p>Size compares a weapon with an incoming attack when parrying. Reach describes how far the weapon can engage and can affect who controls the distance.</p>
+                    <p>Encumbrance (ENC) measures the item's contribution to carried load. Worn armour uses its separate half-ENC rule; stored items add no carried load.</p>
+                    <p>{record.category === "shields" ? "Shield" : "Weapon"} AP and {record.category === "shields" ? "shield" : "weapon"} HP measure the item's durability. They are not character armour points or character hit points. Hands required tells you how to wield it.</p>
+                  {/if}
                 </details>
               {:else}
                 <p>{statSummary(selected) || "No combat details available."}</p>
@@ -634,6 +660,12 @@
   .inventory-table th:nth-child(5) { width:6rem; }
   .inventory-table th:nth-child(6) { width:8rem; }
   .weapon-table { min-width:58rem; }
+  .ranged-weapon-table { min-width:0; table-layout:fixed; font-size:.78rem; }
+  .ranged-weapon-table th,.ranged-weapon-table td { padding:.35rem .3rem; overflow-wrap:anywhere; }
+  .ranged-weapon-table th:first-child { width:15%; }
+  .ranged-weapon-table th:nth-child(2),.ranged-weapon-table th:nth-child(3),.ranged-weapon-table th:nth-child(4),.ranged-weapon-table th:nth-child(6),.ranged-weapon-table th:nth-child(8),.ranged-weapon-table th:nth-child(9),.ranged-weapon-table th:nth-child(10) { width:7%; }
+  .ranged-weapon-table th:nth-child(5) { width:12%; }
+  .ranged-weapon-table th:nth-child(7) { width:17%; }
   .owned-item-line { display:flex; align-items:center; flex-wrap:wrap; gap:.3rem .65rem; min-width:0; }
   .owned-name { display:block; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .armour-editor-toggle { flex:none; min-height:2rem; padding:.2rem .45rem; text-align:left; }

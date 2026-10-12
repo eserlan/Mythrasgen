@@ -224,3 +224,17 @@ test("weapon and shield details use player-facing labels and keep provisional so
   expect(inventory).toContain('isWeapon(record) || record.category === "shields"');
   expect(inventory).toContain("It does not add a second item.");
 });
+
+test("ranged equipment uses the character-sheet columns in details and owned equipment", () => {
+  for (const text of [
+    "RANGED_WEAPON_STATS[record.id]", '"Damage"', '"Force"', '"DM"', '"Range"',
+    '"Load"', '"Combat Effects"', '"AP"', '"HP"', '"ENC"',
+    "class=\"sheet-table weapon-table ranged-weapon-table\"", "formatRangedRange(stats.range)",
+    "rangedCellText(stats.ap)", "rangedCellText(stats.hp)",
+    "A dash preserves a rulebook dash; projectile-dependent damage is not assigned to the weapon.",
+  ]) expect(inventory).toContain(text);
+  expect(inventory).toContain('if (record.category === "ranged")');
+  expect(inventory).toContain("ranged-table-scroll");
+  expect(inventory).toContain(".ranged-weapon-table { min-width:0; table-layout:fixed;");
+  expect(inventory).not.toContain('"Combat profile", "Unresolved" as [string, string][] : []');
+});

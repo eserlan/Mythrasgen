@@ -10,6 +10,7 @@ import {
   displayEquipmentPrice,
   formatCopperPrice,
 } from "./equipment-catalogue";
+import { RANGED_WEAPON_STATS, formatRangedRange, rangedCellText, type RangedCell } from "./ranged-weapons";
 
 function item(id: string) {
   const record = EQUIPMENT_CATALOGUE.find(entry => entry.source.id === id);
@@ -18,6 +19,62 @@ function item(id: string) {
 }
 
 describe("provisional equipment catalogue", () => {
+  test("has explicit ranged-table data for every p. 65 ranged catalogue row", () => {
+    const catalogueIds = EQUIPMENT_CATALOGUE.filter(entry => entry.source.category === "ranged").map(entry => entry.source.id).sort();
+    expect(catalogueIds).toHaveLength(19);
+    expect(Object.keys(RANGED_WEAPON_STATS).sort()).toEqual(catalogueIds);
+    for (const [id, stats] of Object.entries(RANGED_WEAPON_STATS)) {
+      expect(stats, id).toHaveProperty("damage");
+      expect(stats, id).toHaveProperty("damageModifier");
+      expect(stats, id).toHaveProperty("force");
+      expect(stats, id).toHaveProperty("range");
+      expect(stats, id).toHaveProperty("load");
+      expect(stats, id).toHaveProperty("combatEffects");
+      expect(stats, id).toHaveProperty("impaleSize");
+      expect(stats, id).toHaveProperty("enc");
+      expect(stats, id).toHaveProperty("ap");
+      expect(stats, id).toHaveProperty("hp");
+      for (const cell of Object.values(stats) as RangedCell<unknown>[]) {
+        expect(["value", "not_applicable", "unknown"]).toContain(cell.status);
+        if (cell.status === "value") expect(cell.value).not.toBeUndefined();
+      }
+    }
+  });
+
+  test("matches representative ranged weapons and preserves printed dash semantics", () => {
+    const blowgun = RANGED_WEAPON_STATS["ranged-blowgun"];
+    expect(blowgun.damage.status).toBe("not_applicable");
+    expect(blowgun.damageModifier).toEqual({ status: "value", value: "N" });
+    expect(blowgun.force.status).toBe("not_applicable");
+    expect(formatRangedRange(blowgun.range)).toBe("10/20/30 m");
+    expect(blowgun.load).toEqual({ status: "value", value: 2 });
+    expect(blowgun.combatEffects).toEqual({ status: "value", value: "Impale" });
+    expect(blowgun.enc.status).toBe("not_applicable");
+    expect(rangedCellText(blowgun.ap)).toBe("1");
+    expect(rangedCellText(blowgun.hp)).toBe("4");
+    expect(item("ranged-blowgun").source.price_cp_candidate).toBe(300);
+
+    const atlatl = RANGED_WEAPON_STATS["ranged-atlatl"];
+    expect(atlatl.damage.status).toBe("not_applicable");
+    expect(atlatl.force).toEqual({ status: "value", value: "+1 Step" });
+    expect(formatRangedRange(atlatl.range)).toBe("+0/+25/+75 m");
+    expect(atlatl.load).toEqual({ status: "value", value: 1 });
+    expect(atlatl.enc).toEqual({ status: "value", value: 1 });
+    expect(atlatl.ap).toEqual({ status: "value", value: 1 });
+    expect(atlatl.hp).toEqual({ status: "value", value: 4 });
+
+    expect(RANGED_WEAPON_STATS["ranged-short-bow"]).toMatchObject({ damage: { value: "1d6" }, damageModifier: { value: "Y" }, force: { value: "L" }, range: { value: ["15", "100", "200"] }, load: { value: 2 }, combatEffects: { value: "Impale" }, enc: { value: 1 }, ap: { value: 4 }, hp: { value: 4 } });
+    expect(RANGED_WEAPON_STATS["ranged-long-bow"]).toMatchObject({ damage: { value: "1d8" }, force: { value: "H" }, range: { value: ["15", "125", "250"] }, load: { value: 2 }, combatEffects: { value: "Impale" }, enc: { value: 1 }, ap: { value: 4 }, hp: { value: 7 } });
+    expect(RANGED_WEAPON_STATS["ranged-light-crossbow"]).toMatchObject({ damage: { value: "1d8" }, damageModifier: { value: "N" }, force: { value: "L" }, range: { value: ["20", "100", "200"] }, load: { value: 3 }, combatEffects: { value: "Impale" }, enc: { value: 1 }, ap: { value: 4 }, hp: { value: 5 } });
+    expect(RANGED_WEAPON_STATS["ranged-heavy-crossbow"]).toMatchObject({ damage: { value: "1d10" }, damageModifier: { value: "N" }, force: { value: "H" }, range: { value: ["20", "150", "300"] }, load: { value: 4 }, combatEffects: { value: "Impale/Sunder" }, enc: { value: 2 }, ap: { value: 4 }, hp: { value: 8 } });
+
+    const thrownDagger = RANGED_WEAPON_STATS["ranged-dagger"];
+    expect(thrownDagger.damage).toEqual({ status: "value", value: "1d4" });
+    expect(thrownDagger.impaleSize).toEqual({ status: "value", value: "S" });
+    expect(item("ranged-dagger").source.physical_item_key).toBe("weapon-dagger");
+    expect(item("one_handed-dagger").source.combat_profile_candidate).toBeDefined();
+  });
+
   test("formats integer CP as silver-first Mythras currency, including signed and large values", () => {
     expect(formatCopperPrice(0)).toBe("0 SP");
     expect(formatCopperPrice(1750)).toBe("175 SP");
