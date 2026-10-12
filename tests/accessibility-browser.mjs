@@ -266,7 +266,7 @@ try {
   assert.match(JSON.parse(ownedText).body, /Dagger/, `purchased item should appear in owned equipment: ${ownedText}`);
   assert.ok(await evaluate(`!!document.querySelector('.inventory-table tbody tr select[aria-label="State of Dagger"]')`), `equipment state control should render immediately: ${ownedText}`);
   await evaluate(`(() => { const select = document.querySelector('.inventory-table tbody tr select[aria-label="State of Dagger"]'); select.value = 'worn'; select.dispatchEvent(new Event('change', { bubbles: true })); })()`);
-  assert.match(await evaluate(`document.querySelector('.review-summary')?.innerText ?? ''`), /Carrying load/, "review should show carrying load after purchase");
+  assert.match(await evaluate(`document.querySelector('.review-summary')?.innerText ?? ''`), /Carried load/, "review should show carried load after purchase");
   await clickText("Choose equipment");
   await evaluate(`if (!document.querySelector('.item-detail')) document.querySelector('.catalogue-row')?.click()`);
   assert.ok(await evaluate(`!!document.querySelector('.item-detail .purchase-controls')`), "selected item purchase controls should remain available when returning to choose equipment");

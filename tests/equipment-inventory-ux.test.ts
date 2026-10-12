@@ -20,9 +20,10 @@ test("equipment starts with two activities and puts the character summary in own
     expect(inventory).toContain(text);
   expect(inventory).not.toContain("Review your character");
   expect(inventory).toContain("Money remaining (SP)");
-  expect(inventory).toContain("Carrying load (ENC)");
-  expect(inventory).toContain("Armour protection");
-  expect(inventory).toContain("<summary>Load details</summary>");
+  expect(inventory).toContain("Carried load (ENC)");
+  expect(inventory).toContain("Protected locations");
+  expect(inventory).toContain("Armour initiative penalty");
+  expect(inventory).toContain("<summary>How load is calculated / Load breakdown</summary>");
   expect(inventory).toContain("<summary>Money and transaction history</summary>");
   expect(inventory).toContain("Owned equipment");
   expect(inventory).toContain("encumbranceSummary(char.background.inventory, char.chars.STR)");
@@ -77,6 +78,27 @@ test("equipment starts with two activities and puts the character summary in own
   expect(inventory).toContain("aria-labelledby=\"selected-item-title\"");
   expect(inventory).toContain("Search all equipment");
   expect(compile(inventory, { filename: "src/components/EquipmentInventory.svelte", generate: "client" }).warnings).toHaveLength(0);
+});
+
+test("equipment summary and load disclosures distinguish armour ENC from carried load", () => {
+  for (const text of [
+    "Money remaining (SP)", "Carried load (ENC)", "Protected locations", "Armour initiative penalty",
+    "Total worn armour ENC", "Armour ENC counted toward load", "Shown in Equipment summary above",
+    "Item ENC is the item's listed ENC before state adjustments", "Current load:", "STR thresholds",
+    "Movement", "Skills", "Sprinting", "Fatigue", "Twenty zero-ENC items count as 1 ENC",
+    "Stored and load-exempt items do not count", "Overlapping armour uses the highest AP; protection does not stack",
+  ]) expect(inventory).toContain(text);
+  expect(inventory).not.toContain("Worn full ENC");
+  expect(inventory).not.toContain("Worn load ENC");
+  expect(inventory).not.toContain("<summary>Load details</summary>");
+  expect(inventory).toContain("<table class=\"sheet-table inventory-table\">");
+  expect(inventory).toContain("Melee weapons &amp; shields");
+  expect(inventory).toContain("Ranged weapons");
+  expect(inventory).toContain("Money and transaction history");
+  expect(inventory).toContain("<details class=\"review-details load-breakdown\"><summary>How load is calculated / Load breakdown</summary>");
+  expect(inventory).not.toContain("<details open");
+  expect(inventory).toContain(".review-summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,11rem),1fr));");
+  expect(inventory).toContain(".review-summary { grid-template-columns:repeat(2,minmax(0,1fr));");
 });
 
 test("purchase safeguards and outcomes are accessible and preserve GM pricing", () => {
@@ -176,7 +198,7 @@ test("technical provenance and armour location data are secondary disclosures", 
   expect(inventory).toContain("{#if wornArmourItems.length}");
   expect(inventory).toContain("coverage unknown");
   expect(inventory).toContain("No armour recorded");
-  expect(inventory).toContain("filter(ap => ap !== null && ap > 0).length} locations effectively protected");
+  expect(inventory).toContain("filter(ap => ap !== null && ap > 0).length} effectively protected");
   expect(inventory).toContain("armourSummary.nominalApByLocation[location]");
   expect(inventory).toContain("<th scope=\"col\">Nominal AP</th>");
   expect(inventory).toContain("Fit and material compatibility determine whether that protection is effective.");
