@@ -403,7 +403,7 @@
     <h5 id="melee-table-heading">Melee weapons &amp; shields</h5>
     {#if meleeWeaponRows.length}
       <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-      <div class="table-scroll" role="region" aria-label="Melee weapons and shields" tabindex="0"><table class="sheet-table weapon-table"><thead><tr><th scope="col">Weapon</th><th scope="col">Damage</th><th scope="col">Size</th><th scope="col">Reach</th><th scope="col">Traits</th><th scope="col">Combat effects</th><th scope="col">AP</th><th scope="col">HP</th><th scope="col">ENC</th></tr></thead>
+      <div class="table-scroll" role="region" aria-label="Melee weapons and shields" tabindex="0"><table class="sheet-table weapon-table melee-weapon-table"><thead><tr><th scope="col">Weapon</th><th scope="col">Damage</th><th scope="col">Size</th><th scope="col">Reach</th><th scope="col">Traits</th><th scope="col">Combat effects</th><th scope="col">AP</th><th scope="col">HP</th><th scope="col">ENC</th></tr></thead>
         <tbody>{#each meleeWeaponRows as row (row.item.id)}{@const profile = row.record?.combat_profile_candidate}<tr><th scope="row">{row.item.name}{#if row.item.quantity > 1} × {row.item.quantity}{/if}</th><td>{row.custom?.damage ?? profile?.damage ?? "—"}</td><td>{row.custom?.size ?? (profile?.size === "M" ? "Medium" : profile?.size) ?? "—"}</td><td>{row.custom?.reach ?? (profile?.reach === "M" ? "Medium" : profile?.reach) ?? "—"}</td><td>{row.custom?.traits || "—"}</td><td>—</td><td>{row.custom?.ap ?? row.record?.ap_candidate ?? "—"}</td><td>{row.custom?.hp ?? row.record?.hp_candidate ?? "—"}</td><td>{row.item.encPerUnit === null ? "Unknown" : row.item.encPerUnit}</td></tr>{/each}</tbody>
       </table></div>
     {:else}<p class="empty-state">No owned melee weapons or shields.</p>{/if}
@@ -659,13 +659,18 @@
   .inventory-table th:nth-child(4) { width:6.5rem; }
   .inventory-table th:nth-child(5) { width:6rem; }
   .inventory-table th:nth-child(6) { width:8rem; }
-  .weapon-table { min-width:58rem; }
-  .ranged-weapon-table { min-width:0; table-layout:fixed; font-size:.78rem; }
-  .ranged-weapon-table th,.ranged-weapon-table td { padding:.35rem .3rem; overflow-wrap:anywhere; }
+  .weapon-table { min-width:0; table-layout:fixed; font-size:.78rem; line-height:1.25; }
+  .weapon-table th,.weapon-table td { padding:.35rem .3rem; overflow-wrap:anywhere; }
+  .weapon-table thead th { white-space:normal; }
   .ranged-weapon-table th:first-child { width:15%; }
   .ranged-weapon-table th:nth-child(2),.ranged-weapon-table th:nth-child(3),.ranged-weapon-table th:nth-child(4),.ranged-weapon-table th:nth-child(6),.ranged-weapon-table th:nth-child(8),.ranged-weapon-table th:nth-child(9),.ranged-weapon-table th:nth-child(10) { width:7%; }
   .ranged-weapon-table th:nth-child(5) { width:12%; }
   .ranged-weapon-table th:nth-child(7) { width:17%; }
+  .melee-weapon-table th:first-child { width:17%; }
+  .melee-weapon-table th:nth-child(2),.melee-weapon-table th:nth-child(3),.melee-weapon-table th:nth-child(4) { width:8%; }
+  .melee-weapon-table th:nth-child(5) { width:15%; }
+  .melee-weapon-table th:nth-child(6) { width:18%; }
+  .melee-weapon-table th:nth-child(7),.melee-weapon-table th:nth-child(8),.melee-weapon-table th:nth-child(9) { width:7%; }
   .owned-item-line { display:flex; align-items:center; flex-wrap:wrap; gap:.3rem .65rem; min-width:0; }
   .owned-name { display:block; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .armour-editor-toggle { flex:none; min-height:2rem; padding:.2rem .45rem; text-align:left; }
@@ -771,6 +776,9 @@
   .inventory-ledger :is(p,small,b,span,li,label,summary) { overflow-wrap:anywhere; }
   .inventory-ledger input,.inventory-ledger select { max-width:100%; }
   .inventory-ledger :is(button,input,select,summary) { scroll-margin-block:5rem; }
+  @media(max-width:760px) {
+    .weapon-table { min-width:42rem; }
+  }
   @media(max-width:600px) {
     .money-summary { grid-template-columns:1fr; }
     .money-summary > div { padding:.45rem; overflow-wrap:anywhere; }
