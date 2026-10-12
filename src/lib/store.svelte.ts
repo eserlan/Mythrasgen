@@ -52,7 +52,7 @@ export interface Character {
     standingRoll: number; standingResolved: boolean; familyReputationCountRoll: number; familyTies: string[]; connectionsRoll: number;
     connectionsResolved: boolean; connections: string[]; relationships: FamilyRelationship[]; startingMoneyRoll: number;
     startingMoneyKey: string; startingMoneyTotal: number; currentMoney: number;
-    moneyOverrides: { startingCp?: number; spentCp?: number; remainingCp?: number }; equipment: string;
+    moneyOverrides: { startingCp?: number; spentCp?: number; remainingCp?: number; remainingCpSpentBaseline?: number }; equipment: string;
     purchases: { name: string; cost: number }[];
     inventory: import("./equipment-inventory").InventoryItem[];
     inventoryOrder: string[];
@@ -306,6 +306,10 @@ export function normalizeCharacter(value: Partial<Character> | null, home = true
       && Math.round(migratedCurrentMoney! * 10) !== Math.round(normalized.background.startingMoneyTotal * 10)) {
     // Older saves could carry a hand-adjusted balance without a transaction ledger.
     normalized.background.moneyOverrides.remainingCp = Math.round(migratedCurrentMoney! * 10);
+  }
+  if (Object.hasOwn(normalized.background.moneyOverrides, "remainingCp")
+      && !Object.hasOwn(normalized.background.moneyOverrides, "remainingCpSpentBaseline")) {
+    normalized.background.moneyOverrides.remainingCpSpentBaseline = ledgerSpentCp(normalized.background.equipmentTransactions);
   }
   normalized.background.startingMoneyKey = moneyKey;
   normalized.background.currentMoney = (normalized.background.moneyOverrides.remainingCp
@@ -583,15 +587,21 @@ export const equipmentMoneyValueCp = (field: EquipmentMoneyField) => char.backgr
     : field === "spentCp" ? calculatedEquipmentSpentCp() : calculatedEquipmentBalanceCp());
 export const equipmentSpentCp = () => equipmentMoneyValueCp("spentCp");
 export const equipmentBalanceCp = () => equipmentMoneyValueCp("remainingCp");
+export const equipmentAvailableCp = () => char.background.moneyOverrides.remainingCp === undefined
+  ? calculatedEquipmentBalanceCp()
+  : char.background.moneyOverrides.remainingCp
+    - (calculatedEquipmentSpentCp() - (char.background.moneyOverrides.remainingCpSpentBaseline ?? calculatedEquipmentSpentCp()));
 export function setEquipmentMoney(field: EquipmentMoneyField, amountSp: number) {
   if (!Number.isFinite(amountSp) || amountSp < 0 || !Number.isSafeInteger(Math.round(amountSp * 10))) {
     throw new Error("Enter a valid non-negative amount in SP, to the nearest CP.");
   }
   char.background.moneyOverrides[field] = Math.round(amountSp * 10);
+  if (field === "remainingCp") char.background.moneyOverrides.remainingCpSpentBaseline = calculatedEquipmentSpentCp();
   char.background.currentMoney = equipmentBalanceCp() / 10;
 }
 export function resetEquipmentMoney(field: EquipmentMoneyField) {
   delete char.background.moneyOverrides[field];
+  if (field === "remainingCp") delete char.background.moneyOverrides.remainingCpSpentBaseline;
   char.background.currentMoney = equipmentBalanceCp() / 10;
 }
 export function purchaseEquipment(catalogueId: string, quantity: number, gmEnteredPriceCp?: number, armourSelection?: import("./equipment-inventory").ArmourAcquisitionSelection) {
@@ -599,7 +609,7 @@ export function purchaseEquipment(catalogueId: string, quantity: number, gmEnter
   if (!record) throw new Error(`Unknown equipment catalogue id: ${catalogueId}`);
   const next = addPurchase({ inventory: char.background.inventory, equipmentTransactions: char.background.equipmentTransactions }, record, quantity, gmEnteredPriceCp, undefined, armourSelection);
   const purchaseCost = ledgerSpentCp(next.equipmentTransactions) - calculatedEquipmentSpentCp();
-  if (purchaseCost > equipmentBalanceCp()) throw new Error("Purchase exceeds available funds");
+  if (purchaseCost > equipmentAvailableCp()) throw new Error("Purchase exceeds available funds");
   char.background.inventory = next.inventory;
   char.background.equipmentTransactions = next.equipmentTransactions;
   char.background.currentMoney = equipmentBalanceCp() / 10;
@@ -615,7 +625,7 @@ export function recordEquipmentExpense(catalogueId: string, quantity: number, gm
   if (!record) throw new Error(`Unknown equipment catalogue id: ${catalogueId}`);
   const next = addExpense({ inventory: char.background.inventory, equipmentTransactions: char.background.equipmentTransactions }, record, quantity, gmEnteredPriceCp);
   const expenseCost = ledgerSpentCp(next.equipmentTransactions) - calculatedEquipmentSpentCp();
-  if (expenseCost > equipmentBalanceCp()) throw new Error("Expense exceeds available funds");
+  if (expenseCost > equipmentAvailableCp()) throw new Error("Expense exceeds available funds");
   char.background.equipmentTransactions = next.equipmentTransactions;
   char.background.currentMoney = equipmentBalanceCp() / 10;
 }
@@ -677,7 +687,7 @@ export function purchaseCustomEquipment(id: string, quantity: number) {
     kind: definition.type === "service" ? "expense" as const : "purchase" as const, catalogueId: null, name: definition.name,
     quantity, amountCp, amountSource: "gm_entered" as const, catalogueVersion: "custom-definition-v1", recordedAt: new Date().toISOString() }];
   const purchaseCost = ledgerSpentCp(transactions) - calculatedEquipmentSpentCp();
-  if (purchaseCost > equipmentBalanceCp()) throw new Error("Purchase exceeds available funds.");
+  if (purchaseCost > equipmentAvailableCp()) throw new Error("Purchase exceeds available funds.");
   if (definition.type !== "service") acquireCustomEquipment(id, quantity, "purchased");
   char.background.equipmentTransactions = transactions;
   char.background.currentMoney = equipmentBalanceCp() / 10;

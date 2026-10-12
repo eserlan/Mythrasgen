@@ -2,7 +2,7 @@
   import { tick } from "svelte";
   import { EQUIPMENT_CATALOGUE, displayEquipmentPrice, formatCopperPrice, type EquipmentCategory } from "../lib/equipment-catalogue";
   import { RANGED_WEAPON_STATS, formatRangedRange, rangedCellText } from "../lib/ranged-weapons";
-  import { acquireEquipment, char, deleteInventoryItem, equipmentBalanceCp, equipmentMoneyIsOverridden, equipmentMoneyValueCp, moveOwnedInventoryItem, purchaseEquipment, recordEquipmentExpense, resetEquipmentMoney, setEquipmentMoney, updateInventoryItem } from "../lib/store.svelte";
+  import { acquireEquipment, char, deleteInventoryItem, equipmentAvailableCp, equipmentBalanceCp, equipmentMoneyIsOverridden, equipmentMoneyValueCp, moveOwnedInventoryItem, purchaseEquipment, recordEquipmentExpense, resetEquipmentMoney, setEquipmentMoney, updateInventoryItem } from "../lib/store.svelte";
   import { carriedLoad, encumbranceSummary } from "../lib/encumbrance";
   import { encumbranceThresholdRows } from "../lib/encumbrance-presentation";
   import { normalizeInventoryOrder } from "../lib/equipment-inventory";
@@ -192,9 +192,9 @@
   const canTransact = (record: typeof EQUIPMENT_CATALOGUE[number]["source"]) => {
     const price = priceFor(record);
     return !purchaseBusy && amount(record.id) > 0 && (record.category !== "armour" || canAcquireArmour(record)) && price !== undefined && Number.isSafeInteger(price)
-      && price >= 0 && price * amount(record.id) <= currentBalanceCp;
+      && price >= 0 && price * amount(record.id) <= equipmentAvailableCp();
   };
-  const currentBalanceCp = $derived(equipmentBalanceCp());
+  const availableBalanceCp = $derived(equipmentAvailableCp());
   const signedMoney = formatCopperPrice;
   const load = $derived(encumbranceSummary(char.background.inventory, char.chars.STR));
   const thresholdRows = $derived(encumbranceThresholdRows(load.thresholds));
@@ -265,7 +265,7 @@
       const price = customCp(record.source.id);
       if (quantityValue < 1) throw new Error("Enter a positive whole quantity.");
       if (record.source.price_cp_candidate === null && price === undefined) throw new Error("Ask the GM for a price before purchasing this item.");
-      if (priceFor(record.source)! * quantityValue > currentBalanceCp) throw new Error("This purchase costs more than your remaining money.");
+      if (priceFor(record.source)! * quantityValue > equipmentAvailableCp()) throw new Error("This purchase costs more than your remaining money.");
       if (record.kind === "non_carried_purchase") recordEquipmentExpense(record.source.id, quantityValue, price);
       else purchaseEquipment(record.source.id, quantityValue, record.source.category === "armour" ? perLocationPrice(record.source) : price, record.source.category === "armour" ? armourSelectionFor(record.source) : undefined);
       message = `${record.source.name}: ${record.kind === "non_carried_purchase" ? "expense recorded" : "added to your equipment"}. Money remaining: ${signedMoney(equipmentBalanceCp())}.`;
@@ -547,7 +547,7 @@
             {#if definition.type === "armour"}<small>AP {definition.ap} · Locations: {definition.protectedLocations?.join(", ")}</small>{/if}
           </div>
           <div class="custom-entry-actions"><label>Quantity <input type="number" min="1" step="1" value={customQuantity[definition.id] ?? "1"} onchange={event => customQuantity[definition.id] = event.currentTarget.value}></label>
-            <button type="button" disabled={definition.priceCp === null || Number(customQuantity[definition.id] ?? "1") < 1 || definition.priceCp * Number(customQuantity[definition.id] ?? "1") > currentBalanceCp} onclick={() => buyCustom(definition)}>{definition.type === "service" ? "Buy / record expense" : "Buy"}</button>
+            <button type="button" disabled={definition.priceCp === null || Number(customQuantity[definition.id] ?? "1") < 1 || definition.priceCp * Number(customQuantity[definition.id] ?? "1") > availableBalanceCp} onclick={() => buyCustom(definition)}>{definition.type === "service" ? "Buy / record expense" : "Buy"}</button>
             {#if definition.type !== "service"}<button type="button" onclick={() => giftCustom(definition)}>Add without paying</button>{/if}
             <button type="button" onclick={() => resetCustomForm(definition)}>Edit</button><button type="button" class="ghost" onclick={() => removeCustomDefinition(definition)}>Remove definition</button>
           </div></li>
@@ -664,7 +664,7 @@
                   </div>
                   {#if amount(record.id) < 1}<p class="balance-warning" id={`quantity-error-${record.id}`} role="status">Enter a positive whole quantity.</p>{/if}
                   {#if unavailable && gmPrice[record.id] !== undefined && gmPrice[record.id] !== "" && customCp(record.id) === undefined}<p class="balance-warning" role="status">Enter a whole number of CP that is zero or more.</p>{/if}
-                  {#if amount(record.id) > 0 && priceFor(record) !== undefined && priceFor(record)! * amount(record.id) > currentBalanceCp}<p class="balance-warning" role="status">This costs more than your remaining money. Reduce the quantity or ask the GM about the price.</p>{/if}
+                  {#if amount(record.id) > 0 && priceFor(record) !== undefined && priceFor(record)! * amount(record.id) > availableBalanceCp}<p class="balance-warning" role="status">This costs more than your available funds. Reduce the quantity or ask the GM about the price.</p>{/if}
                 </div>
               {/if}
             </section>

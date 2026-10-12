@@ -36,7 +36,7 @@ export interface BackgroundData {
   startingMoneyKey: string;
   startingMoneyTotal: number;
   currentMoney: number;
-  moneyOverrides: { startingCp?: number; spentCp?: number; remainingCp?: number };
+  moneyOverrides: { startingCp?: number; spentCp?: number; remainingCp?: number; remainingCpSpentBaseline?: number };
   equipment: string;
   purchases: { name: string; cost: number }[];
   inventory: InventoryItem[];
@@ -112,6 +112,8 @@ export function normalizeBackground(value: unknown, fallback: BackgroundData): B
     const amount = savedMoneyOverrides[key];
     return Number.isSafeInteger(amount) && amount! >= 0 ? [[key, amount!]] : [];
   })) as BackgroundData["moneyOverrides"];
+  const remainingCpSpentBaseline = savedMoneyOverrides.remainingCpSpentBaseline;
+  if (Number.isSafeInteger(remainingCpSpentBaseline)) moneyOverrides.remainingCpSpentBaseline = remainingCpSpentBaseline;
   const strings = (candidate: unknown, original: string[]) =>
     Array.isArray(candidate) ? candidate.filter((item): item is string => typeof item === "string") : original;
   const legacyRelationships = [

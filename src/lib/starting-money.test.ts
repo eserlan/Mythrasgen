@@ -3,7 +3,7 @@ import { socialClassForRoll } from "./background-rules";
 import { cultures } from "./content";
 
 Object.defineProperty(globalThis, "$state", { value: <T>(value: T) => value, configurable: true });
-const { char, equipmentBalanceCp, equipmentMoneyValueCp, equipmentSpentCp, purchaseEquipment, recalculateStartingMoney, refundEquipmentPurchase, replace, resetEquipmentMoney, resolveSocialClass, setEquipmentMoney, setStartingMoneyRoll } = await import("./store.svelte");
+const { char, equipmentAvailableCp, equipmentBalanceCp, equipmentMoneyValueCp, equipmentSpentCp, purchaseEquipment, recalculateStartingMoney, refundEquipmentPurchase, replace, resetEquipmentMoney, resolveSocialClass, setEquipmentMoney, setStartingMoneyRoll } = await import("./store.svelte");
 
 const original = {
   moneyTable: char.moneyTable,
@@ -200,9 +200,13 @@ describe("persistent starting money", () => {
     purchaseEquipment("one_handed-dagger", 40);
     expect(char.background.equipmentTransactions[0].amountCp).toBe(12000);
     expect([equipmentMoneyValueCp("startingCp"), equipmentSpentCp(), equipmentBalanceCp()]).toEqual([500, 25, 13000]);
+    expect(equipmentAvailableCp()).toBe(1000);
+    expect(() => purchaseEquipment("one_handed-dagger", 4)).toThrow("Purchase exceeds available funds");
+    expect(char.background.equipmentTransactions).toHaveLength(1);
 
     refundEquipmentPurchase(char.background.equipmentTransactions[0].id, 12000);
     expect([equipmentMoneyValueCp("startingCp"), equipmentSpentCp(), equipmentBalanceCp()]).toEqual([500, 25, 13000]);
+    expect(equipmentAvailableCp()).toBe(13000);
     resetEquipmentMoney("remainingCp");
     expect(equipmentBalanceCp()).toBe(9750);
     expect(equipmentMoneyValueCp("startingCp")).toBe(500);
