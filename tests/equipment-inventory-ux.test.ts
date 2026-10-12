@@ -94,7 +94,16 @@ test("equipment summary and load disclosures distinguish armour ENC from carried
   expect(inventory).toContain("Encumbrance thresholds (STR {char.chars.STR})");
   expect(inventory).toContain("{row.label}");
   expect(inventory).toContain("{row.multiplier} ({row.enc} ENC)");
-  expect(inventory).toContain(".load-thresholds dl { display:grid;");
+  expect(inventory).toContain('<div class="load-summary" aria-live="polite">');
+  expect(inventory).toContain('<div class="load-threshold-card"><div class="load-thresholds"');
+  expect(inventory).toContain('<div class="load-metrics">');
+  expect(inventory).toContain(".load-summary { display:grid; gap:.5rem;");
+  expect(inventory).toContain(".load-thresholds dl { display:grid; grid-template-columns:repeat(3,minmax(0,1fr));");
+  expect(inventory).toContain(".load-thresholds dd { flex:none; margin:0; font-weight:700; text-align:right; white-space:nowrap; }");
+  expect(inventory).toContain(".load-metrics { display:grid; grid-template-columns:repeat(4,minmax(0,1fr));");
+  expect(inventory).toContain(".load-thresholds dl { grid-template-columns:repeat(2,minmax(0,1fr)); }");
+  expect(inventory).toContain(".load-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }");
+  expect(inventory).toContain(".load-thresholds dl { grid-template-columns:1fr; }");
   expect(inventory).not.toContain("Worn full ENC");
   expect(inventory).not.toContain("Worn load ENC");
   expect(inventory).not.toContain("<summary>Load details</summary>");

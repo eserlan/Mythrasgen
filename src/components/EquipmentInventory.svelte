@@ -466,10 +466,12 @@
       <b>Encumbrance thresholds (STR {char.chars.STR})</b>
       {#if thresholdRows.length}<dl>{#each thresholdRows as row}<div><dt>{row.label}</dt><dd>{row.multiplier} ({row.enc} ENC)</dd></div>{/each}</dl>{:else}<span>Unknown</span>{/if}
     </div></div>
-    <div><small>Movement</small><b>{load.movement}</b></div>
-    <div><small>Skills</small><b>{load.skillDifficultyGrades === null ? "Unknown" : load.skillDifficultyGrades === 0 ? "No penalty" : `${load.skillDifficultyGrades} grade${load.skillDifficultyGrades === 1 ? "" : "s"} harder`}</b></div>
-    <div><small>Sprinting</small><b>{load.sprinting}</b></div>
-    <div><small>Fatigue</small><b>{load.fatigue}</b></div>
+    <div class="load-metrics">
+      <div><small>Movement</small><b>{load.movement}</b></div>
+      <div><small>Skills</small><b>{load.skillDifficultyGrades === null ? "Unknown" : load.skillDifficultyGrades === 0 ? "No penalty" : `${load.skillDifficultyGrades} grade${load.skillDifficultyGrades === 1 ? "" : "s"} harder`}</b></div>
+      <div><small>Sprinting</small><b>{load.sprinting}</b></div>
+      <div><small>Fatigue</small><b>{load.fatigue}</b></div>
+    </div>
   </div>
   <p class="mute">Stored and load-exempt items do not count. Twenty zero-ENC items count as 1 ENC. Armour ENC is based on construction, material, coverage, and any item override.</p>
   </details>
@@ -744,14 +746,16 @@
   .inventory-reorder-actions button:disabled { opacity:.45; cursor:not-allowed; }
   .exemption-control { display:inline-flex; min-width:2.75rem; min-height:2.5rem; align-items:center; justify-content:center; cursor:pointer; }
   .exemption-control input { flex:none; width:1.2rem; height:1.2rem; accent-color:var(--bronze); }
-  .load-summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,10rem),1fr)); gap:.5rem; margin:.75rem 0; }
-  .load-summary > div { display:flex; flex-direction:column; gap:.2rem; padding:.65rem; border:1px solid var(--line); border-radius:.5rem; }
-  .load-summary > .load-threshold-card { min-width:0; }
+  .load-summary { display:grid; gap:.5rem; margin:.75rem 0; }
+  .load-threshold-card,.load-metrics > div { min-width:0; padding:.65rem; border:1px solid var(--line); border-radius:.5rem; }
   .load-thresholds { display:grid; gap:.45rem; }
-  .load-thresholds dl { display:grid; gap:.3rem; margin:0; }
-  .load-thresholds dl > div { display:flex; justify-content:space-between; gap:.5rem; min-width:0; }
-  .load-thresholds dt { color:var(--mute); }
-  .load-thresholds dd { margin:0; font-weight:700; text-align:right; }
+  .load-thresholds dl { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.5rem; margin:0; }
+  .load-thresholds dl > div { display:flex; align-items:baseline; justify-content:space-between; gap:.5rem; min-width:0; padding:.5rem; border:1px solid var(--line); border-radius:.35rem; }
+  .load-thresholds dt { min-width:0; color:var(--mute); }
+  .load-thresholds dd { flex:none; margin:0; font-weight:700; text-align:right; white-space:nowrap; }
+  .load-metrics { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.5rem; }
+  .load-metrics > div { display:flex; flex-direction:column; gap:.2rem; }
+  .load-metrics small { color:var(--mute); }
   .armour-totals { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,12rem),1fr)); gap:.4rem; margin:.6rem 0; }
   .armour-totals > div { min-width:0; padding:.5rem .6rem; border:1px solid var(--line); border-radius:.4rem; }
   .armour-totals dt { color:var(--mute); font-size:.82rem; }
@@ -842,6 +846,8 @@
   .inventory-ledger :is(button,input,select,summary) { scroll-margin-block:5rem; }
   @media(max-width:760px) {
     .weapon-table { min-width:42rem; }
+    .load-thresholds dl { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .load-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
   }
   @media(max-width:600px) {
     .money-summary { grid-template-columns:1fr; }
@@ -851,6 +857,8 @@
     .review-summary { grid-template-columns:repeat(2,minmax(0,1fr)); gap:.35rem; }
     .review-summary > div { padding:.5rem; }
     .armour-totals { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .load-thresholds dl { grid-template-columns:1fr; }
+    .load-thresholds dl > div { align-items:flex-start; }
     .inventory-scroll { overflow:visible; border:0; }
     .inventory-table { display:block; width:100%; min-width:0; }
     .inventory-table thead { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
