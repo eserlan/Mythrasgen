@@ -43,6 +43,7 @@ test("equipment starts with two activities and puts the character summary in own
   expect(inventory).toContain(".inventory-table th:nth-child(4) { width:6.5rem; }");
   expect(inventory).toContain(".inventory-table th:nth-child(5) { width:6rem; }");
   expect(inventory).toContain(".inventory-table th:nth-child(6) { width:8rem; }");
+  expect(inventory).toContain(".inventory-reorder-actions .reorder-button { box-sizing:border-box; width:1.5rem; min-width:1.5rem; padding:.2rem; }");
   expect(inventory).toContain("{#each orderedInventory as item, index (item.id)}");
   expect(inventory).toContain('aria-label={`Move ${item.name} up`}');
   expect(inventory).toContain('aria-label={`Move ${item.name} down`}');

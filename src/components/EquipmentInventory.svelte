@@ -657,7 +657,7 @@
   .inventory-table td[data-label="Quantity"] > .compact-number { width:3.5rem; }
   .row-actions button { min-height:2.5rem; }
   .inventory-reorder-actions { display:flex; align-items:center; gap:.2rem; white-space:nowrap; }
-  .inventory-reorder-actions .reorder-button { box-sizing:border-box; width:2rem; min-width:2rem; padding:.2rem; }
+  .inventory-reorder-actions .reorder-button { box-sizing:border-box; width:1.5rem; min-width:1.5rem; padding:.2rem; }
   .inventory-reorder-actions button:disabled { opacity:.45; cursor:not-allowed; }
   .exemption-control { display:inline-flex; min-width:2.75rem; min-height:2.5rem; align-items:center; justify-content:center; cursor:pointer; }
   .exemption-control input { flex:none; width:1.2rem; height:1.2rem; accent-color:var(--bronze); }
