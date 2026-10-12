@@ -4,6 +4,7 @@
   import { RANGED_WEAPON_STATS, formatRangedRange, rangedCellText } from "../lib/ranged-weapons";
   import { acquireEquipment, char, deleteInventoryItem, equipmentBalanceCp, equipmentSpentCp, moveOwnedInventoryItem, purchaseEquipment, recordEquipmentExpense, refundEquipmentPurchase, startingMoney, updateInventoryItem } from "../lib/store.svelte";
   import { carriedLoad, encumbranceSummary } from "../lib/encumbrance";
+  import { encumbranceThresholdRows } from "../lib/encumbrance-presentation";
   import { normalizeInventoryOrder } from "../lib/equipment-inventory";
   import { ARMOUR_CONSTRUCTIONS, ARMOUR_MATERIALS, HIT_LOCATIONS, armourEncumbrance, armourMaterialCompatibility, fullArmourEncumbrance, standardArmourMaterial, summarizeArmour, type ArmourConstructionId, type ArmourMaterialId, type HitLocationName } from "../lib/armour-rules";
   import { validateCustomEquipment, type CustomEquipmentDefinition, type CustomEquipmentType } from "../lib/custom-equipment";
@@ -194,6 +195,7 @@
   const startingCp = $derived(startingMoney() * 10);
   const signedMoney = formatCopperPrice;
   const load = $derived(encumbranceSummary(char.background.inventory, char.chars.STR));
+  const thresholdRows = $derived(encumbranceThresholdRows(load.thresholds));
   const loadBreakdown = $derived.by(() => {
     const zeroEncItems = char.background.inventory
       .filter(item => item.state !== "stored" && !item.encumbranceExempt && !item.armour && item.encPerUnit === 0)
@@ -460,7 +462,10 @@
   </div>
   <p class="load-result"><b>Current load:</b> {load.load === null ? `At least ${load.knownLoad} ENC · incomplete` : `${load.load} ENC · ${load.band}`}</p>
   <div class="load-summary" aria-live="polite">
-    <div><small>STR thresholds</small><b>{load.thresholds ? `STR ${char.chars.STR}: 2× ${load.thresholds.burdened} burdened · 3× ${load.thresholds.overloaded} overloaded · 4× ${load.thresholds.unsustainable}` : "Unknown"}</b></div>
+    <div class="load-threshold-card"><div class="load-thresholds" role="group" aria-label={`Encumbrance thresholds for STR ${char.chars.STR}`}>
+      <b>Encumbrance thresholds (STR {char.chars.STR})</b>
+      {#if thresholdRows.length}<dl>{#each thresholdRows as row}<div><dt>{row.label}</dt><dd>{row.multiplier} ({row.enc} ENC)</dd></div>{/each}</dl>{:else}<span>Unknown</span>{/if}
+    </div></div>
     <div><small>Movement</small><b>{load.movement}</b></div>
     <div><small>Skills</small><b>{load.skillDifficultyGrades === null ? "Unknown" : load.skillDifficultyGrades === 0 ? "No penalty" : `${load.skillDifficultyGrades} grade${load.skillDifficultyGrades === 1 ? "" : "s"} harder`}</b></div>
     <div><small>Sprinting</small><b>{load.sprinting}</b></div>
@@ -741,6 +746,12 @@
   .exemption-control input { flex:none; width:1.2rem; height:1.2rem; accent-color:var(--bronze); }
   .load-summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,10rem),1fr)); gap:.5rem; margin:.75rem 0; }
   .load-summary > div { display:flex; flex-direction:column; gap:.2rem; padding:.65rem; border:1px solid var(--line); border-radius:.5rem; }
+  .load-summary > .load-threshold-card { min-width:0; }
+  .load-thresholds { display:grid; gap:.45rem; }
+  .load-thresholds dl { display:grid; gap:.3rem; margin:0; }
+  .load-thresholds dl > div { display:flex; justify-content:space-between; gap:.5rem; min-width:0; }
+  .load-thresholds dt { color:var(--mute); }
+  .load-thresholds dd { margin:0; font-weight:700; text-align:right; }
   .armour-totals { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,12rem),1fr)); gap:.4rem; margin:.6rem 0; }
   .armour-totals > div { min-width:0; padding:.5rem .6rem; border:1px solid var(--line); border-radius:.4rem; }
   .armour-totals dt { color:var(--mute); font-size:.82rem; }
