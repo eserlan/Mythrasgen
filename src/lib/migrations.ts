@@ -36,6 +36,7 @@ export interface BackgroundData {
   startingMoneyKey: string;
   startingMoneyTotal: number;
   currentMoney: number;
+  moneyOverrides: { startingCp?: number; spentCp?: number; remainingCp?: number };
   equipment: string;
   purchases: { name: string; cost: number }[];
   inventory: InventoryItem[];
@@ -104,6 +105,13 @@ export function normalizeBackground(value: unknown, fallback: BackgroundData): B
   const saved = value && typeof value === "object" && !Array.isArray(value)
     ? value as Partial<BackgroundData>
     : {};
+  const savedMoneyOverrides = saved.moneyOverrides && typeof saved.moneyOverrides === "object" && !Array.isArray(saved.moneyOverrides)
+    ? saved.moneyOverrides as Partial<BackgroundData["moneyOverrides"]>
+    : {};
+  const moneyOverrides = Object.fromEntries((["startingCp", "spentCp", "remainingCp"] as const).flatMap(key => {
+    const amount = savedMoneyOverrides[key];
+    return Number.isSafeInteger(amount) && amount! >= 0 ? [[key, amount!]] : [];
+  })) as BackgroundData["moneyOverrides"];
   const strings = (candidate: unknown, original: string[]) =>
     Array.isArray(candidate) ? candidate.filter((item): item is string => typeof item === "string") : original;
   const legacyRelationships = [
@@ -176,6 +184,7 @@ export function normalizeBackground(value: unknown, fallback: BackgroundData): B
     startingMoneyKey: typeof saved.startingMoneyKey === "string" ? saved.startingMoneyKey : fallback.startingMoneyKey,
     startingMoneyTotal: Number.isFinite(saved.startingMoneyTotal) ? saved.startingMoneyTotal! : fallback.startingMoneyTotal,
     currentMoney: Number.isFinite(saved.currentMoney) && saved.currentMoney! >= 0 ? saved.currentMoney! : fallback.currentMoney,
+    moneyOverrides,
     equipment: typeof saved.equipment === "string" ? saved.equipment : fallback.equipment,
     events: events(saved.events, fallback.events),
     archivedEvents: events(saved.archivedEvents, fallback.archivedEvents),

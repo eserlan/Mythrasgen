@@ -3,7 +3,7 @@ import { socialClassForRoll } from "./background-rules";
 import { cultures } from "./content";
 
 Object.defineProperty(globalThis, "$state", { value: <T>(value: T) => value, configurable: true });
-const { char, purchaseEquipment, recalculateStartingMoney, replace, resolveSocialClass, setStartingMoneyRoll } = await import("./store.svelte");
+const { char, equipmentBalanceCp, equipmentMoneyValueCp, equipmentSpentCp, purchaseEquipment, recalculateStartingMoney, refundEquipmentPurchase, replace, resetEquipmentMoney, resolveSocialClass, setEquipmentMoney, setStartingMoneyRoll } = await import("./store.svelte");
 
 const original = {
   moneyTable: char.moneyTable,
@@ -20,6 +20,7 @@ const original = {
   startingMoneyKey: char.background.startingMoneyKey,
   startingMoneyTotal: char.background.startingMoneyTotal,
   currentMoney: char.background.currentMoney,
+  moneyOverrides: structuredClone(char.background.moneyOverrides),
   purchases: structuredClone(char.background.purchases),
   inventory: structuredClone(char.background.inventory),
   equipmentTransactions: structuredClone(char.background.equipmentTransactions),
@@ -40,6 +41,7 @@ afterEach(() => {
   char.background.startingMoneyKey = original.startingMoneyKey;
   char.background.startingMoneyTotal = original.startingMoneyTotal;
   char.background.currentMoney = original.currentMoney;
+  char.background.moneyOverrides = structuredClone(original.moneyOverrides);
   char.background.purchases = structuredClone(original.purchases);
   char.background.inventory = structuredClone(original.inventory);
   char.background.equipmentTransactions = structuredClone(original.equipmentTransactions);
@@ -68,7 +70,7 @@ describe("persistent starting money", () => {
     expect(setStartingMoneyRoll(14)).toBe(2100);
   });
 
-  test("save normalization key preserves a downstream balance until an input changes", () => {
+  test("migrates a saved adjusted balance to a persistent Remaining override", () => {
     char.culture = cultures.findIndex(culture => culture.kind === "Civilised");
     char.moneyTable = "Civilised";
     char.socialTable = "Civilised";
@@ -86,7 +88,7 @@ describe("persistent starting money", () => {
     expect(char.background.currentMoney).toBe(500);
     expect(char.background.startingMoneyTotal).toBe(975);
     setStartingMoneyRoll(14);
-    expect(char.background.currentMoney).toBe(1050);
+    expect(char.background.currentMoney).toBe(500);
   });
 
   test("migrates the previous purchase ledger into current funds", () => {
@@ -126,6 +128,7 @@ describe("persistent starting money", () => {
     char.background.equipmentTransactions = [];
     char.background.inventory = [];
     char.background.purchases = [];
+    char.background.moneyOverrides = {};
     setStartingMoneyRoll(13);
     const previousBalance = char.background.currentMoney;
 
@@ -146,5 +149,62 @@ describe("persistent starting money", () => {
     expect(char.background.equipmentTransactions).toHaveLength(1);
     expect(char.background.inventory[0].quantity).toBe(2);
     expect(char.background.currentMoney).toBe(deficit);
+  });
+
+  test("money overrides are independent, persist through normalization, and reset independently", () => {
+    char.culture = cultures.findIndex(culture => culture.kind === "Civilised");
+    char.moneyTable = "Civilised";
+    char.socialTable = "Civilised";
+    char.background.socialClass = "Freeman";
+    char.background.socialClassRoll = 50;
+    char.background.socialClassMethod = "rolled";
+    char.background.socialClassCulture = "Civilised";
+    char.background.socialClassMoney = 1;
+    char.background.socialClassEquipment = "Tools; simple weapons";
+    char.background.socialClassResources = "Rented accommodation; may own a few livestock";
+    char.background.equipmentTransactions = [];
+    char.background.moneyOverrides = {};
+    setStartingMoneyRoll(13);
+
+    setEquipmentMoney("startingCp", 22.5);
+    setEquipmentMoney("spentCp", 3.4);
+    setEquipmentMoney("remainingCp", 8.1);
+    expect([equipmentMoneyValueCp("startingCp"), equipmentSpentCp(), equipmentBalanceCp()]).toEqual([225, 34, 81]);
+
+    replace(structuredClone(char));
+    expect([equipmentMoneyValueCp("startingCp"), equipmentSpentCp(), equipmentBalanceCp()]).toEqual([225, 34, 81]);
+    resetEquipmentMoney("spentCp");
+    expect([equipmentMoneyValueCp("startingCp"), equipmentSpentCp(), equipmentBalanceCp()]).toEqual([225, 0, 81]);
+    resetEquipmentMoney("startingCp");
+    expect([equipmentMoneyValueCp("startingCp"), equipmentSpentCp(), equipmentBalanceCp()]).toEqual([9750, 0, 81]);
+  });
+
+  test("purchases and refunds preserve manual values and update calculated defaults", () => {
+    char.moneyTable = "Civilised";
+    char.socialTable = "Civilised";
+    char.background.socialClass = "Freeman";
+    char.background.socialClassRoll = 50;
+    char.background.socialClassMethod = "rolled";
+    char.background.socialClassCulture = "Civilised";
+    char.background.socialClassMoney = 1;
+    char.background.socialClassEquipment = "Tools; simple weapons";
+    char.background.socialClassResources = "Rented accommodation; may own a few livestock";
+    char.background.equipmentTransactions = [];
+    char.background.inventory = [];
+    char.background.moneyOverrides = {};
+    setStartingMoneyRoll(13);
+
+    setEquipmentMoney("startingCp", 50);
+    setEquipmentMoney("spentCp", 2.5);
+    setEquipmentMoney("remainingCp", 1300);
+    purchaseEquipment("one_handed-dagger", 40);
+    expect(char.background.equipmentTransactions[0].amountCp).toBe(12000);
+    expect([equipmentMoneyValueCp("startingCp"), equipmentSpentCp(), equipmentBalanceCp()]).toEqual([500, 25, 13000]);
+
+    refundEquipmentPurchase(char.background.equipmentTransactions[0].id, 12000);
+    expect([equipmentMoneyValueCp("startingCp"), equipmentSpentCp(), equipmentBalanceCp()]).toEqual([500, 25, 13000]);
+    resetEquipmentMoney("remainingCp");
+    expect(equipmentBalanceCp()).toBe(9750);
+    expect(equipmentMoneyValueCp("startingCp")).toBe(500);
   });
 });
