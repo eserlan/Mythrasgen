@@ -3,7 +3,7 @@
   import { EQUIPMENT_CATALOGUE, displayEquipmentPrice, formatCopperPrice, type EquipmentCategory } from "../lib/equipment-catalogue";
   import { RANGED_WEAPON_STATS, formatRangedRange, rangedCellText } from "../lib/ranged-weapons";
   import { acquireEquipment, char, deleteInventoryItem, equipmentBalanceCp, equipmentSpentCp, moveOwnedInventoryItem, purchaseEquipment, recordEquipmentExpense, refundEquipmentPurchase, startingMoney, updateInventoryItem } from "../lib/store.svelte";
-  import { encumbranceSummary } from "../lib/encumbrance";
+  import { carriedLoad, encumbranceSummary } from "../lib/encumbrance";
   import { normalizeInventoryOrder } from "../lib/equipment-inventory";
   import { ARMOUR_CONSTRUCTIONS, ARMOUR_MATERIALS, HIT_LOCATIONS, armourEncumbrance, armourMaterialCompatibility, standardArmourMaterial, summarizeArmour, type ArmourConstructionId, type ArmourMaterialId, type HitLocationName } from "../lib/armour-rules";
   import { validateCustomEquipment, type CustomEquipmentDefinition, type CustomEquipmentType } from "../lib/custom-equipment";
@@ -194,6 +194,19 @@
   const startingCp = $derived(startingMoney() * 10);
   const signedMoney = formatCopperPrice;
   const load = $derived(encumbranceSummary(char.background.inventory, char.chars.STR));
+  const loadBreakdown = $derived.by(() => {
+    const zeroEncItems = char.background.inventory
+      .filter(item => item.state !== "stored" && !item.encumbranceExempt && !item.armour && item.encPerUnit === 0)
+      .reduce((total, item) => total + item.quantity, 0);
+    const otherItems = char.background.inventory
+      .filter(item => !item.armour)
+      .map(item => {
+        const excluded = item.state === "stored" || item.encumbranceExempt;
+        const contribution = carriedLoad([item]).load;
+        return { item, excluded, contribution };
+      });
+    return { zeroEncItems, otherItems };
+  });
   const orderedInventory = $derived.by(() => {
     const itemsById = new Map(char.background.inventory.map(item => [item.id, item]));
     return normalizeInventoryOrder(char.background.inventoryOrder, char.background.inventory)
@@ -201,6 +214,13 @@
   });
   const armourItems = $derived(char.background.inventory.filter(item => item.armour));
   const wornArmourItems = $derived(armourItems.filter(item => item.state === "worn"));
+  const armourLoad = $derived(carriedLoad(armourItems));
+  const armourBreakdownRows = $derived(armourItems.map(item => {
+    const armour = item.armour!;
+    const unitEnc = armour.encOverride ?? (armour.construction && armour.material ? armourEncumbrance(armour.construction, armour.material) : null);
+    return { item, unitEnc, fullEnc: unitEnc === null ? null : unitEnc * armour.locations.length * item.quantity,
+      contribution: carriedLoad([item]).load };
+  }));
   const armourSummary = $derived(summarizeArmour(armourItems.flatMap(item => Array.from({ length: item.quantity }, (_, index) => ({
     id: `${item.id}-${index + 1}`, name: item.name, ...item.armour!, state: item.state,
   })))));
@@ -320,8 +340,9 @@
   <h4>Your equipment</h4>
   <div class="review-summary" aria-live="polite" aria-label="Equipment summary">
     <div><small>Money remaining (SP)</small><b>{signedMoney(currentBalanceCp)}</b></div>
-    <div><small>Carrying load (ENC)</small><b>{load.load === null ? `At least ${load.knownLoad} ENC · unknown` : `${load.load} ENC · ${load.band}`}</b></div>
-    <div><small>Armour protection</small><b>{armourItems.length ? `${Object.values(armourSummary.apByLocation).filter(ap => ap !== null && ap > 0).length} locations effectively protected` : "No armour recorded"}</b></div>
+    <div><small>Carried load (ENC)</small><b>{load.load === null ? `At least ${load.knownLoad} ENC · unknown` : `${load.load} ENC · ${load.band}`}</b></div>
+    <div><small>Protected locations</small><b>{armourItems.length ? `${Object.values(armourSummary.apByLocation).filter(ap => ap !== null && ap > 0).length} effectively protected` : "No armour recorded"}</b></div>
+    {#if wornArmourItems.length}<div><small>Armour initiative penalty</small><b>{armourSummary.initiativePenalty === null ? "Unknown" : armourSummary.initiativePenalty}</b></div>{/if}
   </div>
   {#if load.unresolvedItems.length}<p class="balance-warning" role="status">Load is incomplete. Add ENC for: {load.unresolvedItems.join(", ")}.</p>{/if}
   {#if armourSummary.unresolved.length}<p class="balance-warning" role="status">Armour needs review: {armourSummary.unresolved.join("; ")}</p>{/if}
@@ -396,7 +417,12 @@
         </table>
       </div>
       <p class="mute">Nominal AP comes from armour construction. Fit and material compatibility determine whether that protection is effective.</p>
-      <p class="armour-totals">Worn full ENC: <b>{armourSummary.fullWornEnc ?? "Unknown"}</b> · Worn load ENC: <b>{armourSummary.loadEnc ?? "Unknown"}</b> · Armour penalty: <b>{armourSummary.initiativePenalty === null ? "Unknown" : `${armourSummary.initiativePenalty} initiative penalty`}</b></p>
+      <dl class="armour-totals">
+        <div><dt title="The ENC for all worn armour pieces before the worn-load adjustment.">Total worn armour ENC</dt><dd>{armourSummary.fullWornEnc ?? "Unknown"}</dd></div>
+        <div><dt title="Worn armour counts half ENC; carried armour counts full ENC.">Armour ENC counted toward load</dt><dd>{armourLoad.load ?? "Unknown"}</dd></div>
+        <div><dt>Armour initiative penalty</dt><dd>Shown in Equipment summary above</dd></div>
+      </dl>
+      <p class="mute armour-layering-note">Overlapping armour uses the highest AP; protection does not stack. Each worn piece still adds its ENC.</p>
     {:else}<p class="empty-state">No worn armour.</p>{/if}
   </section>
   <section class="sheet-section" aria-labelledby="melee-table-heading">
@@ -417,15 +443,30 @@
       </table></div>
     {:else}<p class="empty-state">No owned ranged weapons.</p>{/if}
   </section>
-  <details class="review-details"><summary>Load details</summary>
-  <div class="load-summary" aria-live="polite">
-    <div><small>Load</small><b>{load.load === null ? `At least ${load.knownLoad} ENC · unknown` : `${load.load} ENC`}</b></div>
-    <div><small>Load band</small><b>{load.band}</b></div>
-    <div><small>Thresholds (STR {char.chars.STR})</small><b>{load.thresholds ? `2× ${load.thresholds.burdened} · 3× ${load.thresholds.overloaded} · 4× ${load.thresholds.unsustainable}` : "Unknown"}</b></div>
-    <div><small>Movement</small><b>{load.movement}</b></div>
-    <div><small>Skills / sprinting / fatigue</small><b>{load.skillDifficultyGrades === null ? "Unknown" : load.skillDifficultyGrades === 0 ? "No skill penalty" : `${load.skillDifficultyGrades} grade${load.skillDifficultyGrades === 1 ? "" : "s"} harder`} · {load.sprinting} · {load.fatigue}</b></div>
+  <details class="review-details load-breakdown"><summary>How load is calculated / Load breakdown</summary>
+  <p class="mute">Item ENC is the item's listed ENC before state adjustments. Worn armour's contribution is half its full ENC; this load contribution is separate from its initiative penalty.</p>
+  <div class="load-breakdown-table-wrap">
+    <table class="sheet-table load-breakdown-table"><thead><tr><th scope="col">Component</th><th scope="col">Item ENC</th><th scope="col">Quantity / state</th><th scope="col">Load contribution</th></tr></thead>
+      <tbody>
+        {#each loadBreakdown.otherItems as row (row.item.id)}
+          <tr><th scope="row">{row.item.name}{#if row.item.encumbranceExempt} <span class="mute">(load exempt)</span>{/if}</th><td>{row.item.encPerUnit === null ? "Unknown" : `${row.item.encPerUnit} each`}</td><td>{row.item.quantity} · {row.item.state}</td><td>{row.excluded ? "Not counted" : row.item.encPerUnit === null ? "Unknown" : row.item.encPerUnit === 0 ? "Counted by zero-ENC rule" : `${row.contribution} ENC`}</td></tr>
+        {/each}
+        {#each armourBreakdownRows as row (row.item.id)}
+          <tr><th scope="row">{row.item.name}{#if row.item.encumbranceExempt} <span class="mute">(load exempt)</span>{/if}</th><td>{row.unitEnc === null ? "Unknown" : `${row.unitEnc} per covered location · ${row.fullEnc} full ENC`}</td><td>{row.item.quantity} · {row.item.state}</td><td>{row.item.state === "stored" || row.item.encumbranceExempt ? "Not counted" : row.contribution === null ? "Unknown" : `${row.contribution} ENC`}</td></tr>
+        {/each}
+        {#if loadBreakdown.zeroEncItems}<tr><th scope="row">Zero-ENC items</th><td>0 ENC each</td><td>{loadBreakdown.zeroEncItems} carried or worn</td><td>{Math.floor(loadBreakdown.zeroEncItems / 20)} ENC ({loadBreakdown.zeroEncItems} items count as 1 ENC per 20)</td></tr>{/if}
+      </tbody>
+    </table>
   </div>
-  <p class="mute">Worn items contribute half ENC; stored items do not count. Twenty zero-ENC items count as 1 ENC.</p>
+  <p class="load-result"><b>Current load:</b> {load.load === null ? `At least ${load.knownLoad} ENC · incomplete` : `${load.load} ENC · ${load.band}`}</p>
+  <div class="load-summary" aria-live="polite">
+    <div><small>STR thresholds</small><b>{load.thresholds ? `STR ${char.chars.STR}: 2× ${load.thresholds.burdened} burdened · 3× ${load.thresholds.overloaded} overloaded · 4× ${load.thresholds.unsustainable}` : "Unknown"}</b></div>
+    <div><small>Movement</small><b>{load.movement}</b></div>
+    <div><small>Skills</small><b>{load.skillDifficultyGrades === null ? "Unknown" : load.skillDifficultyGrades === 0 ? "No penalty" : `${load.skillDifficultyGrades} grade${load.skillDifficultyGrades === 1 ? "" : "s"} harder`}</b></div>
+    <div><small>Sprinting</small><b>{load.sprinting}</b></div>
+    <div><small>Fatigue</small><b>{load.fatigue}</b></div>
+  </div>
+  <p class="mute">Stored and load-exempt items do not count. Twenty zero-ENC items count as 1 ENC. Armour ENC is based on construction, material, coverage, and any item override.</p>
   </details>
   <details class="review-details"><summary>Money and transaction history</summary>
   <div class="money-summary"><div><small>Starting</small><b>{formatCopperPrice(startingCp)}</b></div><div><small>Spent</small><b>{signedMoney(equipmentSpentCp())}</b></div><div><small>Remaining</small><b>{signedMoney(currentBalanceCp)}</b></div></div>
@@ -638,8 +679,8 @@
   .inventory-ledger :is(button,input,select,summary):focus-visible { outline:3px solid var(--acc); outline-offset:2px; }
   .activity-nav span { display:inline-grid; place-items:center; min-width:1.5rem; min-height:1.5rem; margin-left:.25rem; border:1px solid currentColor; border-radius:50%; font-size:.8rem; letter-spacing:0; }
   .money-summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.5rem; margin:1rem 0; }
-  .review-summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,12rem),1fr)); gap:.5rem; margin:.75rem 0; }
-  .review-summary > div { min-width:0; display:flex; flex-direction:column; gap:.25rem; padding:.75rem; border:1px solid var(--line); border-radius:.5rem; overflow-wrap:anywhere; }
+  .review-summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,11rem),1fr)); gap:.5rem; margin:.75rem 0; }
+  .review-summary > div { min-width:0; display:flex; flex-direction:column; gap:.25rem; padding:.65rem; border:1px solid var(--line); border-radius:.5rem; overflow-wrap:anywhere; }
   .review-summary small,.money-summary small { color:var(--mute); }
   .review-details { margin:.65rem 0; padding:.65rem; border:1px solid var(--line); border-radius:.5rem; }
   .review-details summary { min-height:1.5rem; cursor:pointer; font-weight:700; }
@@ -698,8 +739,21 @@
   .inventory-reorder-actions button:disabled { opacity:.45; cursor:not-allowed; }
   .exemption-control { display:inline-flex; min-width:2.75rem; min-height:2.5rem; align-items:center; justify-content:center; cursor:pointer; }
   .exemption-control input { flex:none; width:1.2rem; height:1.2rem; accent-color:var(--bronze); }
-  .load-summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(10rem,1fr)); gap:.5rem; margin:.75rem 0; }
+  .load-summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,10rem),1fr)); gap:.5rem; margin:.75rem 0; }
   .load-summary > div { display:flex; flex-direction:column; gap:.2rem; padding:.65rem; border:1px solid var(--line); border-radius:.5rem; }
+  .armour-totals { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,12rem),1fr)); gap:.4rem; margin:.6rem 0; }
+  .armour-totals > div { min-width:0; padding:.5rem .6rem; border:1px solid var(--line); border-radius:.4rem; }
+  .armour-totals dt { color:var(--mute); font-size:.82rem; }
+  .armour-totals dd { margin:.15rem 0 0; font-weight:700; overflow-wrap:anywhere; }
+  .armour-layering-note { margin:.4rem 0; }
+  .load-breakdown > p { margin:.6rem 0; }
+  .load-breakdown-table-wrap { max-width:100%; overflow-wrap:anywhere; }
+  .load-breakdown-table { table-layout:fixed; font-size:.85rem; }
+  .load-breakdown-table th,.load-breakdown-table td { overflow-wrap:anywhere; }
+  .load-breakdown-table th:first-child { width:32%; }
+  .load-breakdown-table th:nth-child(2) { width:18%; }
+  .load-breakdown-table th:nth-child(3) { width:22%; }
+  .load-result { padding:.5rem .65rem; background:color-mix(in srgb,var(--line) 25%,transparent); border-radius:.35rem; }
   .catalogue-armour-options { display:grid; gap:.55rem; margin:1rem 0; padding:.75rem; border:1px solid var(--line); border-radius:.5rem; }
   .catalogue-armour-options > label { display:grid; gap:.25rem; max-width:28rem; }
   .material-override { display:flex; align-items:flex-start; gap:.55rem; min-width:0; cursor:pointer; }
@@ -770,7 +824,6 @@
   h5 { margin:0; font-size:1rem; }
   .tag { display:inline-block; padding:.1rem .4rem; border:1px solid var(--line); border-radius:99px; font-size:.75rem; }
   .transaction-list { display:grid; gap:.5rem; padding-left:1.4rem; }
-  .armour-totals { overflow-wrap:anywhere; }
   .transaction-list li { padding:.35rem 0; }
   .transaction-list .mute { display:block; font-size:.8rem; }
   .inventory-ledger :is(p,small,b,span,li,label,summary) { overflow-wrap:anywhere; }
@@ -784,7 +837,9 @@
     .money-summary > div { padding:.45rem; overflow-wrap:anywhere; }
     .catalogue-row { align-items:flex-start; }
     .row-price { max-width:40%; overflow-wrap:anywhere; }
-    .review-summary { grid-template-columns:1fr; }
+    .review-summary { grid-template-columns:repeat(2,minmax(0,1fr)); gap:.35rem; }
+    .review-summary > div { padding:.5rem; }
+    .armour-totals { grid-template-columns:repeat(2,minmax(0,1fr)); }
     .inventory-scroll { overflow:visible; border:0; }
     .inventory-table { display:block; width:100%; min-width:0; }
     .inventory-table thead { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
