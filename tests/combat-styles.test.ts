@@ -141,6 +141,7 @@ describe("structured Combat Styles", () => {
       () => ({ combatStyles: [] }), undefined, () => "character");
     const custom = customCombatStyle("River Guard", ["Spear"], [CORE_COMBAT_TRAITS.find(trait => trait.name === "Blind Fighting")!]);
     const selectedAssassin = attachCharacterStyle([], resolveCoreCombatStyle(CORE_COMBAT_STYLES[1], [0], [1])!, "career")[0];
+    selectedAssassin.weapons = [{ name: "Greatsword", catalogueId: "two_handed-greatsword" }, { name: "Campaign spear" }];
     const styles = [{ ...legacyCombatStyle("Meerish Infantry", "culture"), allocations: { culture: 10 } },
       selectedAssassin,
       { ...custom, origin: "custom" as const, origins: ["custom" as const], allocations: {} }];
@@ -150,6 +151,10 @@ describe("structured Combat Styles", () => {
     expect(values.has(CHARACTER_LIBRARY_KEY)).toBe(true);
     expect(restored.getCharacter("character")?.combatStyles).toEqual(styles);
     expect(restored.getCharacter("character")?.combatStyles[1].traits.map(trait => trait.name)).toEqual(["Ranged Marksman"]);
+    expect(restored.getCharacter("character")?.combatStyles[1].weapons).toEqual([
+      { name: "Greatsword", catalogueId: "two_handed-greatsword" }, { name: "Campaign spear" },
+    ]);
+    expect(normalizeCombatStyles([selectedAssassin])[0].weapons).toEqual(selectedAssassin.weapons);
     expect("traitChoices" in restored.getCharacter("character")!.combatStyles[1]).toBe(false);
     expect(normalizeCombatStyles([{ ...selectedAssassin, traitChoices: CORE_COMBAT_STYLES[1].traitChoices }])[0]).not.toHaveProperty("traitChoices");
   });
