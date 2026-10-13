@@ -12,8 +12,9 @@ const sheet = readFileSync(new URL("../src/components/Sheet.svelte", import.meta
 
 test("Page VIII separates combat training from possessions", () => {
   expect(page).toContain("EquipmentInventory");
-  expect(page).toContain("<details class=\"combat-styles-compact\">");
-  expect(page).toContain("Combat Styles are training, not possessions");
+  expect(page).not.toContain("CombatStyles");
+  expect(page).not.toContain("Combat Style");
+  expect(page).not.toContain("combat-styles-compact");
   expect(compile(page, { filename: "src/components/Combat.svelte", generate: "client" }).warnings).toHaveLength(0);
 });
 

@@ -2,9 +2,16 @@ import { readFileSync } from "node:fs";
 import { describe, expect, test } from "bun:test";
 
 const component = readFileSync(new URL("../src/components/CombatStyles.svelte", import.meta.url), "utf8");
+const page = readFileSync(new URL("../src/components/Combat.svelte", import.meta.url), "utf8");
 
-describe("Page VIII Combat Styles compact editing UI", () => {
-  test("shows compact style summaries and only exposes weapon removal in edit mode", () => {
+describe("Combat Style display", () => {
+  test("Page VIII does not mount a duplicate Combat Styles editor", () => {
+    expect(page).not.toContain("CombatStyles");
+    expect(page).not.toContain("combat-styles-compact");
+    expect(page).toContain("EquipmentInventory");
+  });
+
+  test("keeps saved style summaries available on the character sheet", () => {
     expect(component).toContain("combat-style-list");
     expect(component).toContain("combat-percentage");
     expect(component).toContain("combat-origin");
@@ -20,7 +27,7 @@ describe("Page VIII Combat Styles compact editing UI", () => {
     expect(component).toContain("{trait.source.libraryName}");
   });
 
-  test("offers catalogue search and custom weapon entry without touching inventory or money", () => {
+  test("keeps the sheet's weapon association controls independent of inventory and money", () => {
     expect(component).toContain("Search Core catalogue");
     expect(component).toContain("CORE_COMBAT_STYLE_WEAPONS");
     expect(component).toContain("Custom weapon name");
