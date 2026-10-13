@@ -114,8 +114,13 @@
   <section class="sheet-page sheet-page-two" aria-label="Page 2: Combat and equipment">
     <h2 class="sheet-page-title">Combat &amp; Equipment</h2>
     <div class="sheet-combat-grid">
-      <section class="sheet-panel sheet-locations"><h3>Hit locations</h3><div class="sheet-table-wrap"><table><thead><tr><th>d20</th><th>Location</th><th>Max HP</th></tr></thead><tbody>{#each loc as location}<tr><td>{location.roll}</td><th scope="row">{location.name}</th><td>{location.hp}</td></tr>{/each}</tbody></table></div></section>
-      <section class="sheet-panel sheet-armour"><h3>Armour by location</h3><div class="sheet-table-wrap"><table><thead><tr><th>Location</th><th>AP</th></tr></thead><tbody>{#each HIT_LOCATIONS as location}<tr><th scope="row">{location}</th><td>{equipment.armour.apByLocation[location] === null ? "Unresolved" : equipment.armour.apByLocation[location]}</td></tr>{/each}</tbody></table></div>
+      <section class="sheet-panel sheet-locations"><h3>Hit locations</h3>
+        <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+        <div class="sheet-table-wrap" role="region" aria-label="Hit locations" tabindex="0"><table><thead><tr><th>d20</th><th>Location</th><th>Max HP</th></tr></thead><tbody>{#each loc as location}<tr><td>{location.roll}</td><th scope="row">{location.name}</th><td>{location.hp}</td></tr>{/each}</tbody></table></div>
+      </section>
+      <section class="sheet-panel sheet-armour"><h3>Armour by location</h3>
+        <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+        <div class="sheet-table-wrap" role="region" aria-label="Armour by location" tabindex="0"><table><thead><tr><th>Location</th><th>AP</th></tr></thead><tbody>{#each HIT_LOCATIONS as location}<tr><th scope="row">{location}</th><td>{equipment.armour.apByLocation[location] === null ? "Unresolved" : equipment.armour.apByLocation[location]}</td></tr>{/each}</tbody></table></div>
         <p><b>Worn armour ENC:</b> {equipment.armour.fullWornEnc ?? "Unresolved"} full · {equipment.armour.loadEnc ?? "Unresolved"} load · <b>Initiative penalty:</b> {equipment.armour.initiativePenalty === null ? "Unresolved" : `−${equipment.armour.initiativePenalty}`}</p>
         {#if equipment.armour.unresolved.length}<p class="sheet-warning">Armour unresolved: {equipment.armour.unresolved.join("; ")}.</p>{/if}
       </section>
@@ -129,12 +134,16 @@
 
     <div class="sheet-weapon-grid">
       <section class="sheet-panel"><h3>Melee weapons &amp; shields</h3>
-        {#if meleeWeapons.length}<div class="sheet-table-wrap"><table><thead><tr><th>Owned item</th><th>Qty</th><th>Damage</th><th>Size</th><th>Reach</th><th>AP / HP</th><th>ENC</th></tr></thead><tbody>{#each meleeWeapons as row (row.item.id)}
+        {#if meleeWeapons.length}
+          <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+          <div class="sheet-table-wrap" role="region" aria-label="Melee weapons and shields" tabindex="0"><table><thead><tr><th>Owned item</th><th>Qty</th><th>Damage</th><th>Size</th><th>Reach</th><th>AP / HP</th><th>ENC</th></tr></thead><tbody>{#each meleeWeapons as row (row.item.id)}
           <tr><th scope="row">{row.item.name}</th><td>{row.item.quantity}</td><td>{row.source?.combat_profile_candidate?.damage ?? row.custom?.damage ?? "—"}</td><td>{row.source?.combat_profile_candidate?.size ?? row.custom?.size ?? "—"}</td><td>{row.source?.combat_profile_candidate?.reach ?? row.custom?.reach ?? "—"}</td><td>{row.source?.ap_candidate ?? row.source?.ap ?? row.custom?.ap ?? "—"} / {row.source?.hp_candidate ?? row.custom?.hp ?? "—"}</td><td>{row.item.encPerUnit === null ? "Unresolved" : row.item.encPerUnit}</td></tr>
         {/each}</tbody></table></div>{:else}<p class="mute">No owned melee weapons or shields recorded.</p>{/if}
       </section>
       <section class="sheet-panel"><h3>Ranged weapons</h3>
-        {#if rangedWeapons.length}<div class="sheet-table-wrap"><table><thead><tr><th>Owned item</th><th>Qty</th><th>Damage</th><th>Range</th><th>Load</th><th>AP / HP</th><th>ENC</th></tr></thead><tbody>{#each rangedWeapons as row (row.item.id)}
+        {#if rangedWeapons.length}
+          <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+          <div class="sheet-table-wrap" role="region" aria-label="Ranged weapons" tabindex="0"><table><thead><tr><th>Owned item</th><th>Qty</th><th>Damage</th><th>Range</th><th>Load</th><th>AP / HP</th><th>ENC</th></tr></thead><tbody>{#each rangedWeapons as row (row.item.id)}
           {@const stats = row.source ? RANGED_WEAPON_STATS[row.source.id] : undefined}
           <tr><th scope="row">{row.item.name}</th><td>{row.item.quantity}</td><td>{stats ? rangedCellText(stats.damage) : row.custom?.damage ?? "—"}</td><td>{stats ? formatRangedRange(stats.range) : row.source?.combat_profile_candidate?.reach ?? row.custom?.reach ?? "—"}</td><td>{stats ? rangedCellText(stats.load) : "—"}</td><td>{stats ? `${rangedCellText(stats.ap)} / ${rangedCellText(stats.hp)}` : `${row.custom?.ap ?? "—"} / ${row.custom?.hp ?? "—"}`}</td><td>{row.item.encPerUnit === null ? "Unresolved" : row.item.encPerUnit}</td></tr>
         {/each}</tbody></table></div>{:else}<p class="mute">No owned ranged weapons recorded.</p>{/if}
@@ -142,7 +151,9 @@
     </div>
 
     <section class="sheet-panel sheet-owned"><h3>Owned equipment</h3>
-      {#if char.background.inventory.length}<div class="sheet-table-wrap"><table><thead><tr><th>Item</th><th>Qty</th><th>State</th><th>Acquisition</th><th>ENC</th><th>Source</th></tr></thead><tbody>{#each char.background.inventory as item (item.id)}
+      {#if char.background.inventory.length}
+        <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+        <div class="sheet-table-wrap" role="region" aria-label="Owned equipment" tabindex="0"><table><thead><tr><th>Item</th><th>Qty</th><th>State</th><th>Acquisition</th><th>ENC</th><th>Source</th></tr></thead><tbody>{#each char.background.inventory as item (item.id)}
         <tr><th scope="row">{item.name}</th><td>{item.quantity}</td><td>{item.state}</td><td>{item.acquiredAs}</td>
           <td>{#if item.armour}{item.armour.encOverride !== undefined ? `${item.armour.encOverride} per covered location (GM value)` : item.armour.construction && item.armour.material ? "Derived" : "Unresolved"}{:else if item.encPerUnit === null}Unresolved{:else}{item.encPerUnit} per item{item.encSource === "gm_override" ? " (GM value)" : ""}{/if}</td>
           <td>{item.customItem ? `Custom · ${item.customItem.type}` : item.sourceIds.length ? item.sourceIds.join(", ") : "Unresolved"}</td></tr>

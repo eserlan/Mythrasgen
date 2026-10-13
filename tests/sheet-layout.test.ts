@@ -35,4 +35,11 @@ describe("Page IX character sheet", () => {
     expect(styles).not.toContain("style.weapons.push");
     expect(styles).not.toContain("background.inventory");
   });
+
+  test("makes horizontally scrollable sheet tables keyboard accessible and labeled", () => {
+    for (const label of ["Hit locations", "Armour by location", "Melee weapons and shields", "Ranged weapons", "Owned equipment"]) {
+      expect(sheet).toContain(`role="region" aria-label="${label}" tabindex="0"`);
+    }
+    expect(styles).toContain('role="region" aria-label="Combat styles" tabindex="0"');
+  });
 });

@@ -11,7 +11,8 @@
 </script>
 
 {#if styles.length}
-  <div class="sheet-table-wrap"><table class="style-table">
+  <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+  <div class="sheet-table-wrap" role="region" aria-label="Combat styles" tabindex="0"><table class="style-table">
     <thead><tr><th scope="col">Style</th><th scope="col">%</th><th scope="col">Associated weapons</th><th scope="col">Traits</th><th scope="col">Origin &amp; notes</th></tr></thead>
     <tbody>{#each styles as style (style.id)}
       <tr>
