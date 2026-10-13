@@ -6,7 +6,9 @@ import { encumbranceSummary } from "../src/lib/encumbrance";
 import { encumbranceThresholdRows } from "../src/lib/encumbrance-presentation";
 
 const page = readFileSync(new URL("../src/components/Combat.svelte", import.meta.url), "utf8");
+const store = readFileSync(new URL("../src/lib/store.svelte.ts", import.meta.url), "utf8");
 const inventory = readFileSync(new URL("../src/components/EquipmentInventory.svelte", import.meta.url), "utf8");
+const appStyles = readFileSync(new URL("../src/app.css", import.meta.url), "utf8");
 const protectedLocations = readFileSync(new URL("../src/components/ProtectedHitLocations.svelte", import.meta.url), "utf8");
 const sheet = readFileSync(new URL("../src/components/Sheet.svelte", import.meta.url), "utf8");
 
@@ -16,6 +18,17 @@ test("Page VIII separates combat training from possessions", () => {
   expect(page).not.toContain("Combat Style");
   expect(page).not.toContain("combat-styles-compact");
   expect(compile(page, { filename: "src/components/Combat.svelte", generate: "client" }).warnings).toHaveLength(0);
+});
+
+test("Page VIII is labeled Equipment and its tab remains readable on narrow screens", () => {
+  expect(store).toContain('"Background", "Equipment", "Sheet"]');
+  expect(page).toContain('<StepHead step={7} title="Equipment" />');
+  expect(inventory).toContain('<section class="card inventory-ledger" aria-label="Equipment">');
+  expect(inventory).toContain("<h3>Equipment</h3>");
+  expect(inventory).toContain('aria-label="Equipment activities"');
+  expect(appStyles).toContain("nav{display:flex;gap:4px;padding-top:8px;padding-bottom:10px;overflow-x:auto}");
+  expect(appStyles).toContain("button.step{flex:0 0 auto;flex-direction:column;gap:2px;padding:4px 2px;font-size:.55rem;letter-spacing:.02em}");
+  expect(appStyles).toContain(".step span{white-space:nowrap}");
 });
 
 test("equipment starts with two activities and puts the character summary in owned equipment", () => {

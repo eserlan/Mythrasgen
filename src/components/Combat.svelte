@@ -3,6 +3,6 @@
   import EquipmentInventory from "./EquipmentInventory.svelte";
 </script>
 
-<StepHead step={7} title="Combat &amp; Equipment" />
+<StepHead step={7} title="Equipment" />
 <p class="hint">Browse the equipment catalogue, manage owned equipment, and review armour, weapon statistics, encumbrance, and money.</p>
 <EquipmentInventory />

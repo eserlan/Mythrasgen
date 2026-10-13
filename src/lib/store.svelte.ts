@@ -68,7 +68,7 @@ export interface Character {
   /** True while the landing page is showing. */
   home: boolean;
 }
-export const STEPS = ["Concept", "Characteristics", "Culture", "Career", "Bonus Skills", "Magic & Cults", "Background", "Combat", "Sheet"];
+export const STEPS = ["Concept", "Characteristics", "Culture", "Career", "Bonus Skills", "Magic & Cults", "Background", "Equipment", "Sheet"];
 export const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX"];
 export const INTRO = [
   "Name your hero and choose their culture and career.",
