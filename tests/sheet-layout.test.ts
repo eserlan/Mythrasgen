@@ -26,6 +26,27 @@ describe("Page IX character sheet", () => {
     expect(sheet).toContain("equipment.load.unresolvedItems");
   });
 
+  test("keeps page one readable and stacks its skill panels in three independent columns", () => {
+    const pageOne = sheet.split('aria-label="Page 2: Combat and equipment"')[0];
+    const pageStyles = sheet.slice(sheet.indexOf("<style>"));
+    expect(pageStyles).toContain("sheet-facts dd{text-align:left}");
+    expect(pageStyles).toContain("overflow-wrap:break-word");
+    expect(pageStyles).toContain("sheet-background{font-size:.82rem;line-height:1.48}");
+    expect(pageOne).toContain("{#each STATS as key}");
+    expect(pageStyles).toContain("repeat(7,minmax(0,1fr))");
+    expect(pageStyles).toContain("sheet-derived{display:grid");
+    expect(pageOne).toContain("sheet-skill-columns");
+    expect(pageOne).toContain("<div class=\"sheet-skill-column\">\n        <section class=\"sheet-panel\"><h3>Standard skills</h3>");
+    expect(pageOne).toContain("<h3>Professional skills</h3>");
+    expect(pageOne).toContain("<h3>Magical skills</h3>");
+    expect(pageOne).toContain("<h3>Resistances</h3>");
+    expect(pageOne).toContain("<h3>Languages</h3>");
+    expect(pageOne.indexOf("<h3>Professional skills</h3>")).toBeLessThan(pageOne.indexOf("<h3>Magical skills</h3>"));
+    expect(pageOne.indexOf("<h3>Resistances</h3>")).toBeLessThan(pageOne.indexOf("<h3>Languages</h3>"));
+    expect(pageStyles).toContain("sheet-skill-list li{display:grid;grid-template-columns:minmax(0,1fr) auto");
+    expect(pageOne).not.toContain("<b>Starting money:</b>");
+  });
+
   test("uses owned weapons for weapon tables and does not edit character choices", () => {
     expect(sheet).toContain("char.background.inventory.flatMap");
     expect(sheet).toContain("CombatStyles");
