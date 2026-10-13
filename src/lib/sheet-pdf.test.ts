@@ -52,6 +52,21 @@ describe("printable character sheet data", () => {
     expect(data.equipment).not.toContain("Rapier");
   });
 
+  test("prints recorded memberships for theistic cults", () => {
+    reset(false);
+    replace({
+      organisations: [
+        { id: "river-cult", name: "River Cult", kind: { type: "magical-cult", discipline: "Theism" } },
+        { id: "glass-guild", name: "Glass Guild", kind: { type: "brotherhood", subtype: "Guild" } },
+      ],
+      memberships: [
+        { id: "cult-member", organisationId: "river-cult", rank: "Dedicated" },
+        { id: "guild-member", organisationId: "glass-guild", rank: "Common" },
+      ],
+    });
+    expect(buildSheetData(currentSheetSource()).cult).toEqual(["River Cult (Theism)"]);
+  });
+
   test("never mutates the character and reflects the newly selected character", () => {
     reset(false);
     replace({ name: "First" });

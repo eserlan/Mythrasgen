@@ -131,7 +131,11 @@ export function buildSheetData(source: SheetSource): SheetData {
       ...(source.socialClassReady ? [`Starting money: ${source.startingMoney} sp`] : []),
       `Current funds: ${char.background.currentMoney} sp`,
     ],
-    cult: char.memberships.filter(member => /cult/i.test(member.organisationType)).map(member => clean(`${member.name} (${member.organisationType})`)),
+    cult: char.memberships.flatMap(member => {
+      const organisation = char.organisations.find(item => item.id === member.organisationId);
+      return organisation?.kind.type === "magical-cult" && organisation.kind.discipline === "Theism"
+        ? [clean(`${organisation.name} (${organisation.kind.discipline})`)] : [];
+    }),
     characteristics: Object.fromEntries(STATS.map(stat => [stat, String(char.chars[stat])])) as Record<Stat, string>,
     attributes: {
       actionPoints: attribute(source.stats, "Action Points"), damageModifier: attribute(source.stats, "Damage Modifier"),
