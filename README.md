@@ -10,6 +10,12 @@ Guided character builder for the Mythras RPG. Svelte 5 + Vite + TypeScript, depl
 - Rules formulas and point pools: `src/lib/rules.ts`
 - Cultures and careers (add your own): `src/lib/content.ts`
 
+## Printing
+
+**Print** fills the official two-page *Mythras Character Sheet* PDF (`src/assets/mythras-character-sheet.pdf`) with the selected character and opens it for printing. The template has no form fields, so text is stamped at coordinates measured from the sheet (`src/lib/sheet-pdf.ts`); what goes where is decided in `src/lib/sheet-data.ts`. Only recorded data is printed, and text that does not fit its field is shortened with the full text added to a labelled supplement page.
+
+Provenance: the template is the publicly distributed Mythras Character Sheet (design and layout by Evelyn H.), included on the project owner's confirmation that it is not copyrighted.
+
 ## Provisional Mythras Core equipment catalogue
 
 The source-indexed 3rd edition equipment data lives in `catalogue_source_index.json`; the CSV and `validation_report.json` are cross-check inputs. Validate them with `bun run catalogue:validate`. The import in `src/lib/equipment-catalogue.ts` preserves source rows and printed-page provenance, assigns stable catalogue IDs, and tags candidate fields with their verification state. This dataset is provisional and its extracted candidate values are not all verified Core facts.
