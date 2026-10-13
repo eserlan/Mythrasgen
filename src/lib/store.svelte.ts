@@ -78,7 +78,7 @@ export const INTRO = [
   "Use age-based bonus points to round out learned skills and one optional hobby skill.",
   "Review magical capabilities and record membership in cults, brotherhoods, and other organisations.",
   "The people, events, and possessions your hero starts with.",
-  "Combat Styles, their weapons, and the training that governs them.",
+  "Browse equipment, manage possessions, and review armour, weapon statistics, encumbrance, and money.",
   "Your hero, ready for the table.",
 ];
 
