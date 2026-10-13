@@ -1,6 +1,6 @@
 /** Construction and material values follow the Core table data supplied with issue #219. */
 export const ARMOUR_RULES_VERIFICATION = "Mythras Core 3rd ed. pp. 57–58; issue #219 source notes";
-export const HIT_LOCATIONS = ["Head", "Chest", "Abdomen", "Right Arm", "Left Arm", "Right Leg", "Left Leg"] as const;
+export const HIT_LOCATIONS = ["Head", "Left Arm", "Right Arm", "Chest", "Abdomen", "Left Leg", "Right Leg"] as const;
 export type HitLocationName = typeof HIT_LOCATIONS[number];
 export const ARMOUR_CONSTRUCTIONS = {
   natural_cured: { name: "Natural/Cured", ap: 1, enc: 2, costSp: 20, flexibility: "flexible" },
