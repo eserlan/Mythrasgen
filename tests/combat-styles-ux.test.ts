@@ -12,9 +12,12 @@ describe("Combat Style display", () => {
   });
 
   test("keeps saved style summaries compact and read-only on the character sheet", () => {
-    expect(component).toContain("class=\"style-table\"");
+    expect(component).toContain("class=\"style-card\"");
+    expect(component).toContain("class=\"style-list\"");
     expect(component).toContain("combatStyleSummary()");
     expect(component).toContain("Associated weapons");
+    expect(component).toContain("<dt>Origin</dt>");
+    expect(component).toContain("style.notes");
     expect(component).toContain("style.percentage");
     expect(component).toContain("style.origins");
     expect(component).not.toContain("editing");
