@@ -259,7 +259,7 @@ test("technical provenance and armour location data are secondary disclosures", 
 });
 
 test("character sheet identifies unverified armour source values", () => {
-  expect(sheet).toContain("source rules values have not been visually verified against the Core");
+  expect(sheet).toContain("Source rules values have not been visually verified against the Core");
 });
 
 test("weapon and shield details use player-facing labels and keep provisional source fields out of the UI", () => {

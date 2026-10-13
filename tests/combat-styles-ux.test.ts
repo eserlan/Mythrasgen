@@ -11,14 +11,15 @@ describe("Combat Style display", () => {
     expect(page).toContain("EquipmentInventory");
   });
 
-  test("keeps saved style summaries available on the character sheet", () => {
-    expect(component).toContain("combat-style-list");
-    expect(component).toContain("combat-percentage");
-    expect(component).toContain("combat-origin");
-    expect(component).toContain("aria-expanded={editing.includes(style.id)}");
-    expect(component).toContain("{#if editing.includes(style.id)}<button class=\"secondary combat-remove-weapon\"");
-    expect(component).not.toContain("weapon-stats");
-    expect(component).not.toContain("Custom / unlisted weapon");
+  test("keeps saved style summaries compact and read-only on the character sheet", () => {
+    expect(component).toContain("class=\"style-table\"");
+    expect(component).toContain("combatStyleSummary()");
+    expect(component).toContain("Associated weapons");
+    expect(component).toContain("style.percentage");
+    expect(component).toContain("style.origins");
+    expect(component).not.toContain("editing");
+    expect(component).not.toContain("style.weapons.push");
+    expect(component).not.toContain("background.inventory");
   });
 
   test("keeps trait rules and source collapsed behind native keyboard-accessible disclosures", () => {
@@ -27,13 +28,10 @@ describe("Combat Style display", () => {
     expect(component).toContain("{trait.source.libraryName}");
   });
 
-  test("keeps the sheet's weapon association controls independent of inventory and money", () => {
-    expect(component).toContain("Search Core catalogue");
-    expect(component).toContain("CORE_COMBAT_STYLE_WEAPONS");
-    expect(component).toContain("Custom weapon name");
-    expect(component).toContain("style.weapons.push");
+  test("keeps associated weapons separate from equipment ownership", () => {
+    expect(component).toContain("Associated weapons");
+    expect(component).toContain("style.weapons.map");
     expect(component).not.toContain("background.inventory");
     expect(component).not.toContain("currentMoney");
-    expect(component).not.toContain("combatStyleSummary().*alloc");
   });
 });
