@@ -495,8 +495,7 @@
   {#if view === "choose"}
   <h4>Choose equipment</h4>
   <p class="mute">Choose a group or search everything. Select an item to see its details and options.</p>
-  <div class="choose-actions"><button type="button" class="primary" onclick={() => resetCustomForm()}>Create custom item</button>
-    <button type="button" onclick={() => { query = ""; group = null; category = null; }}>Browse Core catalogue</button></div>
+  <div class="choose-actions"><button type="button" class="primary" onclick={() => resetCustomForm()}>Create custom item</button></div>
   {#if customFormOpen}
     <section class="item-detail custom-form" aria-labelledby="custom-form-title">
       <h5 id="custom-form-title">{editingCustomId ? "Edit custom item" : "Create custom item"}</h5>

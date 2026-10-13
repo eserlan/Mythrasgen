@@ -95,6 +95,8 @@ test("equipment starts with two activities and puts the character summary in own
   expect(inventory).toContain('aria-controls={selectedId === record.id ? "selected-item-detail" : undefined}');
   expect(inventory).toContain("aria-labelledby=\"selected-item-title\"");
   expect(inventory).toContain("Search all equipment");
+  expect(inventory).not.toContain("Browse Core catalogue");
+  expect(inventory).toContain('<div class="choose-actions"><button type="button" class="primary" onclick={() => resetCustomForm()}>Create custom item</button></div>');
   expect(compile(inventory, { filename: "src/components/EquipmentInventory.svelte", generate: "client" }).warnings).toHaveLength(0);
 });
 
