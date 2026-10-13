@@ -1,5 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, test } from "bun:test";
+import { deriveStats } from "../src/lib/calc";
+import { HIT_LOCATIONS } from "../src/lib/armour-rules";
 
 const sheet = readFileSync(new URL("../src/components/Sheet.svelte", import.meta.url), "utf8");
 const styles = readFileSync(new URL("../src/components/CombatStyles.svelte", import.meta.url), "utf8");
@@ -24,6 +26,19 @@ describe("Page IX character sheet", () => {
     expect(sheet).toContain("equipment.funds.remainingCp");
     expect(sheet).toContain("equipment.armour.apByLocation");
     expect(sheet).toContain("equipment.load.unresolvedItems");
+  });
+
+  test("aligns both location tables to the canonical Mythras order", () => {
+    const expectedOrder = ["Head", "Left Arm", "Right Arm", "Chest", "Abdomen", "Left Leg", "Right Leg"];
+    expect(HIT_LOCATIONS).toEqual(expectedOrder);
+    expect(sheet.match(/\{#each orderedLoc as location\}/g)).toHaveLength(2);
+
+    const { loc } = deriveStats({ STR: 10, CON: 18, SIZ: 12, DEX: 10, INT: 10, POW: 10, CHA: 10 });
+    const ordered = HIT_LOCATIONS.map(name => loc.find(location => location.name === name)!);
+    expect(ordered.map(({ name, roll, hp }) => [name, roll, hp])).toEqual([
+      ["Head", "19-20", 6], ["Left Arm", "16-18", 5], ["Right Arm", "13-15", 5],
+      ["Chest", "10-12", 8], ["Abdomen", "7-9", 7], ["Left Leg", "4-6", 6], ["Right Leg", "1-3", 6],
+    ]);
   });
 
   test("keeps page one readable and stacks its skill panels in three independent columns", () => {

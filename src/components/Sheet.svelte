@@ -13,6 +13,7 @@
 
   const derivedStatsResult = $derived(deriveStats(char.chars));
   const loc = $derived(derivedStatsResult.loc);
+  const orderedLoc = $derived(HIT_LOCATIONS.map(name => ({ ...loc.find(location => location.name === name)!, name })));
   const skills: string[] = $derived(allSkills().sort());
   const pro = $derived(skills.filter(n => skillDefinition(n).pro
     && !MAGIC.some(([name]) => n === name || n.startsWith(`${name} (`))
@@ -122,11 +123,11 @@
     <div class="sheet-combat-grid">
       <section class="sheet-panel sheet-locations"><h3>Hit locations</h3>
         <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-        <div class="sheet-table-wrap" role="region" aria-label="Hit locations" tabindex="0"><table><thead><tr><th>d20</th><th>Location</th><th>Max HP</th></tr></thead><tbody>{#each loc as location}<tr><td>{location.roll}</td><th scope="row">{location.name}</th><td>{location.hp}</td></tr>{/each}</tbody></table></div>
+        <div class="sheet-table-wrap" role="region" aria-label="Hit locations" tabindex="0"><table><thead><tr><th>d20</th><th>Location</th><th>Max HP</th></tr></thead><tbody>{#each orderedLoc as location}<tr><td>{location.roll}</td><th scope="row">{location.name}</th><td>{location.hp}</td></tr>{/each}</tbody></table></div>
       </section>
       <section class="sheet-panel sheet-armour"><h3>Armour by location</h3>
         <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-        <div class="sheet-table-wrap" role="region" aria-label="Armour by location" tabindex="0"><table><thead><tr><th>Location</th><th>AP</th></tr></thead><tbody>{#each HIT_LOCATIONS as location}<tr><th scope="row">{location}</th><td>{equipment.armour.apByLocation[location] === null ? "Unresolved" : equipment.armour.apByLocation[location]}</td></tr>{/each}</tbody></table></div>
+        <div class="sheet-table-wrap" role="region" aria-label="Armour by location" tabindex="0"><table><thead><tr><th>Location</th><th>AP</th></tr></thead><tbody>{#each orderedLoc as location}<tr><th scope="row">{location.name}</th><td>{equipment.armour.apByLocation[location.name] === null ? "Unresolved" : equipment.armour.apByLocation[location.name]}</td></tr>{/each}</tbody></table></div>
         <dl class="sheet-compact-facts armour-facts"><div><dt>Worn ENC</dt><dd>{equipment.armour.fullWornEnc ?? "Unresolved"} full · {equipment.armour.loadEnc ?? "Unresolved"} load</dd></div><div><dt>Initiative penalty</dt><dd>{equipment.armour.initiativePenalty === null ? "Unresolved" : `−${equipment.armour.initiativePenalty}`}</dd></div></dl>
         {#if equipment.armour.unresolved.length}<p class="sheet-warning">Armour unresolved: {equipment.armour.unresolved.join("; ")}.</p>{/if}
       </section>
