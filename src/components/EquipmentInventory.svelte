@@ -328,9 +328,9 @@
   }
 </script>
 
-<section class="card inventory-ledger" aria-label="Combat and equipment">
-  <h3>Combat &amp; Equipment</h3>
-  <nav class="activity-nav" aria-label="Combat and equipment activities">
+<section class="card inventory-ledger" aria-label="Equipment">
+  <h3>Equipment</h3>
+  <nav class="activity-nav" aria-label="Equipment activities">
     <button type="button" aria-current={view === "choose" ? "page" : undefined} onclick={() => view = "choose"}>Choose equipment</button>
     <button type="button" aria-current={view === "owned" ? "page" : undefined} onclick={() => view = "owned"}>Your equipment <span>{char.background.inventory.length}</span></button>
   </nav>
