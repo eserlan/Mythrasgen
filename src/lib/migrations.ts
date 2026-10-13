@@ -3,6 +3,8 @@ import { AGE_CATEGORIES, type AgeCategory } from "./rules";
 import type { BackgroundEvent } from "./background-rules";
 import { CORE_BACKGROUND_EVENTS, coreBackgroundEventForRoll } from "./background-events";
 import { ALL_RELATIONSHIP_TYPES, type FamilyRelationship, type RelationshipType } from "./family-relationships";
+import type { InventoryItem, InventoryTransaction } from "./equipment-inventory";
+import type { CustomEquipmentDefinition } from "./custom-equipment";
 
 export type { AgeCategory } from "./rules";
 
@@ -34,8 +36,13 @@ export interface BackgroundData {
   startingMoneyKey: string;
   startingMoneyTotal: number;
   currentMoney: number;
+  moneyOverrides: { startingCp?: number; spentCp?: number; remainingCp?: number; remainingCpSpentBaseline?: number };
   equipment: string;
   purchases: { name: string; cost: number }[];
+  inventory: InventoryItem[];
+  inventoryOrder: string[];
+  equipmentTransactions: InventoryTransaction[];
+  customEquipment: CustomEquipmentDefinition[];
 }
 
 /** Keep old saves on the same logical screen when Magic is inserted before Background. */
@@ -98,6 +105,15 @@ export function normalizeBackground(value: unknown, fallback: BackgroundData): B
   const saved = value && typeof value === "object" && !Array.isArray(value)
     ? value as Partial<BackgroundData>
     : {};
+  const savedMoneyOverrides = saved.moneyOverrides && typeof saved.moneyOverrides === "object" && !Array.isArray(saved.moneyOverrides)
+    ? saved.moneyOverrides as Partial<BackgroundData["moneyOverrides"]>
+    : {};
+  const moneyOverrides = Object.fromEntries((["startingCp", "spentCp", "remainingCp"] as const).flatMap(key => {
+    const amount = savedMoneyOverrides[key];
+    return Number.isSafeInteger(amount) && amount! >= 0 ? [[key, amount!]] : [];
+  })) as BackgroundData["moneyOverrides"];
+  const remainingCpSpentBaseline = savedMoneyOverrides.remainingCpSpentBaseline;
+  if (Number.isSafeInteger(remainingCpSpentBaseline)) moneyOverrides.remainingCpSpentBaseline = remainingCpSpentBaseline;
   const strings = (candidate: unknown, original: string[]) =>
     Array.isArray(candidate) ? candidate.filter((item): item is string => typeof item === "string") : original;
   const legacyRelationships = [
@@ -170,6 +186,7 @@ export function normalizeBackground(value: unknown, fallback: BackgroundData): B
     startingMoneyKey: typeof saved.startingMoneyKey === "string" ? saved.startingMoneyKey : fallback.startingMoneyKey,
     startingMoneyTotal: Number.isFinite(saved.startingMoneyTotal) ? saved.startingMoneyTotal! : fallback.startingMoneyTotal,
     currentMoney: Number.isFinite(saved.currentMoney) && saved.currentMoney! >= 0 ? saved.currentMoney! : fallback.currentMoney,
+    moneyOverrides,
     equipment: typeof saved.equipment === "string" ? saved.equipment : fallback.equipment,
     events: events(saved.events, fallback.events),
     archivedEvents: events(saved.archivedEvents, fallback.archivedEvents),
@@ -180,5 +197,9 @@ export function normalizeBackground(value: unknown, fallback: BackgroundData): B
       ? saved.purchases.filter((item): item is { name: string; cost: number } =>
           !!item && typeof item === "object" && typeof item.name === "string" && Number.isFinite(item.cost) && item.cost >= 0)
       : fallback.purchases,
+    inventory: Array.isArray(saved.inventory) ? saved.inventory as InventoryItem[] : [],
+    inventoryOrder: Array.isArray(saved.inventoryOrder) ? saved.inventoryOrder as string[] : [],
+    equipmentTransactions: Array.isArray(saved.equipmentTransactions) ? saved.equipmentTransactions as InventoryTransaction[] : [],
+    customEquipment: Array.isArray(saved.customEquipment) ? saved.customEquipment as CustomEquipmentDefinition[] : [],
   };
 }

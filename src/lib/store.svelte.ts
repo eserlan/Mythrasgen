@@ -14,8 +14,16 @@ import { attachCharacterStyle, CORE_COMBAT_STYLES, detachCharacterStyle, legacyC
 import { hasMeaningfulSpecialisation, requiresSpecialisation, resolveSkillTemplate, specialisationStageErrors } from "./specialisations";
 import { hobbySkillName, restoreHobbySkill, type HobbySkill } from "./hobby-skills";
 import type { FamilyRelationship } from "./family-relationships";
-import { detectMagicDisciplines, emptyMagicState, normalizeMagicState, normalizeMemberships, reconcileMagicState, type MagicState, type OrganisationMembership } from "./magic";
+import { detectMagicDisciplines, emptyMagicState, normalizeMagicState, reconcileMagicState, type MagicState, type OrganisationMembership } from "./magic";
 import { reconcileAnimism } from "./animism";
+import { CORE_THEIST_CULTS } from "./theism";
+import { genericRankForTitle, normalizeOrganisationMemberships, normalizeOrganisations, rankTitle, type Organisation, type GenericOrganisationRank } from "./organisations";
+import { CORE_MYSTICISM_ORGANISATIONS } from "./mysticism";
+import { CORE_SORCERY_SCHOOLS } from "./sorcery";
+import { syncMagicOrganisationMemberships } from "./magic-organisations";
+import { addExpense, addGift, addPurchase, changeInventoryItem, ledgerSpentCp, migrateLegacyPurchases, moveInventoryItem, normalizeInventoryOrder, normalizeInventoryState, reconcileBalance, removeInventoryItem, refundPurchase, type EquipmentState, type InventoryTransaction } from "./equipment-inventory";
+import { EQUIPMENT_CATALOGUE } from "./equipment-catalogue";
+import { customEquipmentInventoryItem, normalizeCustomEquipment, validateCustomEquipment, type CustomEquipmentDefinition } from "./custom-equipment";
 
 export interface Passion {
   type: "Loyalty" | "Love" | "Hate";
@@ -43,10 +51,16 @@ export interface Character {
     parentsRoll: number; parents: string; siblingsRoll: number; siblings: string; extendedFamilyRoll: number; extendedFamily: string;
     standingRoll: number; standingResolved: boolean; familyReputationCountRoll: number; familyTies: string[]; connectionsRoll: number;
     connectionsResolved: boolean; connections: string[]; relationships: FamilyRelationship[]; startingMoneyRoll: number;
-    startingMoneyKey: string; startingMoneyTotal: number; currentMoney: number; equipment: string;
+    startingMoneyKey: string; startingMoneyTotal: number; currentMoney: number;
+    moneyOverrides: { startingCp?: number; spentCp?: number; remainingCp?: number; remainingCpSpentBaseline?: number }; equipment: string;
     purchases: { name: string; cost: number }[];
+    inventory: import("./equipment-inventory").InventoryItem[];
+    inventoryOrder: string[];
+    equipmentTransactions: InventoryTransaction[];
+    customEquipment: CustomEquipmentDefinition[];
   };
   magic: MagicState;
+  organisations: Organisation[];
   memberships: OrganisationMembership[];
   socialTable: CultureKind;
   moneyTable: CultureKind;
@@ -54,7 +68,7 @@ export interface Character {
   /** True while the landing page is showing. */
   home: boolean;
 }
-export const STEPS = ["Concept", "Characteristics", "Culture", "Career", "Bonus Skills", "Magic", "Background", "Combat", "Sheet"];
+export const STEPS = ["Concept", "Characteristics", "Culture", "Career", "Bonus Skills", "Magic & Cults", "Background", "Equipment", "Sheet"];
 export const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX"];
 export const INTRO = [
   "Name your hero and choose their culture and career.",
@@ -62,9 +76,9 @@ export const INTRO = [
   "The customs and skills every child of your people learns.",
   "The trade or calling that shaped your adult years.",
   "Use age-based bonus points to round out learned skills and one optional hobby skill.",
-  "Review the magical disciplines granted by your skills. Future discipline stages will build on these capabilities.",
+  "Review magical capabilities and record membership in cults, brotherhoods, and other organisations.",
   "The people, events, and possessions your hero starts with.",
-  "Combat Styles, their weapons, and the training that governs them.",
+  "Browse equipment, manage possessions, and review armour, weapon statistics, encumbrance, and money.",
   "Your hero, ready for the table.",
 ];
 
@@ -77,7 +91,7 @@ const blank = (): Character => ({
   skillSpecialisations: { culture: {}, career: {} },
   alloc: { culture: {}, career: {}, bonus: {} }, hobbySkill: null, careerProfessional: [], careerCombatStyles: [], step: 0,
   passionsEnabled: false, passions: [],
-  magic: emptyMagicState(), memberships: [],
+  magic: emptyMagicState(), organisations: [], memberships: [],
   socialTable: "Barbarian", moneyTable: "Barbarian",
   background: { events: [{ roll: 0 }], archivedEvents: [], socialClassRoll: 50, socialClass: "Freeman",
     socialClassCulture: "Barbarian", socialClassMethod: "rolled", socialClassMoney: 1,
@@ -85,40 +99,84 @@ const blank = (): Character => ({
     parentsRoll: 0, parents: "", siblingsRoll: 0, siblings: "", extendedFamilyRoll: 0, extendedFamily: "",
     standingRoll: 0, standingResolved: false, familyReputationCountRoll: 0, familyTies: [], connectionsRoll: 0,
     connectionsResolved: false, connections: [], relationships: [], startingMoneyRoll: 14, startingMoneyKey: "", startingMoneyTotal: 700, currentMoney: 700,
-    equipment: "Tools; simple weapons; rented accommodation", purchases: [] },
+    moneyOverrides: {}, equipment: "Tools; simple weapons; rented accommodation", purchases: [], inventory: [], inventoryOrder: [], equipmentTransactions: [], customEquipment: [] },
   generation: "pointBuy", rollResults: null, rollAssignments: STATS.map((_, i) => i), home: true,
 });
 function resolveNativeTongue(skills: string[], language = char.nativeLanguage) { return skills.map(name => name === "Native Tongue" ? nativeTongueName(language) : name); }
-function normalize(value: Partial<Character> | null, home = true): Character {
+const designationLabels = new Set([...cultures.map(item => item.name), ...careers.map(item => item.name)]);
+const isSkillName = (name: unknown): name is string => typeof name === "string" && !designationLabels.has(name);
+
+export function normalizeCharacter(value: Partial<Character> | null, home = true): Character {
   const restoreSpecialisations = (values: unknown): Record<string, string> =>
     values && typeof values === "object" && !Array.isArray(values)
       ? Object.fromEntries(Object.entries(values).filter((entry): entry is [string, string] => typeof entry[1] === "string"))
       : {};
   const fallback = blank();
-  const migrated = migrateCharacter(value ?? fallback);
+  // Older saves could place a culture/career label in a skill-choice field.
+  // Restore that designation to its proper index before the legacy migration
+  // runs, then keep it out of the skill registry inputs below.
+  const savedSelections = value?.cultureSelections as Partial<Character["cultureSelections"]> | undefined;
+  const savedCultureLabels = [
+    ...(typeof value?.culture === "string" ? [value.culture] : []),
+    ...(Array.isArray(savedSelections?.standard) ? savedSelections.standard.flat() : []),
+    ...(Array.isArray(savedSelections?.professional) ? savedSelections.professional : []),
+    ...(typeof savedSelections?.combatStyle === "string" ? [savedSelections.combatStyle] : []),
+    ...(Array.isArray(value?.careerProfessional) ? value.careerProfessional : []),
+  ];
+  const savedCareerLabels = [
+    ...(typeof value?.career === "string" ? [value.career] : []),
+    ...savedCultureLabels,
+  ];
+  const cultureLabel = savedCultureLabels.find(name => cultures.some(item => item.name === name));
+  // A numeric career is an old index and must keep using the legacy index map.
+  // String career values, and labels recovered from the old choice fields, are
+  // already current names and must not be remapped as legacy indices later.
+  const careerLabel = typeof value?.career === "number"
+    ? undefined
+    : savedCareerLabels.find(name => careers.some(item => item.name === name));
+  const migrated = migrateCharacter({
+    ...(value ?? fallback),
+    ...(cultureLabel ? { culture: cultures.findIndex(item => item.name === cultureLabel) } : {}),
+    ...(careerLabel ? { career: careers.findIndex(item => item.name === careerLabel) } : {}),
+  });
   const legacyHobby = migrated.hobbySkill;
-  const legacyCareer = !!value && value.career !== undefined && !Array.isArray(value.careerProfessional);
+  const legacyCareer = !!value && value.career !== undefined && !Array.isArray(value.careerProfessional) && !careerLabel;
   const cultureKind = cultures[migrated.culture ?? fallback.culture]?.kind;
   const ageCategory = normalizeAgeCategory(migrated.ageCategory, fallback.ageCategory);
+  const restoreCultureChoices = (candidate: unknown): string[][] => {
+    if (!Array.isArray(candidate)) return fallback.cultureSelections.standard;
+    return candidate.every(Array.isArray)
+      ? candidate.map(group => group.filter(isSkillName))
+      : [candidate.filter(isSkillName)];
+  };
   const normalized = {
     ...fallback,
     ...migrated,
     id: typeof migrated.id === "string" && migrated.id ? migrated.id : fallback.id,
     career: legacyCareer ? restoreLegacyCareerIndex(migrated.career ?? fallback.career) : migrated.career ?? fallback.career,
-    cultureSelections: { ...fallback.cultureSelections, ...migrated.cultureSelections },
+    cultureSelections: {
+      ...fallback.cultureSelections,
+      ...migrated.cultureSelections,
+      standard: restoreCultureChoices(migrated.cultureSelections?.standard),
+      professional: Array.isArray(migrated.cultureSelections?.professional)
+        ? migrated.cultureSelections.professional.filter(isSkillName)
+        : fallback.cultureSelections.professional,
+      combatStyle: isSkillName(migrated.cultureSelections?.combatStyle) ? migrated.cultureSelections.combatStyle : "",
+    },
     combatStyles: normalizeCombatStyles(migrated.combatStyles),
     skillSpecialisations: {
       culture: restoreSpecialisations(migrated.skillSpecialisations?.culture),
       career: restoreSpecialisations(migrated.skillSpecialisations?.career),
     },
     step: migrateCharacterStep(migrated.step ?? fallback.step, !!migrated.background, !!migrated.magic),
-    magic: normalizeMagicState(migrated.magic), memberships: normalizeMemberships(migrated.memberships),
+    magic: normalizeMagicState(migrated.magic),
+    organisations: [], memberships: [],
     ...migrateCultureTables(cultureKind, migrated.socialTable, migrated.moneyTable),
     ageCategory,
     age: normalizeAge(Number.isFinite(migrated.age) ? migrated.age! : fallback.age, ageCategory),
     background: normalizeBackground(migrated.background, fallback.background),
     alloc: { ...fallback.alloc, ...(migrated.alloc ?? {}) },
-    careerProfessional: Array.isArray(migrated.careerProfessional) ? migrated.careerProfessional : [],
+    careerProfessional: Array.isArray(migrated.careerProfessional) ? migrated.careerProfessional.filter(isSkillName) : [],
     careerCombatStyles: Array.isArray(migrated.careerCombatStyles) ? migrated.careerCombatStyles.filter(name => typeof name === "string") : [],
     hobbySkill: null,
     race: normalizeRace(migrated.race),
@@ -126,6 +184,64 @@ function normalize(value: Partial<Character> | null, home = true): Character {
     nativeLanguage: typeof migrated.nativeLanguage === "string" ? migrated.nativeLanguage : "",
     home,
   } as Character;
+  // Older saves stored organisation labels in `memberships`; restore those as Common memberships.
+  const oldMembershipRows: unknown[] = Array.isArray(migrated.memberships) ? migrated.memberships as unknown[] : [];
+  const oldOrganisations = oldMembershipRows.flatMap(row => {
+    if (!row || typeof row !== "object") return [];
+    const old = row as Record<string, unknown>;
+    if (typeof old.id !== "string" || typeof old.name !== "string") return [];
+    return [{ id: old.id, name: old.name, kind: { type: "custom" as const,
+      ...(typeof old.organisationType === "string" ? { category: old.organisationType } : {}) },
+      ...(old.details && typeof old.details === "object" ? { details: old.details as Organisation["details"] } : {}) }];
+  });
+  const magicOrganisations: Organisation[] = normalized.magic.theism.memberships.flatMap(membership => {
+    const cult = [...CORE_THEIST_CULTS, ...normalized.magic.theism.customCults].find(item => item.id === membership.cultId);
+    if (!cult) return [];
+    return [{ id: cult.id, name: cult.name, kind: { type: "magical-cult" as const, discipline: "Theism" as const }, deity: cult.deity,
+      ...(cult.description ? { description: cult.description } : {}) }];
+  });
+  const linkedMagicOrganisations: Organisation[] = [
+    ...CORE_MYSTICISM_ORGANISATIONS.map(organisation => ({ id: organisation.id, name: organisation.name,
+      kind: { type: "magical-cult" as const, discipline: "Mysticism" as const }, ...(organisation.notes ? { details: { notes: organisation.notes } } : {}) })),
+    ...normalized.magic.mysticism.organisations.map(organisation => ({ id: organisation.id, name: organisation.name,
+      kind: { type: "magical-cult" as const, discipline: "Mysticism" as const }, ...(organisation.notes ? { details: { notes: organisation.notes } } : {}) })),
+    ...normalized.magic.animism.traditions.flatMap(tradition => tradition.organisationId ? [{ id: tradition.organisationId,
+      name: tradition.name, kind: { type: "magical-cult" as const, discipline: "Animism" as const },
+      ...(tradition.description ? { description: tradition.description } : {}), ...(tradition.notes ? { details: { notes: tradition.notes } } : {}) }] : []),
+    ...[...CORE_SORCERY_SCHOOLS, ...normalized.magic.sorcery.customSchools].flatMap(school => school.organisationId ? [{ id: school.organisationId,
+      name: school.name, kind: { type: "magical-cult" as const, discipline: "Sorcery" as const },
+      ...(school.notes ? { details: { notes: school.notes } } : {}) }] : []),
+  ];
+  normalized.organisations = normalizeOrganisations([
+    ...linkedMagicOrganisations, ...magicOrganisations, ...oldOrganisations, ...(Array.isArray(migrated.organisations) ? migrated.organisations : []),
+  ]);
+  const legacyGenericMemberships = oldMembershipRows.flatMap(row => {
+    if (!row || typeof row !== "object") return [];
+    const old = row as Record<string, unknown>;
+    return typeof old.id === "string" ? [{ id: old.id, organisationId: old.id, rank: "Common" }] : [];
+  });
+  const theistMemberships = normalized.magic.theism.memberships.map(membership => ({
+    id: membership.id, organisationId: membership.cultId,
+    rank: genericRankForTitle(membership.rank, "Theism") ?? "Common" as GenericOrganisationRank,
+  }));
+  const genericMemberships = normalizeOrganisationMemberships([...theistMemberships, ...legacyGenericMemberships,
+    ...(Array.isArray(migrated.memberships) ? migrated.memberships.filter(item => item && typeof item === "object" && "organisationId" in item) : [])]);
+  normalized.memberships = genericMemberships;
+  // Generic membership rank is authoritative; Theism keeps its discipline title for existing rules/UI.
+  for (const membership of normalized.memberships) {
+    const theist = normalized.magic.theism.memberships.find(item => item.id === membership.id);
+    const organisation = normalized.organisations.find(item => item.id === membership.organisationId);
+    if (theist && organisation?.kind.type === "magical-cult" && organisation.kind.discipline === "Theism") {
+      theist.rank = rankTitle(membership.rank, { kind: organisation.kind }) as typeof theist.rank;
+    }
+  }
+  for (const membership of normalized.memberships) {
+    if (!normalized.organisations.some(organisation => organisation.id === membership.organisationId)) {
+      normalized.organisations.push({ id: membership.organisationId, name: membership.organisationId,
+        kind: { type: "custom", category: "legacy" } });
+    }
+  }
+  syncMagicOrganisationMemberships(normalized.magic, normalized.organisations, normalized.memberships);
   const legacyNames = [
     ...(normalized.cultureSelections.combatStyle ? [[normalized.cultureSelections.combatStyle, "culture"] as const] : []),
     ...normalized.careerCombatStyles.filter(Boolean).map(name => [name, "career"] as const),
@@ -151,6 +267,15 @@ function normalize(value: Partial<Character> | null, home = true): Character {
   normalized.socialTable = cultureKind ?? "Civilised";
   normalized.moneyTable = cultureKind ?? "Civilised";
   normalized.background.socialClassCulture = resolvedCulture;
+  const savedInventoryLedger = migrated.background as Partial<Character["background"]> | undefined;
+  const hasSavedInventoryLedger = Array.isArray(savedInventoryLedger?.equipmentTransactions);
+  const normalizedInventory = normalizeInventoryState(normalized.background);
+  normalized.background.inventory = normalizedInventory.inventory;
+  normalized.background.inventoryOrder = normalizeInventoryOrder(normalized.background.inventoryOrder, normalizedInventory.inventory);
+  normalized.background.customEquipment = normalizeCustomEquipment(normalized.background.customEquipment);
+  normalized.background.equipmentTransactions = hasSavedInventoryLedger
+    ? normalizedInventory.equipmentTransactions
+    : migrateLegacyPurchases(normalized.background.purchases);
   // Upgrade legacy saves with a snapshot of the official class data they resolved.
   const savedClass = SOCIAL_CLASSES[resolvedCulture]?.find(row => row.name === normalized.background.socialClass);
   if (savedClass && !(migrated.background as Partial<Character["background"]> | undefined)?.socialClassEquipment) {
@@ -173,13 +298,22 @@ function normalize(value: Partial<Character> | null, home = true): Character {
   const migratedCurrentMoney = migrated.background?.currentMoney;
   const savedCurrentMoney = typeof migratedCurrentMoney === "number"
     && Number.isFinite(migratedCurrentMoney) && migratedCurrentMoney >= 0;
-  if (!savedCurrentMoney) {
-    const spent = normalized.background.purchases.reduce((total, item) => total + item.cost, 0);
-    normalized.background.currentMoney = Math.max(0, normalized.background.startingMoneyTotal - spent);
-  } else if (normalized.background.startingMoneyKey !== moneyKey) {
+  if (normalized.background.equipmentTransactions.length) {
+    normalized.background.currentMoney = reconcileBalance(normalized.background.startingMoneyTotal, normalized.background.equipmentTransactions).remainingCp / 10;
+  } else if (!savedCurrentMoney || normalized.background.startingMoneyKey !== moneyKey) {
     normalized.background.currentMoney = normalized.background.startingMoneyTotal;
+  } else if (!Object.hasOwn(normalized.background.moneyOverrides, "remainingCp")
+      && Math.round(migratedCurrentMoney! * 10) !== Math.round(normalized.background.startingMoneyTotal * 10)) {
+    // Older saves could carry a hand-adjusted balance without a transaction ledger.
+    normalized.background.moneyOverrides.remainingCp = Math.round(migratedCurrentMoney! * 10);
+  }
+  if (Object.hasOwn(normalized.background.moneyOverrides, "remainingCp")
+      && !Object.hasOwn(normalized.background.moneyOverrides, "remainingCpSpentBaseline")) {
+    normalized.background.moneyOverrides.remainingCpSpentBaseline = ledgerSpentCp(normalized.background.equipmentTransactions);
   }
   normalized.background.startingMoneyKey = moneyKey;
+  normalized.background.currentMoney = (normalized.background.moneyOverrides.remainingCp
+    ?? reconcileBalance(normalized.background.startingMoneyTotal, normalized.background.equipmentTransactions).remainingCp) / 10;
   normalized.frameOptions = Array.isArray(migrated.frameOptions)
     ? migrated.frameOptions.filter((frame): frame is Frame => FRAMES.includes(frame as Frame))
     : undefined;
@@ -261,13 +395,16 @@ function magicSkillsFor(character: Character) {
       .filter((name): name is string => !!name)])];
   const hobby = hobbySkillName(character.hobbySkill);
   const names = [...new Set([...cultureLearned, ...careerLearned, ...(hobby ? [hobby] : []), ...Object.keys(character.alloc.bonus)])];
+  const combatStyles = [...character.careerCombatStyles, character.cultureSelections.combatStyle,
+    ...character.combatStyles.map(style => style.name), ...(character.hobbySkill?.type === "combatStyle" ? [character.hobbySkill.name] : [])]
+    .filter(Boolean);
   return names.map(name => {
     const origins = [
       ...(cultureLearned.includes(name) ? ["culture" as const] : []),
       ...(careerLearned.includes(name) ? ["career" as const] : []),
       ...(name === hobby || (character.alloc.bonus[name] ?? 0) > 0 ? ["bonus" as const] : []),
     ];
-    const value = formulaVal(skillDef(name, [...character.careerCombatStyles, character.cultureSelections.combatStyle].filter(Boolean)).f, character.chars)
+    const value = formulaVal(skillDef(name, combatStyles).f, character.chars)
       + sum((Object.keys(POOLS) as Kind[]).map(kind => character.alloc[kind][name] ?? 0));
     return { name, value, origins };
   });
@@ -295,7 +432,7 @@ const repository = createCharacterRepository<Character>(
   () => { const { id: _id, ...data } = blank(); return data; },
 );
 const initialCharacter = repository.getCharacter(repository.getActiveCharacterId() ?? "") ?? repository.createCharacter();
-export const char: Character = $state(normalize(initialCharacter, true));
+export const char: Character = $state(normalizeCharacter(initialCharacter, true));
 export const characterLibrary = $state({ characters: repository.listCharacters() as Character[] });
 function refreshLibrary() { characterLibrary.characters = repository.listCharacters() as Character[]; }
 
@@ -306,11 +443,11 @@ export function reconcileMagic() {
   reconcileAnimism(char.magic.animism, char.magic.animism.rank, char.chars.CHA, char.magic.animism.traditionId, binding?.value);
 }
 export const reset = (home = true) => Object.assign(char, blank(), { id: char.id, home });
-export const replace = (c: Partial<Character>) => Object.assign(char, normalize({ ...c, id: char.id }, false));
+export const replace = (c: Partial<Character>) => Object.assign(char, normalizeCharacter({ ...c, id: char.id }, false));
 export function createCharacter() {
   persist();
   const created = repository.createCharacter();
-  Object.assign(char, normalize(created, false));
+  Object.assign(char, normalizeCharacter(created, false));
   refreshLibrary();
   return created.id;
 }
@@ -319,7 +456,7 @@ export function selectCharacter(id: string) {
   if (!repository.setActiveCharacter(id)) return false;
   const selected = repository.getCharacter(id);
   if (!selected) return false;
-  Object.assign(char, normalize(selected, false));
+  Object.assign(char, normalizeCharacter(selected, false));
   refreshLibrary();
   return true;
 }
@@ -328,10 +465,10 @@ export function deleteCharacter(id: string) {
   if (!repository.deleteCharacter(id)) return false;
   const fallbackId = repository.getActiveCharacterId();
   const fallback = fallbackId ? repository.getCharacter(fallbackId) : null;
-  if (fallback) Object.assign(char, normalize(fallback, false));
+  if (fallback) Object.assign(char, normalizeCharacter(fallback, false));
   else {
     const created = repository.createCharacter();
-    Object.assign(char, normalize(created, true));
+    Object.assign(char, normalizeCharacter(created, true));
   }
   refreshLibrary();
   return true;
@@ -428,9 +565,12 @@ export function recalculateStartingMoney() {
   const total = ready
     ? calculateStartingMoney(char.background.startingMoneyRoll, char.moneyTable, char.background.socialClassMoney)
     : 0;
-  if (char.background.startingMoneyKey !== key) char.background.currentMoney = total;
+  if (char.background.equipmentTransactions.length) {
+    char.background.currentMoney = reconcileBalance(total, char.background.equipmentTransactions).remainingCp / 10;
+  } else if (char.background.startingMoneyKey !== key) char.background.currentMoney = total;
   char.background.startingMoneyKey = key;
   char.background.startingMoneyTotal = total;
+  char.background.currentMoney = equipmentBalanceCp() / 10;
   return total;
 }
 export function setStartingMoneyRoll(roll: number) {
@@ -438,6 +578,120 @@ export function setStartingMoneyRoll(roll: number) {
   return recalculateStartingMoney();
 }
 export const startingMoney = () => char.background.startingMoneyTotal;
+const calculatedEquipmentSpentCp = () => ledgerSpentCp(char.background.equipmentTransactions);
+const calculatedEquipmentBalanceCp = () => reconcileBalance(char.background.startingMoneyTotal, char.background.equipmentTransactions).remainingCp;
+export type EquipmentMoneyField = "startingCp" | "spentCp" | "remainingCp";
+export const equipmentMoneyIsOverridden = (field: EquipmentMoneyField) => Object.hasOwn(char.background.moneyOverrides, field);
+export const equipmentMoneyValueCp = (field: EquipmentMoneyField) => char.background.moneyOverrides[field]
+  ?? (field === "startingCp" ? Math.round(char.background.startingMoneyTotal * 10)
+    : field === "spentCp" ? calculatedEquipmentSpentCp() : calculatedEquipmentBalanceCp());
+export const equipmentSpentCp = () => equipmentMoneyValueCp("spentCp");
+export const equipmentBalanceCp = () => equipmentMoneyValueCp("remainingCp");
+export const equipmentAvailableCp = () => char.background.moneyOverrides.remainingCp === undefined
+  ? calculatedEquipmentBalanceCp()
+  : char.background.moneyOverrides.remainingCp
+    - (calculatedEquipmentSpentCp() - (char.background.moneyOverrides.remainingCpSpentBaseline ?? calculatedEquipmentSpentCp()));
+export function setEquipmentMoney(field: EquipmentMoneyField, amountSp: number) {
+  if (!Number.isFinite(amountSp) || amountSp < 0 || !Number.isSafeInteger(Math.round(amountSp * 10))) {
+    throw new Error("Enter a valid non-negative amount in SP, to the nearest CP.");
+  }
+  char.background.moneyOverrides[field] = Math.round(amountSp * 10);
+  if (field === "remainingCp") char.background.moneyOverrides.remainingCpSpentBaseline = calculatedEquipmentSpentCp();
+  char.background.currentMoney = equipmentBalanceCp() / 10;
+}
+export function resetEquipmentMoney(field: EquipmentMoneyField) {
+  delete char.background.moneyOverrides[field];
+  if (field === "remainingCp") delete char.background.moneyOverrides.remainingCpSpentBaseline;
+  char.background.currentMoney = equipmentBalanceCp() / 10;
+}
+export function purchaseEquipment(catalogueId: string, quantity: number, gmEnteredPriceCp?: number, armourSelection?: import("./equipment-inventory").ArmourAcquisitionSelection) {
+  const record = EQUIPMENT_CATALOGUE.find(item => item.source.id === catalogueId)?.source;
+  if (!record) throw new Error(`Unknown equipment catalogue id: ${catalogueId}`);
+  const next = addPurchase({ inventory: char.background.inventory, equipmentTransactions: char.background.equipmentTransactions }, record, quantity, gmEnteredPriceCp, undefined, armourSelection);
+  const purchaseCost = ledgerSpentCp(next.equipmentTransactions) - calculatedEquipmentSpentCp();
+  if (purchaseCost > equipmentAvailableCp()) throw new Error("Purchase exceeds available funds");
+  char.background.inventory = next.inventory;
+  char.background.equipmentTransactions = next.equipmentTransactions;
+  char.background.currentMoney = equipmentBalanceCp() / 10;
+}
+export function acquireEquipment(catalogueId: string, quantity: number, acquiredAs: "gifted" | "inherited" | "granted", armourSelection?: import("./equipment-inventory").ArmourAcquisitionSelection) {
+  const record = EQUIPMENT_CATALOGUE.find(item => item.source.id === catalogueId)?.source;
+  if (!record) throw new Error(`Unknown equipment catalogue id: ${catalogueId}`);
+  const next = addGift({ inventory: char.background.inventory, equipmentTransactions: char.background.equipmentTransactions }, record, quantity, acquiredAs, armourSelection);
+  char.background.inventory = next.inventory;
+}
+export function recordEquipmentExpense(catalogueId: string, quantity: number, gmEnteredPriceCp?: number) {
+  const record = EQUIPMENT_CATALOGUE.find(item => item.source.id === catalogueId)?.source;
+  if (!record) throw new Error(`Unknown equipment catalogue id: ${catalogueId}`);
+  const next = addExpense({ inventory: char.background.inventory, equipmentTransactions: char.background.equipmentTransactions }, record, quantity, gmEnteredPriceCp);
+  const expenseCost = ledgerSpentCp(next.equipmentTransactions) - calculatedEquipmentSpentCp();
+  if (expenseCost > equipmentAvailableCp()) throw new Error("Expense exceeds available funds");
+  char.background.equipmentTransactions = next.equipmentTransactions;
+  char.background.currentMoney = equipmentBalanceCp() / 10;
+}
+export function updateInventoryItem(id: string, update: { quantity?: number; state?: EquipmentState; encPerUnit?: number | null; encumbranceExempt?: boolean; armour?: Partial<Omit<import("./armour-rules").ArmourPiece, "id">> }) {
+  char.background.inventory = changeInventoryItem({ inventory: char.background.inventory, equipmentTransactions: char.background.equipmentTransactions }, id, update).inventory;
+}
+export function deleteInventoryItem(id: string) {
+  char.background.inventory = removeInventoryItem({ inventory: char.background.inventory, equipmentTransactions: char.background.equipmentTransactions }, id).inventory;
+}
+export function moveOwnedInventoryItem(id: string, offset: -1 | 1) {
+  char.background.inventoryOrder = moveInventoryItem(char.background.inventory, char.background.inventoryOrder, id, offset);
+}
+export function refundEquipmentPurchase(transactionId: string, amountCp: number) {
+  const next = refundPurchase({ inventory: char.background.inventory, equipmentTransactions: char.background.equipmentTransactions }, transactionId, amountCp);
+  char.background.equipmentTransactions = next.equipmentTransactions;
+  char.background.currentMoney = equipmentBalanceCp() / 10;
+}
+export function saveCustomEquipment(definition: Omit<CustomEquipmentDefinition, "id" | "updatedAt">, existingId?: string) {
+  const errors = validateCustomEquipment(definition);
+  if (errors.length) throw new Error(errors[0]);
+  const id = existingId ?? `custom-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`}`;
+  const existing = char.background.customEquipment.find(item => item.id === id);
+  if (!existing && char.background.customEquipment.some(item => item.id === id)) throw new Error("Duplicate custom item ID.");
+  const previousTime = existing ? Date.parse(existing.updatedAt) : 0;
+  const updatedAt = new Date(Math.max(Date.now(), Number.isFinite(previousTime) ? previousTime + 1 : 0)).toISOString();
+  const saved: CustomEquipmentDefinition = { ...definition, id, updatedAt };
+  char.background.customEquipment = existing
+    ? char.background.customEquipment.map(item => item.id === id ? saved : item)
+    : [...char.background.customEquipment, saved];
+  return saved;
+}
+export function deleteCustomEquipment(id: string) {
+  char.background.customEquipment = char.background.customEquipment.filter(item => item.id !== id);
+}
+export function acquireCustomEquipment(id: string, quantity: number, acquiredAs: "purchased" | "gifted" | "inherited" | "granted") {
+  const definition = char.background.customEquipment.find(item => item.id === id);
+  if (!definition) throw new Error("Custom item not found for this character.");
+  if (!Number.isSafeInteger(quantity) || quantity < 1) throw new Error("Quantity must be a positive whole number.");
+  if (definition.type === "service") throw new Error("Services do not create inventory.");
+  const inventory = [...char.background.inventory];
+  const existing = inventory.find(item => item.customItem?.id === id && item.customItem.updatedAt === definition.updatedAt
+    && item.acquiredAs === acquiredAs);
+  if (existing) {
+    if (!Number.isSafeInteger(existing.quantity + quantity)) throw new Error("Quantity is too large.");
+    inventory[inventory.indexOf(existing)] = { ...existing, quantity: existing.quantity + quantity };
+  }
+  else inventory.push(customEquipmentInventoryItem(definition, acquiredAs, quantity,
+    `owned-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`}`));
+  char.background.inventory = inventory;
+}
+export function purchaseCustomEquipment(id: string, quantity: number) {
+  const definition = char.background.customEquipment.find(item => item.id === id);
+  if (!definition) throw new Error("Custom item not found for this character.");
+  if (definition.priceCp === null) throw new Error("Enter an explicit GM price before purchasing this item.");
+  if (!Number.isSafeInteger(quantity) || quantity < 1) throw new Error("Quantity must be a positive whole number.");
+  const amountCp = definition.priceCp * quantity;
+  if (!Number.isSafeInteger(amountCp)) throw new Error("Total price is too large.");
+  const transactions = [...char.background.equipmentTransactions, { id: `transaction-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`}`,
+    kind: definition.type === "service" ? "expense" as const : "purchase" as const, catalogueId: null, name: definition.name,
+    quantity, amountCp, amountSource: "gm_entered" as const, catalogueVersion: "custom-definition-v1", recordedAt: new Date().toISOString() }];
+  const purchaseCost = ledgerSpentCp(transactions) - calculatedEquipmentSpentCp();
+  if (purchaseCost > equipmentAvailableCp()) throw new Error("Purchase exceeds available funds.");
+  if (definition.type !== "service") acquireCustomEquipment(id, quantity, "purchased");
+  char.background.equipmentTransactions = transactions;
+  char.background.currentMoney = equipmentBalanceCp() / 10;
+}
 export const socialClassMoney = (kind: CultureKind, rank: string) => classMoneyMultiplier(kind, rank);
 export const rollDie = (sides: number) => Math.floor(Math.random() * sides) + 1;
 export const rollPercentile = () => rollDie(100);
