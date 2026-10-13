@@ -10,6 +10,12 @@ Guided character builder for the Mythras RPG. Svelte 5 + Vite + TypeScript, depl
 - Rules formulas and point pools: `src/lib/rules.ts`
 - Cultures and careers (add your own): `src/lib/content.ts`
 
+## Printing
+
+**Print** fills the official two-page *Mythras Character Sheet* PDF (`src/assets/mythras-character-sheet.pdf`) with the selected character and opens it for printing. The template has no form fields, so text is stamped at coordinates measured from the sheet (`src/lib/sheet-pdf.ts`); what goes where is decided in `src/lib/sheet-data.ts`. Only recorded data is printed, and text that does not fit its field is shortened with the full text added to a labelled supplement page.
+
+Provenance: the template is the publicly distributed Mythras Character Sheet (design and layout by Evelyn H.), included on the project owner's confirmation that it is not copyrighted.
+
 ## Rules validation
 
 Run `bun test` for the core formula, boundary, and bundled culture/career regression fixtures. The fixtures use the detailed Mythras 3rd-printing rules as the authority; the Character Creation Workbook is a cross-check. INT and SIZ point-buy minima are 8 per the detailed rule and Workbook, despite the later core summary's printed 6. Where Workbook skill-base entries disagree with the core Standard Skills table, core table values control. Companion alternatives are not part of these core fixtures.

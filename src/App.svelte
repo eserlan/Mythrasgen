@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { tick } from "svelte";
+  import { printCharacterSheet } from "./lib/sheet-print";
   import Characteristics from "./components/Characteristics.svelte";
   import Landing from "./components/Landing.svelte";
   import Concept from "./components/Concept.svelte";
@@ -46,7 +46,7 @@
   }
   async function print() {
     if (!canVisit(last)) return;
-    char.step = last; await tick(); window.print();
+    try { await printCharacterSheet(); } catch { alert("Could not create the character sheet PDF."); }
   }
   const newChar = () => { createCharacter(); char.home = false; showLibrary = false; };
 </script>
