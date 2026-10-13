@@ -28,6 +28,23 @@ describe("Page IX character sheet", () => {
     expect(sheet).toContain("equipment.load.unresolvedItems");
   });
 
+  test("shows five compact owned-equipment columns without catalogue identifiers", () => {
+    const ownedTable = sheet.match(/<table class="sheet-equipment-table">([\s\S]*?)<\/table>/)?.[1];
+    expect(ownedTable).toBeDefined();
+    expect([...ownedTable!.matchAll(/<th>([^<]+)<\/th>/g)].map(([, label]) => label)).toEqual([
+      "Item", "Qty", "State", "Acquisition", "ENC",
+    ]);
+    expect(ownedTable).not.toContain("<th>Source</th>");
+    expect(ownedTable).not.toContain("sourceIds");
+    expect(ownedTable).not.toContain("customItem");
+    expect(ownedTable).toContain('<col style="width:34%" />');
+    expect(ownedTable).toContain('<col style="width:8%" />');
+    expect(ownedTable).toContain('<col style="width:13%" />');
+    expect(ownedTable).toContain('<col style="width:20%" />');
+    expect(ownedTable).toContain('<col style="width:25%" />');
+    expect(sheet).toContain("sheet-owned .sheet-equipment-table{table-layout:fixed}");
+  });
+
   test("aligns both location tables to the canonical Mythras order", () => {
     const expectedOrder = ["Head", "Left Arm", "Right Arm", "Chest", "Abdomen", "Left Leg", "Right Leg"];
     expect(HIT_LOCATIONS).toEqual(expectedOrder);
