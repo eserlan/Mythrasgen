@@ -187,7 +187,9 @@ describe("populated Mythras Character Sheet PDF", () => {
     const sheetOnlyText = await renderedText(sheetOnly);
     expect(sheetOnlyText).not.toContain("Full descriptions: Magic Appendix");
     expect(sheetOnlyText).not.toContain("see Magic Appendix");
-    expect(await pageCount(await renderCharacterSheet(data, { template, mode: "sheet-and-appendix" }))).toBeGreaterThan(2);
+    const combined = await renderCharacterSheet(data, { template, mode: "sheet-and-appendix" });
+    expect(await pageCount(combined)).toBeGreaterThan(2);
+    expect(await renderedText(combined)).toContain("Full descriptions: Magic Appendix");
     expect(await pageCount(await renderCharacterSheet(data, { template, mode: "appendix-only" }))).toBeGreaterThan(0);
     const appendix = await renderedText(await renderCharacterSheet(data, { template, mode: "appendix-only" }));
     expect(appendix).toContain("Magic & Abilities");
@@ -229,6 +231,8 @@ describe("populated Mythras Character Sheet PDF", () => {
     const runs = await renderedTextRuns(bytes);
     const supplementBold = await doc.embedFont(StandardFonts.HelveticaBold);
     expect(doc.getPageCount()).toBeGreaterThan(2);
+    expect(text).toContain("Full descriptions: Magic Appendix");
+    expect(text).toContain("see Magic Appendix");
     expect(text).toContain("FINAL SPELL DETAIL");
     expect(text.indexOf("Spell 1")).toBeLessThan(text.indexOf("Spell 20"));
     expect(runs.filter(run => run.includes("Z")).map(run => run.match(/Z+/)?.[0].length ?? 0).reduce((sum, length) => sum + length, 0)).toBe(95);
