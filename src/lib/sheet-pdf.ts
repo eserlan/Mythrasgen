@@ -24,10 +24,28 @@ const STYLE_LINES = onRule(step(529.8, 12, 4));
 const NOTES_BOX = { x: 30, y: 166, w: 350, h: 70 };
 const CULT_BOX = { x: 413, y: 270, w: 161, h: 145 };
 const MONEY_BOX = { x: 413, y: 172, w: 161, h: 34 };
+const CHARACTERISTIC_CIRCLE = { x: 152.2, diameter: 20.4 };
+const ATTRIBUTE_CIRCLE = { x: 340.5, diameter: 20.4 };
 
 type Align = "left" | "center";
 export interface SheetSupplementEntry { heading: string; paragraphs: string[] }
 export interface RenderOptions { template: Uint8Array | ArrayBuffer }
+
+/** Place text by its measured width and font bounds around a circle's measured centre. */
+export function circleTextPlacement(text: string, font: PDFFont, x: number, centerY: number, diameter: number, maxSize: number, minSize = 6.5) {
+  const available = diameter - 2.5;
+  let size = maxSize;
+  while (size > minSize && font.widthOfTextAtSize(text, size) > available) size = Math.max(minSize, size - 0.25);
+  let width = font.widthOfTextAtSize(text, size);
+  if (width > available) {
+    size *= available / width;
+    width = font.widthOfTextAtSize(text, size);
+  }
+  const ascent = font.heightAtSize(size, { descender: false });
+  const totalHeight = font.heightAtSize(size, { descender: true });
+  const descent = totalHeight - ascent;
+  return { x: x - width / 2, baseline: centerY + (ascent - descent) / 2, size };
+}
 
 class Sheet {
   readonly supplement: SheetSupplementEntry[] = [];
@@ -42,6 +60,13 @@ class Sheet {
 
   draw(page: PDFPage, text: string, x: number, baseline: number, size: number, font = this.font) {
     if (text) page.drawText(text, { x: x, y: PAGE_H - baseline, size, font, color: rgb(0, 0, 0) });
+  }
+
+  circle(page: PDFPage, raw: string, x: number, centerY: number, diameter: number, maxSize: number, font = this.bold) {
+    const text = this.safe(raw.trim(), font);
+    if (!text) return;
+    const placement = circleTextPlacement(text, font, x, centerY, diameter, maxSize);
+    this.draw(page, text, placement.x, placement.baseline, placement.size, font);
   }
 
   /** Print one line inside a printed field; shrink first, then truncate and send the full text to the supplement. */
@@ -136,10 +161,10 @@ function fillPage1(sheet: Sheet, data: SheetData) {
   sheet.paragraphs(page, data.money, MONEY_BOX, "Money & Wealth", 8.5);
   sheet.paragraphs(page, data.cult, CULT_BOX, "Cult Information", 8.5);
 
-  STATS.forEach((stat, index) => sheet.field(page, data.characteristics[stat], 141, 166, CHARACTERISTIC_ROWS[index] + 2.2, { align: "center", max: 13, font: sheet.bold }));
+  STATS.forEach((stat, index) => sheet.circle(page, data.characteristics[stat], CHARACTERISTIC_CIRCLE.x, CHARACTERISTIC_ROWS[index] - 2.4, CHARACTERISTIC_CIRCLE.diameter, 13));
   const attributes = [data.attributes.actionPoints, data.attributes.damageModifier, data.attributes.experienceModifier, data.attributes.healingRate,
     data.attributes.initiative, data.attributes.luckPoints, data.attributes.movement];
-  attributes.forEach((value, index) => sheet.field(page, value, 335, 353, CHARACTERISTIC_ROWS[index] + 2.2, { align: "center", max: 12, min: 6, font: sheet.bold }));
+  attributes.forEach((value, index) => sheet.circle(page, value, ATTRIBUTE_CIRCLE.x, CHARACTERISTIC_ROWS[index] - 2.4, ATTRIBUTE_CIRCLE.diameter, 12));
 
   SHEET_STANDARD_SKILLS.forEach((name, index) => sheet.field(page, data.standard[name], 164, 188, STANDARD_ROWS[index], { align: "center", max: 9 }));
   RESISTANCES.forEach((name, index) => sheet.field(page, data.resistances[name], 164, 188, RESISTANCE_ROWS[index], { align: "center", max: 9 }));

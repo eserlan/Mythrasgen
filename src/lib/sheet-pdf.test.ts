@@ -6,7 +6,7 @@ Object.defineProperty(globalThis, "$state", { value: <T>(value: T) => value, con
 const { char, replace, reset } = await import("./store.svelte");
 const { buildSheetData, SHEET_HIT_LOCATIONS } = await import("./sheet-data");
 const { currentSheetSource } = await import("./sheet-source");
-const { renderCharacterSheet } = await import("./sheet-pdf");
+const { circleTextPlacement, renderCharacterSheet } = await import("./sheet-pdf");
 
 const template = readFileSync(new URL("../assets/mythras-character-sheet.pdf", import.meta.url));
 const pageCount = async (bytes: Uint8Array) => (await PDFDocument.load(bytes)).getPageCount();
@@ -102,5 +102,32 @@ describe("populated Mythras Character Sheet PDF", () => {
     reset(false);
     replace({ name: "Ælfwynn 王", homeland: "Ísland ✓" });
     expect(await pageCount(await renderCharacterSheet(buildSheetData(currentSheetSource()), { template }))).toBe(2);
+  });
+
+  test("centres all seven attribute values by measured text and font bounds", async () => {
+    const doc = await PDFDocument.create();
+    const font = await doc.embedFont("Helvetica-Bold");
+    const values = ["2", "+1d2", "+0", "3", "12", "-1", "6", "+1d10+1d8"];
+    for (const value of values) {
+      const placement = circleTextPlacement(value, font, 340.5, 270, 20.4, 12);
+      const width = font.widthOfTextAtSize(value, placement.size);
+      const ascent = font.heightAtSize(placement.size, { descender: false });
+      const descent = font.heightAtSize(placement.size, { descender: true }) - ascent;
+      expect(placement.x + width / 2).toBeCloseTo(340.5, 5);
+      expect(placement.baseline - (ascent - descent) / 2).toBeCloseTo(270, 5);
+      expect(width).toBeLessThanOrEqual(20.4 - 2.5);
+    }
+    expect(circleTextPlacement("+1d2", font, 340.5, 270, 20.4, 12).size).toBeLessThan(12);
+  });
+
+  test("renders single, double, signed and dice values in the seven existing circles", async () => {
+    reset(false);
+    const data = buildSheetData(currentSheetSource());
+    const populated = {
+      ...data,
+      characteristics: { STR: "9", CON: "12", SIZ: "10", DEX: "11", INT: "13", POW: "14", CHA: "8" },
+      attributes: { actionPoints: "2", damageModifier: "+1d2", experienceModifier: "+0", healingRate: "3", initiative: "12", luckPoints: "-1", movement: "6" },
+    };
+    expect(await pageCount(await renderCharacterSheet(populated, { template }))).toBe(2);
   });
 });
