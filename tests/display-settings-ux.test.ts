@@ -15,21 +15,24 @@ describe("display settings interface", () => {
     expect(landing).toContain("<button class=\"big\" onclick={onSettings}>Settings</button>");
   });
 
-  test("print output modes are selectable and appendix-only is unavailable without recorded abilities", () => {
-    expect(app).toContain('<select class="print-mode-select" aria-label="Print output mode" bind:value={printMode}>');
-    expect(app).toContain('<option value="sheet-only">Official sheet only (2 pages)</option>');
-    expect(app).toContain('<option value="sheet-and-appendix">Sheet + Magic &amp; Abilities appendix</option>');
-    expect(app).toContain('<option value="appendix-only" disabled={!hasMagicAppendix}>');
-    expect(app).toContain('{hasMagicAppendix ? "" : " (no recorded abilities)"}');
+  test("print modes are offered in an accessible dialog in the required order", () => {
+    expect(app).not.toContain("Print output");
+    expect(app).toContain('<dialog class="print-dialog" bind:this={printDialog} aria-labelledby="print-dialog-title"');
+    expect(app).toContain("<h2 id=\"print-dialog-title\">Print character</h2>");
+    const options = ["titles-and-appendix", "titles-only", "notes-and-appendix", "notes-only", "appendix-only"];
+    const positions = options.map(mode => app.indexOf(`value="${mode}"`));
+    expect(positions.every(position => position >= 0)).toBe(true);
+    expect(positions).toEqual([...positions].sort((a, b) => a - b));
+    expect(app).toContain('("titles-and-appendix");');
+    expect(app).toContain("onclick={openPrintDialog}");
+    expect(app).toContain("onclick={print}");
+    expect(app).toContain("Cancel</button>");
   });
 
-  test("appendix-only printing falls back to the sheet when there are no recorded abilities", () => {
-    expect(app).toContain('const mode = printMode === "appendix-only" && !hasMagicAppendix ? "sheet-only" : printMode;');
-    expect(app).toContain("await printCharacterSheet(mode)");
-  });
-
-  test("print mode selector uses the higher contrast theme bronze for keyboard focus", () => {
-    expect(css).toContain(".print-mode-select:focus-visible{outline-color:var(--bronze)}");
+  test("print dialog has responsive styling and visible keyboard focus", () => {
+    expect(css).toContain(".print-dialog{width:min(620px,calc(100vw - 28px))");
+    expect(css).toContain(".print-dialog::backdrop");
+    expect(css).toContain("input:focus-visible");
   });
 
   test("settings controls use labeled native radio groups for keyboard operation", () => {

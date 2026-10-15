@@ -21,10 +21,10 @@
   let showLibrary = $state(false);
   let showSettings = $state(false);
   let displaySettings = $state(loadDisplaySettings());
-  let printMode = $state<"sheet-only" | "sheet-and-appendix" | "appendix-only">("sheet-and-appendix");
+  let printMode = $state<"titles-and-appendix" | "titles-only" | "notes-and-appendix" | "notes-only" | "appendix-only">("titles-and-appendix");
+  let printDialog: HTMLDialogElement;
   const last = STEPS.length - 1;
   const canContinue = $derived(char.generation === "roll" || canFinishPointBuy(char.chars));
-  const hasMagicAppendix = $derived(buildSheetData(currentSheetSource()).magic.length > 0);
   const canVisit = (step: number) => canVisitStep(step, canContinue, cultureAllocationErrors().length === 0)
     && (step < 4 || careerAllocationErrors().length === 0)
     && (step !== last || canComplete());
@@ -48,10 +48,14 @@
     try { replace(JSON.parse(await f.text())); } catch { alert("Invalid file"); }
     e.currentTarget.value = "";
   }
+  function openPrintDialog() {
+    printDialog.showModal();
+    printDialog.querySelector<HTMLInputElement>("input[name='print-mode']:checked")?.focus();
+  }
   async function print() {
     if (!canVisit(last)) return;
-    const mode = printMode === "appendix-only" && !hasMagicAppendix ? "sheet-only" : printMode;
-    if (mode !== printMode) alert("This character has no recorded Magic & Abilities. Printing the official two-page sheet instead.");
+    const mode = printMode;
+    printDialog.close();
     try { await printCharacterSheet(mode); } catch { alert("Could not create the character sheet PDF."); }
   }
   const newChar = () => { createCharacter(); char.home = false; showLibrary = false; };
@@ -69,14 +73,7 @@
       <button aria-current={showSettings ? "page" : undefined} onclick={() => { showSettings = true; showLibrary = false; open = false; }}>Settings</button>
       <button onclick={save}>Save</button>
       <label class="btn">Load<input type="file" accept=".json" hidden onchange={loadFile}></label>
-      <label class="print-mode-label">Print output
-        <select class="print-mode-select" aria-label="Print output mode" bind:value={printMode}>
-          <option value="sheet-only">Official sheet only (2 pages)</option>
-          <option value="sheet-and-appendix">Sheet + Magic &amp; Abilities appendix</option>
-          <option value="appendix-only" disabled={!hasMagicAppendix}>Magic &amp; Abilities reference only{hasMagicAppendix ? "" : " (no recorded abilities)"}</option>
-        </select>
-      </label>
-      <button onclick={print} disabled={!canVisit(last)}>Print</button>
+      <button onclick={openPrintDialog} disabled={!canVisit(last)}>Print</button>
       <button onclick={newChar}>New</button>
     </div>
   </div>
@@ -114,3 +111,18 @@
   </div>
 </main>{/if}
 {/if}
+
+<dialog class="print-dialog" bind:this={printDialog} aria-labelledby="print-dialog-title" onclick={event => { if (event.target === event.currentTarget) printDialog.close(); }}>
+  <form method="dialog" onsubmit={event => event.preventDefault()}>
+    <h2 id="print-dialog-title">Print character</h2>
+    <fieldset>
+      <legend>Choose what to print</legend>
+      <label><input type="radio" name="print-mode" value="titles-and-appendix" bind:group={printMode} /><span><strong>Character sheet with Magic titles + Magic Appendix</strong><small>Official two-page sheet with known ability names and a complete detailed reference appendix.</small></span></label>
+      <label><input type="radio" name="print-mode" value="titles-only" bind:group={printMode} /><span><strong>Character sheet with Magic titles only</strong><small>Official sheet with known ability names in the Magic &amp; Abilities box.</small></span></label>
+      <label><input type="radio" name="print-mode" value="notes-and-appendix" bind:group={printMode} /><span><strong>Character sheet with Magic notes + Magic Appendix</strong><small>Official sheet with ability names and available rules notes, plus the complete detailed reference appendix.</small></span></label>
+      <label><input type="radio" name="print-mode" value="notes-only" bind:group={printMode} /><span><strong>Character sheet with Magic notes only</strong><small>Official sheet with ability names and available rules notes; overflow is marked on the sheet.</small></span></label>
+      <label><input type="radio" name="print-mode" value="appendix-only" bind:group={printMode} /><span><strong>Magic Appendix only</strong><small>Complete detailed reference pages without the official character sheet. If no abilities are recorded, prints the two-page sheet.</small></span></label>
+    </fieldset>
+    <footer><button type="button" class="secondary" onclick={() => printDialog.close()}>Cancel</button><button type="button" class="primary" onclick={print}>Print</button></footer>
+  </form>
+</dialog>

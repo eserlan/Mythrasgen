@@ -7,7 +7,7 @@ import type { PrintMode } from "./sheet-pdf";
  * Fill the official Mythras Character Sheet from the selected character and open it for printing.
  * The preview tab is opened synchronously so popup blockers allow it; a download is the fallback.
  */
-export async function printCharacterSheet(mode: PrintMode = "sheet-and-appendix"): Promise<void> {
+export async function printCharacterSheet(mode: PrintMode = "titles-and-appendix"): Promise<void> {
   const preview = window.open("", "_blank");
   try {
     const source = currentSheetSource();
