@@ -272,7 +272,11 @@ function drawMagicEntries(sheet: Sheet, page: PDFPage, entries: SheetData["magic
   const x1 = 28, width = 344, size = 7.5;
   const lines: { text: string; font: PDFFont }[] = [];
   const groups = new Map<string, SheetData["magic"]>();
-  for (const entry of entries) groups.set(entry.tradition, [...(groups.get(entry.tradition) ?? []), entry]);
+  for (const entry of entries) {
+    const group = groups.get(entry.tradition);
+    if (group) group.push(entry);
+    else groups.set(entry.tradition, [entry]);
+  }
   for (const [tradition, group] of groups) {
     lines.push({ text: tradition.toUpperCase(), font: sheet.bold });
     for (const entry of group) {

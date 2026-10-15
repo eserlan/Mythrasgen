@@ -15,6 +15,19 @@ describe("display settings interface", () => {
     expect(landing).toContain("<button class=\"big\" onclick={onSettings}>Settings</button>");
   });
 
+  test("print output modes are selectable and appendix-only is unavailable without recorded abilities", () => {
+    expect(app).toContain('<select aria-label="Print output mode" bind:value={printMode}>');
+    expect(app).toContain('<option value="sheet-only">Official sheet only (2 pages)</option>');
+    expect(app).toContain('<option value="sheet-and-appendix">Sheet + Magic &amp; Abilities appendix</option>');
+    expect(app).toContain('<option value="appendix-only" disabled={!hasMagicAppendix}>');
+    expect(app).toContain('{hasMagicAppendix ? "" : " (no recorded abilities)"}');
+  });
+
+  test("appendix-only printing falls back to the sheet when there are no recorded abilities", () => {
+    expect(app).toContain('const mode = printMode === "appendix-only" && !hasMagicAppendix ? "sheet-only" : printMode;');
+    expect(app).toContain("await printCharacterSheet(mode)");
+  });
+
   test("settings controls use labeled native radio groups for keyboard operation", () => {
     expect(settings).toContain("<legend>Text size</legend>");
     expect(settings).toContain("<legend>Font style</legend>");
