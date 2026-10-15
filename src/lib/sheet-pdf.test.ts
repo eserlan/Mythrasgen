@@ -13,9 +13,9 @@ const { CORE_MYSTICISM_PATHS } = await import("./mysticism");
 
 const template = readFileSync(new URL("../assets/mythras-character-sheet.pdf", import.meta.url));
 const pageCount = async (bytes: Uint8Array) => (await PDFDocument.load(bytes)).getPageCount();
-const renderedTextRuns = async (bytes: Uint8Array) => {
+const renderedTextRunsByPage = async (bytes: Uint8Array) => {
   const doc = await PDFDocument.load(bytes);
-  return doc.getPages().flatMap(page => {
+  return doc.getPages().map(page => {
     const contents = page.node.Contents();
     const streams = contents instanceof PDFArray ? contents.asArray() : contents ? [contents] : [];
     return streams.flatMap(reference => {
@@ -30,6 +30,8 @@ const renderedTextRuns = async (bytes: Uint8Array) => {
     });
   });
 };
+const renderedTextRuns = async (bytes: Uint8Array) => (await renderedTextRunsByPage(bytes)).flat();
+const renderedTextByPage = async (bytes: Uint8Array) => (await renderedTextRunsByPage(bytes)).map(runs => runs.join(" "));
 const renderedText = async (bytes: Uint8Array) => (await renderedTextRuns(bytes)).join(" ");
 
 describe("printable character sheet data", () => {
@@ -289,7 +291,7 @@ describe("populated Mythras Character Sheet PDF", () => {
     const notesAndAppendixBytes = await renderCharacterSheet(data, { template, mode: "notes-and-appendix" });
     const titleText = await renderedText(titleBytes);
     const noteText = await renderedText(noteBytes);
-    const notesAndAppendixText = await renderedText(notesAndAppendixBytes);
+    const notesAndAppendixPages = await renderedTextByPage(notesAndAppendixBytes);
     expect(await pageCount(titleBytes)).toBe(2);
     expect(await pageCount(noteBytes)).toBe(2);
     expect(titleText).toContain("Diminish");
@@ -297,8 +299,9 @@ describe("populated Mythras Character Sheet PDF", () => {
     expect(noteText).toContain("Diminish");
     expect(noteText).toContain("Reduces");
     expect(await pageCount(notesAndAppendixBytes)).toBeGreaterThan(2);
-    expect(notesAndAppendixText).toContain("Reduces");
-    expect(notesAndAppendixText).toContain("Physical Characteristics resist with Endurance; mental Characteristics resist with Willpower.");
+    expect(notesAndAppendixPages[1]).toContain("Diminish");
+    expect(notesAndAppendixPages[1]).toContain("Reduces the specified subject by 2 points per Intensity");
+    expect(notesAndAppendixPages.slice(2).join(" ")).toContain("Physical Characteristics resist with Endurance; mental Characteristics resist with Willpower.");
     const appendixOnly = await renderCharacterSheet(data, { template, mode: "appendix-only" });
     expect(await pageCount(appendixOnly)).toBeGreaterThan(0);
     expect(await renderedText(appendixOnly)).not.toContain("Player name");
