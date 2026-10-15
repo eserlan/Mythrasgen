@@ -86,7 +86,7 @@ try {
   await call("Page.reload");
   await new Promise(resolve => setTimeout(resolve, 1000));
   await evaluate(`Array.from(document.querySelectorAll('button')).find(button => button.innerText.toLowerCase().includes('continue your hero'))?.click()`);
-  await new Promise(resolve => setTimeout(resolve, 500));
+  await evaluate(`Promise.all(Array.from(document.querySelectorAll('.page')).flatMap(page => page.getAnimations().map(animation => animation.finished)))`);
   const loaded = await evaluate(`JSON.stringify({ equipment: !!document.querySelector('.inventory-ledger'), text: document.body.innerText.slice(0,800) })`);
   assert.ok(JSON.parse(loaded).equipment, `Page VIII did not load: ${JSON.parse(loaded).text}`);
   await evaluate(axeSource);
