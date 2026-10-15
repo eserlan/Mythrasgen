@@ -58,7 +58,7 @@ export interface SheetData {
   magical: SheetSkillRow[];
   languages: (SheetSkillRow & { native: boolean })[];
   passions: { label: string; total: string }[];
-  magic: { summary: string; detail: string }[];
+  magic: { tradition: string; summary: string; detail: string }[];
   hitLocations: Record<string, string>;
   equipment: { name: string; enc: string }[];
   armour: { name: string; ap: string; enc: string }[];
@@ -93,12 +93,17 @@ function skillRows(source: SheetSource, names: string[]): SheetSkillRow[] {
 }
 
 /** Details are resolved only for recorded choices. Unknown catalogue entries are omitted. */
-function magicEntries({ char }: SheetSource): SheetData["magic"] {
+export function buildMagicEntries(char: Character): SheetData["magic"] {
   const magic = char.magic, entries: SheetData["magic"] = [];
   const add = (tradition: string, name: string, rules: string[], notes: string[] = [], detailLabel = "Rules") => {
     const detail = [`${tradition} — ${name}`, ...rules.map(value => `${detailLabel}: ${value}`), ...notes.map(value => `Player/GM notes: ${value}`)].join("\n");
     const summary = `${tradition}: ${name}${rules.length ? ` — ${rules[0]}` : ""}`;
-    entries.push({ summary, detail });
+    const group = tradition.startsWith("Folk Magic") ? "Folk Magic"
+      : tradition.startsWith("Sorcery") ? "Sorcery"
+        : tradition.startsWith("Theism") ? "Theism"
+          : tradition.startsWith("Mysticism") ? "Mysticism"
+            : tradition.startsWith("Animism") ? "Animism" : "Other supernatural powers";
+    entries.push({ tradition: group, summary, detail });
   };
 
   for (const known of magic.folkMagic.knownSpells) {
@@ -262,7 +267,7 @@ export function buildSheetData(source: SheetSource): SheetData {
       const value = passionStartingValue(passion.category, char.chars, { pow: passion.subjectPow, cha: passion.subjectCha });
       return { label: `${passion.type} (${clean(passion.subject) || "unnamed"})`, total: value === null ? "" : String(value) };
     }) : [],
-    magic: magicEntries(source),
+    magic: buildMagicEntries(char),
     hitLocations: Object.fromEntries(SHEET_HIT_LOCATIONS.map(name => [name, hit[name] ?? ""])),
     equipment,
     armour,

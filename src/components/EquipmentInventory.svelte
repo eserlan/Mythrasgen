@@ -682,7 +682,7 @@
 <style>
   .inventory-ledger { margin-top: 1rem; }
   .activity-nav { display:flex; flex-wrap:wrap; gap:.5rem; margin:.75rem 0; border-bottom:1px solid var(--line); }
-  .activity-nav button { flex:1 1 10rem; min-height:2.75rem; }
+  .activity-nav button { flex:1 1 10rem; min-height:2.75rem; color:var(--fg); }
   .activity-nav button[aria-current="page"] { border-color:var(--acc); box-shadow:inset 0 -3px var(--acc); }
   .inventory-ledger :is(button,input,select,summary):focus-visible { outline:3px solid var(--acc); outline-offset:2px; }
   .activity-nav span { display:inline-grid; place-items:center; min-width:1.5rem; min-height:1.5rem; margin-left:.25rem; border:1px solid currentColor; border-radius:50%; font-size:.8rem; letter-spacing:0; }
@@ -789,7 +789,7 @@
   .catalogue-info { margin:.5rem 0; color:var(--mute); }
   .catalogue-info summary { cursor:pointer; }
   .catalogue-filters { display:flex; align-items:end; flex-wrap:wrap; gap:.65rem; }
-  .choose-actions,.custom-entry-actions { display:flex; align-items:end; flex-wrap:wrap; gap:1rem; margin:.6rem 0; }
+  .choose-actions,.custom-entry-actions { display:flex; align-items:end; flex-wrap:wrap; gap:1rem; margin:1rem 0; }
   .choose-actions > button.primary { min-height:3rem; }
   .custom-identity { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,13rem),1fr)); gap:.65rem; margin-top:.75rem; }
   .custom-identity label,.custom-fields label,.custom-field-wide { min-width:0; display:grid; align-content:start; gap:.25rem; }

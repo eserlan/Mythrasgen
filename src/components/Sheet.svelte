@@ -10,6 +10,7 @@
   import { HIT_LOCATIONS } from "../lib/armour-rules";
   import { formatRangedRange, rangedCellText, RANGED_WEAPON_STATS } from "../lib/ranged-weapons";
   import CombatStyles from "./CombatStyles.svelte";
+  import { buildMagicEntries } from "../lib/sheet-data";
 
   const derivedStatsResult = $derived(deriveStats(char.chars));
   const loc = $derived(derivedStatsResult.loc);
@@ -19,6 +20,9 @@
     && !MAGIC.some(([name]) => n === name || n.startsWith(`${name} (`))
     && !/^(Native Tongue|Language)( \(|$)/.test(n)));
   const magic = $derived(skills.filter(n => MAGIC.some(([name]) => n === name || n.startsWith(`${name} (`))));
+  const magicAbilities = $derived(buildMagicEntries(char));
+  const magicGroups = $derived([...new Set(magicAbilities.map(entry => entry.tradition))]
+    .map(tradition => ({ tradition, entries: magicAbilities.filter(entry => entry.tradition === tradition) })));
   const languages = $derived(skills.filter(n => /^(Native Tongue|Language)( \(|$)/.test(n)));
   const standard = $derived(skills.filter(n => !skillDefinition(n).pro
     && !RESISTANCES.includes(n as typeof RESISTANCES[number])
@@ -116,6 +120,28 @@
         {/each}</ul></section>{/if}
       </div>
     </div>
+
+    {#if magicAbilities.length}
+      <section class="sheet-panel sheet-magic-abilities" aria-labelledby="sheet-magic-abilities-title">
+        <h3 id="sheet-magic-abilities-title">Magic &amp; Abilities</h3>
+        {#each magicGroups as group}
+          <section class="sheet-magic-group" aria-label={group.tradition}>
+            <h4>{group.tradition}</h4>
+            <ul>
+              {#each group.entries as ability}
+                <li>
+                  <p class="sheet-magic-summary">{ability.summary}</p>
+                  <details>
+                    <summary>Complete rules and recorded details</summary>
+                    <div class="sheet-magic-detail">{ability.detail}</div>
+                  </details>
+                </li>
+              {/each}
+            </ul>
+          </section>
+        {/each}
+      </section>
+    {/if}
   </section>
 
   <section class="sheet-page sheet-page-two" aria-label="Page 2: Combat and equipment">
@@ -176,6 +202,7 @@
   .sheet-top-grid{display:grid;grid-template-columns:minmax(230px,.9fr) minmax(0,1.7fr);gap:8px}.sheet-primary-grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(210px,.8fr);gap:8px}.sheet-skill-columns{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;align-items:start}.sheet-skill-column{display:grid;align-content:start;gap:8px;min-width:0}
   .sheet-panel{min-width:0;border:1px solid var(--line);padding:8px;background:color-mix(in srgb,var(--card) 88%,var(--bg2))}.sheet-panel h3{font-size:.75rem;margin:0 0 6px}.sheet-panel p{margin:4px 0;overflow-wrap:anywhere}.sheet-page-one .sheet-panel p{overflow-wrap:break-word}.sheet-background{font-size:.82rem;line-height:1.48}.sheet-background p{margin:6px 0}.sheet-background-event{padding-top:5px;border-top:1px dotted var(--line)}.sheet-facts{display:grid;grid-template-columns:minmax(0,1fr);gap:0;margin:0}.sheet-facts div{display:grid;grid-template-columns:minmax(70px,.72fr) minmax(0,1.28fr);align-items:baseline;gap:7px;border-bottom:1px dotted var(--line);padding:3px 0}.sheet-facts dt,.sheet-derived dt{color:var(--mute)}.sheet-facts dt{font:700 .63rem var(--display);letter-spacing:.06em;text-transform:uppercase}.sheet-facts dd,.sheet-derived dd{min-width:0;margin:0;font-weight:700;overflow-wrap:break-word}.sheet-facts dd{text-align:left}.sheet-description{border-top:1px solid var(--line);padding-top:5px;margin-top:7px!important;white-space:pre-wrap;overflow-wrap:break-word;line-height:1.45}.sheet-small{font-size:.72rem}.sheet-stats{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}.sheet-stats>div{display:grid;align-content:start;text-align:center;line-height:1.2;border:1px solid var(--line);padding:5px 3px;min-width:0}.sheet-stats small{color:var(--mute);font:700 .62rem var(--display)}.sheet-stats b{font:700 1.2rem/1.1 var(--display)}.sheet-stats span{font-size:.66rem;overflow-wrap:break-word}.sheet-derived{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px 8px;margin:7px 0 0;font-size:.72rem}.sheet-derived div{display:grid;gap:2px;border-bottom:1px dotted var(--line);padding:3px 0}.sheet-derived dd{text-align:right;font-variant-numeric:tabular-nums}.sheet-funds{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}.sheet-funds>div{display:grid;align-content:start;gap:2px;border:1px solid var(--line);padding:6px;min-width:0}.sheet-funds small{font-size:.68rem;color:var(--mute)}.sheet-funds b{font-variant-numeric:tabular-nums;overflow-wrap:break-word}.sheet-warning{border-left:2px solid var(--bronze);padding-left:6px;color:var(--mute);font-size:.78rem}
   .sheet-skill-list{list-style:none;padding:0;margin:0}.sheet-skill-list li{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;gap:5px;padding:3px 0;border-bottom:1px dotted var(--line);font-size:.76rem;min-width:0;line-height:1.3}.sheet-skill-list li:last-child{border-bottom:0}.sheet-skill-list li :global(.skill-info){display:flex;min-width:0;overflow-wrap:break-word}.sheet-skill-list li :global(.skill-info-name){min-width:0;overflow-wrap:break-word}.sheet-skill-list li b{white-space:nowrap;font:700 .76rem var(--display);font-variant-numeric:tabular-nums}
+  .sheet-magic-abilities{font-size:.78rem;line-height:1.4}.sheet-magic-group+ .sheet-magic-group{border-top:1px solid var(--line);margin-top:7px;padding-top:5px}.sheet-magic-group h4{font:700 .68rem var(--display);letter-spacing:.07em;text-transform:uppercase;color:var(--fg);margin:2px 0}.sheet-magic-group ul{list-style:none;padding:0;margin:0}.sheet-magic-group li{padding:4px 0;border-bottom:1px dotted var(--line)}.sheet-magic-group li:last-child{border-bottom:0}.sheet-magic-summary{margin:0!important}.sheet-magic-group details{margin-top:2px}.sheet-magic-group details>summary{width:fit-content;color:var(--fg);font-size:.7rem;cursor:pointer}.sheet-magic-group details>summary:focus-visible{outline:2px solid var(--bronze);outline-offset:2px}.sheet-magic-detail{white-space:pre-line;overflow-wrap:anywhere;color:var(--mute);font-size:.72rem;padding:4px 0 1px}
   .sheet-page-title{font-size:1.2rem;text-transform:uppercase;color:var(--bronze);border-bottom:1px solid var(--line2);padding-bottom:5px}.sheet-combat-grid{display:grid;grid-template-columns:minmax(160px,.75fr) minmax(190px,.9fr) minmax(230px,1.2fr);gap:8px;align-items:start}.sheet-locations{grid-row:span 2}.sheet-load{grid-column:3}.sheet-styles{grid-column:1/-1}.sheet-weapon-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.sheet-table-wrap{max-width:100%;overflow-x:auto}.sheet-panel table{width:100%;border-collapse:collapse;font-size:.72rem;line-height:1.25}.sheet-panel th,.sheet-panel td{border:1px solid var(--line);padding:3px 5px;text-align:left;vertical-align:top}.sheet-panel th[scope=row]{font-weight:700}.sheet-owned{overflow:hidden}.sheet-owned table{font-size:.68rem}.sheet-panel table th{white-space:nowrap}.sheet-owned table th:first-child{white-space:normal}.sheet-owned .sheet-small{margin-top:5px}.foot{text-align:center;color:var(--mute);font-size:.75rem;font-style:italic;margin:0}
   .sheet-combat-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.sheet-locations,.sheet-load{grid-row:auto;grid-column:auto}.sheet-styles{grid-column:1/-1}.sheet-weapon-grid{grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}.sheet-page-two .sheet-panel{overflow-wrap:break-word}.sheet-page-two .sheet-panel table{table-layout:auto;font-variant-numeric:tabular-nums}.sheet-page-two .sheet-panel table th{background:color-mix(in srgb,var(--bg2) 55%,transparent);font:700 .62rem/1.2 var(--display);letter-spacing:.035em}.sheet-page-two .sheet-table-wrap{width:100%;min-width:0;overflow-x:auto;overscroll-behavior-inline:contain;scrollbar-width:thin}.sheet-page-two .sheet-table-wrap:focus-visible{outline:2px solid var(--bronze);outline-offset:2px}.sheet-locations table th:first-child,.sheet-locations table td:first-child,.sheet-locations table td:last-child,.sheet-armour table td:last-child,.sheet-weapon-grid table td:not(:first-child),.sheet-owned table td:nth-child(2),.sheet-owned table td:nth-child(5){text-align:right;font-variant-numeric:tabular-nums}.sheet-owned .sheet-equipment-table{table-layout:fixed}.sheet-owned .sheet-equipment-table th{white-space:normal}.sheet-compact-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 8px;margin:5px 0 0}.sheet-compact-facts>div{display:grid;grid-template-columns:minmax(0,1fr);gap:1px;min-width:0;border-top:1px dotted var(--line);padding-top:3px}.sheet-compact-facts dt{color:var(--mute);font:700 .58rem var(--display);letter-spacing:.05em;text-transform:uppercase}.sheet-compact-facts dd{margin:0;font-size:.7rem;line-height:1.25;font-weight:700;overflow-wrap:break-word;font-variant-numeric:tabular-nums}.load-facts{grid-template-columns:repeat(3,minmax(0,1fr))}.sheet-load .sheet-warning,.sheet-armour .sheet-warning{font-size:.68rem;margin-top:5px}.sheet-page-two .sheet-small{font-size:.66rem}
   @media(max-width:800px){.sheet-top-grid,.sheet-primary-grid{grid-template-columns:1fr}.sheet-skill-columns{grid-template-columns:repeat(2,minmax(0,1fr))}.sheet-combat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.sheet-load{grid-column:auto}.sheet-styles{grid-column:1/-1}}

@@ -79,6 +79,19 @@ describe("Page IX character sheet", () => {
     expect(pageOne).not.toContain("<b>Starting money:</b>");
   });
 
+  test("shows recorded magic from the shared PDF selector with accessible full details", () => {
+    const pageOne = sheet.split('aria-label="Page 2: Combat and equipment"')[0];
+    expect(sheet).toContain("buildMagicEntries(char)");
+    expect(pageOne).toContain("Magic &amp; Abilities");
+    expect(pageOne).toContain("{#if magicAbilities.length}");
+    expect(pageOne).toContain("{#each magicGroups as group}");
+    expect(pageOne).toContain("{ability.summary}");
+    expect(pageOne).toContain("<details>");
+    expect(pageOne).toContain("<summary>Complete rules and recorded details</summary>");
+    expect(pageOne).toContain("{ability.detail}");
+    expect(sheet).toContain("white-space:pre-line");
+  });
+
   test("uses owned weapons for weapon tables and does not edit character choices", () => {
     expect(sheet).toContain("char.background.inventory.flatMap");
     expect(sheet).toContain("CombatStyles");
