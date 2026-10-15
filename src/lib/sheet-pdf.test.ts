@@ -7,6 +7,7 @@ const { char, replace, reset } = await import("./store.svelte");
 const { buildSheetData, SHEET_HIT_LOCATIONS } = await import("./sheet-data");
 const { currentSheetSource } = await import("./sheet-source");
 const { circleTextPlacement, renderCharacterSheet } = await import("./sheet-pdf");
+const { sorceryCatalogue } = await import("./sorcery");
 
 const template = readFileSync(new URL("../assets/mythras-character-sheet.pdf", import.meta.url));
 const pageCount = async (bytes: Uint8Array) => (await PDFDocument.load(bytes)).getPageCount();
@@ -98,6 +99,27 @@ describe("printable character sheet data", () => {
     expect(buildSheetData(currentSheetSource()).cult).toEqual(["River Cult (Theism)"]);
   });
 
+  test("resolves detailed references only for the selected sorcery spells and recorded spirits", () => {
+    reset(false);
+    const source = currentSheetSource();
+    const spells = sorceryCatalogue(char.magic.sorcery);
+    char.magic.sorcery.knownSpells = ["Diminish", "Enhance", "Regenerate"].map(name => ({
+      spellId: spells.find(spell => spell.name === name)?.id ?? "missing",
+    }));
+    char.magic.animism.spirits = [{
+      id: "known-spirit", name: "Moss Guardian", spiritTypeId: "core:animism:guardian", source: "core",
+      pow: 13, int: 8, ins: 11, cha: 9, abilities: ["Warding"], notes: "Player note",
+    }];
+    const data = buildSheetData(source);
+    const text = data.magic.map(entry => `${entry.summary}\n${entry.detail}`).join("\n");
+    expect(text).toContain("Reduces");
+    expect(text).toContain("Accelerates natural healing");
+    expect(text).toContain("POW 13");
+    expect(text).toContain("Abilities: Warding");
+    expect(text).toContain("Player/GM notes: Player note");
+    expect(data.magic).toHaveLength(4);
+  });
+
   test("never mutates the character and reflects the newly selected character", () => {
     reset(false);
     replace({ name: "First" });
@@ -127,6 +149,19 @@ describe("populated Mythras Character Sheet PDF", () => {
     char.background.parents = "long ".repeat(400);
     const bytes = await renderCharacterSheet(buildSheetData(currentSheetSource()), { template });
     expect(await pageCount(bytes)).toBeGreaterThan(2);
+  });
+
+  test("many magical abilities append readable reference pages with the selected character's name", async () => {
+    reset(false);
+    replace({ name: "Many Spells" });
+    const data = buildSheetData(currentSheetSource());
+    const many = { ...data, magic: Array.from({ length: 20 }, (_, index) => ({
+      summary: `Sorcery: Spell ${index + 1} — meaningful effect`, detail: `Sorcery — Spell ${index + 1}\nRules: meaningful effect ${"with recorded details ".repeat(8)}`,
+    })) };
+    const bytes = await renderCharacterSheet(many, { template });
+    const doc = await PDFDocument.load(bytes);
+    expect(doc.getPageCount()).toBeGreaterThan(2);
+    expect(many.identity.name).toBe("Many Spells");
   });
 
   test("characters with characters outside the PDF font still print", async () => {

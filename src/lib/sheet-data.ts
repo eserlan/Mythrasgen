@@ -2,9 +2,11 @@ import { CONNECTIONS, FAMILY_STANDING, resolvedBackgroundEvents, resolveBackgrou
 import { baseName, passionStartingValue } from "./calc";
 import type { HitLocation } from "./calc";
 import { formatFamilyRelationships } from "./family-relationships";
-import { CORE_FOLK_MAGIC_SPELLS } from "./folk-magic";
-import { mysticismCatalogue } from "./mysticism";
-import { sorceryCatalogue } from "./sorcery";
+import { CORE_FOLK_MAGIC_SPELLS, FOLK_MAGIC_TRAIT_HELP } from "./folk-magic";
+import { mysticismCatalogue, mysticismTalentDetails } from "./mysticism";
+import { sorceryCatalogue, sorcerySpellDetails } from "./sorcery";
+import { CORE_THEIST_CULTS, CORE_THEIST_MIRACLES } from "./theism";
+import { CORE_SPIRIT_TYPES } from "./animism";
 import { MAGIC, RESISTANCES, STANDARD, STATS, type Stat } from "./rules";
 import type { Character } from "./store.svelte";
 import { EQUIPMENT_CATALOGUE } from "./equipment-catalogue";
@@ -56,7 +58,7 @@ export interface SheetData {
   magical: SheetSkillRow[];
   languages: (SheetSkillRow & { native: boolean })[];
   passions: { label: string; total: string }[];
-  magic: string[];
+  magic: { summary: string; detail: string }[];
   hitLocations: Record<string, string>;
   equipment: { name: string; enc: string }[];
   armour: { name: string; ap: string; enc: string }[];
@@ -90,24 +92,79 @@ function skillRows(source: SheetSource, names: string[]): SheetSkillRow[] {
   return names.map(name => ({ name, base: String(source.base(name)), total: String(source.total(name)) }));
 }
 
-/** Folk Magic, Sorcery and Mysticism knowledge recorded on the character; nothing is inferred. */
-function magicEntries({ char }: SheetSource): string[] {
-  const magic = char.magic, lines: string[] = [];
-  const folk = magic.folkMagic.knownSpells.map(({ spell }) => {
-    const name = CORE_FOLK_MAGIC_SPELLS.find(item => item.id === spell.spellId)?.name ?? magic.folkMagic.customSpells.find(item => item.id === spell.spellId)?.name;
-    return name ? `${name}${spell.specialisation ? ` (${spell.specialisation})` : ""}` : "";
-  }).filter(Boolean);
-  if (folk.length) lines.push(`Folk Magic: ${folk.join(", ")}`);
+/** Details are resolved only for recorded choices. Unknown catalogue entries are omitted. */
+function magicEntries({ char }: SheetSource): SheetData["magic"] {
+  const magic = char.magic, entries: SheetData["magic"] = [];
+  const add = (tradition: string, name: string, rules: string[], notes: string[] = [], detailLabel = "Rules") => {
+    const detail = [`${tradition} — ${name}`, ...rules.map(value => `${detailLabel}: ${value}`), ...notes.map(value => `Player/GM notes: ${value}`)].join("\n");
+    const summary = `${tradition}: ${name}${rules.length ? ` — ${rules[0]}` : ""}`;
+    entries.push({ summary, detail });
+  };
+
+  for (const known of magic.folkMagic.knownSpells) {
+    const { spell } = known;
+    const core = CORE_FOLK_MAGIC_SPELLS.find(item => item.id === spell.spellId);
+    const custom = magic.folkMagic.customSpells.find(item => item.id === spell.spellId);
+    const name = core?.name ?? custom?.name;
+    if (!name) continue;
+    const label = `${name}${spell.specialisation ? ` (${spell.specialisation})` : ""}`;
+    const rules = core ? [core.details.effect, ...core.details.traits.map(trait => FOLK_MAGIC_TRAIT_HELP[trait]).filter(Boolean),
+      ...(!core.details.traits.some(trait => ["Concentration", "Instant", "Special Duration"].includes(trait)) ? [FOLK_MAGIC_TRAIT_HELP["Normal duration"]] : [])]
+      : custom?.description.trim() ? [custom.description.trim()] : [];
+    const provenanceNotes = known.provenance.map(item => item.notes).filter((value): value is string => !!value?.trim());
+    add("Folk Magic", label, rules, provenanceNotes, core ? "Rules" : "Recorded effect");
+  }
+
   const spells = sorceryCatalogue(magic.sorcery);
-  const sorcery = magic.sorcery.knownSpells.map(({ spellId }) => spells.find(item => item.id === spellId)?.name).filter((name): name is string => !!name);
-  if (sorcery.length) lines.push(`Sorcery: ${sorcery.join(", ")}`);
-  const catalogue = mysticismCatalogue(magic.mysticism);
-  const talents = magic.mysticism.knownTalents.map(({ talentId }) => catalogue.talents.find(item => item.id === talentId)?.name).filter((name): name is string => !!name);
-  const path = catalogue.paths.find(item => item.id === magic.mysticism.startingPathId)?.name;
-  if (talents.length || path) lines.push(`Mysticism${path ? ` (${path})` : ""}${talents.length ? `: ${talents.join(", ")}` : ""}`);
-  const spirits = magic.animism.spirits.map(spirit => spirit.name.trim()).filter(Boolean);
-  if (spirits.length) lines.push(`Spirits: ${spirits.join(", ")}`);
-  return lines;
+  for (const known of magic.sorcery.knownSpells) {
+    const spell = spells.find(item => item.id === known.spellId);
+    if (!spell) continue;
+    const details = sorcerySpellDetails(spell);
+    const rules = [details?.effect, ...(details?.traits ?? []).map(trait => `Trait: ${trait}`),
+      ...(magic.sorcery.shapingRules?.addComponents ?? []).map(component => `Shaping: ${component}`),
+      ...(magic.sorcery.shapingRules?.removeComponents ?? []).map(component => `Shaping excludes ${component}`)].filter((value): value is string => !!value);
+    const notes = [spell.notes, known.notes, known.sourceDescription, known.acquiredFrom].filter((value): value is string => !!value?.trim());
+    add("Sorcery (known)", spell.name, rules, notes, spell.source === "core" ? "Rules" : "Recorded effect");
+  }
+
+  const mysticism = mysticismCatalogue(magic.mysticism);
+  for (const known of magic.mysticism.knownTalents) {
+    const talent = mysticism.talents.find(item => item.id === known.talentId);
+    if (!talent) continue;
+    const details = mysticismTalentDetails(talent);
+    add("Mysticism", talent.name, [details.effect, details.cost && `Cost: ${details.cost}`].filter(Boolean), [talent.notes, talent.description, known.notes].filter((value): value is string => !!value?.trim()), talent.source === "core" ? "Rules" : "Recorded effect");
+  }
+
+  for (const membership of magic.theism.memberships) {
+    const cult = [...CORE_THEIST_CULTS, ...magic.theism.customCults].find(item => item.id === membership.cultId);
+    for (const id of membership.knownMiracleIds) {
+      const miracle = CORE_THEIST_MIRACLES.find(item => item.id === id);
+      if (!miracle) continue;
+      const offering = cult?.miracles.find(item => item.miracleId === id);
+      const name = offering?.name ?? miracle.name;
+      add(`Theism (${cult?.name ?? "cult unspecified"}, ${membership.rank})`, name,
+        [miracle.description, `Cost ${miracle.mpCost} MP; exhortation ${miracle.exhortationTime}; ${miracle.traits.join(", ")}`,
+          `Devotion (${membership.devotionSpecialisation}) ${membership.devotionValue}%; Exhort ${membership.exhortValue}%; Devotional Pool ${membership.devotionalPool} MP`].filter(Boolean));
+    }
+  }
+
+  const spiritTypes = [...CORE_SPIRIT_TYPES, ...magic.animism.customSpiritTypes, ...magic.animism.traditions.flatMap(item => item.customSpiritTypes)];
+  const bindings = new Map(magic.animism.bindings.map(binding => [binding.spiritId, binding]));
+  const allies = new Map(magic.animism.allies.map(ally => [ally.spiritId, ally]));
+  for (const spirit of magic.animism.spirits) {
+    const spiritType = spiritTypes.find(item => item.id === spirit.spiritTypeId)?.name;
+    const stat = (label: string, value: unknown) => value === undefined ? "" : `${label} ${String(value)}`;
+    const stats = [stat("POW", spirit.pow), spirit.pow === undefined && spirit.powRange && `POW ${spirit.powRange[0]}–${spirit.powRange[1]} (range)`, stat("INT", spirit.int), stat("INS", spirit.ins), stat("CHA", spirit.cha),
+      stat("Intensity", spirit.intensity), stat("MP", spirit.magicPoints), stat("Spectral Combat", spirit.spectralCombat),
+      stat("Willpower", spirit.willpower), stat("Stealth", spirit.stealth), stat("Action Points", spirit.actionPoints), stat("Initiative", spirit.initiative)].filter(Boolean);
+    const skills = (spirit.skills ?? []).map(skill => `${skill.name} ${skill.value}`);
+    const binding = bindings.get(spirit.id), ally = allies.get(spirit.id);
+    const status = [spirit.attitude && `attitude ${spirit.attitude}`, binding && `bound to ${binding.objectName || binding.vessel}${binding.description ? ` (${binding.description})` : ""}`, ally && `ally (${ally.attitude})`].filter(Boolean);
+    const notes = [spirit.notes, binding?.notes, ally?.notes].filter((value): value is string => !!value?.trim());
+    const typeDetails = spirit.typeData && Object.keys(spirit.typeData).length ? `Recorded type details: ${JSON.stringify(spirit.typeData)}` : "";
+    add("Animism", spirit.name.trim() || "Unnamed spirit", [spiritType && `Type: ${spiritType}`, ...stats, spirit.abilities.length && `Abilities: ${spirit.abilities.join(", ")}`, skills.length && `Skills: ${skills.join(", ")}`, typeDetails, ...status].filter((value): value is string => !!value), notes, "Recorded details");
+  }
+  return entries;
 }
 
 export function buildSheetData(source: SheetSource): SheetData {
