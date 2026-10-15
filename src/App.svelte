@@ -1,5 +1,7 @@
 <script lang="ts">
   import { printCharacterSheet } from "./lib/sheet-print";
+  import { buildSheetData } from "./lib/sheet-data";
+  import { currentSheetSource } from "./lib/sheet-source";
   import Characteristics from "./components/Characteristics.svelte";
   import Landing from "./components/Landing.svelte";
   import Concept from "./components/Concept.svelte";
@@ -19,8 +21,10 @@
   let showLibrary = $state(false);
   let showSettings = $state(false);
   let displaySettings = $state(loadDisplaySettings());
+  let printMode = $state<"sheet-only" | "sheet-and-appendix" | "appendix-only">("sheet-and-appendix");
   const last = STEPS.length - 1;
   const canContinue = $derived(char.generation === "roll" || canFinishPointBuy(char.chars));
+  const hasMagicAppendix = $derived(buildSheetData(currentSheetSource()).magic.length > 0);
   const canVisit = (step: number) => canVisitStep(step, canContinue, cultureAllocationErrors().length === 0)
     && (step < 4 || careerAllocationErrors().length === 0)
     && (step !== last || canComplete());
@@ -46,7 +50,9 @@
   }
   async function print() {
     if (!canVisit(last)) return;
-    try { await printCharacterSheet(); } catch { alert("Could not create the character sheet PDF."); }
+    const mode = printMode === "appendix-only" && !hasMagicAppendix ? "sheet-only" : printMode;
+    if (mode !== printMode) alert("This character has no recorded Magic & Abilities. Printing the official two-page sheet instead.");
+    try { await printCharacterSheet(mode); } catch { alert("Could not create the character sheet PDF."); }
   }
   const newChar = () => { createCharacter(); char.home = false; showLibrary = false; };
 </script>
@@ -63,6 +69,13 @@
       <button aria-current={showSettings ? "page" : undefined} onclick={() => { showSettings = true; showLibrary = false; open = false; }}>Settings</button>
       <button onclick={save}>Save</button>
       <label class="btn">Load<input type="file" accept=".json" hidden onchange={loadFile}></label>
+      <label class="print-mode-label">Print output
+        <select aria-label="Print output mode" bind:value={printMode}>
+          <option value="sheet-only">Official sheet only (2 pages)</option>
+          <option value="sheet-and-appendix">Sheet + Magic &amp; Abilities appendix</option>
+          <option value="appendix-only" disabled={!hasMagicAppendix}>Magic &amp; Abilities reference only{hasMagicAppendix ? "" : " (no recorded abilities)"}</option>
+        </select>
+      </label>
       <button onclick={print} disabled={!canVisit(last)}>Print</button>
       <button onclick={newChar}>New</button>
     </div>

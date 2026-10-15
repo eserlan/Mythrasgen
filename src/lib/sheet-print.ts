@@ -1,19 +1,20 @@
 import templateUrl from "../assets/mythras-character-sheet.pdf?url";
 import { buildSheetData } from "./sheet-data";
 import { currentSheetSource } from "./sheet-source";
+import type { PrintMode } from "./sheet-pdf";
 
 /**
  * Fill the official Mythras Character Sheet from the selected character and open it for printing.
  * The preview tab is opened synchronously so popup blockers allow it; a download is the fallback.
  */
-export async function printCharacterSheet(): Promise<void> {
+export async function printCharacterSheet(mode: PrintMode = "sheet-and-appendix"): Promise<void> {
   const preview = window.open("", "_blank");
   try {
     const source = currentSheetSource();
     const template = new Uint8Array(await (await fetch(templateUrl)).arrayBuffer());
     // Loaded on demand so the PDF library stays out of the main bundle.
     const { renderCharacterSheet } = await import("./sheet-pdf");
-    const bytes = await renderCharacterSheet(buildSheetData(source), { template });
+    const bytes = await renderCharacterSheet(buildSheetData(source), { template, mode });
     const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: "application/pdf" }));
     if (preview) preview.location.href = url;
     else {

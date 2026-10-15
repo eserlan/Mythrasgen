@@ -32,7 +32,8 @@ const ATTRIBUTE_CIRCLE = { x: 340.5, diameter: 20.4 };
 
 type Align = "left" | "center";
 export interface SheetSupplementEntry { heading: string; paragraphs: string[] }
-export interface RenderOptions { template: Uint8Array | ArrayBuffer }
+export type PrintMode = "sheet-only" | "sheet-and-appendix" | "appendix-only";
+export interface RenderOptions { template: Uint8Array | ArrayBuffer; mode?: PrintMode }
 
 /** Place text by its measured width and font bounds around a circle's measured centre. */
 export function circleTextPlacement(text: string, font: PDFFont, x: number, centerY: number, diameter: number, maxSize: number, minSize = 6.5) {
@@ -268,36 +269,27 @@ function fillPage2(sheet: Sheet, data: SheetData) {
 
 /** Use the printed rules as line slots so wrapped descriptions stay inside the Magic panel. */
 function drawMagicEntries(sheet: Sheet, page: PDFPage, entries: SheetData["magic"]) {
-  const x1 = 28, x2 = 372, width = x2 - x1, size = 7.5;
-  const panelLines: { text: string; font: PDFFont }[] = [];
-  let overflowStarted = false;
-  let magicSupplementStarted = false;
-
-  const wrappedParagraphs = (text: string, font: PDFFont) => text
-    .split("\n")
-    .flatMap(paragraph => sheet.wrapWithFont(sheet.safe(paragraph, font), size, width, font));
-
-  for (const entry of entries) {
-    const [heading = entry.summary, ...detail] = entry.detail.split("\n");
-    const headingLines = wrappedParagraphs(heading, sheet.bold).map(text => ({ text, font: sheet.bold }));
-    const detailLines = detail.flatMap(paragraph => wrappedParagraphs(paragraph, sheet.font)).map(text => ({ text, font: sheet.font }));
-    const allLines = [...headingLines, ...detailLines];
-    const available = MAGIC_LINES.length - panelLines.length;
-    const shown = overflowStarted ? 0 : Math.min(available, allLines.length);
-    panelLines.push(...allLines.slice(0, shown));
-
-    if (shown < allLines.length) {
-      overflowStarted = true;
-      const rest = shown ? allLines.slice(shown).map(line => line.text) : detail;
-      sheet.supplement.push({
-        heading: `${magicSupplementStarted ? "" : "Magic & Abilities Reference — "}${heading}${shown ? " (continued)" : ""}`,
-        paragraphs: rest.length ? rest : detail,
-      });
-      magicSupplementStarted = true;
+  const x1 = 28, width = 344, size = 7.5;
+  const lines: { text: string; font: PDFFont }[] = [];
+  const groups = new Map<string, SheetData["magic"]>();
+  for (const entry of entries) groups.set(entry.tradition, [...(groups.get(entry.tradition) ?? []), entry]);
+  for (const [tradition, group] of groups) {
+    lines.push({ text: tradition.toUpperCase(), font: sheet.bold });
+    for (const entry of group) {
+      const [title = entry.summary, ...details] = entry.detail.split("\n");
+      const effect = details.find(item => item.startsWith("Rules:") || item.startsWith("Recorded effect:")) ?? "";
+      const concise = `${title.replace(/^.*? — /, "")} — ${effect.replace(/^(?:Rules|Recorded effect):\s*/, "")}`.replace(/\s+/g, " ").trim();
+      const wrapped = sheet.wrap(sheet.safe(concise), size, width);
+      lines.push(...wrapped.map(text => ({ text, font: sheet.font })));
     }
   }
-
-  panelLines.forEach((line, index) => sheet.draw(page, line.text, x1, MAGIC_LINES[index], size, line.font));
+  const needsPointer = entries.length > 0;
+  const pointer = "Full descriptions: Magic Appendix";
+  const capacity = MAGIC_LINES.length;
+  const display = lines.length + (needsPointer ? 1 : 0) <= capacity
+    ? [...lines, ...(needsPointer ? [{ text: pointer, font: sheet.bold }] : [])]
+    : [...lines.slice(0, Math.max(0, capacity - 2)), { text: "… additional entries; see Magic Appendix", font: sheet.bold }, { text: pointer, font: sheet.bold }];
+  display.slice(0, capacity).forEach((line, index) => sheet.draw(page, line.text, x1, MAGIC_LINES[index], size, line.font));
 }
 
 function addSupplement(sheet: Sheet, name: string) {
@@ -342,14 +334,72 @@ function addSupplement(sheet: Sheet, name: string) {
   }
 }
 
+/** Create a paginated appendix directly from the same recorded-entry details used by Page IX. */
+function addMagicAppendix(sheet: Sheet, name: string, entries: SheetData["magic"]) {
+  if (!entries.length) return;
+  const margin = 42, pageWidth = 595.276, contentTop = PAGE_H - 78, contentBottom = margin + 18;
+  const width = pageWidth - margin * 2, bodySize = 9.5, leading = 13;
+  const pages: PDFPage[] = [];
+  let page = sheet.doc.addPage([pageWidth, PAGE_H]);
+  pages.push(page);
+  let y = contentTop;
+  const newPage = () => {
+    page = sheet.doc.addPage([pageWidth, PAGE_H]);
+    pages.push(page);
+    y = contentTop;
+  };
+  const ensure = (height: number) => { if (y - height < contentBottom) newPage(); };
+  const textLine = (text: string, font: PDFFont, size: number, indent = 0) => {
+    ensure(leading);
+    page.drawText(text, { x: margin + indent, y: y - size, size, font, color: rgb(0, 0, 0) });
+    y -= leading;
+  };
+  let previousTradition = "";
+  for (const entry of entries) {
+    const [title = entry.summary, ...paragraphs] = entry.detail.split("\n");
+    const rendered = [
+      ...sheet.wrap(sheet.safe(title, sheet.bold), 11, width).map(text => ({ text, font: sheet.bold, size: 11, indent: 0 })),
+      ...paragraphs.flatMap(paragraph => sheet.wrap(sheet.safe(paragraph), bodySize, width - 12)
+        .map(text => ({ text, font: sheet.font, size: bodySize, indent: 12 }))),
+    ];
+    const traditionHeight = entry.tradition !== previousTradition ? 24 : 0;
+    const blockHeight = traditionHeight + rendered.length * leading + 10;
+    if (blockHeight <= contentTop - contentBottom && y - blockHeight < contentBottom) newPage();
+    if (entry.tradition !== previousTradition) {
+      ensure(24);
+      y -= 5;
+      textLine(entry.tradition, sheet.bold, 10);
+      page.drawLine({ start: { x: margin, y: y + 2 }, end: { x: pageWidth - margin, y: y + 2 }, thickness: 0.5, color: rgb(0, 0, 0) });
+      y -= 2;
+      previousTradition = entry.tradition;
+    }
+    for (const line of rendered) textLine(line.text, line.font, line.size, line.indent);
+    y -= 8;
+  }
+  pages.forEach((appendixPage, index) => {
+    appendixPage.drawText("Magic & Abilities", { x: margin, y: PAGE_H - 38, size: 16, font: sheet.bold, color: rgb(0, 0, 0) });
+    appendixPage.drawText(sheet.safe(name || "Unnamed character"), { x: margin, y: PAGE_H - 56, size: 10, font: sheet.font, color: rgb(0, 0, 0) });
+    appendixPage.drawText(`Page ${index + 1} of ${pages.length}`, { x: pageWidth - margin - 75, y: PAGE_H - 56, size: 9, font: sheet.font, color: rgb(0, 0, 0) });
+  });
+}
+
 /** Populate the official two-page template. A clearly labelled supplement is appended only when text overflowed. */
-export async function renderCharacterSheet(data: SheetData, { template }: RenderOptions): Promise<Uint8Array> {
+export async function renderCharacterSheet(data: SheetData, { template, mode = "sheet-and-appendix" }: RenderOptions): Promise<Uint8Array> {
   const doc = await PDFDocument.load(template);
   const pages = doc.getPages();
   if (pages.length !== 2) throw new Error("The Mythras Character Sheet template must have exactly two pages.");
   const sheet = new Sheet(doc, pages, await doc.embedFont(StandardFonts.Helvetica), await doc.embedFont(StandardFonts.HelveticaBold));
-  fillPage1(sheet, data);
-  fillPage2(sheet, data);
-  if (sheet.supplement.length) addSupplement(sheet, data.identity.name);
+  if (mode !== "appendix-only" || !data.magic.length) {
+    fillPage1(sheet, data);
+    fillPage2(sheet, data);
+  }
+  if (mode === "appendix-only" && data.magic.length) {
+    doc.removePage(1);
+    doc.removePage(0);
+    addMagicAppendix(sheet, data.identity.name, data.magic);
+  } else if (mode === "sheet-and-appendix") {
+    addMagicAppendix(sheet, data.identity.name, data.magic);
+    if (sheet.supplement.length) addSupplement(sheet, data.identity.name);
+  }
   return doc.save();
 }
