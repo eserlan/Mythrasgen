@@ -551,9 +551,9 @@ const careerStyleNames = (character: Character = char) => {
     ? character.cultureSelections.combatStyle
     : character.careerCombatStyles[slot] ?? "").filter(Boolean);
 };
-const careerSkills = () => [...new Set([...career().standard, ...careerStyleNames(), ...resolvedProfessional("career"),
+const careerSkills = (includeLegacyAllocatedStyles = true) => [...new Set([...career().standard, ...careerStyleNames(), ...resolvedProfessional("career"),
   ...char.careerProfessional.filter(template => requiresSpecialisation(template) && !resolveSkillTemplate(template, char.skillSpecialisations.career[template])),
-  ...Object.keys(char.alloc.career).filter(name => /^Combat Style \(/.test(name))])];
+  ...(includeLegacyAllocatedStyles ? Object.keys(char.alloc.career).filter(name => /^Combat Style \(/.test(name)) : [])])];
 export const nativeTongue = () => nativeTongueName(char.nativeLanguage);
 
 export const learnedSkills = () => [...new Set([
@@ -849,11 +849,15 @@ export function chooseCareerCombatStyle(slot: number, definition: CombatStyleSel
 }
 export function setCulture(index: number) {
   if (!cultures[index]) return;
+  const previousCulturalStyle = char.cultureSelections.combatStyle;
   if (char.cultureSelections.combatStyle) setCultureCombatStyle("");
   char.culture = index;
   char.alloc.culture = {};
   char.cultureSelections = { standard: [], professional: [], combatStyle: "" };
   char.cultureMigration = false;
+  if (previousCulturalStyle && !careerSkills(false).includes(previousCulturalStyle)) {
+    delete char.alloc.career[previousCulturalStyle];
+  }
   reconcileStageAllocation("career");
   refreshBonusEligibility();
 }

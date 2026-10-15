@@ -124,6 +124,30 @@ describe("Culture Combat Style selection", () => {
     expect(stepSkills("career")).not.toContain(style.name);
   });
 
+  test("changing culture removes only the former Combat Style (...) allocation fallback", () => {
+    const { char, replace, setCultureCombatStyle, setAlloc, setCulture, stepSkills } = store;
+    replace({
+      ...char,
+      career: careers.findIndex(career => career.name === "Warrior"),
+      cultureSelections: { standard: [], professional: [], combatStyle: "" },
+      careerCombatStyles: [],
+      combatStyles: [],
+      alloc: { culture: {}, career: {}, bonus: {} },
+    });
+    const formerCulturalStyle = "Combat Style (Legacy Cultural Style)";
+    const unrelatedLegacyStyle = "Combat Style (Saved Legacy Style)";
+    setCultureCombatStyle(formerCulturalStyle);
+    char.alloc.career[unrelatedLegacyStyle] = 15;
+    char.alloc.career[formerCulturalStyle] = 10;
+
+    setCulture(1);
+
+    expect(char.alloc.career[formerCulturalStyle]).toBeUndefined();
+    expect(char.alloc.career[unrelatedLegacyStyle]).toBe(15);
+    expect(stepSkills("career")).not.toContain(formerCulturalStyle);
+    expect(stepSkills("career")).toContain(unrelatedLegacyStyle);
+  });
+
   test("the selected style is eligible for cultural points and removing it clears its allocation", () => {
     const { char, replace, chooseCultureCombatStyle, setAlloc, stepSkills } = store;
     replace({
