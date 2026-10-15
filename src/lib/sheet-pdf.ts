@@ -214,7 +214,15 @@ function descriptionLines(sheet: Sheet, page: PDFPage, description: string) {
 
 function fillPage2(sheet: Sheet, data: SheetData) {
   const page = sheet.pages[1];
-  sheet.ruled(page, data.magic, 28, 372, MAGIC_LINES, "Magic & Abilities");
+  const magicSupplement: string[] = [];
+  data.magic.slice(0, MAGIC_LINES.length).forEach((entry, index) => {
+    sheet.field(page, entry.summary, 28, 372, MAGIC_LINES[index], { max: 7.5, min: 5.5 });
+    magicSupplement.push(...entry.detail.split("\n"), "");
+  });
+  if (data.magic.length > MAGIC_LINES.length) {
+    magicSupplement.push(...data.magic.slice(MAGIC_LINES.length).flatMap(entry => [...entry.detail.split("\n"), ""]));
+  }
+  sheet.overflow("Magic & Abilities Reference", magicSupplement);
   SHEET_HIT_LOCATIONS.forEach((name, index) => sheet.circle(page, data.hitLocations[name], 136, HIT_ROWS[index], 21.5, 13));
   data.armour.slice(0, ARMOUR_LINES.length).forEach((row, index) => {
     const baseline = ARMOUR_LINES[index];
@@ -264,21 +272,29 @@ function fillPage2(sheet: Sheet, data: SheetData) {
 
 function addSupplement(sheet: Sheet, name: string) {
   const margin = 42, width = 595.276 - margin * 2, size = 9.5, leading = size * 1.35;
+  const hasMagicReference = sheet.supplement.some(entry => entry.heading.startsWith("Magic & Abilities"));
+  const title = hasMagicReference ? "Magic & Abilities Reference — Character Sheet Supplement" : "Character Sheet Supplement";
   let page = sheet.doc.addPage([595.276, PAGE_H]);
   let y = PAGE_H - margin;
+  const pageHeader = (continued: boolean) => {
+    const pageTitle = continued ? `${title} (continued)` : title;
+    page.drawText(pageTitle, { x: margin, y: y - 13, size: 13, font: sheet.bold, color: rgb(0, 0, 0) });
+    y -= 21;
+    page.drawText(sheet.safe(name || "Unnamed character"), { x: margin, y: y - 10, size: 10, font: sheet.font, color: rgb(0, 0, 0) });
+    y -= 18;
+  };
+  pageHeader(false);
   const ensure = (needed: number) => {
     if (y - needed >= margin) return;
     page = sheet.doc.addPage([595.276, PAGE_H]);
     y = PAGE_H - margin;
+    pageHeader(true);
   };
   const line = (text: string, font: PDFFont, fontSize: number) => {
     ensure(fontSize * 1.5);
     page.drawText(text, { x: margin, y: y - fontSize, size: fontSize, font, color: rgb(0, 0, 0) });
     y -= fontSize * 1.4;
   };
-  line("Supplement — text that did not fit the two-page sheet", sheet.bold, 13);
-  line(sheet.safe(name || "Unnamed character"), sheet.font, 10);
-  y -= 8;
   for (const entry of sheet.supplement) {
     ensure(40);
     line(sheet.safe(entry.heading, sheet.bold), sheet.bold, 10.5);

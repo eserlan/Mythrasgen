@@ -1,15 +1,35 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
-import { PDFDocument } from "pdf-lib";
+import { inflateSync } from "node:zlib";
+import { PDFArray, PDFDocument, PDFRawStream } from "pdf-lib";
 
 Object.defineProperty(globalThis, "$state", { value: <T>(value: T) => value, configurable: true });
 const { char, replace, reset } = await import("./store.svelte");
 const { buildSheetData, SHEET_HIT_LOCATIONS } = await import("./sheet-data");
 const { currentSheetSource } = await import("./sheet-source");
 const { circleTextPlacement, renderCharacterSheet } = await import("./sheet-pdf");
+const { sorceryCatalogue } = await import("./sorcery");
+const { CORE_MYSTICISM_PATHS } = await import("./mysticism");
 
 const template = readFileSync(new URL("../assets/mythras-character-sheet.pdf", import.meta.url));
 const pageCount = async (bytes: Uint8Array) => (await PDFDocument.load(bytes)).getPageCount();
+const renderedText = async (bytes: Uint8Array) => {
+  const doc = await PDFDocument.load(bytes);
+  return doc.getPages().flatMap(page => {
+    const contents = page.node.Contents();
+    const streams = contents instanceof PDFArray ? contents.asArray() : contents ? [contents] : [];
+    return streams.flatMap(reference => {
+      const stream = doc.context.lookup(reference);
+      if (!(stream instanceof PDFRawStream)) return [];
+      try {
+        const content = inflateSync(stream.getContents()).toString("latin1");
+        return [...content.matchAll(/<([\da-f]+)>\s*Tj/gi)].map(([, hex]) => Buffer.from(hex, "hex").toString("latin1"));
+      } catch {
+        return [];
+      }
+    });
+  }).join(" ");
+};
 
 describe("printable character sheet data", () => {
   test("maps only recorded character data and leaves the rest blank", () => {
@@ -98,6 +118,35 @@ describe("printable character sheet data", () => {
     expect(buildSheetData(currentSheetSource()).cult).toEqual(["River Cult (Theism)"]);
   });
 
+  test("resolves detailed references only for the selected sorcery spells and recorded spirits", () => {
+    reset(false);
+    const source = currentSheetSource();
+    const spells = sorceryCatalogue(char.magic.sorcery);
+    char.magic.sorcery.knownSpells = ["Diminish", "Enhance", "Regenerate"].map(name => ({
+      spellId: spells.find(spell => spell.name === name)?.id ?? "missing",
+    }));
+    char.magic.animism.spirits = [{
+      id: "known-spirit", name: "Moss Guardian", spiritTypeId: "core:animism:guardian", source: "core",
+      pow: 13, int: 8, ins: 11, cha: 9, abilities: ["Warding"], notes: "Player note",
+    }];
+    const data = buildSheetData(source);
+    const text = data.magic.map(entry => `${entry.summary}\n${entry.detail}`).join("\n");
+    expect(text).toContain("Reduces");
+    expect(text).toContain("Accelerates natural healing");
+    expect(text).toContain("POW 13");
+    expect(text).toContain("Abilities: Warding");
+    expect(text).toContain("Player/GM notes: Player note");
+    expect(data.magic).toHaveLength(4);
+  });
+
+  test("includes a selected Mysticism path even when no Talents are recorded", () => {
+    reset(false);
+    char.magic.mysticism.startingPathId = CORE_MYSTICISM_PATHS[0].id;
+    char.magic.mysticism.knownTalents = [];
+    const data = buildSheetData(currentSheetSource());
+    expect(data.magic.some(entry => entry.summary.includes(CORE_MYSTICISM_PATHS[0].name))).toBe(true);
+  });
+
   test("never mutates the character and reflects the newly selected character", () => {
     reset(false);
     replace({ name: "First" });
@@ -127,6 +176,38 @@ describe("populated Mythras Character Sheet PDF", () => {
     char.background.parents = "long ".repeat(400);
     const bytes = await renderCharacterSheet(buildSheetData(currentSheetSource()), { template });
     expect(await pageCount(bytes)).toBeGreaterThan(2);
+  });
+
+  test("many magical abilities append readable reference pages with the selected character's name", async () => {
+    reset(false);
+    replace({ name: "Many Spells" });
+    const data = buildSheetData(currentSheetSource());
+    const many = { ...data, magic: Array.from({ length: 20 }, (_, index) => ({
+      summary: `Sorcery: Spell ${index + 1} — meaningful effect`, detail: `Sorcery — Spell ${index + 1}\nRules: meaningful effect ${"with recorded details ".repeat(8)}`,
+    })) };
+    const bytes = await renderCharacterSheet(many, { template });
+    const doc = await PDFDocument.load(bytes);
+    expect(doc.getPageCount()).toBeGreaterThan(2);
+    expect(many.identity.name).toBe("Many Spells");
+  });
+
+  test("prints reference details for short summaries and a starting path without Talents", async () => {
+    reset(false);
+    replace({ name: "Sparse Magic" });
+    char.magic.mysticism.startingPathId = CORE_MYSTICISM_PATHS[0].id;
+    char.magic.mysticism.knownTalents = [];
+    char.magic.animism.spirits = [{
+      id: "small-reference-spirit", name: "Moss", spiritTypeId: "core:animism:guardian", source: "core",
+      pow: 13, abilities: ["Warding"], notes: "Spirit detail note",
+    }];
+    const data = buildSheetData(currentSheetSource());
+    const bytes = await renderCharacterSheet(data, { template });
+    const text = await renderedText(bytes);
+    expect(await pageCount(bytes)).toBeGreaterThan(2);
+    expect(text).toContain(CORE_MYSTICISM_PATHS[0].name);
+    expect(text).toContain("POW 13");
+    expect(text).toContain("Abilities: Warding");
+    expect(text).toContain("Spirit detail note");
   });
 
   test("characters with characters outside the PDF font still print", async () => {
