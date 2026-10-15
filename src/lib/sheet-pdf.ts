@@ -327,7 +327,9 @@ function addSupplement(sheet: Sheet, name: string) {
   };
   for (const entry of sheet.supplement) {
     ensure(40);
-    line(sheet.safe(entry.heading, sheet.bold), sheet.bold, 10.5);
+    for (const headingLine of sheet.wrapWithFont(sheet.safe(entry.heading, sheet.bold), 10.5, width, sheet.bold)) {
+      line(headingLine, sheet.bold, 10.5);
+    }
     for (const paragraph of entry.paragraphs) {
       for (const wrapped of sheet.wrap(sheet.safe(paragraph), size, width)) {
         ensure(leading);
