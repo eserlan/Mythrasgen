@@ -5,7 +5,7 @@ import { PDFArray, PDFDocument, PDFRawStream, StandardFonts } from "pdf-lib";
 
 Object.defineProperty(globalThis, "$state", { value: <T>(value: T) => value, configurable: true });
 const { char, replace, reset } = await import("./store.svelte");
-const { buildSheetData, SHEET_HIT_LOCATIONS } = await import("./sheet-data");
+const { buildMagicEntries, buildSheetData, SHEET_HIT_LOCATIONS } = await import("./sheet-data");
 const { currentSheetSource } = await import("./sheet-source");
 const { circleTextPlacement, renderCharacterSheet } = await import("./sheet-pdf");
 const { sorceryCatalogue } = await import("./sorcery");
@@ -138,6 +138,8 @@ describe("printable character sheet data", () => {
     expect(text).toContain("Abilities: Warding");
     expect(text).toContain("Player/GM notes: Player note");
     expect(data.magic).toHaveLength(4);
+    expect(data.magic.map(entry => entry.tradition)).toEqual(["Sorcery", "Sorcery", "Sorcery", "Animism"]);
+    expect(data.magic[0].detail).toContain("Physical Characteristics resist with Endurance");
   });
 
   test("includes a selected Mysticism path even when no Talents are recorded", () => {
@@ -184,10 +186,10 @@ describe("populated Mythras Character Sheet PDF", () => {
     replace({ name: "Many Spells" });
     const data = buildSheetData(currentSheetSource());
     const many = { ...data, magic: Array.from({ length: 20 }, (_, index) => ({
-      summary: `Sorcery: Spell ${index + 1} — meaningful effect`, detail: `Sorcery — Spell ${index + 1}\nRules: meaningful effect ${"with recorded details ".repeat(8)}${index === 19 ? " FINAL SPELL DETAIL" : ""}`,
+      tradition: "Sorcery", summary: `Sorcery: Spell ${index + 1} — meaningful effect`, detail: `Sorcery — Spell ${index + 1}\nRules: meaningful effect ${"with recorded details ".repeat(8)}${index === 19 ? " FINAL SPELL DETAIL" : ""}`,
     })) };
     const longSpellName = `Long-${"Z".repeat(95)}`;
-    many.magic.push({ summary: "Sorcery: long custom spell", detail: `${longSpellName}\nRules: long custom spell detail` });
+    many.magic.push({ tradition: "Sorcery", summary: "Sorcery: long custom spell", detail: `${longSpellName}\nRules: long custom spell detail` });
     const bytes = await renderCharacterSheet(many, { template });
     const doc = await PDFDocument.load(bytes);
     const text = await renderedText(bytes);
@@ -282,5 +284,13 @@ describe("populated Mythras Character Sheet PDF", () => {
       attributes: { actionPoints: "2", damageModifier: "+1d2", experienceModifier: "+0", healingRate: "3", initiative: "12", luckPoints: "-1", movement: "6" },
     };
     expect(await pageCount(await renderCharacterSheet(populated, { template }))).toBe(2);
+  });
+
+  test("shares the PDF ability selector and returns no entries for a character with no recorded magic", () => {
+    reset(false);
+    expect(buildMagicEntries(char)).toEqual([]);
+    const spells = sorceryCatalogue(char.magic.sorcery);
+    char.magic.sorcery.knownSpells = ["Diminish"].map(name => ({ spellId: spells.find(spell => spell.name === name)?.id ?? "missing" }));
+    expect(buildMagicEntries(char).map(entry => entry.tradition)).toEqual(["Sorcery"]);
   });
 });
