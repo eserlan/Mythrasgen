@@ -789,7 +789,7 @@
   .catalogue-info { margin:.5rem 0; color:var(--mute); }
   .catalogue-info summary { cursor:pointer; }
   .catalogue-filters { display:flex; align-items:end; flex-wrap:wrap; gap:.65rem; }
-  .choose-actions,.custom-entry-actions { display:flex; align-items:end; flex-wrap:wrap; gap:1rem; margin:.6rem 0; }
+  .choose-actions,.custom-entry-actions { display:flex; align-items:end; flex-wrap:wrap; gap:1rem; margin:1rem 0; }
   .choose-actions > button.primary { min-height:3rem; }
   .custom-identity { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,13rem),1fr)); gap:.65rem; margin-top:.75rem; }
   .custom-identity label,.custom-fields label,.custom-field-wide { min-width:0; display:grid; align-content:start; gap:.25rem; }
