@@ -101,6 +101,29 @@ describe("career Combat Style selection", () => {
 });
 
 describe("Culture Combat Style selection", () => {
+  test("changing culture clears career points on the Warrior's former cultural style", () => {
+    const { char, replace, chooseCultureCombatStyle, setAlloc, setCulture, stepSkills } = store;
+    replace({
+      ...char,
+      career: careers.findIndex(career => career.name === "Warrior"),
+      cultureSelections: { standard: [], professional: [], combatStyle: "" },
+      careerCombatStyles: [],
+      combatStyles: [],
+      alloc: { culture: {}, career: {}, bonus: {} },
+    });
+
+    const style = CORE_COMBAT_STYLES[0];
+    chooseCultureCombatStyle(style);
+    setAlloc("career", style.name, 10);
+    expect(char.alloc.career[style.name]).toBe(10);
+
+    setCulture(1);
+
+    expect(char.culture).toBe(1);
+    expect(char.alloc.career[style.name]).toBeUndefined();
+    expect(stepSkills("career")).not.toContain(style.name);
+  });
+
   test("the selected style is eligible for cultural points and removing it clears its allocation", () => {
     const { char, replace, chooseCultureCombatStyle, setAlloc, stepSkills } = store;
     replace({

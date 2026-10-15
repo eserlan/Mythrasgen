@@ -847,6 +847,16 @@ export function chooseCareerCombatStyle(slot: number, definition: CombatStyleSel
   if (previous && !careerSkills().includes(previous)) delete char.alloc.career[previous];
   refreshBonusEligibility();
 }
+export function setCulture(index: number) {
+  if (!cultures[index]) return;
+  if (char.cultureSelections.combatStyle) setCultureCombatStyle("");
+  char.culture = index;
+  char.alloc.culture = {};
+  char.cultureSelections = { standard: [], professional: [], combatStyle: "" };
+  char.cultureMigration = false;
+  reconcileStageAllocation("career");
+  refreshBonusEligibility();
+}
 export function setCareer(index: number) {
   if (!careers[index]) return;
   for (const name of char.careerCombatStyles.filter(Boolean)) char.combatStyles = detachCharacterStyle(char.combatStyles, name, "career");
