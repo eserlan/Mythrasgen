@@ -20,6 +20,9 @@ const HIT_ROWS = step(298.8, 24.2, 7);
 const MAGIC_LINES = onRule(step(49, 16, 13));
 const EQUIPMENT_LINES = onRule(step(291.8, 12, 20));
 const STYLE_LINES = onRule(step(529.8, 12, 4));
+const ARMOUR_LINES = onRule(step(298.8, 24.2, 7));
+const MELEE_LINES = onRule(step(628, 12, 7));
+const RANGED_LINES = onRule(step(724, 12, 3));
 
 const NOTES_BOX = { x: 30, y: 166, w: 350, h: 70 };
 const CULT_BOX = { x: 413, y: 270, w: 161, h: 145 };
@@ -212,8 +215,22 @@ function descriptionLines(sheet: Sheet, page: PDFPage, description: string) {
 function fillPage2(sheet: Sheet, data: SheetData) {
   const page = sheet.pages[1];
   sheet.ruled(page, data.magic, 28, 372, MAGIC_LINES, "Magic & Abilities");
-  SHEET_HIT_LOCATIONS.forEach((name, index) => sheet.field(page, data.hitLocations[name], 124, 148, HIT_ROWS[index] + 2.2, { align: "center", max: 13, font: sheet.bold }));
-  sheet.ruled(page, data.equipment, 411, 535, EQUIPMENT_LINES, "Equipment", 8.5, false);
+  SHEET_HIT_LOCATIONS.forEach((name, index) => sheet.circle(page, data.hitLocations[name], 136, HIT_ROWS[index], 21.5, 13));
+  data.armour.slice(0, ARMOUR_LINES.length).forEach((row, index) => {
+    const baseline = ARMOUR_LINES[index];
+    sheet.field(page, row.name, 216, 313, baseline, { max: 8, min: 5.5, label: `Armour: ${row.name}` });
+    sheet.field(page, row.ap, 321, 346, baseline, { align: "center", max: 9 });
+    sheet.field(page, row.enc, 351, 375, baseline, { align: "center", max: 9 });
+  });
+  sheet.overflow("Armour (not enough room on the sheet)", data.armour.slice(ARMOUR_LINES.length).map(row => `${row.name} — AP ${row.ap || "unknown"}, ENC ${row.enc || "unknown"}`));
+  data.equipment.slice(0, EQUIPMENT_LINES.length).forEach((row, index) => {
+    const baseline = EQUIPMENT_LINES[index];
+    sheet.field(page, row.name, 411, 535, baseline, { max: 8.5, min: 5.5, label: `Equipment: ${row.name}` });
+    sheet.field(page, row.enc, 541, 572, baseline, { align: "center", max: 8.5 });
+  });
+  sheet.overflow("Equipment (not enough room on the sheet)", data.equipment.slice(EQUIPMENT_LINES.length).map(row => `${row.name}${row.enc ? ` — ENC ${row.enc}` : ""}`));
+  sheet.field(page, data.encumbrance.armour, 351, 375, 483, { align: "center", max: 9 });
+  sheet.field(page, data.encumbrance.armourPenalty, 351, 375, 493, { align: "center", max: 9 });
   data.combatStyles.slice(0, STYLE_LINES.length).forEach((style, index) => {
     const baseline = STYLE_LINES[index];
     sheet.field(page, style.name, 28, 122, baseline, { max: 8.5, label: `Combat Style ${style.name}` });
@@ -223,6 +240,26 @@ function fillPage2(sheet: Sheet, data: SheetData) {
   });
   sheet.overflow("Combat Styles (not enough room on the sheet)", data.combatStyles.slice(STYLE_LINES.length)
     .map(style => `${style.name} ${style.percentage}% — weapons: ${style.weapons || "none recorded"}; traits: ${style.traits || "none recorded"}`));
+  sheet.field(page, data.encumbrance.total, 540, 572, 693, { align: "center", max: 9 });
+  sheet.field(page, data.encumbrance.burdened, 540, 572, 717, { align: "center", max: 9 });
+  sheet.field(page, data.encumbrance.overloaded, 540, 572, 729, { align: "center", max: 9 });
+
+  const drawWeapon = (row: typeof data.weapons[number], baseline: number) => {
+    sheet.field(page, row.name, 28, 123, baseline, { max: 8, min: 5.5, label: `Weapon: ${row.name}` });
+    sheet.field(page, row.damage, 128, 178, baseline, { align: "center", max: 8.5 });
+    if (!row.ranged) {
+      sheet.field(page, row.size, 181, 207, baseline, { align: "center", max: 8.5 });
+      sheet.field(page, row.reach, 209, 235, baseline, { align: "center", max: 8.5 });
+    }
+    sheet.field(page, row.ap, 472, 497, baseline, { align: "center", max: 8.5 });
+    sheet.field(page, row.hp, 518, 535, baseline, { align: "center", max: 8.5 });
+    sheet.field(page, row.enc, 540, 572, baseline, { align: "center", max: 8.5 });
+  };
+  const melee = data.weapons.filter(row => !row.ranged), ranged = data.weapons.filter(row => row.ranged);
+  melee.slice(0, MELEE_LINES.length).forEach((row, index) => drawWeapon(row, MELEE_LINES[index]));
+  ranged.slice(0, RANGED_LINES.length).forEach((row, index) => drawWeapon(row, RANGED_LINES[index]));
+  sheet.overflow("Weapons (not enough room on the sheet)", [...melee.slice(MELEE_LINES.length), ...ranged.slice(RANGED_LINES.length)]
+    .map(row => `${row.name}${row.damage ? ` — ${row.damage}` : ""}${row.enc ? `, ENC ${row.enc}` : ""}`));
 }
 
 function addSupplement(sheet: Sheet, name: string) {

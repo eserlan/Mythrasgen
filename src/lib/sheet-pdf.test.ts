@@ -49,7 +49,38 @@ describe("printable character sheet data", () => {
     const source = currentSheetSource();
     const data = buildSheetData({ ...source, styles: [{ name: "Combat Style (Duelling)", percentage: 55, weapons: [{ name: "Rapier" }], traits: [{ displayName: "Skirmishing" }] }] });
     expect(data.combatStyles).toEqual([{ name: "Combat Style (Duelling)", weapons: "Rapier", traits: "Skirmishing", percentage: "55" }]);
-    expect(data.equipment).not.toContain("Rapier");
+    expect(data.equipment.map(item => item.name)).not.toContain("Rapier");
+  });
+
+  test("lists only owned inventory on the PDF and keeps its available ENC and weapon stats", () => {
+    reset(false);
+    const empty = buildSheetData(currentSheetSource());
+    expect(empty.equipment).toEqual([]);
+    char.background.inventory = [{
+      id: "owned-rapier", catalogueId: null, sourceIds: [], name: "Rapier", quantity: 2, acquiredAs: "gifted", state: "carried",
+      encPerUnit: 1, encSource: "gm_override",
+      customItem: { id: "custom-rapier", name: "Rapier", type: "weapon", description: "", priceCp: null, enc: 1,
+        damage: "1d8", size: "M", reach: "M", ap: 0, hp: 8, hands: 1, updatedAt: "" },
+    }];
+    const data = buildSheetData(currentSheetSource());
+    expect(data.equipment).toEqual([{ name: "Rapier ×2", enc: "2" }]);
+    expect(data.weapons).toEqual([expect.objectContaining({ name: "Rapier ×2", damage: "1d8", size: "M", reach: "M", ap: "0", hp: "8", enc: "2", ranged: false })]);
+    expect(data.combatStyles).toEqual([]);
+  });
+
+  test("maps resolved owned armour AP and ENC while leaving empty current weapon HP blank", () => {
+    reset(false);
+    char.background.inventory = [{
+      id: "owned-armour", catalogueId: null, sourceIds: [], name: "Padded coat", quantity: 1, acquiredAs: "gifted", state: "worn",
+      encPerUnit: 1, encSource: "gm_override",
+      armour: { construction: "padded_quilted", material: "linen", locations: ["Chest"], coverageResolved: true, state: "worn", fit: "fitted", compatibility: "compatible", apOverride: 3, encOverride: 1 },
+    }];
+    const data = buildSheetData(currentSheetSource());
+    expect(data.armour).toEqual([{ name: "Padded coat", ap: "3", enc: "1" }]);
+    expect(data.equipment).toEqual([{ name: "Padded coat", enc: "1" }]);
+    expect(data.encumbrance.armour).toBe("1");
+    expect(data.encumbrance.armourPenalty).toBe("1");
+    expect(data.encumbrance.total).toBe("0.5");
   });
 
   test("prints recorded memberships for theistic cults", () => {
@@ -118,6 +149,20 @@ describe("populated Mythras Character Sheet PDF", () => {
       expect(width).toBeLessThanOrEqual(20.4 - 2.5);
     }
     expect(circleTextPlacement("+1d2", font, 340.5, 270, 20.4, 12).size).toBeLessThan(12);
+  });
+
+  test("centres single- and double-digit hit-location values using the circle's measured centre", async () => {
+    const doc = await PDFDocument.create();
+    const font = await doc.embedFont("Helvetica-Bold");
+    for (const value of ["6", "12"]) {
+      const placement = circleTextPlacement(value, font, 136, 298.8, 21.5, 13);
+      const width = font.widthOfTextAtSize(value, placement.size);
+      const ascent = font.heightAtSize(placement.size, { descender: false });
+      const descent = font.heightAtSize(placement.size, { descender: true }) - ascent;
+      expect(placement.x + width / 2).toBeCloseTo(136, 5);
+      expect(placement.baseline - (ascent - descent) / 2).toBeCloseTo(298.8, 5);
+      expect(width).toBeLessThanOrEqual(21.5 - 2.5);
+    }
   });
 
   test("renders single, double, signed and dice values in the seven existing circles", async () => {
