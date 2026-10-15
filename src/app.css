@@ -90,6 +90,7 @@ button.brand:hover:not(:disabled){transform:none;color:var(--bronze2)}
 .print-dialog fieldset label{display:flex;align-items:flex-start;gap:10px;padding:9px;border:1px solid var(--line);border-radius:3px;cursor:pointer}
 .print-dialog fieldset label:has(input:checked){border-color:var(--bronze);background:color-mix(in srgb,var(--bronze) 8%,transparent)}
 .print-dialog input[type=radio]{width:18px;height:18px;min-height:0;margin:2px 0 0;flex:none;accent-color:var(--bronze)}
+.print-dialog input[type=radio]:focus-visible{outline-color:var(--bronze)}
 .print-dialog fieldset label span{min-width:0;display:grid;gap:2px}
 .print-dialog fieldset strong{font-family:var(--display);font-size:.82rem;line-height:1.35}
 .print-dialog fieldset small{color:var(--mute);font-size:.8rem;line-height:1.35}
