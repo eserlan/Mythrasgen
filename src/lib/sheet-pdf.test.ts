@@ -301,7 +301,8 @@ describe("populated Mythras Character Sheet PDF", () => {
     expect(await pageCount(notesAndAppendixBytes)).toBeGreaterThan(2);
     expect(notesAndAppendixPages[1]).toContain("Diminish");
     expect(notesAndAppendixPages[1]).toContain("Reduces the specified subject by 2 points per Intensity");
-    expect(notesAndAppendixPages.slice(2).join(" ")).toContain("Physical Characteristics resist with Endurance; mental Characteristics resist with Willpower.");
+    expect(notesAndAppendixPages.some(page => page.includes("Magic & Abilities")
+      && page.includes("Physical Characteristics resist with Endurance; mental Characteristics resist with Willpower."))).toBe(true);
     const appendixOnly = await renderCharacterSheet(data, { template, mode: "appendix-only" });
     expect(await pageCount(appendixOnly)).toBeGreaterThan(0);
     expect(await renderedText(appendixOnly)).not.toContain("Player name");
