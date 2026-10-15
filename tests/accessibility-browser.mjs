@@ -80,13 +80,23 @@ try {
   };
   await call("Runtime.enable");
   await call("Page.enable");
-  await new Promise(resolve => setTimeout(resolve, 500));
+  await call("Page.navigate", { url });
+  const waitForDocument = async () => {
+    for (let attempt = 0; attempt < 120; attempt++) {
+      try {
+        if (await evaluate(`location.origin === ${JSON.stringify(new URL(url).origin)} && document.readyState === "complete"`)) return;
+      } catch {}
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    throw new Error(`Timed out waiting for ${url} to finish loading`);
+  };
+  await waitForDocument();
   const character = { id: "a11y-character", name: "Accessibility Check", step: 7, cultureSelections: { standard: [], professional: [], combatStyle: "" }, careerProfessional: [], careerCombatStyles: [], alloc: { culture: {}, career: {}, bonus: {} }, magic: {} };
   await evaluate(`localStorage.setItem("mythrasgen.characters.v1", ${JSON.stringify(JSON.stringify({ activeId: character.id, characters: [character] }))})`);
   await call("Page.reload");
-  await new Promise(resolve => setTimeout(resolve, 1000));
+  await waitForDocument();
   await evaluate(`Array.from(document.querySelectorAll('button')).find(button => button.innerText.toLowerCase().includes('continue your hero'))?.click()`);
-  await new Promise(resolve => setTimeout(resolve, 500));
+  await evaluate(`Promise.all(Array.from(document.querySelectorAll('.page')).flatMap(page => page.getAnimations().map(animation => animation.finished)))`);
   const loaded = await evaluate(`JSON.stringify({ equipment: !!document.querySelector('.inventory-ledger'), text: document.body.innerText.slice(0,800) })`);
   assert.ok(JSON.parse(loaded).equipment, `Page VIII did not load: ${JSON.parse(loaded).text}`);
   await evaluate(axeSource);
