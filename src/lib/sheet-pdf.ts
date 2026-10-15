@@ -32,7 +32,7 @@ const ATTRIBUTE_CIRCLE = { x: 340.5, diameter: 20.4 };
 
 type Align = "left" | "center";
 export interface SheetSupplementEntry { heading: string; paragraphs: string[] }
-export type PrintMode = "sheet-only" | "sheet-and-appendix" | "appendix-only";
+export type PrintMode = "titles-and-appendix" | "titles-only" | "notes-and-appendix" | "notes-only" | "appendix-only";
 export interface RenderOptions { template: Uint8Array | ArrayBuffer; mode?: PrintMode }
 
 /** Place text by its measured width and font bounds around a circle's measured centre. */
@@ -271,6 +271,8 @@ function fillPage2(sheet: Sheet, data: SheetData, mode: PrintMode) {
 function drawMagicEntries(sheet: Sheet, page: PDFPage, entries: SheetData["magic"], mode: PrintMode) {
   const x1 = 28, width = 344, size = 7.5;
   const lines: { text: string; font: PDFFont }[] = [];
+  const includeNotes = mode === "notes-and-appendix" || mode === "notes-only";
+  const hasAppendix = mode === "titles-and-appendix" || mode === "notes-and-appendix";
   const groups = new Map<string, SheetData["magic"]>();
   for (const entry of entries) {
     const group = groups.get(entry.tradition);
@@ -281,18 +283,23 @@ function drawMagicEntries(sheet: Sheet, page: PDFPage, entries: SheetData["magic
     lines.push({ text: tradition.toUpperCase(), font: sheet.bold });
     for (const entry of group) {
       const [title = entry.summary, ...details] = entry.detail.split("\n");
-      const effect = details.find(item => item.startsWith("Rules:") || item.startsWith("Recorded effect:")) ?? "";
-      const concise = `${title.replace(/^.*? — /, "")} — ${effect.replace(/^(?:Rules|Recorded effect):\s*/, "")}`.replace(/\s+/g, " ").trim();
-      const wrapped = sheet.wrap(sheet.safe(concise), size, width);
+      const name = title.replace(/^.*? — /, "").trim();
+      const notes = details.map(item => item.replace(/^(?:Rules|Recorded effect|Player\/GM notes):\s*/, "").trim()).filter(Boolean);
+      const content = includeNotes && notes.length ? `${name} — ${notes.join("; ")}` : name;
+      const wrapped = sheet.wrap(sheet.safe(content), size, width);
       lines.push(...wrapped.map(text => ({ text, font: sheet.font })));
     }
   }
-  const needsPointer = entries.length > 0 && mode === "sheet-and-appendix";
+  const needsPointer = entries.length > 0 && hasAppendix;
   const pointer = "Full descriptions: Magic Appendix";
   const capacity = MAGIC_LINES.length;
-  const display = lines.length + (needsPointer ? 1 : 0) <= capacity
-    ? [...lines, ...(needsPointer ? [{ text: pointer, font: sheet.bold }] : [])]
-    : [...lines.slice(0, Math.max(0, capacity - (needsPointer ? 2 : 1))), { text: needsPointer ? "… additional entries; see Magic Appendix" : "… additional entries", font: sheet.bold }, ...(needsPointer ? [{ text: pointer, font: sheet.bold }] : [])];
+  const reserved = needsPointer ? 1 : 0;
+  const overflows = lines.length + reserved > capacity;
+  const omitted = Math.max(0, lines.length - (capacity - reserved - (overflows ? 1 : 0)));
+  const marker = overflows
+    ? { text: needsPointer ? `Additional magic details omitted; see Magic Appendix (${omitted} lines)` : `Additional magic details omitted due to space (${omitted} lines)`, font: sheet.bold }
+    : undefined;
+  const display = [...lines.slice(0, capacity - reserved - (marker ? 1 : 0)), ...(marker ? [marker] : []), ...(needsPointer ? [{ text: pointer, font: sheet.bold }] : [])];
   display.slice(0, capacity).forEach((line, index) => sheet.draw(page, line.text, x1, MAGIC_LINES[index], size, line.font));
 }
 
@@ -388,7 +395,7 @@ function addMagicAppendix(sheet: Sheet, name: string, entries: SheetData["magic"
 }
 
 /** Populate the official two-page template. A clearly labelled supplement is appended only when text overflowed. */
-export async function renderCharacterSheet(data: SheetData, { template, mode = "sheet-and-appendix" }: RenderOptions): Promise<Uint8Array> {
+export async function renderCharacterSheet(data: SheetData, { template, mode = "titles-and-appendix" }: RenderOptions): Promise<Uint8Array> {
   const doc = await PDFDocument.load(template);
   const pages = doc.getPages();
   if (pages.length !== 2) throw new Error("The Mythras Character Sheet template must have exactly two pages.");
@@ -401,9 +408,11 @@ export async function renderCharacterSheet(data: SheetData, { template, mode = "
     doc.removePage(1);
     doc.removePage(0);
     addMagicAppendix(sheet, data.identity.name, data.magic);
-  } else if (mode === "sheet-and-appendix") {
+  } else if ((mode === "titles-and-appendix" || mode === "notes-and-appendix") && data.magic.length) {
     addMagicAppendix(sheet, data.identity.name, data.magic);
     if (sheet.supplement.length) addSupplement(sheet, data.identity.name);
+  } else if ((mode === "titles-and-appendix" || mode === "notes-and-appendix") && sheet.supplement.length) {
+    addSupplement(sheet, data.identity.name);
   }
   return doc.save();
 }

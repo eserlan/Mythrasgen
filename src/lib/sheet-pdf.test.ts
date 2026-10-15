@@ -182,12 +182,12 @@ describe("populated Mythras Character Sheet PDF", () => {
     }));
     const data = buildSheetData(currentSheetSource());
     expect(data.magic).toHaveLength(3);
-    const sheetOnly = await renderCharacterSheet(data, { template, mode: "sheet-only" });
+    const sheetOnly = await renderCharacterSheet(data, { template, mode: "titles-only" });
     expect(await pageCount(sheetOnly)).toBe(2);
     const sheetOnlyText = await renderedText(sheetOnly);
     expect(sheetOnlyText).not.toContain("Full descriptions: Magic Appendix");
     expect(sheetOnlyText).not.toContain("see Magic Appendix");
-    const combined = await renderCharacterSheet(data, { template, mode: "sheet-and-appendix" });
+    const combined = await renderCharacterSheet(data, { template, mode: "titles-and-appendix" });
     expect(await pageCount(combined)).toBeGreaterThan(2);
     expect(await renderedText(combined)).toContain("Full descriptions: Magic Appendix");
     expect(await pageCount(await renderCharacterSheet(data, { template, mode: "appendix-only" }))).toBeGreaterThan(0);
@@ -218,11 +218,12 @@ describe("populated Mythras Character Sheet PDF", () => {
     const many = { ...data, magic: Array.from({ length: 20 }, (_, index) => ({
       tradition: "Sorcery", summary: `Sorcery: Spell ${index + 1} — meaningful effect`, detail: `Sorcery — Spell ${index + 1}\nRules: meaningful effect ${"with recorded details ".repeat(8)}${index === 19 ? " FINAL SPELL DETAIL" : ""}`,
     })) };
-    const sheetOnly = await renderCharacterSheet(many, { template, mode: "sheet-only" });
+    const sheetOnly = await renderCharacterSheet(many, { template, mode: "titles-only" });
     const sheetOnlyText = await renderedText(sheetOnly);
     expect(await pageCount(sheetOnly)).toBe(2);
     expect(sheetOnlyText).not.toContain("see Magic Appendix");
     expect(sheetOnlyText).not.toContain("Full descriptions: Magic Appendix");
+    expect(sheetOnlyText).toContain("Additional magic details omitted due to space");
     const longSpellName = `Long-${"Z".repeat(95)}`;
     many.magic.push({ tradition: "Sorcery", summary: "Sorcery: long custom spell", detail: `${longSpellName}\nRules: long custom spell detail` });
     const bytes = await renderCharacterSheet(many, { template });
@@ -274,6 +275,29 @@ describe("populated Mythras Character Sheet PDF", () => {
     expect(text).toContain("but cannot repair Major Wounds.");
     expect(text).toContain("while concentration continues.");
     expect(text).not.toContain("…");
+  });
+
+  test("renders all five modes with names-only or available rules notes", async () => {
+    reset(false);
+    const spells = sorceryCatalogue(char.magic.sorcery);
+    char.magic.sorcery.knownSpells = ["Diminish", "Enhance", "Regenerate"].map(name => ({
+      spellId: spells.find(spell => spell.name === name)?.id ?? "missing",
+    }));
+    const data = buildSheetData(currentSheetSource());
+    const titleBytes = await renderCharacterSheet(data, { template, mode: "titles-only" });
+    const noteBytes = await renderCharacterSheet(data, { template, mode: "notes-only" });
+    const titleText = await renderedText(titleBytes);
+    const noteText = await renderedText(noteBytes);
+    expect(await pageCount(titleBytes)).toBe(2);
+    expect(await pageCount(noteBytes)).toBe(2);
+    expect(titleText).toContain("Diminish");
+    expect(titleText).not.toContain("Reduces");
+    expect(noteText).toContain("Diminish");
+    expect(noteText).toContain("Reduces");
+    expect(await pageCount(await renderCharacterSheet(data, { template, mode: "notes-and-appendix" }))).toBeGreaterThan(2);
+    const appendixOnly = await renderCharacterSheet(data, { template, mode: "appendix-only" });
+    expect(await pageCount(appendixOnly)).toBeGreaterThan(0);
+    expect(await renderedText(appendixOnly)).not.toContain("Player name");
   });
 
   test("characters with characters outside the PDF font still print", async () => {
