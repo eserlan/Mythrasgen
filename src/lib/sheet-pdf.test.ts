@@ -173,6 +173,36 @@ describe("populated Mythras Character Sheet PDF", () => {
     expect(await pageCount(await renderCharacterSheet(buildSheetData(currentSheetSource()), { template }))).toBe(2);
   });
 
+  test("prints the three selectable magic output modes from known spells", async () => {
+    reset(false);
+    replace({ name: "Three Spells" });
+    const spells = sorceryCatalogue(char.magic.sorcery);
+    char.magic.sorcery.knownSpells = ["Diminish", "Enhance", "Regenerate"].map(name => ({
+      spellId: spells.find(spell => spell.name === name)?.id ?? "missing",
+    }));
+    const data = buildSheetData(currentSheetSource());
+    expect(data.magic).toHaveLength(3);
+    const sheetOnly = await renderCharacterSheet(data, { template, mode: "sheet-only" });
+    expect(await pageCount(sheetOnly)).toBe(2);
+    const sheetOnlyText = await renderedText(sheetOnly);
+    expect(sheetOnlyText).not.toContain("Full descriptions: Magic Appendix");
+    expect(sheetOnlyText).not.toContain("see Magic Appendix");
+    const combined = await renderCharacterSheet(data, { template, mode: "sheet-and-appendix" });
+    expect(await pageCount(combined)).toBeGreaterThan(2);
+    expect(await renderedText(combined)).toContain("Full descriptions: Magic Appendix");
+    expect(await pageCount(await renderCharacterSheet(data, { template, mode: "appendix-only" }))).toBeGreaterThan(0);
+    const appendix = await renderedText(await renderCharacterSheet(data, { template, mode: "appendix-only" }));
+    expect(appendix).toContain("Magic & Abilities");
+    expect(appendix).toContain("Three Spells");
+    expect(appendix).toContain("Regenerate");
+  });
+
+  test("appendix-only falls back to the official sheet when there are no recorded abilities", async () => {
+    reset(false);
+    const data = buildSheetData(currentSheetSource());
+    expect(await pageCount(await renderCharacterSheet(data, { template, mode: "appendix-only" }))).toBe(2);
+  });
+
   test("overflowing text adds a clearly labelled supplement instead of corrupting the sheet", async () => {
     reset(false);
     replace({ name: "Overflow", description: "word ".repeat(200) });
@@ -188,6 +218,11 @@ describe("populated Mythras Character Sheet PDF", () => {
     const many = { ...data, magic: Array.from({ length: 20 }, (_, index) => ({
       tradition: "Sorcery", summary: `Sorcery: Spell ${index + 1} — meaningful effect`, detail: `Sorcery — Spell ${index + 1}\nRules: meaningful effect ${"with recorded details ".repeat(8)}${index === 19 ? " FINAL SPELL DETAIL" : ""}`,
     })) };
+    const sheetOnly = await renderCharacterSheet(many, { template, mode: "sheet-only" });
+    const sheetOnlyText = await renderedText(sheetOnly);
+    expect(await pageCount(sheetOnly)).toBe(2);
+    expect(sheetOnlyText).not.toContain("see Magic Appendix");
+    expect(sheetOnlyText).not.toContain("Full descriptions: Magic Appendix");
     const longSpellName = `Long-${"Z".repeat(95)}`;
     many.magic.push({ tradition: "Sorcery", summary: "Sorcery: long custom spell", detail: `${longSpellName}\nRules: long custom spell detail` });
     const bytes = await renderCharacterSheet(many, { template });
@@ -196,6 +231,8 @@ describe("populated Mythras Character Sheet PDF", () => {
     const runs = await renderedTextRuns(bytes);
     const supplementBold = await doc.embedFont(StandardFonts.HelveticaBold);
     expect(doc.getPageCount()).toBeGreaterThan(2);
+    expect(text).toContain("Full descriptions: Magic Appendix");
+    expect(text).toContain("see Magic Appendix");
     expect(text).toContain("FINAL SPELL DETAIL");
     expect(text.indexOf("Spell 1")).toBeLessThan(text.indexOf("Spell 20"));
     expect(runs.filter(run => run.includes("Z")).map(run => run.match(/Z+/)?.[0].length ?? 0).reduce((sum, length) => sum + length, 0)).toBe(95);
@@ -222,7 +259,7 @@ describe("populated Mythras Character Sheet PDF", () => {
     expect(text).toContain("Spirit detail note");
   });
 
-  test("wraps complete multi-sentence sorcery effects in the Magic & Abilities panel", async () => {
+  test("includes complete multi-sentence sorcery effects in the appendix", async () => {
     reset(false);
     const spells = sorceryCatalogue(char.magic.sorcery);
     char.magic.sorcery.knownSpells = ["Diminish", "Enhance", "Regenerate"].map(name => ({
