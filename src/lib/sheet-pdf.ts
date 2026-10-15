@@ -216,8 +216,8 @@ function fillPage2(sheet: Sheet, data: SheetData) {
   const page = sheet.pages[1];
   const magicSupplement: string[] = [];
   data.magic.slice(0, MAGIC_LINES.length).forEach((entry, index) => {
-    const shortened = sheet.field(page, entry.summary, 28, 372, MAGIC_LINES[index], { max: 7.5, min: 5.5 });
-    if (shortened) magicSupplement.push(...entry.detail.split("\n"), "");
+    sheet.field(page, entry.summary, 28, 372, MAGIC_LINES[index], { max: 7.5, min: 5.5 });
+    magicSupplement.push(...entry.detail.split("\n"), "");
   });
   if (data.magic.length > MAGIC_LINES.length) {
     magicSupplement.push(...data.magic.slice(MAGIC_LINES.length).flatMap(entry => [...entry.detail.split("\n"), ""]));

@@ -128,6 +128,14 @@ function magicEntries({ char }: SheetSource): SheetData["magic"] {
   }
 
   const mysticism = mysticismCatalogue(magic.mysticism);
+  const startingPath = mysticism.paths.find(path => path.id === magic.mysticism.startingPathId);
+  if (startingPath) {
+    const organisation = mysticism.organisations.find(item => item.id === startingPath.organisationId);
+    add("Mysticism Path", startingPath.name,
+      [startingPath.description, organisation && `Organisation: ${organisation.name}`].filter((value): value is string => !!value),
+      [startingPath.notes, startingPath.teacher && `Teacher: ${startingPath.teacher}`].filter((value): value is string => !!value),
+      startingPath.source === "core" ? "Rules" : "Recorded details");
+  }
   for (const known of magic.mysticism.knownTalents) {
     const talent = mysticism.talents.find(item => item.id === known.talentId);
     if (!talent) continue;
