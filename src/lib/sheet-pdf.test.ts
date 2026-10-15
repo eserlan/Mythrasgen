@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { inflateSync } from "node:zlib";
-import { PDFArray, PDFDocument, PDFRawStream } from "pdf-lib";
+import { PDFArray, PDFDocument, PDFRawStream, StandardFonts } from "pdf-lib";
 
 Object.defineProperty(globalThis, "$state", { value: <T>(value: T) => value, configurable: true });
 const { char, replace, reset } = await import("./store.svelte");
@@ -13,7 +13,7 @@ const { CORE_MYSTICISM_PATHS } = await import("./mysticism");
 
 const template = readFileSync(new URL("../assets/mythras-character-sheet.pdf", import.meta.url));
 const pageCount = async (bytes: Uint8Array) => (await PDFDocument.load(bytes)).getPageCount();
-const renderedText = async (bytes: Uint8Array) => {
+const renderedTextRuns = async (bytes: Uint8Array) => {
   const doc = await PDFDocument.load(bytes);
   return doc.getPages().flatMap(page => {
     const contents = page.node.Contents();
@@ -28,8 +28,9 @@ const renderedText = async (bytes: Uint8Array) => {
         return [];
       }
     });
-  }).join(" ");
+  });
 };
+const renderedText = async (bytes: Uint8Array) => (await renderedTextRuns(bytes)).join(" ");
 
 describe("printable character sheet data", () => {
   test("maps only recorded character data and leaves the rest blank", () => {
@@ -183,11 +184,20 @@ describe("populated Mythras Character Sheet PDF", () => {
     replace({ name: "Many Spells" });
     const data = buildSheetData(currentSheetSource());
     const many = { ...data, magic: Array.from({ length: 20 }, (_, index) => ({
-      summary: `Sorcery: Spell ${index + 1} — meaningful effect`, detail: `Sorcery — Spell ${index + 1}\nRules: meaningful effect ${"with recorded details ".repeat(8)}`,
+      summary: `Sorcery: Spell ${index + 1} — meaningful effect`, detail: `Sorcery — Spell ${index + 1}\nRules: meaningful effect ${"with recorded details ".repeat(8)}${index === 19 ? " FINAL SPELL DETAIL" : ""}`,
     })) };
+    const longSpellName = `Long-${"Z".repeat(95)}`;
+    many.magic.push({ summary: "Sorcery: long custom spell", detail: `${longSpellName}\nRules: long custom spell detail` });
     const bytes = await renderCharacterSheet(many, { template });
     const doc = await PDFDocument.load(bytes);
+    const text = await renderedText(bytes);
+    const runs = await renderedTextRuns(bytes);
+    const supplementBold = await doc.embedFont(StandardFonts.HelveticaBold);
     expect(doc.getPageCount()).toBeGreaterThan(2);
+    expect(text).toContain("FINAL SPELL DETAIL");
+    expect(text.indexOf("Spell 1")).toBeLessThan(text.indexOf("Spell 20"));
+    expect(runs.filter(run => run.includes("Z")).map(run => run.match(/Z+/)?.[0].length ?? 0).reduce((sum, length) => sum + length, 0)).toBe(95);
+    expect(runs.filter(run => run.includes("Z")).every(run => supplementBold.widthOfTextAtSize(run, 10.5) <= 595.276 - 42 * 2)).toBe(true);
     expect(many.identity.name).toBe("Many Spells");
   });
 
@@ -198,7 +208,7 @@ describe("populated Mythras Character Sheet PDF", () => {
     char.magic.mysticism.knownTalents = [];
     char.magic.animism.spirits = [{
       id: "small-reference-spirit", name: "Moss", spiritTypeId: "core:animism:guardian", source: "core",
-      pow: 13, abilities: ["Warding"], notes: "Spirit detail note",
+      pow: 13, abilities: ["Warding"], notes: `Spirit detail note ${"recorded detail ".repeat(120)}`,
     }];
     const data = buildSheetData(currentSheetSource());
     const bytes = await renderCharacterSheet(data, { template });
@@ -208,6 +218,23 @@ describe("populated Mythras Character Sheet PDF", () => {
     expect(text).toContain("POW 13");
     expect(text).toContain("Abilities: Warding");
     expect(text).toContain("Spirit detail note");
+  });
+
+  test("wraps complete multi-sentence sorcery effects in the Magic & Abilities panel", async () => {
+    reset(false);
+    const spells = sorceryCatalogue(char.magic.sorcery);
+    char.magic.sorcery.knownSpells = ["Diminish", "Enhance", "Regenerate"].map(name => ({
+      spellId: spells.find(spell => spell.name === name)?.id ?? "missing",
+    }));
+    const data = buildSheetData(currentSheetSource());
+    const bytes = await renderCharacterSheet(data, { template });
+    const text = await renderedText(bytes);
+    expect(text).toContain("Reduces");
+    expect(text).toContain("Physical Characteristics resist with Endurance; mental Characteristics resist with Willpower.");
+    expect(text).toContain("When resistance applies, physical Characteristics use Endurance and mental ones Willpower.");
+    expect(text).toContain("but cannot repair Major Wounds.");
+    expect(text).toContain("while concentration continues.");
+    expect(text).not.toContain("…");
   });
 
   test("characters with characters outside the PDF font still print", async () => {

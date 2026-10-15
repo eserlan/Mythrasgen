@@ -93,17 +93,21 @@ class Sheet {
   }
 
   wrap(text: string, size: number, width: number): string[] {
+    return this.wrapWithFont(text, size, width, this.font);
+  }
+
+  wrapWithFont(text: string, size: number, width: number, font: PDFFont): string[] {
     const lines: string[] = [];
     let line = "";
     const push = (word: string) => {
       const next = line ? `${line} ${word}` : word;
-      if (this.font.widthOfTextAtSize(next, size) <= width) { line = next; return; }
+      if (font.widthOfTextAtSize(next, size) <= width) { line = next; return; }
       if (line) lines.push(line);
       line = "";
-      if (this.font.widthOfTextAtSize(word, size) <= width) { line = word; return; }
+      if (font.widthOfTextAtSize(word, size) <= width) { line = word; return; }
       let chunk = "";
       for (const char of word) {
-        if (this.font.widthOfTextAtSize(chunk + char, size) > width && chunk) { lines.push(chunk); chunk = ""; }
+        if (font.widthOfTextAtSize(chunk + char, size) > width && chunk) { lines.push(chunk); chunk = ""; }
         chunk += char;
       }
       line = chunk;
@@ -214,15 +218,7 @@ function descriptionLines(sheet: Sheet, page: PDFPage, description: string) {
 
 function fillPage2(sheet: Sheet, data: SheetData) {
   const page = sheet.pages[1];
-  const magicSupplement: string[] = [];
-  data.magic.slice(0, MAGIC_LINES.length).forEach((entry, index) => {
-    sheet.field(page, entry.summary, 28, 372, MAGIC_LINES[index], { max: 7.5, min: 5.5 });
-    magicSupplement.push(...entry.detail.split("\n"), "");
-  });
-  if (data.magic.length > MAGIC_LINES.length) {
-    magicSupplement.push(...data.magic.slice(MAGIC_LINES.length).flatMap(entry => [...entry.detail.split("\n"), ""]));
-  }
-  sheet.overflow("Magic & Abilities Reference", magicSupplement);
+  drawMagicEntries(sheet, page, data.magic);
   SHEET_HIT_LOCATIONS.forEach((name, index) => sheet.circle(page, data.hitLocations[name], 136, HIT_ROWS[index], 21.5, 13));
   data.armour.slice(0, ARMOUR_LINES.length).forEach((row, index) => {
     const baseline = ARMOUR_LINES[index];
@@ -270,6 +266,40 @@ function fillPage2(sheet: Sheet, data: SheetData) {
     .map(row => `${row.name}${row.damage ? ` — ${row.damage}` : ""}${row.enc ? `, ENC ${row.enc}` : ""}`));
 }
 
+/** Use the printed rules as line slots so wrapped descriptions stay inside the Magic panel. */
+function drawMagicEntries(sheet: Sheet, page: PDFPage, entries: SheetData["magic"]) {
+  const x1 = 28, x2 = 372, width = x2 - x1, size = 7.5;
+  const panelLines: { text: string; font: PDFFont }[] = [];
+  let overflowStarted = false;
+  let magicSupplementStarted = false;
+
+  const wrappedParagraphs = (text: string, font: PDFFont) => text
+    .split("\n")
+    .flatMap(paragraph => sheet.wrapWithFont(sheet.safe(paragraph, font), size, width, font));
+
+  for (const entry of entries) {
+    const [heading = entry.summary, ...detail] = entry.detail.split("\n");
+    const headingLines = wrappedParagraphs(heading, sheet.bold).map(text => ({ text, font: sheet.bold }));
+    const detailLines = detail.flatMap(paragraph => wrappedParagraphs(paragraph, sheet.font)).map(text => ({ text, font: sheet.font }));
+    const allLines = [...headingLines, ...detailLines];
+    const available = MAGIC_LINES.length - panelLines.length;
+    const shown = overflowStarted ? 0 : Math.min(available, allLines.length);
+    panelLines.push(...allLines.slice(0, shown));
+
+    if (shown < allLines.length) {
+      overflowStarted = true;
+      const rest = shown ? allLines.slice(shown).map(line => line.text) : detail;
+      sheet.supplement.push({
+        heading: `${magicSupplementStarted ? "" : "Magic & Abilities Reference — "}${heading}${shown ? " (continued)" : ""}`,
+        paragraphs: rest.length ? rest : detail,
+      });
+      magicSupplementStarted = true;
+    }
+  }
+
+  panelLines.forEach((line, index) => sheet.draw(page, line.text, x1, MAGIC_LINES[index], size, line.font));
+}
+
 function addSupplement(sheet: Sheet, name: string) {
   const margin = 42, width = 595.276 - margin * 2, size = 9.5, leading = size * 1.35;
   const hasMagicReference = sheet.supplement.some(entry => entry.heading.startsWith("Magic & Abilities"));
@@ -297,7 +327,9 @@ function addSupplement(sheet: Sheet, name: string) {
   };
   for (const entry of sheet.supplement) {
     ensure(40);
-    line(sheet.safe(entry.heading, sheet.bold), sheet.bold, 10.5);
+    for (const headingLine of sheet.wrapWithFont(sheet.safe(entry.heading, sheet.bold), 10.5, width, sheet.bold)) {
+      line(headingLine, sheet.bold, 10.5);
+    }
     for (const paragraph of entry.paragraphs) {
       for (const wrapped of sheet.wrap(sheet.safe(paragraph), size, width)) {
         ensure(leading);
