@@ -55,7 +55,7 @@ button.big,.btn.big{padding:13px 26px;font-size:.9rem}
 input,select{background:var(--bg);border:1px solid var(--line2);border-radius:3px;padding:9px 12px;min-width:0;min-height:var(--control-min-height);font-size:1.05rem}
 textarea{width:100%;box-sizing:border-box;background:var(--bg);color:var(--fg);border:1px solid var(--line2);border-radius:3px;padding:9px 12px;min-width:0;font:inherit;resize:vertical}
 textarea::placeholder{color:var(--mute);opacity:1}
-input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible,.btn:focus-within{outline:2px solid var(--bronze2);outline-offset:2px}
+input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible,.btn:focus-within{outline:2px solid var(--bronze);outline-offset:2px}
 
 /* landing */
 .landing{min-height:100dvh;display:flex;flex-direction:column;justify-content:space-between;padding:18px 0}
