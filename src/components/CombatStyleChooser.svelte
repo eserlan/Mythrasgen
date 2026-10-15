@@ -3,7 +3,7 @@
   import SkillInfo from "./SkillInfo.svelte";
   import { CORE_COMBAT_STYLES, CORE_COMBAT_TRAITS, customCombatStyle, resolveCoreCombatStyle, type CharacterCombatStyle, type CombatStyleDefinition, type CombatStyleSelection, type CombatStyleTrait } from "../lib/combat-styles";
 
-  let { selectedName = "", styles = [], idPrefix, onchoose }: { selectedName?: string; styles?: CharacterCombatStyle[]; idPrefix: string; onchoose: (style: CombatStyleSelection | null) => void } = $props();
+  let { selectedName = "", styles = [], idPrefix, label = "Combat Style (optional)", helperText = "", onchoose }: { selectedName?: string; styles?: CharacterCombatStyle[]; idPrefix: string; label?: string; helperText?: string; onchoose: (style: CombatStyleSelection | null) => void } = $props();
   let dialog: HTMLDialogElement;
   let searchInput = $state<HTMLInputElement>();
   let resultsRegion = $state<HTMLDivElement>();
@@ -119,14 +119,17 @@
   }
 </script>
 
-<section class="combat-style-picker" aria-label="Combat Style (optional)">
+<section class="combat-style-picker" aria-label={label}>
   {#if !selectedName}
-    <p class="label">Combat Style (optional)</p>
+    <p class="label">{label}</p>
+    {#if helperText}<p class="mute">{helperText}</p>{/if}
     <div class="combat-style-actions">
       <button type="button" class="secondary" onclick={openPicker}>Choose Combat Style…</button>
       <button type="button" class="secondary" onclick={() => { editingCustom = true; dialog.showModal(); }}>Create Custom Style</button>
     </div>
   {:else}
+    <p class="label">{label}</p>
+    {#if helperText}<p class="mute">{helperText}</p>{/if}
     <div class="combat-style-summary">
       <div class="combat-style-summary-heading">
         <h3><SkillInfo name={`Combat Style (${selectedName})`} /> — {selected?.baseFormula.join(" + ") ?? "STR + DEX"}</h3>

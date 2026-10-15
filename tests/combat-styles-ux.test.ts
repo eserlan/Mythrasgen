@@ -3,8 +3,17 @@ import { describe, expect, test } from "bun:test";
 
 const component = readFileSync(new URL("../src/components/CombatStyles.svelte", import.meta.url), "utf8");
 const page = readFileSync(new URL("../src/components/Combat.svelte", import.meta.url), "utf8");
+const skills = readFileSync(new URL("../src/components/Skills.svelte", import.meta.url), "utf8");
 
 describe("Combat Style display", () => {
+  test("Warrior career style opportunities explain their separate roles", () => {
+    expect(skills).toContain("Cultural Combat Style (optional)");
+    expect(skills).toContain("same cultural style chosen on Page III");
+    expect(skills).toContain("Speciality Combat Style (optional)");
+    expect(skills).toContain("Choose an existing style or create a custom style");
+    expect(skills).toContain("careerCombatStyleRole(career(), i)");
+  });
+
   test("Page VIII does not mount a duplicate Combat Styles editor", () => {
     expect(page).not.toContain("CombatStyles");
     expect(page).not.toContain("combat-styles-compact");

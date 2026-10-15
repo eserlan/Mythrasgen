@@ -1,5 +1,6 @@
 <script lang="ts">
   import { type Kind } from "../lib/rules";
+  import { careerCombatStyleRole } from "../lib/content";
   import { base, capFor, career, careerAllocationErrors, char, chooseBonusCombatStyle, chooseCareerCombatStyle, chooseCultureCombatStyle, clearHobbySkill, culture, cultureAllocationErrors, learnedSkills, poolFor, reconcileCultureSelection, refreshBonusEligibility, setAlloc, setHobbyProfessionalSkill, setSkillSpecialisation, skillDefinition, stepSkills, toggleCareerProfessional, total, used } from "../lib/store.svelte";
   import { HOBBY_PROFESSIONAL_SKILLS, hobbySkillName } from "../lib/hobby-skills";
   import { hasMeaningfulSpecialisation, requiresSpecialisation, resolveSkillTemplate } from "../lib/specialisations";
@@ -87,7 +88,19 @@
       {/each}
     </div>
     {#each career().combatStyle ?? [] as _slot, i (i)}
-      <CombatStyleChooser idPrefix={`career-combat-style-${i}`} selectedName={char.careerCombatStyles[i] ?? ""} styles={char.combatStyles} onchoose={style => chooseCareerCombatStyle(i, style)} />
+      {#if careerCombatStyleRole(career(), i) === "cultural"}
+        <div class="combat-style-picker career-cultural-style" aria-label="Cultural Combat Style">
+          <p class="label">Cultural Combat Style (optional)</p>
+          <p class="mute">Career points can improve the same cultural style chosen on Page III. This does not add a separate style.</p>
+          <p>{char.cultureSelections.combatStyle || "Choose a Cultural Combat Style on Page III to make it available here."}</p>
+        </div>
+      {:else if careerCombatStyleRole(career(), i) === "speciality"}
+        <CombatStyleChooser idPrefix={`career-combat-style-${i}`} label="Speciality Combat Style (optional)"
+          helperText="Choose an existing style or create a custom style that suits this career."
+          selectedName={char.careerCombatStyles[i] ?? ""} styles={char.combatStyles} onchoose={style => chooseCareerCombatStyle(i, style)} />
+      {:else}
+        <CombatStyleChooser idPrefix={`career-combat-style-${i}`} selectedName={char.careerCombatStyles[i] ?? ""} styles={char.combatStyles} onchoose={style => chooseCareerCombatStyle(i, style)} />
+      {/if}
     {/each}
   </section>
   {#if careerErrors.length}<div class="validation" role="status"><b>Career selection incomplete</b><ul>{#each careerErrors as error}<li>{error}</li>{/each}</ul></div>{/if}

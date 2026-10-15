@@ -231,7 +231,7 @@ export function legacyCombatStyle(name: string, origin: CombatStyleOrigin = "leg
 
 export function normalizeCombatStyles(value: unknown): CharacterCombatStyle[] {
   if (!Array.isArray(value)) return [];
-  return value.filter((style): style is CharacterCombatStyle => !!style && typeof style === "object"
+  const normalized = value.filter((style): style is CharacterCombatStyle => !!style && typeof style === "object"
     && typeof style.id === "string" && typeof style.name === "string"
     && Array.isArray(style.weapons) && Array.isArray(style.traits)
     && Array.isArray(style.baseFormula) && typeof style.source?.libraryId === "string")
@@ -252,6 +252,17 @@ export function normalizeCombatStyles(value: unknown): CharacterCombatStyle[] {
         allocations: style.allocations && typeof style.allocations === "object" ? { ...style.allocations } : {},
       };
     });
+  const unique: CharacterCombatStyle[] = [];
+  for (const style of normalized) {
+    const existing = unique.find(item => item.id === style.id);
+    if (!existing) {
+      unique.push(style);
+      continue;
+    }
+    existing.origins = [...new Set([...existing.origins, ...style.origins])];
+    existing.allocations = { ...style.allocations, ...existing.allocations };
+  }
+  return unique;
 }
 
 export function customCombatStyle(name: string, weapons: string[], traits: CombatStyleTrait[], notes = ""): CombatStyleDefinition {

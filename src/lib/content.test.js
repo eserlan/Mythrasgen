@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { careerSkillOptions, careers, restoreCareerAllocation, restoreLegacyCareerIndex, selectCareerProfessional } from "./content";
+import { careerCombatStyleRole, careerSkillOptions, careers, restoreCareerAllocation, restoreLegacyCareerIndex, selectCareerProfessional } from "./content";
 import { MAGIC, PROFESSIONAL, STANDARD } from "./rules";
 import { baseName } from "./calc";
 import { describedCoreSkillNames, SKILL_DESCRIPTIONS, skillDescription } from "./skill-descriptions";
@@ -36,6 +36,10 @@ describe("core careers", () => {
 
   test("career allocation includes standards and styles plus selected Professional Skills only", () => {
     const warrior = getCareer("Warrior");
+    expect(warrior.combatStyle).toEqual(["Combat Style (Cultural Style)", "Combat Style (Speciality Style)"]);
+    expect(careerCombatStyleRole(warrior, 0)).toBe("cultural");
+    expect(careerCombatStyleRole(warrior, 1)).toBe("speciality");
+    expect(careerCombatStyleRole(getCareer("Hunter"), 0)).toBeUndefined();
     const selected = [warrior.professional[0], warrior.professional[1]];
     expect(careerSkillOptions(warrior, selected)).toEqual([...warrior.standard, ...(warrior.combatStyle ?? []), ...selected]);
     expect(careerSkillOptions(warrior, selected)).not.toContain(warrior.professional[2]);

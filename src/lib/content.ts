@@ -10,7 +10,7 @@ export interface Culture {
   professional: string[];
   passions: string[];
 }
-export interface Career { name: string; standard: string[]; professional: string[]; combatStyle?: string[] }
+export interface Career { name: string; standard: string[]; professional: string[]; combatStyle?: string[]; combatStyleRoles?: ("cultural" | "speciality")[] }
 
 export const cultures: Culture[] = [
   { name: "Barbarian", kind: "Barbarian",
@@ -86,8 +86,13 @@ export const careers: Career[] = [
   { name: "Thief", standard: ["Athletics", "Deceit", "Evade", "Insight", "Perception", "Stealth"],
     professional: ["Acting", "Commerce", "Disguise", "Lockpicking", "Mechanisms", "Sleight", "Streetwise"], combatStyle: ["Combat Style (Concealable Weapons Style)"] },
   { name: "Warrior", standard: ["Athletics", "Brawn", "Endurance", "Evade", "Unarmed"],
-    professional: ["Craft (any)", "Engineering", "Gambling", "Lore (Military History)", "Lore (Strategy and Tactics)", "Oratory", "Survival"], combatStyle: ["Combat Style (Cultural Style)", "Combat Style (Speciality Style)"] },
+    professional: ["Craft (any)", "Engineering", "Gambling", "Lore (Military History)", "Lore (Strategy and Tactics)", "Oratory", "Survival"],
+    combatStyle: ["Combat Style (Cultural Style)", "Combat Style (Speciality Style)"], combatStyleRoles: ["cultural", "speciality"] },
 ];
+
+export function careerCombatStyleRole(career: Career, slot: number): "cultural" | "speciality" | undefined {
+  return career.combatStyleRoles?.[slot];
+}
 /** Standard skills, career styles and up to three selected Professional Skills are eligible for career points. */
 export function careerSkillOptions(career: Career, selectedProfessional: string[]): string[] {
   return [...new Set([...career.standard, ...(career.combatStyle ?? []), ...selectedProfessional])];

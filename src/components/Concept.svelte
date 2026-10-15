@@ -5,15 +5,17 @@
   import { careers, cultures } from "../lib/content";
   import { updateCulturePassions } from "../lib/passions";
   import { AGE_CATEGORIES, type AgeCategory } from "../lib/rules";
-  import { char, culture, career, nativeTongue, recalculateStartingMoney, refreshBonusEligibility, setAgeCategory, setNativeLanguage, rollCharacterAge } from "../lib/store.svelte";
+  import { char, culture, career, nativeTongue, recalculateStartingMoney, refreshBonusEligibility, setAgeCategory, setCareer, setNativeLanguage, rollCharacterAge } from "../lib/store.svelte";
   const cu = $derived(culture()), ca = $derived(career());
   const pick = (kind: "culture" | "career", i: number) => {
     const replacementPassions = kind === "culture" && char.passionsEnabled
       ? updateCulturePassions(char.passions, culture().passions, cultures[i].passions)
       : null;
-    char[kind] = i;
-    char.alloc[kind] = {};
-    if (kind === "career") char.careerProfessional = [];
+    if (kind === "career") setCareer(i);
+    else {
+      char.culture = i;
+      char.alloc.culture = {};
+    }
     if (kind === "culture") {
       char.cultureSelections = { standard: [], professional: [], combatStyle: "" };
       char.cultureMigration = false;

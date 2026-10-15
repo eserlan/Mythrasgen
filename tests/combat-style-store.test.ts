@@ -20,13 +20,83 @@ describe("career Combat Style selection", () => {
     });
 
     const style = CORE_COMBAT_STYLES[0];
-    chooseCareerCombatStyle(0, style);
+    chooseCareerCombatStyle(1, style);
     setAlloc("career", style.name, 10);
     expect(char.alloc.career[style.name]).toBe(10);
 
-    chooseCareerCombatStyle(0, null);
+    chooseCareerCombatStyle(1, null);
     expect(char.alloc.career[style.name]).toBeUndefined();
     expect(stepSkills("career")).not.toContain(style.name);
+  });
+
+  test("Warrior career points improve the existing cultural style without adding a second style", () => {
+    const { char, replace, chooseCultureCombatStyle, setAlloc, stepSkills, normalizeCharacter, combatStyleSummary } = store;
+    replace({
+      ...char,
+      career: careers.findIndex(career => career.name === "Warrior"),
+      careerProfessional: [],
+      careerCombatStyles: [],
+      cultureSelections: { standard: [], professional: [], combatStyle: "" },
+      combatStyles: [],
+      alloc: { culture: {}, career: {}, bonus: {} },
+    });
+    const style = CORE_COMBAT_STYLES[0];
+    chooseCultureCombatStyle(style);
+
+    expect(stepSkills("career")).toContain(style.name);
+    setAlloc("career", style.name, 15);
+    expect(char.alloc.career[style.name]).toBe(15);
+    expect(char.combatStyles).toHaveLength(1);
+    expect(combatStyleSummary()[0].origins).toEqual(["culture", "career"]);
+
+    const restored = normalizeCharacter(JSON.parse(JSON.stringify(char)));
+    expect(restored.combatStyles).toHaveLength(1);
+    expect(restored.alloc.career[style.name]).toBe(15);
+    expect(restored.combatStyles[0].origins).toEqual(["culture", "career"]);
+  });
+
+  test("changing careers clears old career style picks while retaining cultural styles", () => {
+    const { char, replace, chooseCultureCombatStyle, chooseCareerCombatStyle, setAlloc, setCareer, stepSkills } = store;
+    replace({
+      ...char,
+      career: careers.findIndex(career => career.name === "Warrior"),
+      careerProfessional: [],
+      careerCombatStyles: [],
+      cultureSelections: { standard: [], professional: [], combatStyle: "" },
+      combatStyles: [],
+      alloc: { culture: {}, career: {}, bonus: {} },
+    });
+    const cultural = CORE_COMBAT_STYLES[0];
+    const speciality = CORE_COMBAT_STYLES[1];
+    chooseCultureCombatStyle(cultural);
+    chooseCareerCombatStyle(1, speciality);
+    setAlloc("career", cultural.name, 10);
+    setAlloc("career", speciality.name, 10);
+    replace(JSON.parse(JSON.stringify(char)));
+
+    setCareer(careers.findIndex(career => career.name === "Agent"));
+
+    expect(char.careerCombatStyles).toEqual([]);
+    expect(char.alloc.career).toEqual({});
+    expect(stepSkills("career")).not.toContain(speciality.name);
+    expect(char.combatStyles.find(style => style.name === cultural.name)?.origins).toEqual(["culture"]);
+    expect(char.combatStyles.some(style => style.name === speciality.name)).toBe(false);
+  });
+
+  test("migrates an old Warrior first-slot choice to the speciality slot", () => {
+    const { char, normalizeCharacter } = store;
+    const speciality = CORE_COMBAT_STYLES[1];
+    const restored = normalizeCharacter({
+      ...char,
+      career: careers.findIndex(career => career.name === "Warrior"),
+      cultureSelections: { standard: [], professional: [], combatStyle: "" },
+      careerCombatStyles: [speciality.name],
+      combatStyles: [],
+      alloc: { culture: {}, career: { [speciality.name]: 12 }, bonus: {} },
+    });
+
+    expect(restored.careerCombatStyles).toEqual(["", speciality.name]);
+    expect(restored.alloc.career[speciality.name]).toBe(12);
   });
 });
 

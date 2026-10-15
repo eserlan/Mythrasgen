@@ -158,6 +158,18 @@ describe("structured Combat Styles", () => {
     expect("traitChoices" in restored.getCharacter("character")!.combatStyles[1]).toBe(false);
     expect(normalizeCombatStyles([{ ...selectedAssassin, traitChoices: CORE_COMBAT_STYLES[1].traitChoices }])[0]).not.toHaveProperty("traitChoices");
   });
+
+  test("reusing a named style consolidates origins and saved allocations", () => {
+    const cultural = { ...legacyCombatStyle("Street Brawler", "culture"), allocations: { culture: 10 } };
+    const duplicate = { ...legacyCombatStyle(" street   brawler ", "career"), allocations: { career: 15 } };
+    const restored = normalizeCombatStyles([cultural, duplicate]);
+
+    expect(restored).toHaveLength(1);
+    expect(restored[0].origins).toEqual(["culture", "career"]);
+    expect(restored[0].allocations).toEqual({ culture: 10, career: 15 });
+    expect(attachCharacterStyle([cultural], resolveCoreCombatStyle(CORE_COMBAT_STYLES[0], [], [0])!, "career")).toHaveLength(1);
+  });
+
   test("choosing an already learned Combat Style does not replace the selected hobby", () => {
     const { char, replace, chooseBonusCombatStyle } = store;
     replace({
