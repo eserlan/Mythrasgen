@@ -7,6 +7,9 @@ import { mysticismCatalogue } from "./mysticism";
 import { sorceryCatalogue } from "./sorcery";
 import { MAGIC, RESISTANCES, STANDARD, STATS, type Stat } from "./rules";
 import type { Character } from "./store.svelte";
+import { EQUIPMENT_CATALOGUE } from "./equipment-catalogue";
+import { encumbranceSummary } from "./encumbrance";
+import { fullArmourEncumbrance, ARMOUR_CONSTRUCTIONS } from "./armour-rules";
 
 /** The official sheet's printed Standard Skills; Resistances and Native Tongue are printed elsewhere. */
 export const SHEET_STANDARD_SKILLS = STANDARD.map(([name]) => name).filter(name =>
@@ -55,7 +58,10 @@ export interface SheetData {
   passions: { label: string; total: string }[];
   magic: string[];
   hitLocations: Record<string, string>;
-  equipment: string[];
+  equipment: { name: string; enc: string }[];
+  armour: { name: string; ap: string; enc: string }[];
+  weapons: { name: string; damage: string; size: string; reach: string; ap: string; hp: string; enc: string; ranged: boolean }[];
+  encumbrance: { armour: string; armourPenalty: string; total: string; burdened: string; overloaded: string };
   combatStyles: { name: string; weapons: string; traits: string; percentage: string }[];
 }
 
@@ -116,9 +122,45 @@ export function buildSheetData(source: SheetSource): SheetData {
     else if (!SHEET_STANDARD_SKILLS.includes(name) && !RESISTANCES.includes(name as typeof RESISTANCES[number]) && !STANDARD.some(([standard]) => standard === base)) professionalNames.push(name);
   }
   const hit = Object.fromEntries(source.loc.map(location => [location.name, String(location.hp)]));
-  const equipment = source.socialClassReady
-    ? [...char.background.equipment.split(/[\n;]+/).map(clean), ...char.background.purchases.map(purchase => clean(purchase.name))].filter(Boolean)
-    : [];
+  const inventory = char.background.inventory;
+  const equipment = inventory.map(item => {
+    const armourEnc = item.armour ? fullArmourEncumbrance(item.armour, item.quantity) : null;
+    return {
+      name: `${clean(item.name)}${item.quantity > 1 ? ` ×${item.quantity}` : ""}`,
+      enc: item.armour ? (armourEnc === null ? "" : formatNumber(armourEnc))
+        : item.encPerUnit === null ? "" : formatNumber(item.encPerUnit * item.quantity),
+    };
+  });
+  const wornArmour = inventory.filter(item => item.armour && item.armour.state === "worn" && item.state === "worn");
+  const armour = wornArmour.map(item => {
+    const piece = item.armour!;
+    const compatible = piece.compatibility === "compatible" || (piece.compatibility === "incompatible" && piece.gmCompatibilityOverride);
+    const ap = piece.fit === "fitted" && compatible
+      ? piece.apOverride ?? (piece.construction ? ARMOUR_CONSTRUCTIONS[piece.construction].ap : undefined)
+      : undefined;
+    const enc = fullArmourEncumbrance(piece, item.quantity);
+    return { name: `${clean(item.name)}${item.quantity > 1 ? ` ×${item.quantity}` : ""}`, ap: ap === undefined ? "" : String(ap), enc: enc === null ? "" : formatNumber(enc) };
+  });
+  const weapons = inventory.flatMap(item => {
+    const catalogue = item.catalogueId ? EQUIPMENT_CATALOGUE.find(entry => entry.source.id === item.catalogueId)?.source : undefined;
+    const custom = item.customItem;
+    const category = custom?.type === "weapon" || custom?.type === "shield"
+      ? custom.type
+      : catalogue?.category === "ranged" ? "ranged"
+        : catalogue && ["one_handed", "two_handed", "shields"].includes(catalogue.category) ? "melee" : "";
+    if (!category) return [];
+    const profile = catalogue?.combat_profile_candidate;
+    return [{
+      name: `${clean(item.name)}${item.quantity > 1 ? ` ×${item.quantity}` : ""}`,
+      damage: custom?.damage ?? profile?.damage ?? "", size: custom?.size ?? profile?.size ?? "", reach: custom?.reach ?? profile?.reach ?? "",
+      ap: custom?.ap !== undefined ? String(custom.ap) : catalogue?.ap_candidate === undefined ? "" : String(catalogue.ap_candidate),
+      hp: custom?.hp !== undefined ? String(custom.hp) : catalogue?.hp_candidate === undefined ? "" : String(catalogue.hp_candidate),
+      enc: item.encPerUnit === null ? "" : formatNumber(item.encPerUnit * item.quantity), ranged: category === "ranged",
+    }];
+  });
+  const load = encumbranceSummary(inventory, char.chars.STR);
+  const armourEnc = armour.reduce((total, row) => total + (row.enc ? Number(row.enc) : 0), 0);
+  const armourEncKnown = armour.every(row => row.enc !== "");
   return {
     identity: {
       name: clean(char.name), player: "", race: [char.race, source.cultureName].map(clean).filter(Boolean).join(" / "), gender: clean(char.gender), frame: char.frame,
@@ -158,9 +200,20 @@ export function buildSheetData(source: SheetSource): SheetData {
     magic: magicEntries(source),
     hitLocations: Object.fromEntries(SHEET_HIT_LOCATIONS.map(name => [name, hit[name] ?? ""])),
     equipment,
+    armour,
+    weapons,
+    encumbrance: {
+      armour: armourEncKnown && armour.length ? formatNumber(armourEnc) : "",
+      armourPenalty: armourEncKnown && armour.length ? String(Math.ceil(armourEnc / 5)) : "",
+      total: load.load === null ? "" : formatNumber(load.load),
+      burdened: load.thresholds ? formatNumber(load.thresholds.burdened) : "",
+      overloaded: load.thresholds ? formatNumber(load.thresholds.overloaded) : "",
+    },
     combatStyles: source.styles.map(style => ({
       name: style.name, weapons: style.weapons.map(weapon => weapon.name).join(", "),
       traits: style.traits.map(trait => trait.displayName).join(", "), percentage: String(style.percentage),
     })),
   };
 }
+
+const formatNumber = (value: number) => Number.isInteger(value) ? String(value) : String(Number(value.toFixed(2)));
