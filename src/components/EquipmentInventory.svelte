@@ -682,7 +682,7 @@
 <style>
   .inventory-ledger { margin-top: 1rem; }
   .activity-nav { display:flex; flex-wrap:wrap; gap:.5rem; margin:.75rem 0; border-bottom:1px solid var(--line); }
-  .activity-nav button { flex:1 1 10rem; min-height:2.75rem; }
+  .activity-nav button { flex:1 1 10rem; min-height:2.75rem; color:var(--fg); }
   .activity-nav button[aria-current="page"] { border-color:var(--acc); box-shadow:inset 0 -3px var(--acc); }
   .inventory-ledger :is(button,input,select,summary):focus-visible { outline:3px solid var(--acc); outline-offset:2px; }
   .activity-nav span { display:inline-grid; place-items:center; min-width:1.5rem; min-height:1.5rem; margin-left:.25rem; border:1px solid currentColor; border-radius:50%; font-size:.8rem; letter-spacing:0; }
