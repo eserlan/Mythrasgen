@@ -217,9 +217,9 @@ function descriptionLines(sheet: Sheet, page: PDFPage, description: string) {
   if (rest.length > 1) sheet.supplement.push({ heading: "Description (shortened on the sheet)", paragraphs: [text] });
 }
 
-function fillPage2(sheet: Sheet, data: SheetData) {
+function fillPage2(sheet: Sheet, data: SheetData, mode: PrintMode) {
   const page = sheet.pages[1];
-  drawMagicEntries(sheet, page, data.magic);
+  drawMagicEntries(sheet, page, data.magic, mode);
   SHEET_HIT_LOCATIONS.forEach((name, index) => sheet.circle(page, data.hitLocations[name], 136, HIT_ROWS[index], 21.5, 13));
   data.armour.slice(0, ARMOUR_LINES.length).forEach((row, index) => {
     const baseline = ARMOUR_LINES[index];
@@ -268,7 +268,7 @@ function fillPage2(sheet: Sheet, data: SheetData) {
 }
 
 /** Use the printed rules as line slots so wrapped descriptions stay inside the Magic panel. */
-function drawMagicEntries(sheet: Sheet, page: PDFPage, entries: SheetData["magic"]) {
+function drawMagicEntries(sheet: Sheet, page: PDFPage, entries: SheetData["magic"], mode: PrintMode) {
   const x1 = 28, width = 344, size = 7.5;
   const lines: { text: string; font: PDFFont }[] = [];
   const groups = new Map<string, SheetData["magic"]>();
@@ -287,12 +287,12 @@ function drawMagicEntries(sheet: Sheet, page: PDFPage, entries: SheetData["magic
       lines.push(...wrapped.map(text => ({ text, font: sheet.font })));
     }
   }
-  const needsPointer = entries.length > 0;
+  const needsPointer = entries.length > 0 && mode === "sheet-and-appendix";
   const pointer = "Full descriptions: Magic Appendix";
   const capacity = MAGIC_LINES.length;
   const display = lines.length + (needsPointer ? 1 : 0) <= capacity
     ? [...lines, ...(needsPointer ? [{ text: pointer, font: sheet.bold }] : [])]
-    : [...lines.slice(0, Math.max(0, capacity - 2)), { text: "… additional entries; see Magic Appendix", font: sheet.bold }, { text: pointer, font: sheet.bold }];
+    : [...lines.slice(0, Math.max(0, capacity - (needsPointer ? 2 : 1))), { text: needsPointer ? "… additional entries; see Magic Appendix" : "… additional entries", font: sheet.bold }, ...(needsPointer ? [{ text: pointer, font: sheet.bold }] : [])];
   display.slice(0, capacity).forEach((line, index) => sheet.draw(page, line.text, x1, MAGIC_LINES[index], size, line.font));
 }
 
@@ -395,7 +395,7 @@ export async function renderCharacterSheet(data: SheetData, { template, mode = "
   const sheet = new Sheet(doc, pages, await doc.embedFont(StandardFonts.Helvetica), await doc.embedFont(StandardFonts.HelveticaBold));
   if (mode !== "appendix-only" || !data.magic.length) {
     fillPage1(sheet, data);
-    fillPage2(sheet, data);
+    fillPage2(sheet, data, mode);
   }
   if (mode === "appendix-only" && data.magic.length) {
     doc.removePage(1);

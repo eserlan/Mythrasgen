@@ -70,7 +70,7 @@
       <button onclick={save}>Save</button>
       <label class="btn">Load<input type="file" accept=".json" hidden onchange={loadFile}></label>
       <label class="print-mode-label">Print output
-        <select aria-label="Print output mode" bind:value={printMode}>
+        <select class="print-mode-select" aria-label="Print output mode" bind:value={printMode}>
           <option value="sheet-only">Official sheet only (2 pages)</option>
           <option value="sheet-and-appendix">Sheet + Magic &amp; Abilities appendix</option>
           <option value="appendix-only" disabled={!hasMagicAppendix}>Magic &amp; Abilities reference only{hasMagicAppendix ? "" : " (no recorded abilities)"}</option>

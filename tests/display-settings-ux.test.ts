@@ -16,7 +16,7 @@ describe("display settings interface", () => {
   });
 
   test("print output modes are selectable and appendix-only is unavailable without recorded abilities", () => {
-    expect(app).toContain('<select aria-label="Print output mode" bind:value={printMode}>');
+    expect(app).toContain('<select class="print-mode-select" aria-label="Print output mode" bind:value={printMode}>');
     expect(app).toContain('<option value="sheet-only">Official sheet only (2 pages)</option>');
     expect(app).toContain('<option value="sheet-and-appendix">Sheet + Magic &amp; Abilities appendix</option>');
     expect(app).toContain('<option value="appendix-only" disabled={!hasMagicAppendix}>');
@@ -26,6 +26,10 @@ describe("display settings interface", () => {
   test("appendix-only printing falls back to the sheet when there are no recorded abilities", () => {
     expect(app).toContain('const mode = printMode === "appendix-only" && !hasMagicAppendix ? "sheet-only" : printMode;');
     expect(app).toContain("await printCharacterSheet(mode)");
+  });
+
+  test("print mode selector uses the higher contrast theme bronze for keyboard focus", () => {
+    expect(css).toContain(".print-mode-select:focus-visible{outline-color:var(--bronze)}");
   });
 
   test("settings controls use labeled native radio groups for keyboard operation", () => {
