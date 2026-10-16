@@ -13,6 +13,8 @@ import { displayEquipmentName, EQUIPMENT_CATALOGUE } from "./equipment-catalogue
 import { formatRangedRange, rangedCellText, RANGED_WEAPON_STATS, type RangedCell } from "./ranged-weapons";
 import { encumbranceSummary } from "./encumbrance";
 import { HIT_LOCATIONS, fullArmourEncumbrance, summarizeArmour } from "./armour-rules";
+import { rankTitle } from "./organisations";
+import { devotionalPoolMaximum } from "./theism";
 
 /** The official sheet's printed Standard Skills; Resistances and Native Tongue are printed elsewhere. */
 export const SHEET_STANDARD_SKILLS = STANDARD.map(([name]) => name).filter(name =>
@@ -45,12 +47,14 @@ export interface SheetSource {
 }
 
 export interface SheetSkillRow { name: string; base: string; total: string }
+export interface SheetCultEntry { heading: string; paragraphs: string[] }
 
 export interface SheetData {
   identity: Record<"name" | "player" | "race" | "gender" | "frame" | "homeland" | "age" | "height" | "career" | "handedness" | "weight" | "socialClass" | "description", string>;
   notes: string[];
   money: string[];
-  cult: string[];
+  cult: SheetCultEntry[];
+  devotionalPool: { current: string; maximum: string };
   characteristics: Record<Stat, string>;
   attributes: Record<"actionPoints" | "damageModifier" | "experienceModifier" | "healingRate" | "initiative" | "luckPoints" | "movement", string>;
   standard: Record<string, string>;
@@ -73,6 +77,42 @@ const signed = (value: string | number) => typeof value === "number" && value > 
 const attribute = (stats: SheetSource["stats"], name: string) => String(stats.find(([label]) => label === name)?.[1] ?? "");
 const rangedText = <T,>(cell: RangedCell<T>, format?: (value: T) => string) =>
   cell.status === "unknown" ? "" : rangedCellText(cell, format);
+
+function buildCultInformation(char: Character): SheetCultEntry[] {
+  const memberships = char.memberships.flatMap((membership, order) => {
+    const organisation = char.organisations.find(item => item.id === membership.organisationId);
+    if (!organisation) return [];
+    const kind = organisation.kind.type === "magical-cult" ? organisation.kind.discipline
+      : organisation.kind.type === "brotherhood" ? organisation.kind.subtype
+        : organisation.kind.category || "Organisation";
+    const details = organisation.details;
+    const list = (value: unknown) => Array.isArray(value)
+      ? value.filter((item): item is string => typeof item === "string" && !!item.trim()).map(clean) : [];
+    const paragraphs = [
+      organisation.focus && `Focus: ${clean(organisation.focus)}`,
+      organisation.description && `Description: ${clean(organisation.description)}`,
+      list(details?.benefits).length && `Benefits: ${list(details?.benefits).join(", ")}`,
+      list(details?.privileges).length && `Privileges: ${list(details?.privileges).join(", ")}`,
+      list(details?.gifts).length && `Gifts: ${list(details?.gifts).join(", ")}`,
+      list(details?.restrictions).length && `Restrictions: ${list(details?.restrictions).join(", ")}`,
+      list(details?.duties).length && `Obligations: ${list(details?.duties).join(", ")}`,
+      list(details?.skillsTaught).length && `Skills taught: ${list(details?.skillsTaught).join(", ")}`,
+      list(details?.contacts).length && `Contacts: ${list(details?.contacts).join(", ")}`,
+      list(details?.affiliations).length && `Affiliations: ${list(details?.affiliations).join(", ")}`,
+      typeof details?.notes === "string" && details.notes.trim() && `Organisation notes: ${clean(details.notes)}`,
+      membership.notes?.trim() && `Membership notes: ${clean(membership.notes)}`,
+    ].filter((value): value is string => typeof value === "string");
+    return [{ order, name: clean(organisation.name), kind: clean(kind), rank: clean(membership.titleOverride?.trim() || rankTitle(membership.rank, organisation)), paragraphs }];
+  });
+  return memberships.sort((left, right) => left.name.localeCompare(right.name) || left.order - right.order)
+    .map(({ name, kind, rank, paragraphs }) => ({ heading: `${name} (${kind}) — ${rank}`, paragraphs }));
+}
+
+function buildDevotionalPool(char: Character): SheetData["devotionalPool"] {
+  const membership = char.magic.theism.memberships[0];
+  if (!membership) return { current: "", maximum: "" };
+  return { current: String(membership.devotionalPool), maximum: String(devotionalPoolMaximum(char.chars.POW, membership.rank)) };
+}
 
 /** Weapon Traits come from the Core equipment row, separate from character Combat Style traits. */
 function coreWeaponTraits(sourceLine: string): string {
@@ -279,11 +319,8 @@ export function buildSheetData(source: SheetSource): SheetData {
       ...(source.socialClassReady ? [`Starting money: ${source.startingMoney} sp`] : []),
       `Current funds: ${char.background.currentMoney} sp`,
     ],
-    cult: char.memberships.flatMap(member => {
-      const organisation = char.organisations.find(item => item.id === member.organisationId);
-      return organisation?.kind.type === "magical-cult" && organisation.kind.discipline === "Theism"
-        ? [clean(`${organisation.name} (${organisation.kind.discipline})`)] : [];
-    }),
+    cult: buildCultInformation(char),
+    devotionalPool: buildDevotionalPool(char),
     characteristics: Object.fromEntries(STATS.map(stat => [stat, String(char.chars[stat])])) as Record<Stat, string>,
     attributes: {
       actionPoints: attribute(source.stats, "Action Points"), damageModifier: attribute(source.stats, "Damage Modifier"),

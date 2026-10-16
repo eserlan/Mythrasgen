@@ -288,7 +288,41 @@ describe("printable character sheet data", () => {
         { id: "guild-member", organisationId: "glass-guild", rank: "Common" },
       ],
     });
-    expect(buildSheetData(currentSheetSource()).cult).toEqual(["River Cult (Theism)"]);
+    expect(buildSheetData(currentSheetSource()).cult).toEqual([
+      { heading: "Glass Guild (Guild) — Associate", paragraphs: [] },
+      { heading: "River Cult (Theism) — Initiate", paragraphs: [] },
+    ]);
+  });
+
+  test("prints all organisation details in name order and maps the recorded Theist pool", () => {
+    reset(false);
+    replace({
+      organisations: [
+        { id: "z-cult", name: "Zephyr Cult", kind: { type: "magical-cult", discipline: "Theism" }, details: { gifts: ["Sacred token"], restrictions: ["Keep the shrine"], duties: ["Attend rites"], notes: "Seasonal gathering" } },
+        { id: "a-guild", name: "Amber Guild", kind: { type: "brotherhood", subtype: "Guild" }, details: { benefits: ["Training"], privileges: ["Use the hall"] } },
+      ],
+      memberships: [
+        { id: "z-member", organisationId: "z-cult", rank: "Dedicated", notes: "Initiated at dawn" },
+        { id: "a-member", organisationId: "a-guild", rank: "Proven", titleOverride: "Glasswright", notes: "Trusted member" },
+      ],
+    });
+    char.magic.theism.memberships = [{ id: "z-member", cultId: "z-cult", rank: "Initiate", devotionSpecialisation: "Zephyr", devotionValue: 45, exhortValue: 30, devotionalPool: 4, knownMiracleIds: [] }];
+    const data = buildSheetData(currentSheetSource());
+    expect(data.cult).toEqual([
+      { heading: "Amber Guild (Guild) — Glasswright", paragraphs: ["Benefits: Training", "Privileges: Use the hall", "Membership notes: Trusted member"] },
+      { heading: "Zephyr Cult (Theism) — Initiate", paragraphs: ["Gifts: Sacred token", "Restrictions: Keep the shrine", "Obligations: Attend rites", "Organisation notes: Seasonal gathering", "Membership notes: Initiated at dawn"] },
+    ]);
+    expect(data.devotionalPool).toEqual({ current: "4", maximum: "3" });
+  });
+
+  test("keeps absent optional membership fields blank and restores legacy organisation saves", () => {
+    reset(false);
+    expect(buildSheetData(currentSheetSource()).cult).toEqual([]);
+    expect(buildSheetData(currentSheetSource()).devotionalPool).toEqual({ current: "", maximum: "" });
+    replace({ memberships: [{ id: "old-guild", name: "Old Guild", organisationType: "Guild", details: { duties: ["Serve"] } }] as never });
+    expect(buildSheetData(currentSheetSource()).cult).toEqual([
+      { heading: "Old Guild (Guild) — Common", paragraphs: ["Obligations: Serve"] },
+    ]);
   });
 
   test("resolves detailed references only for the selected sorcery spells and recorded spirits", () => {
@@ -343,6 +377,37 @@ describe("populated Mythras Character Sheet PDF", () => {
   test("a sparse or ordinary character stays on exactly two pages", async () => {
     reset(false);
     expect(await pageCount(await renderCharacterSheet(buildSheetData(currentSheetSource()), { template }))).toBe(2);
+  });
+
+  test("wraps membership notes above the pool and includes complete overflow in sheet modes", async () => {
+    reset(false);
+    replace({
+      name: "Membership Test",
+      organisations: [{ id: "long", name: "Long Fellowship", kind: { type: "brotherhood", subtype: "Order" }, details: { benefits: ["A recorded benefit"], duties: ["A recorded obligation"] } }],
+      memberships: [{ id: "long-member", organisationId: "long", rank: "Dedicated", notes: "A very long recorded note describing the obligations and privileges of this organisation in considerable detail. ".repeat(9) }],
+    });
+    const data = buildSheetData(currentSheetSource());
+    for (const mode of ["titles-and-appendix", "titles-only", "notes-and-appendix", "notes-only", "appendix-only"] as const) {
+      const pages = await renderedTextByPage(await renderCharacterSheet(data, { template, mode }));
+      expect(pages).toHaveLength(3);
+      expect(pages[0]).toContain("Long Fellowship");
+      expect(pages[0]).toContain("Membership details continue");
+      expect(pages[2]).toContain("Cult & Organisation Memberships");
+      expect(pages[2]).toContain("considerable detail");
+      expect(pages[2]).toContain("A very long recorded note describing the obligations and privileges of this organisation in considerable detail.");
+    }
+  });
+
+  test("prints the two devotional pool values in their official bottom slots", async () => {
+    reset(false);
+    replace({ organisations: [{ id: "cult", name: "Sun Cult", kind: { type: "magical-cult", discipline: "Theism" } }],
+      memberships: [{ id: "member", organisationId: "cult", rank: "Dedicated" }] });
+    char.magic.theism.memberships = [{ id: "member", cultId: "cult", rank: "Initiate", devotionSpecialisation: "Sun", devotionValue: 40, exhortValue: 25, devotionalPool: 5, knownMiracleIds: [] }];
+    const data = buildSheetData(currentSheetSource());
+    const pdf = await renderCharacterSheet(data, { template, mode: "titles-only" });
+    const page = (await renderedTextPlacementsByPage(pdf))[0]!;
+    expect(page.find(run => run.text === "5" && Math.abs(run.y - (841.89 - 423)) < 0.01)).toBeDefined();
+    expect(page.find(run => run.text === "3" && Math.abs(run.y - (841.89 - 423)) < 0.01)).toBeDefined();
   });
 
   test("prints the three selectable magic output modes from known spells", async () => {

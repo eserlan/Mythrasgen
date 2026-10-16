@@ -33,6 +33,8 @@ const ARMOUR_PENALTY = 483;
 
 const NOTES_BOX = { x: 30, y: 166, w: 350, h: 70 };
 const CULT_BOX = { x: 413, y: 270, w: 161, h: 145 };
+const CULT_TEXT_TOP = 278;
+const CULT_TEXT_BOTTOM = 391;
 const MONEY_BOX = { x: 413, y: 172, w: 161, h: 34 };
 const CHARACTERISTIC_CIRCLE = { x: 152.2, diameter: 20.4 };
 const ATTRIBUTE_CIRCLE = { x: 340.5, diameter: 20.4 };
@@ -60,6 +62,7 @@ export function circleTextPlacement(text: string, font: PDFFont, x: number, cent
 
 class Sheet {
   readonly supplement: SheetSupplementEntry[] = [];
+  readonly membershipSupplement: SheetSupplementEntry[] = [];
   constructor(readonly doc: PDFDocument, readonly pages: PDFPage[], readonly font: PDFFont, readonly bold: PDFFont) {}
 
   /** Drop characters the standard PDF font cannot encode instead of failing the whole print. */
@@ -174,7 +177,9 @@ function fillPage1(sheet: Sheet, data: SheetData) {
 
   sheet.paragraphs(page, data.notes, NOTES_BOX, "Notes (Background, Culture, Family, …)");
   sheet.paragraphs(page, data.money, MONEY_BOX, "Money & Wealth", 8.5);
-  sheet.paragraphs(page, data.cult, CULT_BOX, "Cult Information", 8.5);
+  drawCultInformation(sheet, page, data.cult);
+  sheet.field(page, data.devotionalPool.current, 507, 532, 423, { align: "center", max: 8.5, min: 6, label: "Devotional Pool current" });
+  sheet.field(page, data.devotionalPool.maximum, 542, 570, 423, { align: "center", max: 8.5, min: 6, label: "Devotional Pool maximum" });
 
   STATS.forEach((stat, index) => sheet.circle(page, data.characteristics[stat], CHARACTERISTIC_CIRCLE.x, CHARACTERISTIC_ROWS[index] - 2.4, CHARACTERISTIC_CIRCLE.diameter, 13));
   const attributes = [data.attributes.actionPoints, data.attributes.damageModifier, data.attributes.experienceModifier, data.attributes.healingRate,
@@ -208,6 +213,47 @@ function fillPage1(sheet: Sheet, data: SheetData) {
     sheet.field(page, passion.total, 548, 572, PASSION_ROWS[index], { align: "center", max: 9 });
   });
   sheet.overflow("Passions (not enough room on the sheet)", data.passions.slice(PASSION_ROWS.length).map(passion => `${passion.label} — ${passion.total}%`));
+}
+
+/** Keep membership text above the printed Devotional Pool row and preserve full details on overflow. */
+function drawCultInformation(sheet: Sheet, page: PDFPage, entries: SheetData["cult"]) {
+  if (!entries.length) return;
+  const x = CULT_BOX.x + 6, width = CULT_BOX.w - 12;
+  const headingSize = 7.4, bodySize = 7.1, leading = 8.4;
+  const lines = entries.flatMap((entry, entryIndex) => [
+    ...sheet.wrapWithFont(sheet.safe(entry.heading, sheet.bold), headingSize, width, sheet.bold)
+      .map(text => ({ text, font: sheet.bold, size: headingSize, entryIndex })),
+    ...entry.paragraphs.flatMap(paragraph => sheet.wrap(sheet.safe(paragraph), bodySize, width)
+      .map(text => ({ text, font: sheet.font, size: bodySize, entryIndex }))),
+  ]);
+  const marker = "Membership details continue on the Character Sheet Supplement";
+  const markerSize = 6.6, markerLeading = 7.6;
+  const markerLines = sheet.wrapWithFont(marker, markerSize, width, sheet.bold);
+  const markerHeight = markerLines.length * markerLeading;
+  const gaps = (lineCount: number) => lines.slice(0, lineCount).reduce((total, line, index, visible) =>
+    total + (index > 0 && line.entryIndex !== visible[index - 1]!.entryIndex ? 2 : 0), 0);
+  const fits = (lineCount: number) => CULT_TEXT_TOP + lineCount * leading + gaps(lineCount) <= CULT_TEXT_BOTTOM;
+  let visibleCount = 0;
+  while (visibleCount < lines.length && fits(visibleCount + 1)) visibleCount++;
+  // If details overflow, reserve room for a pointer and put each complete record on the supplement.
+  const overflow = visibleCount < lines.length;
+  if (overflow) {
+    while (visibleCount > 0 && CULT_TEXT_TOP + visibleCount * leading + gaps(visibleCount) + markerHeight > CULT_TEXT_BOTTOM) visibleCount--;
+    sheet.membershipSupplement.push({
+      heading: "Cult & Organisation Memberships",
+      paragraphs: entries.flatMap(entry => [entry.heading, ...entry.paragraphs]),
+    });
+  }
+  let y = CULT_TEXT_TOP;
+  for (let index = 0; index < visibleCount; index++) {
+    const line = lines[index]!;
+    if (index > 0 && line.entryIndex !== lines[index - 1]!.entryIndex) y += 2;
+    sheet.draw(page, line.text, x, y, line.size, line.font);
+    y += leading;
+  }
+  if (overflow) {
+    markerLines.forEach(text => { sheet.draw(page, text, x, y, markerSize, sheet.bold); y += markerLeading; });
+  }
 }
 
 /** Description spans two printed lines of different lengths (measured in points on the template). */
@@ -321,9 +367,9 @@ function drawMagicEntries(sheet: Sheet, page: PDFPage, entries: SheetData["magic
   display.slice(0, capacity).forEach((line, index) => sheet.draw(page, line.text, x1, MAGIC_LINES[index], size, line.font));
 }
 
-function addSupplement(sheet: Sheet, name: string) {
+function addSupplement(sheet: Sheet, name: string, entries: SheetSupplementEntry[] = sheet.supplement) {
   const margin = 42, width = 595.276 - margin * 2, size = 9.5, leading = size * 1.35;
-  const hasMagicReference = sheet.supplement.some(entry => entry.heading.startsWith("Magic & Abilities"));
+  const hasMagicReference = entries.some(entry => entry.heading.startsWith("Magic & Abilities"));
   const title = hasMagicReference ? "Magic & Abilities Reference — Character Sheet Supplement" : "Character Sheet Supplement";
   let page = sheet.doc.addPage([595.276, PAGE_H]);
   let y = PAGE_H - margin;
@@ -346,7 +392,7 @@ function addSupplement(sheet: Sheet, name: string) {
     page.drawText(text, { x: margin, y: y - fontSize, size: fontSize, font, color: rgb(0, 0, 0) });
     y -= fontSize * 1.4;
   };
-  for (const entry of sheet.supplement) {
+  for (const entry of entries) {
     ensure(40);
     for (const headingLine of sheet.wrapWithFont(sheet.safe(entry.heading, sheet.bold), 10.5, width, sheet.bold)) {
       line(headingLine, sheet.bold, 10.5);
@@ -428,9 +474,14 @@ export async function renderCharacterSheet(data: SheetData, { template, mode = "
     addMagicAppendix(sheet, data.identity.name, data.magic);
   } else if ((mode === "titles-and-appendix" || mode === "notes-and-appendix") && data.magic.length) {
     addMagicAppendix(sheet, data.identity.name, data.magic);
-    if (sheet.supplement.length) addSupplement(sheet, data.identity.name);
-  } else if ((mode === "titles-and-appendix" || mode === "notes-and-appendix") && sheet.supplement.length) {
-    addSupplement(sheet, data.identity.name);
+    const entries = [...sheet.supplement, ...sheet.membershipSupplement];
+    if (entries.length) addSupplement(sheet, data.identity.name, entries);
+  } else if ((mode === "titles-and-appendix" || mode === "notes-and-appendix") && (sheet.supplement.length || sheet.membershipSupplement.length)) {
+    addSupplement(sheet, data.identity.name, [...sheet.supplement, ...sheet.membershipSupplement]);
+  }
+  if ((mode !== "appendix-only" || !data.magic.length) && sheet.membershipSupplement.length
+      && mode !== "titles-and-appendix" && mode !== "notes-and-appendix") {
+    addSupplement(sheet, data.identity.name, sheet.membershipSupplement);
   }
   return doc.save();
 }
