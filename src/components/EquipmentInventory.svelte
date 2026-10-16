@@ -1,6 +1,6 @@
 <script lang="ts">
   import { tick } from "svelte";
-  import { EQUIPMENT_CATALOGUE, displayEquipmentPrice, formatCopperPrice, type EquipmentCategory } from "../lib/equipment-catalogue";
+  import { EQUIPMENT_CATALOGUE, displayCatalogueEquipmentName, displayEquipmentPrice, formatCopperPrice, type EquipmentCategory } from "../lib/equipment-catalogue";
   import { RANGED_WEAPON_STATS, formatRangedRange, rangedCellText } from "../lib/ranged-weapons";
   import { acquireEquipment, char, deleteInventoryItem, equipmentAvailableCp, equipmentBalanceCp, equipmentMoneyIsOverridden, equipmentMoneyValueCp, moveOwnedInventoryItem, purchaseEquipment, recordEquipmentExpense, resetEquipmentMoney, setEquipmentMoney, updateInventoryItem } from "../lib/store.svelte";
   import { carriedLoad, encumbranceSummary } from "../lib/encumbrance";
@@ -111,11 +111,11 @@
     const q = query.trim().toLowerCase();
     const inGroup = group === null || categoryGroups.find(entry => entry.name === group)?.categories.includes(item.source.category) === true;
     return (q || (inGroup && (category === null || item.source.category === category)))
-      && (!q || `${item.source.name} ${item.source.category} ${item.source.source_line} ${item.source.id}`.toLowerCase().includes(q));
+      && (!q || `${displayCatalogueEquipmentName(item.source)} ${item.source.name} ${item.source.category} ${item.source.source_line} ${item.source.id}`.toLowerCase().includes(q));
   }));
   const shown = $derived([...matching].sort((a, b) => sort === "price"
-    ? (a.source.price_cp_candidate ?? Number.MAX_SAFE_INTEGER) - (b.source.price_cp_candidate ?? Number.MAX_SAFE_INTEGER) || a.source.name.localeCompare(b.source.name)
-    : a.source.name.localeCompare(b.source.name)));
+    ? (a.source.price_cp_candidate ?? Number.MAX_SAFE_INTEGER) - (b.source.price_cp_candidate ?? Number.MAX_SAFE_INTEGER) || displayCatalogueEquipmentName(a.source).localeCompare(displayCatalogueEquipmentName(b.source))
+    : displayCatalogueEquipmentName(a.source).localeCompare(displayCatalogueEquipmentName(b.source))));
   const selected = $derived(matching.find(item => item.source.id === selectedId) ?? null);
   $effect(() => {
     if (selectedId !== null && !matching.some(item => item.source.id === selectedId)) selectedId = null;
@@ -268,7 +268,7 @@
       if (priceFor(record.source)! * quantityValue > equipmentAvailableCp()) throw new Error("This purchase costs more than your remaining money.");
       if (record.kind === "non_carried_purchase") recordEquipmentExpense(record.source.id, quantityValue, price);
       else purchaseEquipment(record.source.id, quantityValue, record.source.category === "armour" ? perLocationPrice(record.source) : price, record.source.category === "armour" ? armourSelectionFor(record.source) : undefined);
-      message = `${record.source.name}: ${record.kind === "non_carried_purchase" ? "expense recorded" : "added to your equipment"}. Money remaining: ${signedMoney(equipmentBalanceCp())}.`;
+      message = `${displayCatalogueEquipmentName(record.source)}: ${record.kind === "non_carried_purchase" ? "expense recorded" : "added to your equipment"}. Money remaining: ${signedMoney(equipmentBalanceCp())}.`;
     } catch (error) { message = error instanceof Error ? error.message : "Could not record transaction."; }
     finally { purchaseBusy = false; }
   }
@@ -276,7 +276,7 @@
     try {
       if (amount(record.source.id) < 1) throw new Error("Enter a positive whole quantity.");
       acquireEquipment(record.source.id, amount(record.source.id), acquiredAs, record.source.category === "armour" ? armourSelectionFor(record.source) : undefined);
-      message = `${record.source.name}: added as ${acquiredAs}.`;
+      message = `${displayCatalogueEquipmentName(record.source)}: added as ${acquiredAs}.`;
       freeAcquisition[record.source.id] = "";
     } catch (error) { message = error instanceof Error ? error.message : "Could not add item."; }
   }
@@ -586,13 +586,13 @@
         {#each shown as entry (entry.source.id)}
           {@const record = entry.source}
           <li><button id={`equipment-result-${record.id}`} type="button" class="catalogue-row" aria-expanded={selectedId === record.id} aria-controls={selectedId === record.id ? "selected-item-detail" : undefined} onclick={() => selectedId = selectedId === record.id ? null : record.id}>
-            <span class="row-main"><b>{record.name}</b><small>{categorySummary(record.category)}</small></span>
+            <span class="row-main"><b>{displayCatalogueEquipmentName(record)}</b><small>{categorySummary(record.category)}</small></span>
             <span class="row-price">{displayEquipmentPrice(record)}</span>
           </button>
           {#if selected && selected.source.id === record.id}
             {@const unavailable = record.price_cp_candidate === null}
             <section id="selected-item-detail" class="item-detail" aria-labelledby="selected-item-title">
-              <div class="detail-title"><div><h5 id="selected-item-title">{record.name}</h5><p class="mute">{categorySummary(record.category)} · {unavailable ? "Price unavailable" : displayEquipmentPrice(record)}</p></div>
+              <div class="detail-title"><div><h5 id="selected-item-title">{displayCatalogueEquipmentName(record)}</h5><p class="mute">{categorySummary(record.category)} · {displayEquipmentPrice(record)}</p></div>
                 <button type="button" class="ghost" aria-label="Close item details" onclick={() => closeDetails(record.id)}>Close</button>
               </div>
               {#if hasCombatProfile(record)}
@@ -601,7 +601,7 @@
                     <div><dt>{name}</dt><dd>{value}</dd></div>
                   {/each}
                 </dl>
-                <details class="rules-help"><summary aria-label={`Rules help for ${record.name}`}>Rules help</summary>
+                <details class="rules-help"><summary aria-label={`Rules help for ${displayCatalogueEquipmentName(record)}`}>Rules help</summary>
                   {#if record.category === "ranged"}
                     <p>Damage, Force, Damage Modifier, range bands, Load, Combat Effects, AP, HP and ENC follow the Ranged Weapons table. A dash preserves a rulebook dash; projectile-dependent damage is not assigned to the weapon.</p>
                     {#if rangedImpaleSize(record)}<p>Impale size: {rangedImpaleSize(record)}.</p>{/if}
@@ -626,7 +626,7 @@
                 {@const chosenMaterial = materialFor(record)}
                 {@const materialStatus = armourMaterialCompatibility(constructionId, chosenMaterial)}
                 <div class="catalogue-armour-options">
-                  <label>Material <select aria-label={`Material for ${record.name}`} value={chosenMaterial} onchange={event => armourMaterial[record.id] = event.currentTarget.value as ArmourMaterialId}>
+                  <label>Material <select aria-label={`Material for ${displayCatalogueEquipmentName(record)}`} value={chosenMaterial} onchange={event => armourMaterial[record.id] = event.currentTarget.value as ArmourMaterialId}>
                     {#each Object.entries(ARMOUR_MATERIALS) as [id, material]}
                       {@const status = armourMaterialCompatibility(constructionId, id as ArmourMaterialId)}
                       <option value={id} disabled={status !== "compatible" && !armourGmOverride[record.id]}>{material.name}{id === standardArmourMaterial(constructionId) ? " · Standard material" : ""} · ENC ×{material.encMultiplier}{status === "incompatible" ? " · incompatible" : status === "conditional" ? " · GM approval" : ""}</option>
@@ -643,8 +643,8 @@
                 <div class="purchase-controls">
                   <div class="acquisition-toolbar">
                     <div class="purchase-values">
-                      <label class="quantity-control">Quantity <input class="quantity-input" aria-label={`Quantity of ${record.name}`} aria-invalid={amount(record.id) < 1} aria-describedby={amount(record.id) < 1 ? `quantity-error-${record.id}` : undefined} type="number" min="1" step="1" value={quantity[record.id] ?? "1"} onchange={event => quantity[record.id] = event.currentTarget.value}></label>
-                      {#if unavailable}<label class="gm-price-control">GM price (CP) {#if record.category === "armour"}<small>per protected location</small>{/if}<input aria-label={`GM price in CP${record.category === "armour" ? " per location " : " "}for ${record.name}`} type="number" min="0" step="1" value={gmPrice[record.id] ?? ""} onchange={event => gmPrice[record.id] = event.currentTarget.value} placeholder="Required"><small>Enter 0 only when the GM approves a free item.</small></label>{/if}
+                      <label class="quantity-control">Quantity <input class="quantity-input" aria-label={`Quantity of ${displayCatalogueEquipmentName(record)}`} aria-invalid={amount(record.id) < 1} aria-describedby={amount(record.id) < 1 ? `quantity-error-${record.id}` : undefined} type="number" min="1" step="1" value={quantity[record.id] ?? "1"} onchange={event => quantity[record.id] = event.currentTarget.value}></label>
+                      {#if unavailable}<label class="gm-price-control">GM price (CP) {#if record.category === "armour"}<small>per protected location</small>{/if}<input aria-label={`GM price in CP${record.category === "armour" ? " per location " : " "}for ${displayCatalogueEquipmentName(record)}`} type="number" min="0" step="1" value={gmPrice[record.id] ?? ""} onchange={event => gmPrice[record.id] = event.currentTarget.value} placeholder="Required"><small>Enter 0 only when the GM approves a free item.</small></label>{/if}
                       {#if amount(record.id) > 0 && (!unavailable || customCp(record.id) !== undefined)}
                         {@const totalCp = (priceFor(record) ?? 0) * amount(record.id)}
                         <div class="purchase-total" aria-live="polite"><span>Total price</span><b>{formatCopperPrice(totalCp)}</b>{#if unavailable}<span>{customCp(record.id) === 0 ? "GM-approved zero price" : "GM-entered"}</span>{/if}</div>
@@ -654,7 +654,7 @@
                     {:else}<button type="button" class="primary buy-button" disabled={!canTransact(record)} onclick={() => purchase(selected)}>{selected.kind === "wielding_profile" ? "Buy weapon" : "Buy"}</button>{/if}
                   {#if selected.kind !== "non_carried_purchase"}
                     <div class="free-acquisition">
-                      <label>Add without paying <select aria-label={`Add ${record.name} without paying`} value={freeAcquisition[record.id] ?? ""} disabled={amount(record.id) < 1} onchange={event => freeAcquisition[record.id] = event.currentTarget.value as "gifted" | "inherited" | "granted" | ""}>
+                      <label>Add without paying <select aria-label={`Add ${displayCatalogueEquipmentName(record)} without paying`} value={freeAcquisition[record.id] ?? ""} disabled={amount(record.id) < 1} onchange={event => freeAcquisition[record.id] = event.currentTarget.value as "gifted" | "inherited" | "granted" | ""}>
                         <option value="">Choose an option…</option><option value="gifted">Gifted</option><option value="inherited">Inherited</option><option value="granted">Granted</option>
                       </select></label>
                       <button type="button" disabled={amount(record.id) < 1 || !freeAcquisition[record.id] || (record.category === "armour" && !canAcquireArmour(record))} onclick={() => { const acquiredAs = freeAcquisition[record.id]; if (acquiredAs) acquire(selected, acquiredAs); }}>Add item</button>

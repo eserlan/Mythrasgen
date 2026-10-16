@@ -20,6 +20,8 @@ Provenance: the template is the publicly distributed Mythras Character Sheet (de
 
 The source-indexed 3rd edition equipment data lives in `catalogue_source_index.json`; the CSV and `validation_report.json` are cross-check inputs. Validate them with `bun run catalogue:validate`. The import in `src/lib/equipment-catalogue.ts` preserves source rows and printed-page provenance, assigns stable catalogue IDs, and tags candidate fields with their verification state. This dataset is provisional and its extracted candidate values are not all verified Core facts.
 
+Shield price candidates use the values attributed to the Mythras 3rd edition Core Rulebook, Economics & Equipment, p. 63, Shields table: Buckler 50 SP, Heater 150 SP, Hoplite 300 SP, Kite 300 SP, Peltast 150 SP, Scutum 450 SP, Target 150 SP, and Viking 300 SP. The rulebook PDF is not included in this checkout, so those prices have not been independently visually checked here.
+
 An unavailable candidate price remains `null` and displays as “Price unavailable”. Purchase creation rejects that state unless a GM enters an explicit price in integer CP. Items can still be acquired as gifted, inherited, or granted. Catalogue rows are frozen; owned items and purchase transactions are separate records, and each transaction stores the exact CP amount at acquisition time. One physical weapon can reference multiple wielding-profile rows; armour constructions and material modifiers are separate catalogue record kinds.
 
 ## Rules validation

@@ -35,6 +35,40 @@ describe("Page VIII equipment ledger", () => {
     expect(reconcileBalance(100, state.equipmentTransactions)).toEqual({ startingCp: 1000, spentCp: 900, remainingCp: 100 });
   });
 
+  test("charges shield purchases by quantity while free acquisitions and legacy saves keep their semantics", () => {
+    const shieldPricesCp = [500, 1500, 3000, 3000, 1500, 4500, 1500, 3000];
+    const shields = ["buckler", "heater", "hoplite", "kite", "peltast", "scutum", "target", "viking"];
+    for (const [index, name] of shields.entries()) {
+      const purchase = addPurchase(blank(), item(`shields-${name}`), 3);
+      expect(purchase.equipmentTransactions[0]?.amountCp).toBe(shieldPricesCp[index]! * 3);
+    }
+    const viking = item("shields-viking");
+    const purchased = addPurchase(blank(), viking, 2);
+    expect(purchased.inventory).toHaveLength(1);
+    expect(purchased.inventory[0]).toMatchObject({ catalogueId: "shields-viking", name: "Viking Shield", quantity: 2, encPerUnit: 3 });
+    expect(purchased.equipmentTransactions[0]).toMatchObject({ name: "Viking Shield", quantity: 2, amountCp: 6000 });
+    expect(reconcileBalance(10000, purchased.equipmentTransactions)).toEqual({ startingCp: 100000, spentCp: 6000, remainingCp: 94000 });
+
+    const gifted = addGift(blank(), viking, 1, "inherited");
+    expect(gifted.inventory[0]).toMatchObject({ name: "Viking Shield", acquiredAs: "inherited", quantity: 1 });
+    expect(gifted.equipmentTransactions).toEqual([]);
+    expect(reconcileBalance(10000, gifted.equipmentTransactions)).toEqual({ startingCp: 100000, spentCp: 0, remainingCp: 100000 });
+
+    for (const legacy of [
+      { id: "legacy-id", catalogueId: "shields-viking", name: "Viking", quantity: 2, acquiredAs: "inherited" },
+      { id: "legacy-name", catalogueId: null, name: "Viking", quantity: 1, acquiredAs: "legacy" },
+      { id: "already-named", catalogueId: "shields-viking", name: "Viking Shield", quantity: 1, acquiredAs: "purchased" },
+    ]) {
+      const restored = normalizeInventoryState({ inventory: [legacy] });
+      expect(restored.inventory).toHaveLength(1);
+      expect(restored.inventory[0]).toMatchObject({ name: "Viking Shield", quantity: legacy.quantity });
+    }
+
+    const custom = normalizeInventoryState({ inventory: [{ id: "custom-viking", catalogueId: null, name: "Viking", quantity: 1,
+      customItem: { id: "custom-viking", type: "gear", name: "Viking" } }] });
+    expect(custom.inventory[0]).toMatchObject({ name: "Viking", customItem: { type: "gear", name: "Viking" } });
+  });
+
   test("requires a GM amount for unknown prices and records explicit zero distinctly", () => {
     const unknown = EQUIPMENT_CATALOGUE.find(entry => entry.source.price_cp_candidate === null)!.source;
     expect(() => addPurchase(blank(), unknown, 1)).toThrow("price unavailable");

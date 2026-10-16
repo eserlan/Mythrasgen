@@ -5,7 +5,7 @@
   import SkillInfo from "./SkillInfo.svelte";
   import { CONNECTIONS, FAMILY_STANDING, resolvedBackgroundEvents, resolveBackgroundEvent, tableResult } from "../lib/background-rules";
   import { formatFamilyRelationships } from "../lib/family-relationships";
-  import { formatCopperPrice, EQUIPMENT_CATALOGUE } from "../lib/equipment-catalogue";
+  import { displayEquipmentName, formatCopperPrice, EQUIPMENT_CATALOGUE } from "../lib/equipment-catalogue";
   import { sheetEquipmentSummary } from "../lib/sheet-equipment";
   import { HIT_LOCATIONS } from "../lib/armour-rules";
   import { formatRangedRange, rangedCellText, RANGED_WEAPON_STATS } from "../lib/ranged-weapons";
@@ -44,6 +44,8 @@
   const meleeWeapons = $derived(ownedWeapons.filter(row => !row.ranged));
   const rangedWeapons = $derived(ownedWeapons.filter(row => row.ranged));
   const money = formatCopperPrice;
+  const inventoryDisplayName = (item: typeof char.background.inventory[number]) => displayEquipmentName(item.name,
+    EQUIPMENT_CATALOGUE.find(row => row.source.id === item.catalogueId)?.source.category);
 </script>
 
 <div class="noprint"><div class="head"><div class="numeral">IX</div><div><h2>Character sheet</h2><p class="intro">A table-ready reference for {char.name || "your character"}.</p></div></div></div>
@@ -169,7 +171,7 @@
         {#if meleeWeapons.length}
           <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
           <div class="sheet-table-wrap" role="region" aria-label="Melee weapons and shields" tabindex="0"><table><thead><tr><th>Owned item</th><th>Qty</th><th>Damage</th><th>Size</th><th>Reach</th><th>AP / HP</th><th>ENC</th></tr></thead><tbody>{#each meleeWeapons as row (row.item.id)}
-          <tr><th scope="row">{row.item.name}</th><td>{row.item.quantity}</td><td>{row.source?.combat_profile_candidate?.damage ?? row.custom?.damage ?? "—"}</td><td>{row.source?.combat_profile_candidate?.size ?? row.custom?.size ?? "—"}</td><td>{row.source?.combat_profile_candidate?.reach ?? row.custom?.reach ?? "—"}</td><td>{row.source?.ap_candidate ?? row.source?.ap ?? row.custom?.ap ?? "—"} / {row.source?.hp_candidate ?? row.custom?.hp ?? "—"}</td><td>{row.item.encPerUnit === null ? "Unresolved" : row.item.encPerUnit}</td></tr>
+          <tr><th scope="row">{inventoryDisplayName(row.item)}</th><td>{row.item.quantity}</td><td>{row.source?.combat_profile_candidate?.damage ?? row.custom?.damage ?? "—"}</td><td>{row.source?.combat_profile_candidate?.size ?? row.custom?.size ?? "—"}</td><td>{row.source?.combat_profile_candidate?.reach ?? row.custom?.reach ?? "—"}</td><td>{row.source?.ap_candidate ?? row.source?.ap ?? row.custom?.ap ?? "—"} / {row.source?.hp_candidate ?? row.custom?.hp ?? "—"}</td><td>{row.item.encPerUnit === null ? "Unresolved" : row.item.encPerUnit}</td></tr>
         {/each}</tbody></table></div>{:else}<p class="mute">No owned melee weapons or shields recorded.</p>{/if}
       </section>
       <section class="sheet-panel"><h3>Ranged weapons</h3>
@@ -186,7 +188,7 @@
       {#if char.background.inventory.length}
         <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
         <div class="sheet-table-wrap" role="region" aria-label="Owned equipment" tabindex="0"><table class="sheet-equipment-table"><colgroup><col style="width:34%" /><col style="width:8%" /><col style="width:13%" /><col style="width:20%" /><col style="width:25%" /></colgroup><thead><tr><th>Item</th><th>Qty</th><th>State</th><th>Acquisition</th><th>ENC</th></tr></thead><tbody>{#each char.background.inventory as item (item.id)}
-        <tr><th scope="row">{item.name}</th><td>{item.quantity}</td><td>{item.state}</td><td>{item.acquiredAs}</td>
+        <tr><th scope="row">{inventoryDisplayName(item)}</th><td>{item.quantity}</td><td>{item.state}</td><td>{item.acquiredAs}</td>
           <td>{#if item.armour}{item.armour.encOverride !== undefined ? `${item.armour.encOverride} per covered location (GM value)` : item.armour.construction && item.armour.material ? "Derived" : "Unresolved"}{:else if item.encPerUnit === null}Unresolved{:else}{item.encPerUnit} per item{item.encSource === "gm_override" ? " (GM value)" : ""}{/if}</td>
         </tr>
       {/each}</tbody></table></div>{:else}<p class="mute">No owned equipment recorded.</p>{/if}

@@ -1,4 +1,4 @@
-import { EQUIPMENT_CATALOGUE, EQUIPMENT_CATALOGUE_VERSION, createEquipmentPurchase, type EquipmentSourceRecord } from "./equipment-catalogue";
+import { EQUIPMENT_CATALOGUE, EQUIPMENT_CATALOGUE_VERSION, createEquipmentPurchase, displayEquipmentName, displayLegacyEquipmentName, type EquipmentSourceRecord } from "./equipment-catalogue";
 import type { ArmourPiece, ArmourConstructionId, ArmourMaterialId, CompatibilityState, FitState, HitLocationName } from "./armour-rules";
 import { ARMOUR_CONSTRUCTIONS, ARMOUR_MATERIALS, HIT_LOCATIONS, armourEncumbrance, armourMaterialCompatibility, standardArmourMaterial } from "./armour-rules";
 import type { CustomEquipmentDefinition } from "./custom-equipment";
@@ -97,9 +97,10 @@ export function normalizeInventoryState(value: unknown): InventoryState {
     if (!item || typeof item !== "object") return [];
     const row = item as InventoryItem;
     if (typeof row.name !== "string" || !validInt(row.quantity, 1)) return [];
-    const catalogueEnc = typeof row.catalogueId === "string"
-      ? EQUIPMENT_CATALOGUE.find(entry => entry.source.id === row.catalogueId)?.source.enc_candidate
+    const catalogueRecord = typeof row.catalogueId === "string"
+      ? EQUIPMENT_CATALOGUE.find(entry => entry.source.id === row.catalogueId)?.source
       : undefined;
+    const catalogueEnc = catalogueRecord?.enc_candidate;
     const savedEnc = typeof row.encPerUnit === "number" && Number.isFinite(row.encPerUnit) && row.encPerUnit >= 0 ? row.encPerUnit : null;
     const identifiableConstruction = typeof row.catalogueId === "string" && armourConstructionForCatalogue[row.catalogueId]
       ? armourConstructionForCatalogue[row.catalogueId]
@@ -113,7 +114,11 @@ export function normalizeInventoryState(value: unknown): InventoryState {
       catalogueId: typeof row.catalogueId === "string" ? row.catalogueId : null,
       sourceIds: Array.isArray(row.sourceIds) ? row.sourceIds.filter((id): id is string => typeof id === "string") : [],
       ...(typeof row.physicalItemKey === "string" ? { physicalItemKey: row.physicalItemKey } : {}),
-      name: row.name,
+      name: catalogueRecord?.category === "shields"
+        ? displayEquipmentName(catalogueRecord.name, "shields")
+        : !catalogueRecord && row.catalogueId == null && !row.customItem
+          ? displayLegacyEquipmentName(row.name)
+          : row.name,
       quantity: row.quantity,
       acquiredAs: ["purchased", "gifted", "inherited", "granted", "legacy"].includes(row.acquiredAs) ? row.acquiredAs : "legacy",
       state: ["carried", "worn", "stored"].includes(row.state) ? row.state : "carried",
@@ -152,11 +157,16 @@ export function normalizeInventoryState(value: unknown): InventoryState {
     if (typeof row.name !== "string" || !validInt(row.amountCp) || !validInt(row.quantity, 1)) return [];
     if (!["purchase", "refund", "legacy_spend", "expense"].includes(row.kind)) return [];
     const amountSource = ["catalogue_candidate", "gm_entered", "legacy"].includes(row.amountSource) ? row.amountSource : "legacy";
+    const catalogueRecord = typeof row.catalogueId === "string"
+      ? EQUIPMENT_CATALOGUE.find(entry => entry.source.id === row.catalogueId)?.source
+      : undefined;
     return [{
       id: typeof row.id === "string" && row.id ? row.id : uid(),
       kind: row.kind,
       catalogueId: typeof row.catalogueId === "string" ? row.catalogueId : null,
-      name: row.name,
+      name: catalogueRecord?.category === "shields"
+        ? displayEquipmentName(catalogueRecord.name, "shields")
+        : displayEquipmentName(row.name),
       quantity: row.quantity,
       amountCp: row.amountCp,
       amountSource,
@@ -215,11 +225,11 @@ export function addPurchase(
     existing.quantity += quantity;
     existing.sourceIds = sourceIds;
   } else inventory.push({ id: uid(), catalogueId: record.id, sourceIds, ...(group ? { physicalItemKey: group } : {}),
-    name: record.name, quantity, acquiredAs: "purchased", state: record.category === "armour" ? "worn" : "carried",
+    name: displayEquipmentName(record.name, record.category), quantity, acquiredAs: "purchased", state: record.category === "armour" ? "worn" : "carried",
     encPerUnit,
     encSource: encPerUnit === null ? "unresolved" : "catalogue_candidate",
     ...(armourConfig ? { armour: armourConfig } : {}) });
-  const transaction: InventoryTransaction = { id: uid(), kind: "purchase", catalogueId: record.id, name: record.name,
+  const transaction: InventoryTransaction = { id: uid(), kind: "purchase", catalogueId: record.id, name: displayEquipmentName(record.name, record.category),
     quantity, amountCp: created.transaction.amountCp * quantity * locationCount, amountSource: created.transaction.amountSource,
     catalogueVersion: created.transaction.catalogueVersion, recordedAt: created.transaction.recordedAt };
   if (!Number.isSafeInteger(transaction.amountCp)) throw new Error("Total price is too large");
@@ -243,7 +253,7 @@ export function addGift(state: InventoryState, record: EquipmentSourceRecord, qu
       ? { ...item, quantity: item.quantity + quantity, sourceIds: [...new Set([...item.sourceIds, record.id])] } : item) };
   }
   return { ...state, inventory: [...state.inventory, { id: uid(), catalogueId: record.id, sourceIds: [record.id],
-    ...(record.physical_item_key ? { physicalItemKey: record.physical_item_key } : {}), name: record.name, quantity,
+    ...(record.physical_item_key ? { physicalItemKey: record.physical_item_key } : {}), name: displayEquipmentName(record.name, record.category), quantity,
     acquiredAs, state: record.category === "armour" ? "worn" : "carried",
     encPerUnit,
     encSource: encPerUnit === null ? "unresolved" : "catalogue_candidate",
@@ -256,7 +266,7 @@ export function addExpense(state: InventoryState, record: EquipmentSourceRecord,
   const amountCp = created.transaction.amountCp * quantity;
   if (!Number.isSafeInteger(amountCp)) throw new Error("Total price is too large");
   return { ...state, equipmentTransactions: [...state.equipmentTransactions, { id: uid(), kind: "expense", catalogueId: record.id,
-    name: record.name, quantity, amountCp, amountSource: created.transaction.amountSource,
+    name: displayEquipmentName(record.name, record.category), quantity, amountCp, amountSource: created.transaction.amountSource,
     catalogueVersion: created.transaction.catalogueVersion, recordedAt: created.transaction.recordedAt }] };
 }
 

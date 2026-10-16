@@ -19,6 +19,8 @@ describe("Combat Style weapon resolution", () => {
   test("recognizes standard Core style weapons by normalized names and stable catalogue IDs", () => {
     expect(resolveCoreCombatStyleWeapon(undefined, " great sword ")).toMatchObject({ id: "two_handed-greatsword", name: "Greatsword" });
     expect(resolveCoreCombatStyleWeapon("one_handed-broadsword", "Campaign sword")).toMatchObject({ name: "Broadsword" });
+    expect(resolveCoreCombatStyleWeapon("shields-viking", "Viking")).toMatchObject({ name: "Viking Shield" });
+    expect(resolveCoreCombatStyleWeapon(undefined, "Viking Shield")).toMatchObject({ id: "shields-viking", name: "Viking Shield" });
     expect(isCoreCombatStyleWeaponName(" battleaxe ")).toBe(true);
     expect(resolveCoreCombatStyleWeapon(undefined, "Battleaxe")).toBeUndefined();
     expect(isCoreCombatStyleWeaponName("Moonsteel glaive")).toBe(false);

@@ -160,7 +160,7 @@ test("purchase safeguards and outcomes are accessible and preserve GM pricing", 
   expect(inventory).toContain("editInventoryQuantity(item.id, item.name, event.currentTarget.value)");
   expect(inventory).toContain("It does not add a second item.");
   expect(inventory).toContain("without adding carried equipment");
-  expect(inventory).toContain('class="quantity-input" aria-label={`Quantity of ${record.name}`} aria-invalid={amount(record.id) < 1}');
+  expect(inventory).toContain('class="quantity-input" aria-label={`Quantity of ${displayCatalogueEquipmentName(record)}`} aria-invalid={amount(record.id) < 1}');
   expect(inventory).toContain('aria-describedby={amount(record.id) < 1 ? `quantity-error-${record.id}` : undefined}');
   expect(inventory).toContain('class="free-acquisition"');
   expect(inventory).toContain("Add without paying");
@@ -278,13 +278,16 @@ test("weapon and shield details use player-facing labels and keep provisional so
   expect(buckler?.source.combat_profile_candidate).toEqual({ damage: "1d3", size: "M", reach: "S" });
   expect(buckler?.source.ap_candidate).toBe(6);
   expect(buckler?.source.hp_candidate).toBe(9);
+  expect(buckler?.source.price_cp_candidate).toBe(500);
 
   for (const text of ["Base damage", "${itemType} AP", "${itemType} HP", "Encumbrance (ENC)", "Shield", "Hands required", "Medium", "Rules help", "Source: Mythras Core, p. {record.source_printed_page}", "Combat profile", "Unresolved"])
     expect(inventory).toContain(text);
   for (const text of ["Stats pending verification", "Details pending verification", "provisional", "requires GM confirmation", "candidate stats are not verified"])
     expect(inventory.toLowerCase()).not.toContain(text.toLowerCase());
   expect(inventory.match(/Mythras Core, p\. \{record\.source_printed_page\}/g)).toHaveLength(1);
-  expect(inventory).toContain('unavailable ? "Price unavailable" : displayEquipmentPrice(record)');
+  expect(inventory).toContain("displayCatalogueEquipmentName(record)");
+  expect(inventory).toContain("displayEquipmentPrice(record)");
+  expect(inventory).toContain("${displayCatalogueEquipmentName(item.source)}");
   expect(inventory).toContain("ENC Unknown");
   expect(inventory).not.toContain("Catalogue prices and figures are transcribed candidates");
   expect(inventory).not.toContain("verify them against Mythras Core");
@@ -295,7 +298,7 @@ test("weapon and shield details use player-facing labels and keep provisional so
   expect(inventory).toContain("<small>{categorySummary(record.category)}</small>");
   expect(inventory).not.toContain("{statSummary(entry) || categorySummary(record.category)}");
   expect(inventory).toContain("They are not character armour points or character hit points.");
-  expect(inventory).toContain("aria-label={`Rules help for ${record.name}`}");
+  expect(inventory).toContain("aria-label={`Rules help for ${displayCatalogueEquipmentName(record)}`}");
   expect(inventory).toContain('isWeapon(record) || record.category === "shields"');
   expect(inventory).toContain("It does not add a second item.");
 });
