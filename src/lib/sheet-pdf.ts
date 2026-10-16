@@ -252,13 +252,21 @@ function fillPage2(sheet: Sheet, data: SheetData, mode: PrintMode) {
   const drawWeapon = (row: typeof data.weapons[number], baseline: number) => {
     sheet.field(page, row.name, 28, 123, baseline, { max: 8, min: 5.5, label: `Weapon: ${row.name}` });
     sheet.field(page, row.damage, 128, 178, baseline, { align: "center", max: 8.5 });
-    if (!row.ranged) {
+    if (row.ranged) {
+      sheet.field(page, row.force, 181, 207, baseline, { align: "center", max: 8.5 });
+      sheet.field(page, row.damageModifier, 209, 235, baseline, { align: "center", max: 8.5 });
+      sheet.field(page, row.range, 238, 294, baseline, { align: "center", max: 8.5, min: 5.5 });
+      sheet.field(page, row.load, 299, 323, baseline, { align: "center", max: 8.5 });
+      sheet.field(page, row.combatEffects, 329, 469, baseline, { max: 8, min: 5.5 });
+    } else {
       sheet.field(page, row.size, 181, 207, baseline, { align: "center", max: 8.5 });
       sheet.field(page, row.reach, 209, 235, baseline, { align: "center", max: 8.5 });
+      sheet.field(page, row.traits, 237, 325, baseline, { max: 8, min: 5.5 });
+      sheet.field(page, row.combatEffects, 329, 469, baseline, { max: 8, min: 5.5 });
     }
-    sheet.field(page, row.ap, 472, 497, baseline, { align: "center", max: 8.5 });
-    sheet.field(page, row.hp, 518, 535, baseline, { align: "center", max: 8.5 });
-    sheet.field(page, row.enc, 540, 572, baseline, { align: "center", max: 8.5 });
+    sheet.field(page, row.ap, 475, 499, baseline, { align: "center", max: 8.5 });
+    sheet.field(page, row.hp, 503, 539, baseline, { align: "center", max: 8.5 });
+    sheet.field(page, row.enc, 544, 568, baseline, { align: "center", max: 8.5 });
   };
   const melee = data.weapons.filter(row => !row.ranged), ranged = data.weapons.filter(row => row.ranged);
   melee.slice(0, MELEE_LINES.length).forEach((row, index) => drawWeapon(row, MELEE_LINES[index]));
