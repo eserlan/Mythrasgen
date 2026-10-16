@@ -34,6 +34,25 @@ const renderedTextRunsByPage = async (bytes: Uint8Array) => {
 const renderedTextRuns = async (bytes: Uint8Array) => (await renderedTextRunsByPage(bytes)).flat();
 const renderedTextByPage = async (bytes: Uint8Array) => (await renderedTextRunsByPage(bytes)).map(runs => runs.join(" "));
 const renderedText = async (bytes: Uint8Array) => (await renderedTextRuns(bytes)).join(" ");
+const renderedTextPlacementsByPage = async (bytes: Uint8Array) => {
+  const doc = await PDFDocument.load(bytes);
+  return doc.getPages().map(page => {
+    const contents = page.node.Contents();
+    const streams = contents instanceof PDFArray ? contents.asArray() : contents ? [contents] : [];
+    return streams.flatMap(reference => {
+      const stream = doc.context.lookup(reference);
+      if (!(stream instanceof PDFRawStream)) return [];
+      try {
+        const content = inflateSync(stream.getContents()).toString("latin1");
+        return [...content.matchAll(/1 0 0 1 ([\d.]+) ([\d.]+) Tm\s*<([\da-f]+)>\s*Tj/gi)].map(([, x, y, hex]) => ({
+          text: Buffer.from(hex!, "hex").toString("latin1"), x: Number(x), y: Number(y),
+        }));
+      } catch {
+        return [];
+      }
+    });
+  });
+};
 
 describe("printable character sheet data", () => {
   test("maps only recorded character data and leaves the rest blank", () => {
@@ -77,14 +96,43 @@ describe("printable character sheet data", () => {
       expect.objectContaining({ name: "Long bow", damage: "1d8", force: "H", damageModifier: "Y", range: "15/125/250", load: "2", combatEffects: "Impale", ap: "4", hp: "7", enc: "1", ranged: true }),
       expect.objectContaining({ name: "Short bow", damage: "1d6", force: "L", damageModifier: "Y", range: "15/100/200", load: "2", combatEffects: "Impale", ap: "4", hp: "4", enc: "1", ranged: true }),
     ]);
-    const pdf = await renderCharacterSheet(data, { template });
-    const page2 = (await renderedTextByPage(pdf))[1]!;
-    expect(page2).toContain("Bleed, Impale");
-    expect(page2).toContain("Bash, Stun Location");
-    expect(page2).toContain("15/125/250");
-    expect(page2).toContain("15/100/200");
-    expect(page2).toContain("Long bow");
-    expect(page2).not.toMatch(/\b18\b|\b28\b|\b42\b/);
+    const printData = {
+      ...data,
+      encumbrance: { ...data.encumbrance, total: "13", burdened: "27", overloaded: "41" },
+    };
+    for (const mode of ["titles-and-appendix", "titles-only", "notes-and-appendix", "notes-only", "appendix-only"] as const) {
+      const pdf = await renderCharacterSheet(printData, { template, mode });
+      const page2 = (await renderedTextByPage(pdf))[1]!;
+      expect(page2).toContain("Bleed, Impale");
+      expect(page2).toContain("Bash, Stun Location");
+      expect(page2).toContain("Long bow");
+      expect(page2).toContain("1d8");
+      expect(page2).not.toContain("15/125/250");
+      expect(page2).not.toContain("15/100/200");
+
+      const placements = (await renderedTextPlacementsByPage(pdf))[1]!;
+      const expectedBands = ["15", "125", "250", "15", "100", "200"];
+      const rangeRuns = placements.filter(run => expectedBands.includes(run.text) && run.y >= 90 && run.y <= 120);
+      expect(rangeRuns.map(run => run.text)).toEqual(expectedBands);
+      const helvetica = await (await PDFDocument.create()).embedFont(StandardFonts.Helvetica);
+      const centres = rangeRuns.map(run => run.x + helvetica.widthOfTextAtSize(run.text, 8.5) / 2);
+      expect(centres).toEqual([247, 267, 286, 247, 267, 286]);
+      const rangedEnc = placements.find(run => run.text === "1" && Math.abs(run.y - (841.89 - 722.6)) < 0.01);
+      expect(rangedEnc).toBeDefined();
+      expect(rangedEnc!.x + helvetica.widthOfTextAtSize("1", 8.5) / 2).toBeCloseTo(556, 5);
+      const encumbranceRuns = [
+        { text: "13", baseline: 543 },
+        { text: "27", baseline: 567 },
+        { text: "41", baseline: 579 },
+      ].map(({ text, baseline }) => {
+        const run = placements.find(candidate => candidate.text === text && Math.abs(candidate.y - (841.89 - baseline)) < 0.01);
+        expect(run).toBeDefined();
+        expect(run!.x + helvetica.widthOfTextAtSize(text, 9) / 2).toBeCloseTo(556, 5);
+        return run;
+      });
+      expect(encumbranceRuns.map(run => run!.y)).toEqual([298.89, 274.89, 262.89]);
+      expect(placements.filter(run => ["18", "28", "42"].includes(run.text) && run.y >= 90 && run.y <= 180)).toEqual([]);
+    }
   });
 
   test("preserves custom equipment names that match a shield name", () => {
