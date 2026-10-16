@@ -9,7 +9,7 @@ import { CORE_THEIST_CULTS, CORE_THEIST_MIRACLES } from "./theism";
 import { CORE_SPIRIT_TYPES } from "./animism";
 import { MAGIC, RESISTANCES, STANDARD, STATS, type Stat } from "./rules";
 import type { Character } from "./store.svelte";
-import { EQUIPMENT_CATALOGUE } from "./equipment-catalogue";
+import { displayEquipmentName, EQUIPMENT_CATALOGUE } from "./equipment-catalogue";
 import { encumbranceSummary } from "./encumbrance";
 import { fullArmourEncumbrance, ARMOUR_CONSTRUCTIONS } from "./armour-rules";
 
@@ -194,9 +194,10 @@ export function buildSheetData(source: SheetSource): SheetData {
   const hit = Object.fromEntries(source.loc.map(location => [location.name, String(location.hp)]));
   const inventory = char.background.inventory;
   const equipment = inventory.map(item => {
+    const catalogue = item.catalogueId ? EQUIPMENT_CATALOGUE.find(entry => entry.source.id === item.catalogueId)?.source : undefined;
     const armourEnc = item.armour ? fullArmourEncumbrance(item.armour, item.quantity) : null;
     return {
-      name: `${clean(item.name)}${item.quantity > 1 ? ` ×${item.quantity}` : ""}`,
+      name: `${clean(displayEquipmentName(item.name, catalogue?.category))}${item.quantity > 1 ? ` ×${item.quantity}` : ""}`,
       enc: item.armour ? (armourEnc === null ? "" : formatNumber(armourEnc))
         : item.encPerUnit === null ? "" : formatNumber(item.encPerUnit * item.quantity),
     };
@@ -209,7 +210,7 @@ export function buildSheetData(source: SheetSource): SheetData {
       ? piece.apOverride ?? (piece.construction ? ARMOUR_CONSTRUCTIONS[piece.construction].ap : undefined)
       : undefined;
     const enc = fullArmourEncumbrance(piece, item.quantity);
-    return { name: `${clean(item.name)}${item.quantity > 1 ? ` ×${item.quantity}` : ""}`, ap: ap === undefined ? "" : String(ap), enc: enc === null ? "" : formatNumber(enc) };
+    return { name: `${clean(displayEquipmentName(item.name))}${item.quantity > 1 ? ` ×${item.quantity}` : ""}`, ap: ap === undefined ? "" : String(ap), enc: enc === null ? "" : formatNumber(enc) };
   });
   const weapons = inventory.flatMap(item => {
     const catalogue = item.catalogueId ? EQUIPMENT_CATALOGUE.find(entry => entry.source.id === item.catalogueId)?.source : undefined;
@@ -221,7 +222,7 @@ export function buildSheetData(source: SheetSource): SheetData {
     if (!category) return [];
     const profile = catalogue?.combat_profile_candidate;
     return [{
-      name: `${clean(item.name)}${item.quantity > 1 ? ` ×${item.quantity}` : ""}`,
+      name: `${clean(displayEquipmentName(item.name, catalogue?.category))}${item.quantity > 1 ? ` ×${item.quantity}` : ""}`,
       damage: custom?.damage ?? profile?.damage ?? "", size: custom?.size ?? profile?.size ?? "", reach: custom?.reach ?? profile?.reach ?? "",
       ap: custom?.ap !== undefined ? String(custom.ap) : catalogue?.ap_candidate === undefined ? "" : String(catalogue.ap_candidate),
       hp: custom?.hp !== undefined ? String(custom.hp) : catalogue?.hp_candidate === undefined ? "" : String(catalogue.hp_candidate),

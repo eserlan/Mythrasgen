@@ -1,6 +1,6 @@
 import sourceIndex from "../../catalogue_source_index.json";
 
-export const EQUIPMENT_CATALOGUE_VERSION = "mythras-core-3e-provisional-2026-10-10";
+export const EQUIPMENT_CATALOGUE_VERSION = "mythras-core-3e-provisional-2026-10-16";
 export const EQUIPMENT_CATALOGUE_SCHEMA_VERSION = 1;
 
 export type EquipmentCategory =
@@ -153,6 +153,19 @@ export const EQUIPMENT_CATALOGUE: readonly ImportedEquipmentRecord[] = deepFreez
 
 export function displayEquipmentPrice(record: EquipmentSourceRecord): string {
   return record.price_cp_candidate === null ? "Price unavailable" : formatCopperPrice(record.price_cp_candidate);
+}
+
+const shieldNames = new Set(["buckler", "heater", "hoplite", "kite", "peltast", "scutum", "target", "viking"]);
+
+/** Adds the item type to Core shield names while tolerating already-normalized and legacy names. */
+export function displayEquipmentName(name: string, category?: EquipmentCategory): string {
+  const trimmed = name.trim();
+  if (category !== "shields" && (category !== undefined || !shieldNames.has(trimmed.replace(/\s+shield$/i, "").toLocaleLowerCase()))) return name;
+  return /\s+shield$/i.test(trimmed) ? trimmed : `${trimmed} Shield`;
+}
+
+export function displayCatalogueEquipmentName(record: EquipmentSourceRecord): string {
+  return displayEquipmentName(record.name, record.category);
 }
 
 export function formatCopperPrice(copper: number): string {

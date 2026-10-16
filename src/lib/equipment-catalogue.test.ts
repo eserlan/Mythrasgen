@@ -7,6 +7,8 @@ import {
   EQUIPMENT_CATALOGUE,
   acquireWithoutPurchase,
   createEquipmentPurchase,
+  displayCatalogueEquipmentName,
+  displayEquipmentName,
   displayEquipmentPrice,
   formatCopperPrice,
 } from "./equipment-catalogue";
@@ -110,19 +112,25 @@ describe("provisional equipment catalogue", () => {
     }
   });
 
-  test("imports all 206 source rows and leaves unavailable prices null and visible", () => {
+  test("imports shield prices in CP and shows unambiguous shield names", () => {
     expect(EQUIPMENT_CATALOGUE).toHaveLength(206);
+    const prices = { buckler: 500, heater: 1500, hoplite: 3000, kite: 3000, peltast: 1500, scutum: 4500, target: 1500, viking: 3000 };
+    for (const [name, price] of Object.entries(prices)) {
+      const shield = item(`shields-${name}`);
+      expect(shield.source.price_cp_candidate).toBe(price);
+      expect(displayEquipmentPrice(shield.source)).toBe(`${price / 10} SP`);
+      expect(displayCatalogueEquipmentName(shield.source)).toBe(`${name[0]!.toUpperCase()}${name.slice(1)} Shield`);
+      expect(shield.source.source_printed_page).toBe(63);
+    }
+    expect(displayEquipmentName("Viking", "shields")).toBe("Viking Shield");
+    expect(displayEquipmentName("Viking Shield", "shields")).toBe("Viking Shield");
+    expect(displayEquipmentName("Torch", "tools")).toBe("Torch");
+    expect(displayEquipmentName("Viking", "tools")).toBe("Viking");
     const buckler = item("shields-buckler");
-    expect(buckler.source.price_cp_candidate).toBeNull();
-    expect(buckler.fieldVerification.price_cp_candidate).toBe("unresolved");
-    expect(displayEquipmentPrice(buckler.source)).toBe("Price unavailable");
     expect(buckler.shieldRules?.passiveBlocking).toEqual({ value: null, verification: "unresolved" });
     expect(buckler.shieldRules?.rangedParry).toEqual({ value: null, verification: "unresolved" });
-    expect(() => createEquipmentPurchase("shields-buckler")).toThrow(/price unavailable/i);
-    expect(acquireWithoutPurchase("shields-buckler", "gifted")).toEqual({
-      catalogueId: "shields-buckler", acquiredAs: "gifted", quantity: 1,
-    });
-    expect(createEquipmentPurchase("shields-buckler", { gmEnteredPriceCp: 37 }).transaction.amountCp).toBe(37);
+    expect(createEquipmentPurchase("shields-buckler").transaction.amountCp).toBe(500);
+    expect(acquireWithoutPurchase("shields-buckler", "gifted")).toEqual({ catalogueId: "shields-buckler", acquiredAs: "gifted", quantity: 1 });
   });
 
   test("keeps alternate wielding profiles tied to one physical owned item", () => {
@@ -151,7 +159,7 @@ describe("provisional equipment catalogue", () => {
   test("transaction price is a frozen snapshot independent of later catalogue corrections", () => {
     const { transaction } = createEquipmentPurchase("one_handed-battleaxe", { recordedAt: "2026-10-10T00:00:00.000Z" });
     expect(transaction.amountCp).toBe(1000);
-    expect(transaction.catalogueVersion).toBe("mythras-core-3e-provisional-2026-10-10");
+    expect(transaction.catalogueVersion).toBe("mythras-core-3e-provisional-2026-10-16");
     expect(Object.isFrozen(transaction)).toBe(true);
     expect(Object.isFrozen(EQUIPMENT_CATALOGUE)).toBe(true);
     expect(() => { (transaction as { amountCp: number }).amountCp = 1; }).toThrow();

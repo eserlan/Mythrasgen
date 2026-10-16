@@ -1,4 +1,4 @@
-import { EQUIPMENT_CATALOGUE, type EquipmentSourceRecord } from "./equipment-catalogue";
+import { displayEquipmentName, EQUIPMENT_CATALOGUE, type EquipmentSourceRecord } from "./equipment-catalogue";
 
 export interface WeaponRecord {
   id: string;
@@ -37,6 +37,10 @@ function normalizeWeaponName(name: string): string {
   return name.trim().toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
 }
 
+function normalizeCoreWeaponName(name: string): string {
+  return normalizeWeaponName(name.replace(/\s+shield$/i, ""));
+}
+
 export function resolveWeapon(catalogueId: string | undefined, name: string): WeaponRecord | undefined {
   if (catalogueId) {
     const byId = WEAPON_CATALOGUE.find(record => record.id === catalogueId);
@@ -50,12 +54,12 @@ export function resolveWeapon(catalogueId: string | undefined, name: string): We
 export function resolveCoreCombatStyleWeapon(catalogueId: string | undefined, name: string): EquipmentSourceRecord | undefined {
   if (catalogueId) {
     const byId = CORE_COMBAT_STYLE_WEAPONS.find(record => record.id === catalogueId);
-    if (byId) return byId;
+    if (byId) return { ...byId, name: displayEquipmentName(byId.name, byId.category) };
   }
-  const matches = CORE_COMBAT_STYLE_WEAPONS.filter(record => normalizeWeaponName(record.name) === normalizeWeaponName(name));
-  return matches.length === 1 ? matches[0] : undefined;
+  const matches = CORE_COMBAT_STYLE_WEAPONS.filter(record => normalizeCoreWeaponName(record.name) === normalizeCoreWeaponName(name));
+  return matches.length === 1 ? { ...matches[0]!, name: displayEquipmentName(matches[0]!.name, matches[0]!.category) } : undefined;
 }
 
 export function isCoreCombatStyleWeaponName(name: string): boolean {
-  return CORE_COMBAT_STYLE_WEAPONS.some(record => normalizeWeaponName(record.name) === normalizeWeaponName(name));
+  return CORE_COMBAT_STYLE_WEAPONS.some(record => normalizeCoreWeaponName(record.name) === normalizeCoreWeaponName(name));
 }
