@@ -23,6 +23,11 @@ const STYLE_LINES = onRule(step(529.8, 12, 4));
 const ARMOUR_LINES = onRule(step(298.8, 24.2, 7));
 const MELEE_LINES = onRule(step(628, 12, 7));
 const RANGED_LINES = onRule(step(724, 12, 3));
+// The official template prints the two range separators. Keep each band centred
+// in its own printed sub-field so the values never cover those slashes.
+const RANGED_RANGE_FIELDS: [number, number][] = [[238, 256], [258, 276], [278, 294]];
+// These are the three printed load totals above Weapons & Shields (top-origin baselines).
+const ENCUMBRANCE_TOTALS = [543, 567, 579] as const;
 
 const NOTES_BOX = { x: 30, y: 166, w: 350, h: 70 };
 const CULT_BOX = { x: 413, y: 270, w: 161, h: 145 };
@@ -245,9 +250,9 @@ function fillPage2(sheet: Sheet, data: SheetData, mode: PrintMode) {
   });
   sheet.overflow("Combat Styles (not enough room on the sheet)", data.combatStyles.slice(STYLE_LINES.length)
     .map(style => `${style.name} ${style.percentage}% — weapons: ${style.weapons || "none recorded"}; traits: ${style.traits || "none recorded"}`));
-  sheet.field(page, data.encumbrance.total, 540, 572, 693, { align: "center", max: 9 });
-  sheet.field(page, data.encumbrance.burdened, 540, 572, 717, { align: "center", max: 9 });
-  sheet.field(page, data.encumbrance.overloaded, 540, 572, 729, { align: "center", max: 9 });
+  sheet.field(page, data.encumbrance.total, 540, 572, ENCUMBRANCE_TOTALS[0], { align: "center", max: 9 });
+  sheet.field(page, data.encumbrance.burdened, 540, 572, ENCUMBRANCE_TOTALS[1], { align: "center", max: 9 });
+  sheet.field(page, data.encumbrance.overloaded, 540, 572, ENCUMBRANCE_TOTALS[2], { align: "center", max: 9 });
 
   const drawWeapon = (row: typeof data.weapons[number], baseline: number) => {
     sheet.field(page, row.name, 28, 123, baseline, { max: 8, min: 5.5, label: `Weapon: ${row.name}` });
@@ -255,7 +260,10 @@ function fillPage2(sheet: Sheet, data: SheetData, mode: PrintMode) {
     if (row.ranged) {
       sheet.field(page, row.force, 181, 207, baseline, { align: "center", max: 8.5 });
       sheet.field(page, row.damageModifier, 209, 235, baseline, { align: "center", max: 8.5 });
-      sheet.field(page, row.range, 238, 294, baseline, { align: "center", max: 8.5, min: 5.5 });
+      row.range.split("/").slice(0, RANGED_RANGE_FIELDS.length).forEach((value, index) => {
+        const [x1, x2] = RANGED_RANGE_FIELDS[index]!;
+        sheet.field(page, value, x1, x2, baseline, { align: "center", max: 8.5, min: 5.5 });
+      });
       sheet.field(page, row.load, 299, 323, baseline, { align: "center", max: 8.5 });
       sheet.field(page, row.combatEffects, 329, 469, baseline, { max: 8, min: 5.5 });
     } else {
