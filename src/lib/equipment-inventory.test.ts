@@ -63,6 +63,10 @@ describe("Page VIII equipment ledger", () => {
       expect(restored.inventory).toHaveLength(1);
       expect(restored.inventory[0]).toMatchObject({ name: "Viking Shield", quantity: legacy.quantity });
     }
+
+    const custom = normalizeInventoryState({ inventory: [{ id: "custom-viking", catalogueId: null, name: "Viking", quantity: 1,
+      customItem: { id: "custom-viking", type: "gear", name: "Viking" } }] });
+    expect(custom.inventory[0]).toMatchObject({ name: "Viking", customItem: { type: "gear", name: "Viking" } });
   });
 
   test("requires a GM amount for unknown prices and records explicit zero distinctly", () => {

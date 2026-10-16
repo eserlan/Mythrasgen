@@ -124,6 +124,7 @@ describe("provisional equipment catalogue", () => {
     }
     expect(displayEquipmentName("Viking", "shields")).toBe("Viking Shield");
     expect(displayEquipmentName("Viking Shield", "shields")).toBe("Viking Shield");
+    expect(displayEquipmentName("Viking")).toBe("Viking");
     expect(displayEquipmentName("Torch", "tools")).toBe("Torch");
     expect(displayEquipmentName("Viking", "tools")).toBe("Viking");
     const buckler = item("shields-buckler");

@@ -157,10 +157,17 @@ export function displayEquipmentPrice(record: EquipmentSourceRecord): string {
 
 const shieldNames = new Set(["buckler", "heater", "hoplite", "kite", "peltast", "scutum", "target", "viking"]);
 
-/** Adds the item type to Core shield names while tolerating already-normalized and legacy names. */
+/** Adds the item type when the catalogue explicitly identifies the item as a shield. */
 export function displayEquipmentName(name: string, category?: EquipmentCategory): string {
   const trimmed = name.trim();
-  if (category !== "shields" && (category !== undefined || !shieldNames.has(trimmed.replace(/\s+shield$/i, "").toLocaleLowerCase()))) return name;
+  if (category !== "shields") return name;
+  return /\s+shield$/i.test(trimmed) ? trimmed : `${trimmed} Shield`;
+}
+
+/** One-time compatibility formatter for pre-catalogue inventory rows. */
+export function displayLegacyEquipmentName(name: string): string {
+  const trimmed = name.trim();
+  if (!shieldNames.has(trimmed.replace(/\s+shield$/i, "").toLocaleLowerCase())) return name;
   return /\s+shield$/i.test(trimmed) ? trimmed : `${trimmed} Shield`;
 }
 

@@ -1,4 +1,4 @@
-import { EQUIPMENT_CATALOGUE, EQUIPMENT_CATALOGUE_VERSION, createEquipmentPurchase, displayEquipmentName, type EquipmentSourceRecord } from "./equipment-catalogue";
+import { EQUIPMENT_CATALOGUE, EQUIPMENT_CATALOGUE_VERSION, createEquipmentPurchase, displayEquipmentName, displayLegacyEquipmentName, type EquipmentSourceRecord } from "./equipment-catalogue";
 import type { ArmourPiece, ArmourConstructionId, ArmourMaterialId, CompatibilityState, FitState, HitLocationName } from "./armour-rules";
 import { ARMOUR_CONSTRUCTIONS, ARMOUR_MATERIALS, HIT_LOCATIONS, armourEncumbrance, armourMaterialCompatibility, standardArmourMaterial } from "./armour-rules";
 import type { CustomEquipmentDefinition } from "./custom-equipment";
@@ -116,7 +116,9 @@ export function normalizeInventoryState(value: unknown): InventoryState {
       ...(typeof row.physicalItemKey === "string" ? { physicalItemKey: row.physicalItemKey } : {}),
       name: catalogueRecord?.category === "shields"
         ? displayEquipmentName(catalogueRecord.name, "shields")
-        : displayEquipmentName(row.name),
+        : !catalogueRecord && row.catalogueId == null && !row.customItem
+          ? displayLegacyEquipmentName(row.name)
+          : row.name,
       quantity: row.quantity,
       acquiredAs: ["purchased", "gifted", "inherited", "granted", "legacy"].includes(row.acquiredAs) ? row.acquiredAs : "legacy",
       state: ["carried", "worn", "stored"].includes(row.state) ? row.state : "carried",

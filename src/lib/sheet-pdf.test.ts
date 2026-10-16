@@ -56,6 +56,14 @@ describe("printable character sheet data", () => {
     expect(data.weapons.map(item => item.name)).toEqual(["Viking Shield"]);
   });
 
+  test("preserves custom equipment names that match a shield name", () => {
+    reset(false);
+    char.background.inventory = [{ id: "custom-viking", catalogueId: null, sourceIds: [], name: "Viking", quantity: 1,
+      acquiredAs: "gifted", state: "carried", encPerUnit: null, encSource: "unresolved",
+      customItem: { id: "custom-viking", type: "gear", name: "Viking", description: "", priceCp: null, enc: null, updatedAt: "" } }];
+    expect(buildSheetData(currentSheetSource()).equipment.map(item => item.name)).toEqual(["Viking"]);
+  });
+
   test("lists Hit Locations in the official sheet order with maximum HP", () => {
     reset(false);
     replace({ chars: { STR: 12, CON: 14, SIZ: 12, DEX: 12, INT: 12, POW: 12, CHA: 12 } });
