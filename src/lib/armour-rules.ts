@@ -60,6 +60,8 @@ export type FitState = "fitted" | "ill_fitting" | "unresolved";
 export type CompatibilityState = "compatible" | "incompatible" | "conditional" | "unresolved";
 export interface ArmourPiece {
   id: string;
+  /** Number of identical pieces represented by this entry. */
+  quantity?: number;
   /** Human-readable label used in player-facing review warnings. */
   name?: string;
   construction: ArmourConstructionId | null;
@@ -93,6 +95,7 @@ export function summarizeArmour(pieces: readonly ArmourPiece[]): ArmourSummary {
   let fullWornEncKnown = true;
   let loadEncKnown = true;
   for (const piece of pieces) {
+    const quantity = piece.quantity ?? 1;
     if (piece.state === "stored") continue;
     if (!piece.locations.length && !piece.coverageResolved) {
       unresolved.push(`${piece.name ?? piece.id}: armour coverage needs attention. Select the locations this armour covers.`);
@@ -133,11 +136,11 @@ export function summarizeArmour(pieces: readonly ArmourPiece[]): ArmourSummary {
     if (enc === undefined) unresolved.push(`${piece.name ?? piece.id}: armour ENC is unresolved. Check its construction and material.`);
     if (piece.state === "worn") {
       if (enc === undefined) fullWornEncKnown = false;
-      else fullWornEnc += enc * piece.locations.length;
+      else fullWornEnc += enc * piece.locations.length * quantity;
     }
     if (piece.state === "worn" || piece.state === "carried") {
       if (enc === undefined) loadEncKnown = false;
-      else loadEnc += enc * piece.locations.length * (piece.state === "worn" ? 0.5 : 1);
+      else loadEnc += enc * piece.locations.length * quantity * (piece.state === "worn" ? 0.5 : 1);
     }
   }
   return {
