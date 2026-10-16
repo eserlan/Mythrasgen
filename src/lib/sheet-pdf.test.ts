@@ -65,6 +65,8 @@ describe("printable character sheet data", () => {
     expect(data.passions).toEqual([]);
     expect(data.professional).toEqual([]);
     expect(data.magical).toEqual([]);
+    expect(data.encumbrance.armour).toBe("");
+    expect(data.encumbrance.armourPenalty).toBe("");
   });
 
   test("prints legacy shield names with the shield type without changing equipment count", () => {
@@ -233,12 +235,29 @@ describe("printable character sheet data", () => {
       const apRuns = placements.filter(run => ["0", "6", "5"].includes(run.text) && run.x >= 321 && run.x < 346);
       expect(apRuns).toHaveLength(7);
       apRuns.forEach((run, index) => expect(run.y).toBeCloseTo(pageHeight - baselines[index]!, 5));
-      const totalArmour = placements.find(run => run.text === "13" && Math.abs(run.y - (pageHeight - 483)) < 0.01);
-      const penalty = placements.find(run => run.text === "3" && Math.abs(run.y - (pageHeight - 493)) < 0.01);
+      const totalArmour = placements.find(run => run.text === "13" && Math.abs(run.y - (pageHeight - 471)) < 0.01);
+      const penalty = placements.find(run => run.text === "3" && Math.abs(run.y - (pageHeight - 483)) < 0.01);
       expect(totalArmour).toBeDefined();
       expect(penalty).toBeDefined();
       expect(totalArmour!.x + helvetica.widthOfTextAtSize("13", 9) / 2).toBeCloseTo(363, 5);
       expect(penalty!.x + helvetica.widthOfTextAtSize("3", 9) / 2).toBeCloseTo(363, 5);
+    }
+
+    const pageHeight = 841.89;
+    const helvetica = await (await PDFDocument.create()).embedFont(StandardFonts.Helvetica);
+    for (const [armour, armourPenalty] of [["24", "5"], ["1", "1"]]) {
+      const reportedCase = {
+        ...data,
+        encumbrance: { ...data.encumbrance, armour, armourPenalty },
+      };
+      const reportedPdf = await renderCharacterSheet(reportedCase, { template, mode: "titles-only" });
+      const reportedPlacements = (await renderedTextPlacementsByPage(reportedPdf))[1]!;
+      const totalArmour = reportedPlacements.find(run => run.text === armour && Math.abs(run.y - (pageHeight - 471)) < 0.01);
+      const penalty = reportedPlacements.find(run => run.text === armourPenalty && Math.abs(run.y - (pageHeight - 483)) < 0.01);
+      expect(totalArmour).toBeDefined();
+      expect(penalty).toBeDefined();
+      expect(totalArmour!.x + helvetica.widthOfTextAtSize(armour, 9) / 2).toBeCloseTo(363, 5);
+      expect(penalty!.x + helvetica.widthOfTextAtSize(armourPenalty, 9) / 2).toBeCloseTo(363, 5);
     }
   });
 
