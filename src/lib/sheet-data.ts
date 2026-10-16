@@ -12,7 +12,7 @@ import type { Character } from "./store.svelte";
 import { displayEquipmentName, EQUIPMENT_CATALOGUE } from "./equipment-catalogue";
 import { formatRangedRange, rangedCellText, RANGED_WEAPON_STATS, type RangedCell } from "./ranged-weapons";
 import { encumbranceSummary } from "./encumbrance";
-import { fullArmourEncumbrance, ARMOUR_CONSTRUCTIONS } from "./armour-rules";
+import { HIT_LOCATIONS, fullArmourEncumbrance, summarizeArmour } from "./armour-rules";
 
 /** The official sheet's printed Standard Skills; Resistances and Native Tongue are printed elsewhere. */
 export const SHEET_STANDARD_SKILLS = STANDARD.map(([name]) => name).filter(name =>
@@ -212,15 +212,30 @@ export function buildSheetData(source: SheetSource): SheetData {
         : item.encPerUnit === null ? "" : formatNumber(item.encPerUnit * item.quantity),
     };
   });
-  const wornArmour = inventory.filter(item => item.armour && item.armour.state === "worn" && item.state === "worn");
-  const armour = wornArmour.map(item => {
-    const piece = item.armour!;
-    const compatible = piece.compatibility === "compatible" || (piece.compatibility === "incompatible" && piece.gmCompatibilityOverride);
-    const ap = piece.fit === "fitted" && compatible
-      ? piece.apOverride ?? (piece.construction ? ARMOUR_CONSTRUCTIONS[piece.construction].ap : undefined)
-      : undefined;
-    const enc = fullArmourEncumbrance(piece, item.quantity);
-    return { name: `${clean(displayEquipmentName(item.name))}${item.quantity > 1 ? ` ×${item.quantity}` : ""}`, ap: ap === undefined ? "" : String(ap), enc: enc === null ? "" : formatNumber(enc) };
+  const wornArmour = inventory.filter(item => item.armour && item.state === "worn");
+  const armourPieces = wornArmour.flatMap(item => Array.from({ length: item.quantity }, (_, index) => ({
+    id: `${item.id}-${index + 1}`, name: item.name, ...item.armour!, state: item.state,
+  })));
+  // Keep printed protection in lockstep with Page IX's authoritative location summary.
+  const armourSummary = summarizeArmour(armourPieces);
+  const armour = HIT_LOCATIONS.map(location => {
+    const covering = wornArmour.filter(item => item.armour!.locations.includes(location));
+    const names = [...new Set(covering.map(item =>
+      `${clean(displayEquipmentName(item.name))}${item.quantity > 1 ? ` ×${item.quantity}` : ""}`,
+    ))];
+    // The ruled ENC cell is the sum of worn ENC contributed at this location.
+    // fullArmourEncumbrance is the piece's total across covered locations, so divide
+    // by its location count before assigning that contribution to each row.
+    const locationEnc = covering.reduce((total, item) => {
+      const enc = fullArmourEncumbrance(item.armour!, item.quantity);
+      return enc === null ? null : total === null ? null : total + (item.armour!.locations.length ? enc / item.armour!.locations.length : 0);
+    }, 0 as number | null);
+    const ap = armourSummary.apByLocation[location];
+    return {
+      name: names.join(" + "),
+      ap: ap === null ? "?" : String(ap),
+      enc: !covering.length || locationEnc === null ? "" : formatNumber(locationEnc),
+    };
   });
   const weapons = inventory.flatMap(item => {
     const catalogue = item.catalogueId ? EQUIPMENT_CATALOGUE.find(entry => entry.source.id === item.catalogueId)?.source : undefined;
@@ -251,8 +266,7 @@ export function buildSheetData(source: SheetSource): SheetData {
     }];
   });
   const load = encumbranceSummary(inventory, char.chars.STR);
-  const armourEnc = armour.reduce((total, row) => total + (row.enc ? Number(row.enc) : 0), 0);
-  const armourEncKnown = armour.every(row => row.enc !== "");
+  const armourEnc = armourSummary.fullWornEnc;
   return {
     identity: {
       name: clean(char.name), player: "", race: [char.race, source.cultureName].map(clean).filter(Boolean).join(" / "), gender: clean(char.gender), frame: char.frame,
@@ -295,8 +309,8 @@ export function buildSheetData(source: SheetSource): SheetData {
     armour,
     weapons,
     encumbrance: {
-      armour: armourEncKnown && armour.length ? formatNumber(armourEnc) : "",
-      armourPenalty: armourEncKnown && armour.length ? String(Math.ceil(armourEnc / 5)) : "",
+      armour: armourEnc === null || !wornArmour.length ? "" : formatNumber(armourEnc),
+      armourPenalty: armourSummary.initiativePenalty === null || !wornArmour.length ? "" : String(armourSummary.initiativePenalty),
       total: load.load === null ? "" : formatNumber(load.load),
       burdened: load.thresholds ? formatNumber(load.thresholds.burdened) : "",
       overloaded: load.thresholds ? formatNumber(load.thresholds.overloaded) : "",

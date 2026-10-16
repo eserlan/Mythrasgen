@@ -195,11 +195,51 @@ describe("printable character sheet data", () => {
       armour: { construction: "padded_quilted", material: "linen", locations: ["Chest"], coverageResolved: true, state: "worn", fit: "fitted", compatibility: "compatible", apOverride: 3, encOverride: 1 },
     }];
     const data = buildSheetData(currentSheetSource());
-    expect(data.armour).toEqual([{ name: "Padded coat", ap: "3", enc: "1" }]);
+    expect(data.armour).toEqual([
+      { name: "", ap: "0", enc: "" }, { name: "", ap: "0", enc: "" }, { name: "", ap: "0", enc: "" },
+      { name: "Padded coat", ap: "3", enc: "1" }, { name: "", ap: "0", enc: "" }, { name: "", ap: "0", enc: "" }, { name: "", ap: "0", enc: "" },
+    ]);
     expect(data.equipment).toEqual([{ name: "Padded coat", enc: "1" }]);
     expect(data.encumbrance.armour).toBe("1");
     expect(data.encumbrance.armourPenalty).toBe("1");
     expect(data.encumbrance.total).toBe("0.5");
+  });
+
+  test("prints seven location-aligned armour rows with effective overlap AP and per-location ENC", async () => {
+    reset(false);
+    char.background.inventory = [
+      { id: "half-plate", catalogueId: "armour-half-plate", sourceIds: ["armour-half-plate"], name: "Half Plate", quantity: 1,
+        acquiredAs: "gifted", state: "worn", encPerUnit: 4, encSource: "catalogue_candidate",
+        armour: { construction: "half_plate", material: "iron", locations: ["Chest", "Abdomen"], coverageResolved: true, state: "worn", fit: "fitted", compatibility: "compatible" } },
+      { id: "mail", catalogueId: "armour-mail", sourceIds: ["armour-mail"], name: "Mail", quantity: 1,
+        acquiredAs: "gifted", state: "worn", encPerUnit: 5, encSource: "catalogue_candidate",
+        armour: { construction: "mail", material: "linen", locations: ["Chest"], coverageResolved: true, state: "worn", fit: "fitted", compatibility: "compatible" } },
+    ];
+    const data = buildSheetData(currentSheetSource());
+    expect(data.armour).toEqual([
+      { name: "", ap: "0", enc: "" }, { name: "", ap: "0", enc: "" }, { name: "", ap: "0", enc: "" },
+      { name: "Half Plate + Mail", ap: "6", enc: "9" }, { name: "Half Plate", ap: "5", enc: "4" },
+      { name: "", ap: "0", enc: "" }, { name: "", ap: "0", enc: "" },
+    ]);
+    expect(data.encumbrance.armour).toBe("13");
+    expect(data.encumbrance.armourPenalty).toBe("3");
+
+    for (const mode of ["titles-and-appendix", "titles-only", "notes-and-appendix", "notes-only", "appendix-only"] as const) {
+      const pdf = await renderCharacterSheet(data, { template, mode });
+      const placements = (await renderedTextPlacementsByPage(pdf))[1]!;
+      const baselines = [297.4, 321.6, 345.8, 370, 394.2, 418.4, 442.6];
+      const pageHeight = 841.89;
+      const helvetica = await (await PDFDocument.create()).embedFont(StandardFonts.Helvetica);
+      const apRuns = placements.filter(run => ["0", "6", "5"].includes(run.text) && run.x >= 321 && run.x < 346);
+      expect(apRuns).toHaveLength(7);
+      apRuns.forEach((run, index) => expect(run.y).toBeCloseTo(pageHeight - baselines[index]!, 5));
+      const totalArmour = placements.find(run => run.text === "13" && Math.abs(run.y - (pageHeight - 483)) < 0.01);
+      const penalty = placements.find(run => run.text === "3" && Math.abs(run.y - (pageHeight - 493)) < 0.01);
+      expect(totalArmour).toBeDefined();
+      expect(penalty).toBeDefined();
+      expect(totalArmour!.x + helvetica.widthOfTextAtSize("13", 9) / 2).toBeCloseTo(363, 5);
+      expect(penalty!.x + helvetica.widthOfTextAtSize("3", 9) / 2).toBeCloseTo(363, 5);
+    }
   });
 
   test("prints recorded memberships for theistic cults", () => {
