@@ -28,6 +28,8 @@ const RANGED_LINES = onRule(step(724, 12, 3));
 const RANGED_RANGE_FIELDS: [number, number][] = [[238, 256], [258, 276], [278, 294]];
 // These are the three printed load totals above Weapons & Shields (top-origin baselines).
 const ENCUMBRANCE_TOTALS = [543, 567, 579] as const;
+const ARMOUR_TOTAL_ENC = 471;
+const ARMOUR_PENALTY = 483;
 
 const NOTES_BOX = { x: 30, y: 166, w: 350, h: 70 };
 const CULT_BOX = { x: 413, y: 270, w: 161, h: 145 };
@@ -239,8 +241,8 @@ function fillPage2(sheet: Sheet, data: SheetData, mode: PrintMode) {
     sheet.field(page, row.enc, 541, 572, baseline, { align: "center", max: 8.5 });
   });
   sheet.overflow("Equipment (not enough room on the sheet)", data.equipment.slice(EQUIPMENT_LINES.length).map(row => `${row.name}${row.enc ? ` — ENC ${row.enc}` : ""}`));
-  sheet.field(page, data.encumbrance.armour, 351, 375, 483, { align: "center", max: 9 });
-  sheet.field(page, data.encumbrance.armourPenalty, 351, 375, 493, { align: "center", max: 9 });
+  sheet.field(page, data.encumbrance.armour, 351, 375, ARMOUR_TOTAL_ENC, { align: "center", max: 9 });
+  sheet.field(page, data.encumbrance.armourPenalty, 351, 375, ARMOUR_PENALTY, { align: "center", max: 9 });
   data.combatStyles.slice(0, STYLE_LINES.length).forEach((style, index) => {
     const baseline = STYLE_LINES[index];
     sheet.field(page, style.name, 28, 122, baseline, { max: 8.5, label: `Combat Style ${style.name}` });
