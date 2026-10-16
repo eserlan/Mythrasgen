@@ -10,6 +10,7 @@ const { currentSheetSource } = await import("./sheet-source");
 const { circleTextPlacement, renderCharacterSheet } = await import("./sheet-pdf");
 const { sorceryCatalogue } = await import("./sorcery");
 const { CORE_MYSTICISM_PATHS } = await import("./mysticism");
+const { EQUIPMENT_CATALOGUE } = await import("./equipment-catalogue");
 
 const template = readFileSync(new URL("../assets/mythras-character-sheet.pdf", import.meta.url));
 const pageCount = async (bytes: Uint8Array) => (await PDFDocument.load(bytes)).getPageCount();
@@ -54,6 +55,36 @@ describe("printable character sheet data", () => {
     const data = buildSheetData(currentSheetSource());
     expect(data.equipment.map(item => item.name)).toEqual(["Viking Shield"]);
     expect(data.weapons.map(item => item.name)).toEqual(["Viking Shield"]);
+  });
+
+  test("maps owned melee traits separately from ranged table fields and keeps each row's ENC", async () => {
+    reset(false);
+    const ids = ["one_handed-broadsword", "shields-viking", "one_handed-rapier", "ranged-long-bow", "ranged-short-bow"];
+    char.background.inventory = ids.map(catalogueId => {
+      const catalogue = EQUIPMENT_CATALOGUE.find(entry => entry.source.id === catalogueId)!.source;
+      return {
+        id: `owned-${catalogueId}`, catalogueId, sourceIds: [catalogueId], name: catalogue.name, quantity: 1,
+        acquiredAs: "gifted" as const, state: "carried" as const,
+        encPerUnit: catalogue.enc_candidate ?? null,
+        encSource: catalogue.enc_candidate === undefined ? "unresolved" as const : "catalogue_candidate" as const,
+      };
+    });
+    const data = buildSheetData(currentSheetSource());
+    expect(data.weapons).toEqual([
+      expect.objectContaining({ name: "Broadsword", damage: "1d8", size: "M", reach: "M", traits: "Bleed, Impale", combatEffects: "", ap: "6", hp: "10", enc: "2", ranged: false }),
+      expect.objectContaining({ name: "Viking Shield", damage: "1d4", size: "L", reach: "S", traits: "Bash, Stun Location", combatEffects: "", ap: "4", hp: "12", enc: "3", ranged: false }),
+      expect.objectContaining({ name: "Rapier", traits: "Impale", ranged: false }),
+      expect.objectContaining({ name: "Long bow", damage: "1d8", force: "H", damageModifier: "Y", range: "15/125/250", load: "2", combatEffects: "Impale", ap: "4", hp: "7", enc: "1", ranged: true }),
+      expect.objectContaining({ name: "Short bow", damage: "1d6", force: "L", damageModifier: "Y", range: "15/100/200", load: "2", combatEffects: "Impale", ap: "4", hp: "4", enc: "1", ranged: true }),
+    ]);
+    const pdf = await renderCharacterSheet(data, { template });
+    const page2 = (await renderedTextByPage(pdf))[1]!;
+    expect(page2).toContain("Bleed, Impale");
+    expect(page2).toContain("Bash, Stun Location");
+    expect(page2).toContain("15/125/250");
+    expect(page2).toContain("15/100/200");
+    expect(page2).toContain("Long bow");
+    expect(page2).not.toMatch(/\b18\b|\b28\b|\b42\b/);
   });
 
   test("preserves custom equipment names that match a shield name", () => {

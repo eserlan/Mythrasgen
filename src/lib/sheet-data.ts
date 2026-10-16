@@ -10,6 +10,7 @@ import { CORE_SPIRIT_TYPES } from "./animism";
 import { MAGIC, RESISTANCES, STANDARD, STATS, type Stat } from "./rules";
 import type { Character } from "./store.svelte";
 import { displayEquipmentName, EQUIPMENT_CATALOGUE } from "./equipment-catalogue";
+import { formatRangedRange, rangedCellText, RANGED_WEAPON_STATS, type RangedCell } from "./ranged-weapons";
 import { encumbranceSummary } from "./encumbrance";
 import { fullArmourEncumbrance, ARMOUR_CONSTRUCTIONS } from "./armour-rules";
 
@@ -62,7 +63,7 @@ export interface SheetData {
   hitLocations: Record<string, string>;
   equipment: { name: string; enc: string }[];
   armour: { name: string; ap: string; enc: string }[];
-  weapons: { name: string; damage: string; size: string; reach: string; ap: string; hp: string; enc: string; ranged: boolean }[];
+  weapons: { name: string; damage: string; size: string; reach: string; traits: string; force: string; damageModifier: string; range: string; load: string; combatEffects: string; ap: string; hp: string; enc: string; ranged: boolean }[];
   encumbrance: { armour: string; armourPenalty: string; total: string; burdened: string; overloaded: string };
   combatStyles: { name: string; weapons: string; traits: string; percentage: string }[];
 }
@@ -70,6 +71,15 @@ export interface SheetData {
 const clean = (text: string) => text.trim().replace(/\s+/g, " ");
 const signed = (value: string | number) => typeof value === "number" && value > 0 ? `+${value}` : String(value);
 const attribute = (stats: SheetSource["stats"], name: string) => String(stats.find(([label]) => label === name)?.[1] ?? "");
+const rangedText = <T,>(cell: RangedCell<T>, format?: (value: T) => string) =>
+  cell.status === "unknown" ? "" : rangedCellText(cell, format);
+
+/** Weapon Traits come from the Core equipment row, separate from character Combat Style traits. */
+function coreWeaponTraits(sourceLine: string): string {
+  return [...sourceLine.matchAll(/\b(Stun\s+Location|Entangle|Bleed|Impale|Sunder|Bash)\b/gi)]
+    .map(match => match[1]!.replace(/\s+/g, " "))
+    .join(", ");
+}
 
 function notes({ char, socialClassReady }: SheetSource): string[] {
   const background = char.background;
@@ -221,12 +231,23 @@ export function buildSheetData(source: SheetSource): SheetData {
         : catalogue && ["one_handed", "two_handed", "shields"].includes(catalogue.category) ? "melee" : "";
     if (!category) return [];
     const profile = catalogue?.combat_profile_candidate;
+    const rangedStats = category === "ranged" && catalogue ? RANGED_WEAPON_STATS[catalogue.id] : undefined;
+    const traits = category === "melee" && catalogue ? coreWeaponTraits(catalogue.source_line) : "";
     return [{
       name: `${clean(displayEquipmentName(item.name, catalogue?.category))}${item.quantity > 1 ? ` ×${item.quantity}` : ""}`,
-      damage: custom?.damage ?? profile?.damage ?? "", size: custom?.size ?? profile?.size ?? "", reach: custom?.reach ?? profile?.reach ?? "",
-      ap: custom?.ap !== undefined ? String(custom.ap) : catalogue?.ap_candidate === undefined ? "" : String(catalogue.ap_candidate),
-      hp: custom?.hp !== undefined ? String(custom.hp) : catalogue?.hp_candidate === undefined ? "" : String(catalogue.hp_candidate),
-      enc: item.encPerUnit === null ? "" : formatNumber(item.encPerUnit * item.quantity), ranged: category === "ranged",
+      damage: rangedStats ? rangedText(rangedStats.damage) : custom?.damage ?? profile?.damage ?? "",
+      size: custom?.size ?? profile?.size ?? "", reach: custom?.reach ?? profile?.reach ?? "", traits,
+      force: rangedStats ? rangedText(rangedStats.force) : "",
+      damageModifier: rangedStats ? rangedText(rangedStats.damageModifier) : "",
+      range: rangedStats ? formatRangedRange(rangedStats.range).replace(/ m$/, "") : "",
+      load: rangedStats ? rangedText(rangedStats.load) : "",
+      // The ranged table supplies its listed effects; do not duplicate weapon Traits or invent melee effects.
+      combatEffects: rangedStats ? rangedText(rangedStats.combatEffects) : "",
+      ap: custom?.ap !== undefined ? String(custom.ap) : rangedStats ? rangedText(rangedStats.ap) : catalogue?.ap_candidate === undefined ? "" : String(catalogue.ap_candidate),
+      hp: custom?.hp !== undefined ? String(custom.hp) : rangedStats ? rangedText(rangedStats.hp) : catalogue?.hp_candidate === undefined ? "" : String(catalogue.hp_candidate),
+      enc: item.encPerUnit !== null ? formatNumber(item.encPerUnit * item.quantity)
+        : rangedStats ? rangedText(rangedStats.enc) : catalogue?.enc_candidate === undefined ? "" : String(catalogue.enc_candidate),
+      ranged: category === "ranged",
     }];
   });
   const load = encumbranceSummary(inventory, char.chars.STR);
