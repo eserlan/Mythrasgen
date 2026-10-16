@@ -213,9 +213,9 @@ export function buildSheetData(source: SheetSource): SheetData {
     };
   });
   const wornArmour = inventory.filter(item => item.armour && item.state === "worn");
-  const armourPieces = wornArmour.flatMap(item => Array.from({ length: item.quantity }, (_, index) => ({
-    id: `${item.id}-${index + 1}`, name: item.name, ...item.armour!, state: item.state,
-  })));
+  const armourPieces = wornArmour.map(item => ({
+    id: item.id, name: item.name, ...item.armour!, state: item.state, quantity: item.quantity,
+  }));
   // Keep printed protection in lockstep with Page IX's authoritative location summary.
   const armourSummary = summarizeArmour(armourPieces);
   const armour = HIT_LOCATIONS.map(location => {

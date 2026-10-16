@@ -242,6 +242,21 @@ describe("printable character sheet data", () => {
     }
   });
 
+  test("summarizes large armour quantities without expanding individual pieces", () => {
+    reset(false);
+    char.background.inventory = [{
+      id: "many-coats", catalogueId: null, sourceIds: [], name: "Padded coat", quantity: 1_000_000,
+      acquiredAs: "gifted", state: "worn", encPerUnit: 1, encSource: "gm_override",
+      armour: { construction: "padded_quilted", material: "linen", locations: ["Chest"], coverageResolved: true, state: "worn", fit: "fitted", compatibility: "compatible", encOverride: 1 },
+    }];
+
+    const data = buildSheetData(currentSheetSource());
+
+    expect(data.armour[3]).toEqual({ name: "Padded coat ×1000000", ap: "2", enc: "1000000" });
+    expect(data.encumbrance.armour).toBe("1000000");
+    expect(data.encumbrance.armourPenalty).toBe("200000");
+  });
+
   test("prints recorded memberships for theistic cults", () => {
     reset(false);
     replace({
