@@ -175,6 +175,35 @@ describe("printable character sheet data", () => {
     }
   });
 
+  test("prints each weapon in a quantity stack with its own current HP", async () => {
+    reset(false);
+    const catalogueId = "one_handed-battleaxe";
+    const catalogue = EQUIPMENT_CATALOGUE.find(entry => entry.source.id === catalogueId)!.source;
+    char.background.inventory = [{
+      id: "owned-battleaxe-stack", catalogueId, sourceIds: [catalogueId], name: catalogue.name, quantity: 2,
+      acquiredAs: "gifted", state: "carried", encPerUnit: catalogue.enc_candidate ?? null,
+      encSource: "catalogue_candidate", currentHpByUnit: [8, 5],
+    }];
+    updateInventoryItem("owned-battleaxe-stack", { currentHpByUnit: [8, 5] });
+    replace(structuredClone(char));
+    const data = buildSheetData(currentSheetSource());
+    expect(data.weapons.map(({ name, hp, currentHp }) => ({ name, hp, currentHp }))).toEqual([
+      { name: "Battleaxe #1", hp: "8", currentHp: "8" },
+      { name: "Battleaxe #2", hp: "8", currentHp: "5" },
+    ]);
+
+    const pdf = await renderCharacterSheet(data, { template, mode: "titles-only" });
+    const placements = (await renderedTextPlacementsByPage(pdf))[1]!;
+    const helvetica = await (await PDFDocument.create()).embedFont(StandardFonts.Helvetica);
+    for (const [label, current] of [["Battleaxe #1", "8"], ["Battleaxe #2", "5"]]) {
+      const nameRun = placements.find(run => run.text === label);
+      expect(nameRun).toBeDefined();
+      const hpRuns = placements.filter(run => Math.abs(run.y - nameRun!.y) < 0.01 && run.x >= 500 && run.x < 540);
+      expect(hpRuns.map(run => run.text)).toEqual(["8", current]);
+      expect(hpRuns[1]!.x + helvetica.widthOfTextAtSize(current, 8.5) / 2).toBeCloseTo(531.5, 5);
+    }
+  });
+
   test("preserves custom equipment names that match a shield name", () => {
     reset(false);
     char.background.inventory = [{ id: "custom-viking", catalogueId: null, sourceIds: [], name: "Viking", quantity: 1,
@@ -223,7 +252,10 @@ describe("printable character sheet data", () => {
     }];
     const data = buildSheetData(currentSheetSource());
     expect(data.equipment).toEqual([{ name: "Rapier ×2", enc: "2" }]);
-    expect(data.weapons).toEqual([expect.objectContaining({ name: "Rapier ×2", damage: "1d8", size: "M", reach: "M", ap: "0", hp: "8", enc: "2", ranged: false })]);
+    expect(data.weapons).toEqual([
+      expect.objectContaining({ name: "Rapier #1", damage: "1d8", size: "M", reach: "M", ap: "0", hp: "8", enc: "1", ranged: false }),
+      expect.objectContaining({ name: "Rapier #2", damage: "1d8", size: "M", reach: "M", ap: "0", hp: "8", enc: "1", ranged: false }),
+    ]);
     expect(data.combatStyles).toEqual([]);
   });
 

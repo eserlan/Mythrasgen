@@ -21,6 +21,8 @@ export interface InventoryItem {
   encSource: EncumbranceValueSource;
   /** Current structural HP when damage has been recorded; omitted means undamaged. */
   currentHp?: number;
+  /** Current structural HP for each physical unit in a quantity stack. */
+  currentHpByUnit?: number[];
   /** Everyday clothing does not count toward load; otherwise zero-ENC stacks count in groups of 20. */
   encumbranceExempt?: boolean;
   armour?: Omit<ArmourPiece, "id">;
@@ -140,6 +142,8 @@ export function normalizeInventoryState(value: unknown): InventoryState {
       encSource,
       ...(typeof row.currentHp === "number" && Number.isSafeInteger(row.currentHp) && row.currentHp >= 0
         ? { currentHp: row.currentHp } : {}),
+      ...(Array.isArray(row.currentHpByUnit) && row.currentHpByUnit.length === row.quantity
+        && row.currentHpByUnit.every(hp => validInt(hp)) ? { currentHpByUnit: [...row.currentHpByUnit] } : {}),
       ...(typeof row.encumbranceExempt === "boolean" ? { encumbranceExempt: row.encumbranceExempt } : {}),
       ...(row.customItem && typeof row.customItem === "object" ? { customItem: row.customItem } : {}),
       ...(row.armour && typeof row.armour === "object" ? { armour: {
@@ -164,6 +168,14 @@ export function normalizeInventoryState(value: unknown): InventoryState {
     } as InventoryItem;
     const maximumHp = inventoryItemMaximumHp(normalizedItem);
     if (normalizedItem.currentHp !== undefined && maximumHp !== undefined && normalizedItem.currentHp > maximumHp) {
+      delete normalizedItem.currentHp;
+    }
+    if (normalizedItem.currentHpByUnit) {
+      if (maximumHp !== undefined && normalizedItem.currentHpByUnit.some(hp => hp > maximumHp)) delete normalizedItem.currentHpByUnit;
+      else delete normalizedItem.currentHp;
+    }
+    if (normalizedItem.currentHpByUnit === undefined && normalizedItem.quantity > 1 && normalizedItem.currentHp !== undefined) {
+      normalizedItem.currentHpByUnit = Array(normalizedItem.quantity).fill(normalizedItem.currentHp);
       delete normalizedItem.currentHp;
     }
     if (!normalizedItem.armour && identifiableConstruction) {
@@ -294,13 +306,21 @@ export function removeInventoryItem(state: InventoryState, id: string): Inventor
   return { ...state, inventory: state.inventory.filter(item => item.id !== id) };
 }
 
-export function changeInventoryItem(state: InventoryState, id: string, update: Partial<Pick<InventoryItem, "quantity" | "state" | "encPerUnit" | "encumbranceExempt" | "currentHp">> & { armour?: Partial<Omit<ArmourPiece, "id">> }): InventoryState {
+export function changeInventoryItem(state: InventoryState, id: string, update: Partial<Pick<InventoryItem, "quantity" | "state" | "encPerUnit" | "encumbranceExempt" | "currentHp">> & { currentHpByUnit?: number[]; armour?: Partial<Omit<ArmourPiece, "id">> }): InventoryState {
   if (update.quantity !== undefined && !validInt(update.quantity, 1)) throw new Error("Quantity must be a positive integer");
   if (update.encPerUnit !== undefined && update.encPerUnit !== null && (!Number.isFinite(update.encPerUnit) || update.encPerUnit < 0)) throw new Error("ENC must be a non-negative number");
   const updatedItem = state.inventory.find(item => item.id === id);
+  if (update.currentHp !== undefined && updatedItem && updatedItem.quantity > 1) {
+    throw new Error("Update current HP per physical item in this quantity stack");
+  }
   if (update.currentHp !== undefined && (!validInt(update.currentHp)
       || (updatedItem && inventoryItemMaximumHp(updatedItem) !== undefined && update.currentHp > inventoryItemMaximumHp(updatedItem)!))) {
     throw new Error("Current HP must be a whole number from zero up to the item's maximum HP");
+  }
+  if (update.currentHpByUnit !== undefined && (!updatedItem || update.currentHpByUnit.length !== updatedItem.quantity
+      || !update.currentHpByUnit.every(hp => validInt(hp)
+        && (inventoryItemMaximumHp(updatedItem) === undefined || hp <= inventoryItemMaximumHp(updatedItem)!)))) {
+    throw new Error("Current HP must include one valid whole number per item up to its maximum HP");
   }
   const { armour: armourUpdate, ...fields } = update;
   return { ...state, inventory: state.inventory.map(item => {
@@ -311,7 +331,13 @@ export function changeInventoryItem(state: InventoryState, id: string, update: P
     const armourEncChanged = !!armourUpdate && ["construction", "material", "encOverride"].some(key => Object.hasOwn(armourUpdate, key));
     const derivedArmourEnc = armour?.encOverride ?? (armour?.construction && armour.material
       ? armourEncumbrance(armour.construction, armour.material) : null);
+    const currentHpByUnit = fields.quantity !== undefined && item.currentHpByUnit
+      ? Array.from({ length: fields.quantity }, (_, index) => item.currentHpByUnit![index] ?? inventoryItemMaximumHp(item) ?? item.currentHpByUnit!.at(-1)!)
+      : fields.currentHp !== undefined ? undefined : item.currentHpByUnit;
     return { ...item, ...fields,
+      ...(fields.quantity !== undefined && item.currentHpByUnit ? { currentHpByUnit } : {}),
+      ...(fields.currentHp !== undefined && item.currentHpByUnit ? { currentHpByUnit: undefined } : {}),
+      ...(fields.currentHpByUnit !== undefined ? { currentHp: undefined } : {}),
       ...(armourChanged ? { armour } : {}),
       ...(armourEncChanged ? { encPerUnit: derivedArmourEnc, encSource: derivedArmourEnc === null ? "unresolved" as const : armour?.encOverride !== undefined ? "gm_override" as const : "catalogue_candidate" as const } : {}),
       ...(Object.hasOwn(update, "encPerUnit") ? { encSource: update.encPerUnit === null ? "unresolved" as const : "gm_override" as const } : {}) };

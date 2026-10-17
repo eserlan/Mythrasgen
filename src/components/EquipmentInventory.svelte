@@ -331,6 +331,13 @@
     }
     saveInventoryChange(itemId, itemName, { quantity: parsed });
   }
+  function saveUnitCurrentHp(item: typeof char.background.inventory[number], unitIndex: number, value: string, maxHp: number | undefined) {
+    const values = item.currentHpByUnit ?? Array.from({ length: item.quantity }, (_, index) =>
+      index === 0 && item.currentHp !== undefined ? item.currentHp : maxHp ?? 0);
+    const next = [...values];
+    next[unitIndex] = value === "" ? maxHp ?? 0 : Number(value);
+    saveInventoryChange(item.id, item.name, { currentHpByUnit: next });
+  }
 </script>
 
 <section class="card inventory-ledger" aria-label="Equipment">
@@ -375,8 +382,11 @@
             <input id={`owned-enc-${item.id}`} class="compact-number" aria-label={`${inventoryEncLabel(item)} for ${item.name}`} type="number" min="0" step="0.25" value={item.armour ? item.armour.encOverride ?? "" : item.encPerUnit ?? ""} placeholder={item.armour ? "Derived" : "Unknown"} onchange={event => saveInventoryChange(item.id, item.name, item.armour ? { armour: { encOverride: event.currentTarget.value === "" ? undefined : Number(event.currentTarget.value) } } : { encPerUnit: event.currentTarget.value === "" ? null : Number(event.currentTarget.value) })}>
           </td>
           <td data-label="Current HP">{#if itemHasStructuralHp(item)}{@const maxHp = inventoryItemMaximumHp(item)}
-            <label class="sr-only" for={`owned-current-hp-${item.id}`}>Current HP for {item.name}</label>
-            <input id={`owned-current-hp-${item.id}`} class="compact-number" aria-label={`Current HP for ${item.name}`} type="number" min="0" max={maxHp} step="1" value={item.currentHp ?? maxHp ?? ""} placeholder={maxHp === undefined ? "Unknown" : String(maxHp)} onchange={event => saveInventoryChange(item.id, item.name, { currentHp: event.currentTarget.value === "" ? undefined : Number(event.currentTarget.value) })}>
+            <div class="hp-unit-controls">{#each Array.from({ length: item.quantity }, (_, unitIndex) => unitIndex) as unitIndex (unitIndex)}
+              {@const unitHp = item.currentHpByUnit?.[unitIndex] ?? (unitIndex === 0 ? item.currentHp : undefined) ?? maxHp}
+              <label class="sr-only" for={`owned-current-hp-${item.id}-${unitIndex}`}>Current HP for {item.name}{item.quantity > 1 ? `, item ${unitIndex + 1}` : ""}</label>
+              <input id={`owned-current-hp-${item.id}-${unitIndex}`} class="compact-number" aria-label={`Current HP for ${item.name}${item.quantity > 1 ? `, item ${unitIndex + 1}` : ""}`} type="number" min="0" max={maxHp} step="1" value={unitHp ?? ""} placeholder={maxHp === undefined ? "Unknown" : String(maxHp)} onchange={event => saveUnitCurrentHp(item, unitIndex, event.currentTarget.value, maxHp)}>
+            {/each}</div>
           {/if}</td>
           <td data-label="ENC Exempt"><label class="exemption-control"><input type="checkbox" aria-label={`Exempt ${item.name} from load`} checked={!!item.encumbranceExempt} onchange={event => saveInventoryChange(item.id, item.name, { encumbranceExempt: event.currentTarget.checked })}></label></td>
           <td class="row-actions" data-label="Actions"><div class="inventory-reorder-actions">
@@ -755,6 +765,8 @@
   .armour-secondary-disclosure p { margin:.55rem 0 0; }
   .inventory-table th,.inventory-table td { vertical-align:middle; }
   .inventory-table td > .compact-number { box-sizing:border-box; width:4rem; min-height:2.5rem; }
+  .hp-unit-controls { display:flex; flex-wrap:wrap; gap:.2rem; }
+  .hp-unit-controls .compact-number { box-sizing:border-box; width:3.5rem; min-height:2.5rem; }
   .inventory-table td > .state-select { box-sizing:border-box; width:100%; min-width:0; min-height:2.5rem; }
   .inventory-table td[data-label="Quantity"] > .compact-number { width:3.5rem; }
   .row-actions button { min-height:2.5rem; }

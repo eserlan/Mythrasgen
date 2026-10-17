@@ -142,6 +142,17 @@ describe("Page VIII equipment ledger", () => {
     expect(() => changeInventoryItem(state, state.inventory[0]!.id, { currentHp: 1.5 })).toThrow("maximum HP");
   });
 
+  test("tracks and restores current HP independently for every weapon in a stack", () => {
+    const state = addGift(blank(), item("one_handed-battleaxe"), 2, "gifted");
+    const damaged = changeInventoryItem(state, state.inventory[0]!.id, { currentHpByUnit: [8, 3] });
+    expect(normalizeInventoryState(structuredClone(damaged)).inventory[0]).toMatchObject({ quantity: 2, currentHpByUnit: [8, 3] });
+    const legacyStack = normalizeInventoryState({ inventory: [{ ...state.inventory[0], currentHp: 4 }], equipmentTransactions: [] });
+    expect(legacyStack.inventory[0]).toMatchObject({ currentHpByUnit: [4, 4] });
+    expect(() => changeInventoryItem(state, state.inventory[0]!.id, { currentHpByUnit: [8] })).toThrow("one valid whole number per item");
+    expect(() => changeInventoryItem(state, state.inventory[0]!.id, { currentHpByUnit: [8, 9] })).toThrow("maximum HP");
+    expect(() => changeInventoryItem(state, state.inventory[0]!.id, { currentHp: 8 })).toThrow("per physical item");
+  });
+
   test("removal does not refund; an explicit refund is a separate transaction", () => {
     let state = addPurchase(blank(), item("one_handed-dagger"), 1);
     const purchase = state.equipmentTransactions[0];
