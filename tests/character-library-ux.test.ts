@@ -14,3 +14,13 @@ test("the library exposes failed selection feedback without opening", () => {
   expect(error).toContain("could not be selected");
   expect(opened).toBe(false);
 });
+
+test("the library exposes thrown selection errors without opening", () => {
+  let opened = false;
+  const error = tryOpenCharacter("character", () => {
+    throw new Error("selection failed");
+  }, () => { opened = true; });
+
+  expect(error).toBe("Could not open this character: selection failed");
+  expect(opened).toBe(false);
+});

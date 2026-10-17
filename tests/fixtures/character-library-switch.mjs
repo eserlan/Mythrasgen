@@ -40,6 +40,14 @@ assert.match(selectionError, /could not be selected/);
 assert.equal(openedAfterFailure, false);
 assert.equal(store.char.id, activeBeforeFailure);
 
+let openedAfterThrownSelection = false;
+const thrownSelectionError = tryOpenCharacter("character", () => {
+  throw new Error("selection failed");
+}, () => { openedAfterThrownSelection = true; });
+assert.equal(thrownSelectionError, "Could not open this character: selection failed");
+assert.equal(openedAfterThrownSelection, false);
+assert.equal(store.char.id, activeBeforeFailure);
+
 const saved = JSON.parse(values.get(CHARACTER_LIBRARY_KEY));
 assert.equal(saved.activeId, secondId);
 assert.equal(saved.characters.find(character => character.id === firstId).name, "Freddy Unwin edited");
