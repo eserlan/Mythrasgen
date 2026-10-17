@@ -472,10 +472,13 @@ export function createCharacter() {
 }
 export function selectCharacter(id: string) {
   persist();
-  if (!repository.setActiveCharacter(id)) return false;
   const selected = repository.getCharacter(id);
   if (!selected) return false;
-  Object.assign(char, normalizeCharacter(selected, false));
+  // Hydrate before changing the persisted active ID. If an older or malformed
+  // record cannot be loaded, keep the current character active and intact.
+  const hydrated = normalizeCharacter(selected, false);
+  if (!repository.setActiveCharacter(id)) return false;
+  Object.assign(char, hydrated);
   refreshLibrary();
   return true;
 }
