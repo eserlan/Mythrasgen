@@ -1,12 +1,18 @@
 <script lang="ts">
   import { careers, cultures } from "../lib/content";
   import { characterLibrary, char, createCharacter, deleteCharacter, renameCharacter, selectCharacter } from "../lib/store.svelte";
+  import { tryOpenCharacter } from "../lib/character-library-ui";
 
   let { onOpen, onBack }: { onOpen: () => void; onBack: () => void } = $props();
+  let switchError = $state("");
 
-  function open(id: string) {
-    selectCharacter(id);
-    onOpen();
+  function open(id: string, active: boolean) {
+    switchError = "";
+    if (active) {
+      onOpen();
+      return;
+    }
+    switchError = tryOpenCharacter(id, selectCharacter, onOpen);
   }
   function create() {
     createCharacter();
@@ -20,6 +26,7 @@
 <section class="characters page">
   <div class="head"><span class="numeral">◆</span><div><h2>Characters</h2><p class="intro">Your heroes, saved in this browser.</p></div></div>
   <div class="card character-list">
+    {#if switchError}<p class="validation" role="alert">{switchError}</p>{/if}
     {#if characterLibrary.characters.length === 0}
       <p>No characters saved yet. Create one to begin.</p>
     {:else}
@@ -32,7 +39,7 @@
           </div>
           <div class="character-actions">
             {#if active}<span class="active-label">Active</span>{/if}
-            <button class:primary={!active} onclick={() => open(character.id)}>{active ? "Open" : "Select"}</button>
+            <button class:primary={!active} onclick={() => open(character.id, active)}>{active ? "Open" : "Select"}</button>
             <button class="danger" aria-label={`Delete ${character.name || "unnamed character"}`} onclick={() => remove(character.id, character.name)}>Delete</button>
           </div>
         </article>

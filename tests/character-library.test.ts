@@ -45,6 +45,25 @@ describe("browser character repository", () => {
     expect(restored.listCharacters().map(character => character.name)).toEqual(["Ariadne", "Bors"]);
   });
 
+  test("repeatedly switches active characters without mixing their saved data", () => {
+    const { repository, storage } = setup();
+    const first = repository.getCharacter(repository.getActiveCharacterId()!)!;
+    repository.saveCharacter({ ...first, name: "Freddy Unwin", culture: 1 });
+    const second = repository.createCharacter();
+    repository.saveCharacter({ ...second, name: "Timvey Struden", culture: 2 });
+
+    for (const id of [first.id, second.id, first.id, second.id]) {
+      expect(repository.setActiveCharacter(id)).toBe(true);
+      expect(repository.getActiveCharacterId()).toBe(id);
+      expect(repository.getCharacter(id)?.id).toBe(id);
+    }
+
+    const restored = createCharacterRepository(storage, () => ({ name: "", culture: 0 }));
+    expect(restored.getActiveCharacterId()).toBe(second.id);
+    expect(restored.getCharacter(first.id)).toMatchObject({ name: "Freddy Unwin", culture: 1 });
+    expect(restored.getCharacter(second.id)).toMatchObject({ name: "Timvey Struden", culture: 2 });
+  });
+
   test("migrates the existing single-character save without dropping its data", () => {
     const storage = new MemoryStorage();
     storage.setItem(LEGACY_CHARACTER_KEY, JSON.stringify({ name: "Legacy", culture: 3, career: 4 }));
