@@ -42,7 +42,12 @@ export function snapshotCharacterData<T>(value: T): T {
         if (!descriptor?.enumerable || !("value" in descriptor)) {
           throw new TypeError(`Character data at ${path}.${key} must be an enumerable data property.`);
         }
-        copy[key] = visit(descriptor.value, `${path}.${key}`, seen);
+        Object.defineProperty(copy, key, {
+          value: visit(descriptor.value, `${path}.${key}`, seen),
+          enumerable: true,
+          configurable: true,
+          writable: true,
+        });
       }
       return copy;
     } finally {

@@ -92,6 +92,32 @@ describe("browser character repository", () => {
     expect(reloaded.getCharacter(first.id)).toMatchObject(loaded);
   });
 
+  test("preserves an own __proto__ data property when snapshotting and saving", () => {
+    const { repository, storage } = setup();
+    const first = repository.getCharacter(repository.getActiveCharacterId()!)!;
+    const character = { ...first } as typeof first & { __proto__: { marker: string } };
+    Object.defineProperty(character, "__proto__", {
+      value: { marker: "character data" },
+      enumerable: true,
+      configurable: true,
+      writable: true,
+    });
+
+    repository.saveCharacter(character);
+
+    const saved = repository.getCharacter(first.id)!;
+    expect(Object.getPrototypeOf(saved)).toBe(Object.prototype);
+    expect(Object.hasOwn(saved, "__proto__")).toBe(true);
+    expect((saved as typeof character).__proto__).toEqual({ marker: "character data" });
+    expect(JSON.parse(storage.getItem(CHARACTER_LIBRARY_KEY)!).characters[0]).toHaveProperty("__proto__", { marker: "character data" });
+
+    const reloaded = createCharacterRepository(storage, () => ({ name: "", culture: 0 }));
+    const restored = reloaded.getCharacter(first.id)!;
+    expect(Object.getPrototypeOf(restored)).toBe(Object.prototype);
+    expect(Object.hasOwn(restored, "__proto__")).toBe(true);
+    expect((restored as typeof character).__proto__).toEqual({ marker: "character data" });
+  });
+
   test("rejects unsupported values before changing a saved record", () => {
     const { repository, storage } = setup();
     const activeId = repository.getActiveCharacterId()!;
