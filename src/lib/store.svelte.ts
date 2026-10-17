@@ -21,7 +21,7 @@ import { genericRankForTitle, normalizeOrganisationMemberships, normalizeOrganis
 import { CORE_MYSTICISM_ORGANISATIONS } from "./mysticism";
 import { CORE_SORCERY_SCHOOLS } from "./sorcery";
 import { syncMagicOrganisationMemberships } from "./magic-organisations";
-import { addExpense, addGift, addPurchase, changeInventoryItem, ledgerSpentCp, migrateLegacyPurchases, moveInventoryItem, normalizeInventoryOrder, normalizeInventoryState, reconcileBalance, removeInventoryItem, refundPurchase, type EquipmentState, type InventoryTransaction } from "./equipment-inventory";
+import { addExpense, addGift, addPurchase, changeInventoryItem, ledgerSpentCp, MAX_EQUIPMENT_STACK_QUANTITY, migrateLegacyPurchases, moveInventoryItem, normalizeInventoryOrder, normalizeInventoryState, reconcileBalance, removeInventoryItem, refundPurchase, type EquipmentState, type InventoryTransaction } from "./equipment-inventory";
 import { EQUIPMENT_CATALOGUE } from "./equipment-catalogue";
 import { customEquipmentInventoryItem, normalizeCustomEquipment, validateCustomEquipment, type CustomEquipmentDefinition } from "./custom-equipment";
 
@@ -657,7 +657,7 @@ export function recordEquipmentExpense(catalogueId: string, quantity: number, gm
   char.background.equipmentTransactions = next.equipmentTransactions;
   char.background.currentMoney = equipmentBalanceCp() / 10;
 }
-export function updateInventoryItem(id: string, update: { quantity?: number; state?: EquipmentState; encPerUnit?: number | null; encumbranceExempt?: boolean; armour?: Partial<Omit<import("./armour-rules").ArmourPiece, "id">> }) {
+export function updateInventoryItem(id: string, update: { quantity?: number; state?: EquipmentState; encPerUnit?: number | null; encumbranceExempt?: boolean; currentHp?: number; currentHpByUnit?: number[]; armour?: Partial<Omit<import("./armour-rules").ArmourPiece, "id">> }) {
   char.background.inventory = changeInventoryItem({ inventory: char.background.inventory, equipmentTransactions: char.background.equipmentTransactions }, id, update).inventory;
 }
 export function deleteInventoryItem(id: string) {
@@ -691,13 +691,13 @@ export function deleteCustomEquipment(id: string) {
 export function acquireCustomEquipment(id: string, quantity: number, acquiredAs: "purchased" | "gifted" | "inherited" | "granted") {
   const definition = char.background.customEquipment.find(item => item.id === id);
   if (!definition) throw new Error("Custom item not found for this character.");
-  if (!Number.isSafeInteger(quantity) || quantity < 1) throw new Error("Quantity must be a positive whole number.");
+  if (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > MAX_EQUIPMENT_STACK_QUANTITY) throw new Error(`Quantity must be a whole number from 1 to ${MAX_EQUIPMENT_STACK_QUANTITY}.`);
   if (definition.type === "service") throw new Error("Services do not create inventory.");
   const inventory = [...char.background.inventory];
   const existing = inventory.find(item => item.customItem?.id === id && item.customItem.updatedAt === definition.updatedAt
     && item.acquiredAs === acquiredAs);
   if (existing) {
-    if (!Number.isSafeInteger(existing.quantity + quantity)) throw new Error("Quantity is too large.");
+    if (existing.quantity + quantity > MAX_EQUIPMENT_STACK_QUANTITY) throw new Error(`Stack quantity cannot exceed ${MAX_EQUIPMENT_STACK_QUANTITY}.`);
     inventory[inventory.indexOf(existing)] = { ...existing, quantity: existing.quantity + quantity };
   }
   else inventory.push(customEquipmentInventoryItem(definition, acquiredAs, quantity,
@@ -708,7 +708,9 @@ export function purchaseCustomEquipment(id: string, quantity: number) {
   const definition = char.background.customEquipment.find(item => item.id === id);
   if (!definition) throw new Error("Custom item not found for this character.");
   if (definition.priceCp === null) throw new Error("Enter an explicit GM price before purchasing this item.");
-  if (!Number.isSafeInteger(quantity) || quantity < 1) throw new Error("Quantity must be a positive whole number.");
+  if (!Number.isSafeInteger(quantity) || quantity < 1 || (definition.type !== "service" && quantity > MAX_EQUIPMENT_STACK_QUANTITY)) {
+    throw new Error(definition.type === "service" ? "Quantity must be a positive whole number." : `Quantity must be a whole number from 1 to ${MAX_EQUIPMENT_STACK_QUANTITY}.`);
+  }
   const amountCp = definition.priceCp * quantity;
   if (!Number.isSafeInteger(amountCp)) throw new Error("Total price is too large.");
   const transactions = [...char.background.equipmentTransactions, { id: `transaction-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`}`,

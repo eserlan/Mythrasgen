@@ -200,15 +200,31 @@ try {
   const customRow = `Array.from(document.querySelectorAll('.inventory-table tbody tr')).find(item => item.innerText.includes('Accessibility sword'))`;
   const alwaysEditable = JSON.parse(await evaluate(`(() => { const row = ${customRow}; return JSON.stringify({ details:row.querySelector('details'), controls:Array.from(row.querySelectorAll('input,select')).map(control => ({ label:control.getAttribute('aria-label'), visible:control.getBoundingClientRect().width > 0 })) }); })()`));
   assert.equal(alwaysEditable.details, null, "ordinary inventory rows should not hide controls or item details in disclosures");
-  assert.ok(alwaysEditable.controls.length >= 4 && alwaysEditable.controls.every(control => control.visible), `quantity, state, ENC and exemption should be immediately visible: ${JSON.stringify(alwaysEditable)}`);
+  assert.ok(alwaysEditable.controls.length >= 5 && alwaysEditable.controls.some(control => control.label === "Current HP for Accessibility sword") && alwaysEditable.controls.every(control => control.visible), `quantity, state, ENC, Current HP and exemption should be immediately visible: ${JSON.stringify(alwaysEditable)}`);
   assert.doesNotMatch(await evaluate(`${customRow}?.innerText ?? ''`), /ENC contribution/, "owned row should not add a second line for ENC contribution");
   await evaluate(`(() => { const row = ${customRow}; const select = row.querySelector('select'); select.value = 'worn'; select.dispatchEvent(new Event('change', { bubbles: true })); })()`);
   assert.match(await evaluate(`document.querySelector('.review-summary')?.innerText ?? ''`), /1 ENC/, "changing item state should update the character load summary");
   await evaluate(`(() => { const row = ${customRow}; const enc = row.querySelector('input[aria-label="ENC per item for Accessibility sword"]'); enc.value = '4'; enc.dispatchEvent(new Event('change', { bubbles: true })); })()`);
   assert.match(await evaluate(`document.querySelector('.review-summary')?.innerText ?? ''`), /2 ENC/, "changing ENC should update the character load summary");
+  await evaluate(`(() => { const row = ${customRow}; const quantity = row.querySelector('input[aria-label="Quantity of Accessibility sword"]'); quantity.value = '2'; quantity.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+  await new Promise(resolve => setTimeout(resolve, 100));
+  assert.deepEqual(JSON.parse(await evaluate(`JSON.stringify(Array.from(document.querySelectorAll('[aria-label^="Current HP for Accessibility sword"]')).map(input => ({ label:input.getAttribute('aria-label'), value:input.value })))`)), [
+    { label: "Current HP for Accessibility sword, item 1", value: "10" },
+    { label: "Current HP for Accessibility sword, item 2", value: "10" },
+  ], "a weapon stack should expose one labelled HP field per physical weapon");
+  await evaluate(`(() => { const input = document.querySelector('[aria-label="Current HP for Accessibility sword, item 2"]'); input.value = '6'; input.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+  await new Promise(resolve => setTimeout(resolve, 100));
+  await call("Page.navigate", { url });
+  await waitForDocument();
+  await evaluate(`Array.from(document.querySelectorAll('button')).find(button => button.innerText.toLowerCase().includes('continue your hero'))?.click()`);
+  await evaluate(`Promise.all(Array.from(document.querySelectorAll('.page')).flatMap(page => page.getAnimations().map(animation => animation.finished)))`);
+  await evaluate(axeSource);
+  await clickText("Your equipment");
+  await runAxe();
+  assert.equal(await evaluate(`document.querySelector('[aria-label="Current HP for Accessibility sword, item 2"]')?.value`), "6", "per-weapon HP should persist after reload");
   await call("Emulation.setDeviceMetricsOverride", { width: 1240, height: 900, deviceScaleFactor: 1, mobile: false });
   const desktopOwned = JSON.parse(await evaluate(`(() => { const region = document.querySelector('.inventory-scroll'); const table = region.querySelector('.inventory-table'); const row = table.querySelector('tbody tr'); const controls = Array.from(row.querySelectorAll('input,select,button')).map(control => { const rect = control.getBoundingClientRect(); return rect.top + rect.height / 2; }); return JSON.stringify({ headers:Array.from(table.querySelectorAll('thead th')).map(header => header.innerText.trim()), client:region.clientWidth, content:table.scrollWidth, rowHeight:row.getBoundingClientRect().height, controlCenters:controls }); })()`));
-  assert.deepEqual(desktopOwned.headers, ["Item", "Quantity", "State", "ENC/Item", "ENC Exempt", "Actions"], "owned equipment should use the compact column labels");
+  assert.deepEqual(desktopOwned.headers, ["Item", "Quantity", "State", "ENC/Item", "Current HP", "ENC Exempt", "Actions"], "owned equipment should use the compact column labels");
   assert.ok(desktopOwned.content <= desktopOwned.client, `owned equipment should fit at 1240px without horizontal scrolling: ${JSON.stringify(desktopOwned)}`);
   assert.ok(desktopOwned.rowHeight <= 60, `owned equipment should stay on one visual line per item: ${JSON.stringify(desktopOwned)}`);
   assert.ok(Math.max(...desktopOwned.controlCenters) - Math.min(...desktopOwned.controlCenters) < 2, `owned controls should be vertically centered: ${JSON.stringify(desktopOwned)}`);
@@ -224,7 +240,7 @@ try {
   assert.ok(compactOwned.widths.every(width => width <= 200), `owned controls should remain compact at 320px: ${JSON.stringify(compactOwned)}`);
   await call("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
   await runAxe();
-  assert.ok(await evaluate(`document.querySelector('.review-summary')?.innerText.includes('2 ENC')`), "custom sword ENC should contribute to the displayed character load");
+  assert.ok(await evaluate(`document.querySelector('.review-summary')?.innerText.includes('4 ENC')`), "quantity should multiply the custom sword load after per-unit HP editing");
   await clickText("Choose equipment");
   await call("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
   await evaluate(`(() => { const input = document.querySelector('.catalogue-filters input[type="search"]'); input.value = 'Flail'; input.dispatchEvent(new Event('input', { bubbles: true })); })()`);
@@ -322,8 +338,8 @@ try {
   await evaluate(`(${armourRow}?.querySelector('.armour-editor-toggle'))?.click()`);
   const ownedArmourPanel = JSON.parse(await evaluate(`(() => { const row = ${armourRow}; const panelRow = row?.nextElementSibling; const panel = panelRow?.querySelector('.armour-editor'); const heading = panel?.querySelector('.armour-editor-heading'); const override = panel?.querySelector('.owned-material-override'); return JSON.stringify({ expanded:row?.querySelector('.armour-editor-toggle')?.getAttribute('aria-expanded'), rowHeight:row?.getBoundingClientRect().height, nextIsPanel:panelRow?.classList.contains('armour-detail-row'), colspan:panelRow?.querySelector('td')?.colSpan, panelWidth:panel?.clientWidth, panelScroll:panel?.scrollWidth, locations:panel?.querySelectorAll('.protected-locations input[type="checkbox"]').length, heading:heading?.querySelector('h6')?.innerText, overrideLabel:override?.innerText.trim(), overrideChecked:override?.querySelector('input')?.checked, material:panel?.querySelector('[aria-label="Material for Half Plate"]')?.value, ivoryDisabled:panel?.querySelector('[aria-label="Material for Half Plate"] option[value="ivory"]')?.disabled, overrideLeft:override?.getBoundingClientRect().left, headingRight:heading?.getBoundingClientRect().right, rulesOpen:panel?.querySelector('.armour-secondary-disclosure')?.open, columns:Array.from(panel?.querySelectorAll('.armour-properties label') ?? []).map(label => label.getBoundingClientRect().left) }); })()`));
   assert.equal(ownedArmourPanel.expanded, "true", "owned armour toggle should expose its expanded state");
-  assert.ok(ownedArmourPanel.nextIsPanel && ownedArmourPanel.colspan === 6, `owned armour editor should occupy a sibling full-width row: ${JSON.stringify(ownedArmourPanel)}`);
-  assert.ok(ownedArmourPanel.rowHeight <= 60, `opening owned armour should keep its inventory row compact: ${JSON.stringify(ownedArmourPanel)}`);
+  assert.ok(ownedArmourPanel.nextIsPanel && ownedArmourPanel.colspan === 7, `owned armour editor should occupy a sibling full-width row: ${JSON.stringify(ownedArmourPanel)}`);
+  assert.ok(ownedArmourPanel.rowHeight <= 75, `opening owned armour should keep its inventory row compact: ${JSON.stringify(ownedArmourPanel)}`);
   assert.ok(ownedArmourPanel.panelWidth > 700 && ownedArmourPanel.panelScroll <= ownedArmourPanel.panelWidth, `owned armour panel should use the available desktop width without overflow: ${JSON.stringify(ownedArmourPanel)}`);
   assert.equal(ownedArmourPanel.locations, 7, "owned armour editor should show all seven hit locations");
   assert.equal(ownedArmourPanel.heading, "Armour properties");

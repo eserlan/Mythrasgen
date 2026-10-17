@@ -23,6 +23,9 @@ const STYLE_LINES = onRule(step(529.8, 12, 4));
 const ARMOUR_LINES = onRule(step(298.8, 24.2, 7));
 const MELEE_LINES = onRule(step(628, 12, 7));
 const RANGED_LINES = onRule(step(724, 12, 3));
+// The official template's slash divides the HP field at x≈521. Keep the
+// initial and current values centred in the two printed halves.
+const WEAPON_HP_FIELDS: [[number, number], [number, number]] = [[503, 518], [524, 539]];
 // The official template prints the two range separators. Keep each band centred
 // in its own printed sub-field so the values never cover those slashes.
 const RANGED_RANGE_FIELDS: [number, number][] = [[238, 256], [258, 276], [278, 294]];
@@ -321,7 +324,9 @@ function fillPage2(sheet: Sheet, data: SheetData, mode: PrintMode) {
       sheet.field(page, row.combatEffects, 329, 469, baseline, { max: 8, min: 5.5 });
     }
     sheet.field(page, row.ap, 475, 499, baseline, { align: "center", max: 8.5 });
-    sheet.field(page, row.hp, 503, 539, baseline, { align: "center", max: 8.5 });
+    const [initialHpField, currentHpField] = WEAPON_HP_FIELDS;
+    sheet.field(page, row.hp, ...initialHpField, baseline, { align: "center", max: 8.5 });
+    sheet.field(page, row.currentHp, ...currentHpField, baseline, { align: "center", max: 8.5 });
     sheet.field(page, row.enc, 544, 568, baseline, { align: "center", max: 8.5 });
   };
   const melee = data.weapons.filter(row => !row.ranged), ranged = data.weapons.filter(row => row.ranged);
