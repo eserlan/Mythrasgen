@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { CHARACTER_LIBRARY_KEY } from "../../src/lib/character-library.ts";
+import { tryOpenCharacter } from "../../src/lib/character-library-ui.ts";
 
 globalThis.$state = value => value;
 const values = new Map();
@@ -31,6 +32,13 @@ assert.equal(store.selectCharacter(firstId), true);
 assert.equal(store.char.name, "Freddy Unwin edited");
 assert.equal(store.selectCharacter(secondId), true);
 assert.equal(store.char.name, "Timvey Struden");
+
+const activeBeforeFailure = store.char.id;
+let openedAfterFailure = false;
+const selectionError = tryOpenCharacter("removed-character", store.selectCharacter, () => { openedAfterFailure = true; });
+assert.match(selectionError, /could not be selected/);
+assert.equal(openedAfterFailure, false);
+assert.equal(store.char.id, activeBeforeFailure);
 
 const saved = JSON.parse(values.get(CHARACTER_LIBRARY_KEY));
 assert.equal(saved.activeId, secondId);

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { careers, cultures } from "../lib/content";
   import { characterLibrary, char, createCharacter, deleteCharacter, renameCharacter, selectCharacter } from "../lib/store.svelte";
+  import { tryOpenCharacter } from "../lib/character-library-ui";
 
   let { onOpen, onBack }: { onOpen: () => void; onBack: () => void } = $props();
   let switchError = $state("");
@@ -11,15 +12,7 @@
       onOpen();
       return;
     }
-    try {
-      if (!selectCharacter(id)) {
-        switchError = "This character could not be selected. It may have been removed. Please refresh the library and try again.";
-        return;
-      }
-      onOpen();
-    } catch (error) {
-      switchError = error instanceof Error ? `Could not open this character: ${error.message}` : "Could not open this character.";
-    }
+    switchError = tryOpenCharacter(id, selectCharacter, onOpen);
   }
   function create() {
     createCharacter();
