@@ -2,6 +2,7 @@ import { EQUIPMENT_CATALOGUE, EQUIPMENT_CATALOGUE_VERSION, createEquipmentPurcha
 import type { ArmourPiece, ArmourConstructionId, ArmourMaterialId, CompatibilityState, FitState, HitLocationName } from "./armour-rules";
 import { ARMOUR_CONSTRUCTIONS, ARMOUR_MATERIALS, HIT_LOCATIONS, armourEncumbrance, armourMaterialCompatibility, standardArmourMaterial } from "./armour-rules";
 import type { CustomEquipmentDefinition } from "./custom-equipment";
+import { RANGED_WEAPON_STATS } from "./ranged-weapons";
 
 export type EquipmentState = "carried" | "worn" | "stored";
 export type EquipmentAcquisition = "purchased" | "gifted" | "inherited" | "granted";
@@ -64,6 +65,17 @@ export function moveInventoryItem(inventory: readonly InventoryItem[], order: un
 const validInt = (value: unknown, minimum = 0): value is number => Number.isSafeInteger(value) && (value as number) >= minimum;
 const uid = () => globalThis.crypto?.randomUUID?.() ?? `equipment-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 const encumbranceForRecord = (record: EquipmentSourceRecord) => record.enc_candidate ?? record.base_enc_per_location ?? null;
+export function inventoryItemMaximumHp(item: InventoryItem): number | undefined {
+  if (typeof item.customItem?.hp === "number" && Number.isSafeInteger(item.customItem.hp) && item.customItem.hp >= 0) return item.customItem.hp;
+  const record = typeof item.catalogueId === "string"
+    ? EQUIPMENT_CATALOGUE.find(entry => entry.source.id === item.catalogueId)?.source
+    : undefined;
+  if (record?.category === "ranged") {
+    const hp = RANGED_WEAPON_STATS[record.id]?.hp;
+    if (hp?.status === "value") return hp.value;
+  }
+  return record?.hp_candidate;
+}
 const armourConstructionForCatalogue: Record<string, ArmourConstructionId> = {
   "armour-natural-cured": "natural_cured", "armour-padded-quilted": "padded_quilted", "armour-laminated": "laminated",
   "armour-scaled": "scaled", "armour-half-plate": "half_plate", "armour-mail": "mail",
@@ -150,6 +162,10 @@ export function normalizeInventoryState(value: unknown): InventoryState {
         ...(typeof row.armour.apOverride === "number" && row.armour.apOverride >= 0 ? { apOverride: row.armour.apOverride } : {}),
       } } : {}),
     } as InventoryItem;
+    const maximumHp = inventoryItemMaximumHp(normalizedItem);
+    if (normalizedItem.currentHp !== undefined && maximumHp !== undefined && normalizedItem.currentHp > maximumHp) {
+      delete normalizedItem.currentHp;
+    }
     if (!normalizedItem.armour && identifiableConstruction) {
       normalizedItem.armour = newArmourConfig(normalizedItem.catalogueId ?? "", normalizedItem.state, undefined, identifiableConstruction);
     }
@@ -278,9 +294,14 @@ export function removeInventoryItem(state: InventoryState, id: string): Inventor
   return { ...state, inventory: state.inventory.filter(item => item.id !== id) };
 }
 
-export function changeInventoryItem(state: InventoryState, id: string, update: Partial<Pick<InventoryItem, "quantity" | "state" | "encPerUnit" | "encumbranceExempt">> & { armour?: Partial<Omit<ArmourPiece, "id">> }): InventoryState {
+export function changeInventoryItem(state: InventoryState, id: string, update: Partial<Pick<InventoryItem, "quantity" | "state" | "encPerUnit" | "encumbranceExempt" | "currentHp">> & { armour?: Partial<Omit<ArmourPiece, "id">> }): InventoryState {
   if (update.quantity !== undefined && !validInt(update.quantity, 1)) throw new Error("Quantity must be a positive integer");
   if (update.encPerUnit !== undefined && update.encPerUnit !== null && (!Number.isFinite(update.encPerUnit) || update.encPerUnit < 0)) throw new Error("ENC must be a non-negative number");
+  const updatedItem = state.inventory.find(item => item.id === id);
+  if (update.currentHp !== undefined && (!validInt(update.currentHp)
+      || (updatedItem && inventoryItemMaximumHp(updatedItem) !== undefined && update.currentHp > inventoryItemMaximumHp(updatedItem)!))) {
+    throw new Error("Current HP must be a whole number from zero up to the item's maximum HP");
+  }
   const { armour: armourUpdate, ...fields } = update;
   return { ...state, inventory: state.inventory.map(item => {
     if (item.id !== id) return item;

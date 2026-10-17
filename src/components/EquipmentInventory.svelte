@@ -5,7 +5,7 @@
   import { acquireEquipment, char, deleteInventoryItem, equipmentAvailableCp, equipmentBalanceCp, equipmentMoneyIsOverridden, equipmentMoneyValueCp, moveOwnedInventoryItem, purchaseEquipment, recordEquipmentExpense, resetEquipmentMoney, setEquipmentMoney, updateInventoryItem } from "../lib/store.svelte";
   import { carriedLoad, encumbranceSummary } from "../lib/encumbrance";
   import { encumbranceThresholdRows } from "../lib/encumbrance-presentation";
-  import { normalizeInventoryOrder } from "../lib/equipment-inventory";
+  import { inventoryItemMaximumHp, normalizeInventoryOrder } from "../lib/equipment-inventory";
   import { ARMOUR_CONSTRUCTIONS, ARMOUR_MATERIALS, HIT_LOCATIONS, armourEncumbrance, armourMaterialCompatibility, fullArmourEncumbrance, standardArmourMaterial, summarizeArmour, type ArmourConstructionId, type ArmourMaterialId, type HitLocationName } from "../lib/armour-rules";
   import { validateCustomEquipment, type CustomEquipmentDefinition, type CustomEquipmentType } from "../lib/custom-equipment";
   import { acquireCustomEquipment, deleteCustomEquipment, purchaseCustomEquipment, saveCustomEquipment } from "../lib/store.svelte";
@@ -230,6 +230,11 @@
   })))));
   const inventoryEncLabel = (item: typeof char.background.inventory[number]) => item.armour ? "ENC per covered location" : "ENC per item";
   const catalogueRecordFor = (item: typeof char.background.inventory[number]) => EQUIPMENT_CATALOGUE.find(record => record.source.id === item.catalogueId)?.source;
+  const itemHasStructuralHp = (item: typeof char.background.inventory[number]) => {
+    const category = catalogueRecordFor(item)?.category;
+    return ["one_handed", "two_handed", "shields", "ranged"].includes(category ?? "")
+      || item.customItem?.type === "weapon" || item.customItem?.type === "shield";
+  };
   const ownedWeaponRows = $derived(char.background.inventory.flatMap(item => {
     const record = catalogueRecordFor(item);
     const custom = item.customItem;
@@ -355,7 +360,7 @@
     <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
     <div class="table-scroll inventory-scroll" role="region" aria-label="Owned equipment inventory" tabindex="0">
     <table class="sheet-table inventory-table">
-      <thead><tr><th scope="col">Item</th><th scope="col">Quantity</th><th scope="col">State</th><th scope="col">ENC/Item</th><th scope="col">ENC Exempt</th><th scope="col">Actions</th></tr></thead>
+      <thead><tr><th scope="col">Item</th><th scope="col">Quantity</th><th scope="col">State</th><th scope="col">ENC/Item</th><th scope="col">Current HP</th><th scope="col">ENC Exempt</th><th scope="col">Actions</th></tr></thead>
       <tbody>
       {#each orderedInventory as item, index (item.id)}
         <tr>
@@ -369,6 +374,10 @@
           <td data-label="ENC/Item"><label class="sr-only" for={`owned-enc-${item.id}`}>{inventoryEncLabel(item)} for {item.name}</label>
             <input id={`owned-enc-${item.id}`} class="compact-number" aria-label={`${inventoryEncLabel(item)} for ${item.name}`} type="number" min="0" step="0.25" value={item.armour ? item.armour.encOverride ?? "" : item.encPerUnit ?? ""} placeholder={item.armour ? "Derived" : "Unknown"} onchange={event => saveInventoryChange(item.id, item.name, item.armour ? { armour: { encOverride: event.currentTarget.value === "" ? undefined : Number(event.currentTarget.value) } } : { encPerUnit: event.currentTarget.value === "" ? null : Number(event.currentTarget.value) })}>
           </td>
+          <td data-label="Current HP">{#if itemHasStructuralHp(item)}{@const maxHp = inventoryItemMaximumHp(item)}
+            <label class="sr-only" for={`owned-current-hp-${item.id}`}>Current HP for {item.name}</label>
+            <input id={`owned-current-hp-${item.id}`} class="compact-number" aria-label={`Current HP for ${item.name}`} type="number" min="0" max={maxHp} step="1" value={item.currentHp ?? maxHp ?? ""} placeholder={maxHp === undefined ? "Unknown" : String(maxHp)} onchange={event => saveInventoryChange(item.id, item.name, { currentHp: event.currentTarget.value === "" ? undefined : Number(event.currentTarget.value) })}>
+          {/if}</td>
           <td data-label="ENC Exempt"><label class="exemption-control"><input type="checkbox" aria-label={`Exempt ${item.name} from load`} checked={!!item.encumbranceExempt} onchange={event => saveInventoryChange(item.id, item.name, { encumbranceExempt: event.currentTarget.checked })}></label></td>
           <td class="row-actions" data-label="Actions"><div class="inventory-reorder-actions">
             <button type="button" class="ghost reorder-button" aria-label={`Move ${item.name} up`} title="Move up" disabled={index === 0} onclick={() => moveOwnedInventoryItem(item.id, -1)}>▲</button>
@@ -378,7 +387,7 @@
         </tr>
         {#if item.armour && openArmourEditorId === item.id}
           {@const ownedMaterialNeedsApproval = !!(item.armour.construction && item.armour.material && armourMaterialCompatibility(item.armour.construction, item.armour.material) !== "compatible")}
-          <tr class="armour-detail-row"><td colspan="6">
+          <tr class="armour-detail-row"><td colspan="7">
             <section class="armour-editor" id={`owned-armour-editor-${item.id}`} aria-label={`Armour locations and fit for ${item.name}`}>
               <div class="armour-editor-heading"><h6>Armour properties</h6>
                 <label class="material-override owned-material-override"><input type="checkbox" checked={!!item.armour.gmCompatibilityOverride} disabled={!!item.armour.gmCompatibilityOverride && ownedMaterialNeedsApproval} onchange={event => setOwnedArmourOverride(item, event.currentTarget.checked)}> <span>Allow Nonstandard Material — GM Approval</span></label>
@@ -712,8 +721,9 @@
   .inventory-table th:nth-child(2) { width:4.5rem; }
   .inventory-table th:nth-child(3) { width:7rem; }
   .inventory-table th:nth-child(4) { width:6.5rem; }
-  .inventory-table th:nth-child(5) { width:6rem; }
-  .inventory-table th:nth-child(6) { width:8rem; }
+  .inventory-table th:nth-child(5) { width:5rem; }
+  .inventory-table th:nth-child(6) { width:6rem; }
+  .inventory-table th:nth-child(7) { width:8rem; }
   .weapon-table { min-width:0; table-layout:fixed; font-size:.78rem; line-height:1.25; }
   .weapon-table th,.weapon-table td { padding:.35rem .3rem; overflow-wrap:anywhere; }
   .weapon-table thead th { white-space:normal; }

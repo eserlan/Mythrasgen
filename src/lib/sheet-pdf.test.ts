@@ -4,7 +4,7 @@ import { inflateSync } from "node:zlib";
 import { PDFArray, PDFDocument, PDFRawStream, StandardFonts } from "pdf-lib";
 
 Object.defineProperty(globalThis, "$state", { value: <T>(value: T) => value, configurable: true });
-const { char, replace, reset } = await import("./store.svelte");
+const { char, replace, reset, updateInventoryItem } = await import("./store.svelte");
 const { buildMagicEntries, buildSheetData, SHEET_HIT_LOCATIONS } = await import("./sheet-data");
 const { currentSheetSource } = await import("./sheet-source");
 const { circleTextPlacement, renderCharacterSheet } = await import("./sheet-pdf");
@@ -140,16 +140,17 @@ describe("printable character sheet data", () => {
   test("prints initial and current weapon HP in separate halves for melee, shields, and ranged rows", async () => {
     reset(false);
     const ids = ["one_handed-battleaxe", "shields-viking", "ranged-long-bow"];
-    char.background.inventory = ids.map((catalogueId, index) => {
+    char.background.inventory = ids.map(catalogueId => {
       const catalogue = EQUIPMENT_CATALOGUE.find(entry => entry.source.id === catalogueId)!.source;
       return {
         id: `owned-hp-${catalogueId}`, catalogueId, sourceIds: [catalogueId], name: catalogue.name, quantity: 1,
         acquiredAs: "gifted" as const, state: "carried" as const,
         encPerUnit: catalogue.enc_candidate ?? null,
         encSource: catalogue.enc_candidate === undefined ? "unresolved" as const : "catalogue_candidate" as const,
-        ...(index === 1 ? { currentHp: 10 } : {}),
       };
     });
+    updateInventoryItem("owned-hp-shields-viking", { currentHp: 10 });
+    replace(structuredClone(char));
     const data = buildSheetData(currentSheetSource());
     expect(data.weapons.map(({ name, hp, currentHp }) => ({ name, hp, currentHp }))).toEqual([
       { name: "Battleaxe", hp: "8", currentHp: "8" },

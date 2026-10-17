@@ -136,8 +136,10 @@ describe("Page VIII equipment ledger", () => {
 
   test("preserves recorded current weapon HP when restoring an inventory save", () => {
     const state = addGift(blank(), item("one_handed-battleaxe"), 1, "gifted");
-    state.inventory[0]!.currentHp = 3;
-    expect(normalizeInventoryState(structuredClone(state)).inventory[0]).toMatchObject({ currentHp: 3 });
+    const damaged = changeInventoryItem(state, state.inventory[0]!.id, { currentHp: 3 });
+    expect(normalizeInventoryState(structuredClone(damaged)).inventory[0]).toMatchObject({ currentHp: 3 });
+    expect(() => changeInventoryItem(state, state.inventory[0]!.id, { currentHp: 9 })).toThrow("maximum HP");
+    expect(() => changeInventoryItem(state, state.inventory[0]!.id, { currentHp: 1.5 })).toThrow("maximum HP");
   });
 
   test("removal does not refund; an explicit refund is a separate transaction", () => {
