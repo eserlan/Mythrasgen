@@ -64,6 +64,72 @@ describe("browser character repository", () => {
     expect(restored.getCharacter(second.id)).toMatchObject({ name: "Timvey Struden", culture: 2 });
   });
 
+  test("snapshots reactive proxies while preserving nested character data", () => {
+    const { repository, storage } = setup();
+    const first = repository.getCharacter(repository.getActiveCharacterId()!)!;
+    const nested = {
+      combatStyles: [{ id: "style-1", baseFormula: ["STR", "DEX"], traits: [{ source: { libraryId: "core" } }] }],
+      magic: { theism: { memberships: [{ cultId: "cult-1", rank: "Initiate" }] } },
+      background: { events: [{ roll: 12, details: { text: "A detailed event" } }] },
+      equipment: { inventory: [{ name: "Spear", armour: { material: "bronze", AP: 3 } }] },
+    };
+    const proxied = new Proxy(nested, {});
+    const proxiedFormula = new Proxy(nested.combatStyles[0].baseFormula, {});
+    const character = new Proxy({ ...first, ...proxied, combatStyles: [{ ...nested.combatStyles[0], baseFormula: proxiedFormula }] }, {});
+
+    expect(() => structuredClone(proxiedFormula)).toThrow();
+    repository.saveCharacter(character);
+
+    const loaded = repository.getCharacter(first.id)! as typeof character;
+    expect(loaded).toMatchObject({
+      combatStyles: [{ baseFormula: ["STR", "DEX"], traits: [{ source: { libraryId: "core" } }] }],
+      magic: { theism: { memberships: [{ cultId: "cult-1", rank: "Initiate" }] } },
+      background: { events: [{ roll: 12, details: { text: "A detailed event" } }] },
+      equipment: { inventory: [{ name: "Spear", armour: { material: "bronze", AP: 3 } }] },
+    });
+    expect(loaded.combatStyles[0].baseFormula).not.toBe(proxiedFormula);
+    const reloaded = createCharacterRepository(storage, () => ({ name: "", culture: 0 }));
+    expect(reloaded.getCharacter(first.id)).toMatchObject(loaded);
+  });
+
+  test("preserves an own __proto__ data property when snapshotting and saving", () => {
+    const { repository, storage } = setup();
+    const first = repository.getCharacter(repository.getActiveCharacterId()!)!;
+    const character = { ...first } as typeof first & { __proto__: { marker: string } };
+    Object.defineProperty(character, "__proto__", {
+      value: { marker: "character data" },
+      enumerable: true,
+      configurable: true,
+      writable: true,
+    });
+
+    repository.saveCharacter(character);
+
+    const saved = repository.getCharacter(first.id)!;
+    expect(Object.getPrototypeOf(saved)).toBe(Object.prototype);
+    expect(Object.hasOwn(saved, "__proto__")).toBe(true);
+    expect((saved as typeof character).__proto__).toEqual({ marker: "character data" });
+    expect(JSON.parse(storage.getItem(CHARACTER_LIBRARY_KEY)!).characters[0]).toHaveProperty("__proto__", { marker: "character data" });
+
+    const reloaded = createCharacterRepository(storage, () => ({ name: "", culture: 0 }));
+    const restored = reloaded.getCharacter(first.id)!;
+    expect(Object.getPrototypeOf(restored)).toBe(Object.prototype);
+    expect(Object.hasOwn(restored, "__proto__")).toBe(true);
+    expect((restored as typeof character).__proto__).toEqual({ marker: "character data" });
+  });
+
+  test("rejects unsupported values before changing a saved record", () => {
+    const { repository, storage } = setup();
+    const activeId = repository.getActiveCharacterId()!;
+    const before = storage.getItem(CHARACTER_LIBRARY_KEY);
+    const character = repository.getCharacter(activeId)!;
+    expect(() => repository.saveCharacter({ ...character, name: "Corrupt", callback: () => {} } as typeof character))
+      .toThrow(/unsupported function/);
+    expect(repository.getActiveCharacterId()).toBe(activeId);
+    expect(storage.getItem(CHARACTER_LIBRARY_KEY)).toBe(before);
+    expect(repository.getCharacter(activeId)?.name).toBe("");
+  });
+
   test("migrates the existing single-character save without dropping its data", () => {
     const storage = new MemoryStorage();
     storage.setItem(LEGACY_CHARACTER_KEY, JSON.stringify({ name: "Legacy", culture: 3, career: 4 }));
