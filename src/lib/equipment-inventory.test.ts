@@ -134,6 +134,12 @@ describe("Page VIII equipment ledger", () => {
     expect(addPurchase(blank(), unknown, 1).inventory[0]).toMatchObject({ encPerUnit: null, encSource: "unresolved" });
   });
 
+  test("preserves recorded current weapon HP when restoring an inventory save", () => {
+    const state = addGift(blank(), item("one_handed-battleaxe"), 1, "gifted");
+    state.inventory[0]!.currentHp = 3;
+    expect(normalizeInventoryState(structuredClone(state)).inventory[0]).toMatchObject({ currentHp: 3 });
+  });
+
   test("removal does not refund; an explicit refund is a separate transaction", () => {
     let state = addPurchase(blank(), item("one_handed-dagger"), 1);
     const purchase = state.equipmentTransactions[0];

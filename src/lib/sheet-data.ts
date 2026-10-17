@@ -67,7 +67,7 @@ export interface SheetData {
   hitLocations: Record<string, string>;
   equipment: { name: string; enc: string }[];
   armour: { name: string; ap: string; enc: string }[];
-  weapons: { name: string; damage: string; size: string; reach: string; traits: string; force: string; damageModifier: string; range: string; load: string; combatEffects: string; ap: string; hp: string; enc: string; ranged: boolean }[];
+  weapons: { name: string; damage: string; size: string; reach: string; traits: string; force: string; damageModifier: string; range: string; load: string; combatEffects: string; ap: string; hp: string; currentHp: string; enc: string; ranged: boolean }[];
   encumbrance: { armour: string; armourPenalty: string; total: string; burdened: string; overloaded: string };
   combatStyles: { name: string; weapons: string; traits: string; percentage: string }[];
 }
@@ -288,6 +288,7 @@ export function buildSheetData(source: SheetSource): SheetData {
     const profile = catalogue?.combat_profile_candidate;
     const rangedStats = category === "ranged" && catalogue ? RANGED_WEAPON_STATS[catalogue.id] : undefined;
     const traits = category === "melee" && catalogue ? coreWeaponTraits(catalogue.source_line) : "";
+    const hp = custom?.hp !== undefined ? String(custom.hp) : rangedStats ? rangedText(rangedStats.hp) : catalogue?.hp_candidate === undefined ? "" : String(catalogue.hp_candidate);
     return [{
       name: `${clean(displayEquipmentName(item.name, catalogue?.category))}${item.quantity > 1 ? ` ×${item.quantity}` : ""}`,
       damage: rangedStats ? rangedText(rangedStats.damage) : custom?.damage ?? profile?.damage ?? "",
@@ -299,7 +300,8 @@ export function buildSheetData(source: SheetSource): SheetData {
       // The ranged table supplies its listed effects; do not duplicate weapon Traits or invent melee effects.
       combatEffects: rangedStats ? rangedText(rangedStats.combatEffects) : "",
       ap: custom?.ap !== undefined ? String(custom.ap) : rangedStats ? rangedText(rangedStats.ap) : catalogue?.ap_candidate === undefined ? "" : String(catalogue.ap_candidate),
-      hp: custom?.hp !== undefined ? String(custom.hp) : rangedStats ? rangedText(rangedStats.hp) : catalogue?.hp_candidate === undefined ? "" : String(catalogue.hp_candidate),
+      hp,
+      currentHp: item.currentHp === undefined ? hp : String(item.currentHp),
       enc: item.encPerUnit !== null ? formatNumber(item.encPerUnit * item.quantity)
         : rangedStats ? rangedText(rangedStats.enc) : catalogue?.enc_candidate === undefined ? "" : String(catalogue.enc_candidate),
       ranged: category === "ranged",

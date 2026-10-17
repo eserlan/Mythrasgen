@@ -137,6 +137,43 @@ describe("printable character sheet data", () => {
     }
   });
 
+  test("prints initial and current weapon HP in separate halves for melee, shields, and ranged rows", async () => {
+    reset(false);
+    const ids = ["one_handed-battleaxe", "shields-viking", "ranged-long-bow"];
+    char.background.inventory = ids.map((catalogueId, index) => {
+      const catalogue = EQUIPMENT_CATALOGUE.find(entry => entry.source.id === catalogueId)!.source;
+      return {
+        id: `owned-hp-${catalogueId}`, catalogueId, sourceIds: [catalogueId], name: catalogue.name, quantity: 1,
+        acquiredAs: "gifted" as const, state: "carried" as const,
+        encPerUnit: catalogue.enc_candidate ?? null,
+        encSource: catalogue.enc_candidate === undefined ? "unresolved" as const : "catalogue_candidate" as const,
+        ...(index === 1 ? { currentHp: 10 } : {}),
+      };
+    });
+    const data = buildSheetData(currentSheetSource());
+    expect(data.weapons.map(({ name, hp, currentHp }) => ({ name, hp, currentHp }))).toEqual([
+      { name: "Battleaxe", hp: "8", currentHp: "8" },
+      { name: "Viking Shield", hp: "12", currentHp: "10" },
+      { name: "Long bow", hp: "7", currentHp: "7" },
+    ]);
+
+    const pdf = await renderCharacterSheet(data, { template, mode: "titles-only" });
+    const placements = (await renderedTextPlacementsByPage(pdf))[1]!;
+    const helvetica = await (await PDFDocument.create()).embedFont(StandardFonts.Helvetica);
+    const rows = [
+      { label: "Battleaxe", initial: "8", current: "8", baseline: 626.6 },
+      { label: "Viking Shield", initial: "12", current: "10", baseline: 638.6 },
+      { label: "Long bow", initial: "7", current: "7", baseline: 722.6 },
+    ];
+    for (const row of rows) {
+      const y = 841.89 - row.baseline;
+      const hpRuns = placements.filter(run => Math.abs(run.y - y) < 0.01 && run.x >= 500 && run.x < 540);
+      expect(hpRuns.map(run => run.text)).toEqual([row.initial, row.current]);
+      expect(hpRuns[0]!.x + helvetica.widthOfTextAtSize(row.initial, 8.5) / 2).toBeCloseTo(510.5, 5);
+      expect(hpRuns[1]!.x + helvetica.widthOfTextAtSize(row.current, 8.5) / 2).toBeCloseTo(531.5, 5);
+    }
+  });
+
   test("preserves custom equipment names that match a shield name", () => {
     reset(false);
     char.background.inventory = [{ id: "custom-viking", catalogueId: null, sourceIds: [], name: "Viking", quantity: 1,

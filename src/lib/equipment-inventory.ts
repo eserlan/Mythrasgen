@@ -18,6 +18,8 @@ export interface InventoryItem {
   /** ENC per unit. Null means unknown; it is never treated as zero. */
   encPerUnit: number | null;
   encSource: EncumbranceValueSource;
+  /** Current structural HP when damage has been recorded; omitted means undamaged. */
+  currentHp?: number;
   /** Everyday clothing does not count toward load; otherwise zero-ENC stacks count in groups of 20. */
   encumbranceExempt?: boolean;
   armour?: Omit<ArmourPiece, "id">;
@@ -124,6 +126,8 @@ export function normalizeInventoryState(value: unknown): InventoryState {
       state: ["carried", "worn", "stored"].includes(row.state) ? row.state : "carried",
       encPerUnit,
       encSource,
+      ...(typeof row.currentHp === "number" && Number.isSafeInteger(row.currentHp) && row.currentHp >= 0
+        ? { currentHp: row.currentHp } : {}),
       ...(typeof row.encumbranceExempt === "boolean" ? { encumbranceExempt: row.encumbranceExempt } : {}),
       ...(row.customItem && typeof row.customItem === "object" ? { customItem: row.customItem } : {}),
       ...(row.armour && typeof row.armour === "object" ? { armour: {
