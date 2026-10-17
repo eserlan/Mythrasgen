@@ -204,6 +204,18 @@ describe("printable character sheet data", () => {
     }
   });
 
+  test("guards sheet weapon expansion against oversized stacks", () => {
+    reset(false);
+    const catalogueId = "one_handed-battleaxe";
+    const catalogue = EQUIPMENT_CATALOGUE.find(entry => entry.source.id === catalogueId)!.source;
+    char.background.inventory = [{
+      id: "oversized-battleaxe-stack", catalogueId, sourceIds: [catalogueId], name: catalogue.name, quantity: 101,
+      acquiredAs: "gifted", state: "carried", encPerUnit: catalogue.enc_candidate ?? null, encSource: "catalogue_candidate",
+    }];
+    expect(() => buildSheetData(currentSheetSource())).toThrow("Weapon stack quantity exceeds the maximum of 100");
+    reset(false);
+  });
+
   test("preserves custom equipment names that match a shield name", () => {
     reset(false);
     char.background.inventory = [{ id: "custom-viking", catalogueId: null, sourceIds: [], name: "Viking", quantity: 1,

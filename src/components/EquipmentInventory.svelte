@@ -5,7 +5,7 @@
   import { acquireEquipment, char, deleteInventoryItem, equipmentAvailableCp, equipmentBalanceCp, equipmentMoneyIsOverridden, equipmentMoneyValueCp, moveOwnedInventoryItem, purchaseEquipment, recordEquipmentExpense, resetEquipmentMoney, setEquipmentMoney, updateInventoryItem } from "../lib/store.svelte";
   import { carriedLoad, encumbranceSummary } from "../lib/encumbrance";
   import { encumbranceThresholdRows } from "../lib/encumbrance-presentation";
-  import { inventoryItemMaximumHp, normalizeInventoryOrder } from "../lib/equipment-inventory";
+  import { inventoryItemMaximumHp, MAX_EQUIPMENT_STACK_QUANTITY, normalizeInventoryOrder } from "../lib/equipment-inventory";
   import { ARMOUR_CONSTRUCTIONS, ARMOUR_MATERIALS, HIT_LOCATIONS, armourEncumbrance, armourMaterialCompatibility, fullArmourEncumbrance, standardArmourMaterial, summarizeArmour, type ArmourConstructionId, type ArmourMaterialId, type HitLocationName } from "../lib/armour-rules";
   import { validateCustomEquipment, type CustomEquipmentDefinition, type CustomEquipmentType } from "../lib/custom-equipment";
   import { acquireCustomEquipment, deleteCustomEquipment, purchaseCustomEquipment, saveCustomEquipment } from "../lib/store.svelte";
@@ -164,7 +164,7 @@
   };
   const amount = (id: string) => {
     const parsed = Number(quantity[id] || 1);
-    return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : 0;
+    return Number.isSafeInteger(parsed) && parsed > 0 && parsed <= MAX_EQUIPMENT_STACK_QUANTITY ? parsed : 0;
   };
   const customCp = (id: string) => {
     if (gmPrice[id] === undefined || gmPrice[id] === "") return undefined;
@@ -325,8 +325,8 @@
   }
   function editInventoryQuantity(itemId: string, itemName: string, value: string) {
     const parsed = Number(value);
-    if (!Number.isSafeInteger(parsed) || parsed < 1) {
-      message = `${itemName}: enter a positive whole quantity.`;
+    if (!Number.isSafeInteger(parsed) || parsed < 1 || parsed > MAX_EQUIPMENT_STACK_QUANTITY) {
+      message = `${itemName}: enter a whole quantity from 1 to ${MAX_EQUIPMENT_STACK_QUANTITY}.`;
       return;
     }
     saveInventoryChange(itemId, itemName, { quantity: parsed });
@@ -374,7 +374,7 @@
           <th scope="row" data-label="Item"><div class="owned-item-line"><span class="owned-name">{item.name}{#if item.customItem} <span class="tag">Custom</span>{/if}</span>
             {#if item.armour}<button type="button" class="armour-editor-toggle" aria-expanded={openArmourEditorId === item.id} aria-controls={`owned-armour-editor-${item.id}`} onclick={() => openArmourEditorId = openArmourEditorId === item.id ? null : item.id}>Armour locations and fit</button>{/if}
           </div></th>
-          <td data-label="Quantity"><label class="sr-only" for={`owned-quantity-${item.id}`}>Quantity of {item.name}</label><input id={`owned-quantity-${item.id}`} class="compact-number" aria-label={`Quantity of ${item.name}`} type="number" min="1" step="1" value={item.quantity} onchange={event => editInventoryQuantity(item.id, item.name, event.currentTarget.value)}></td>
+          <td data-label="Quantity"><label class="sr-only" for={`owned-quantity-${item.id}`}>Quantity of {item.name}</label><input id={`owned-quantity-${item.id}`} class="compact-number" aria-label={`Quantity of ${item.name}`} type="number" min="1" max={MAX_EQUIPMENT_STACK_QUANTITY} step="1" value={item.quantity} onchange={event => editInventoryQuantity(item.id, item.name, event.currentTarget.value)}></td>
           <td data-label="State"><label class="sr-only" for={`owned-state-${item.id}`}>State of {item.name}</label><select class="state-select" id={`owned-state-${item.id}`} aria-label={`State of ${item.name}`} value={item.state} onchange={event => saveInventoryChange(item.id, item.name, { state: event.currentTarget.value as "carried" | "worn" | "stored" })}>
                   <option value="carried">Carried</option><option value="worn">Worn</option><option value="stored">Stored</option>
           </select></td>
@@ -564,9 +564,9 @@
             {#if definition.traits}<small>GM-defined traits: {definition.traits}</small>{/if}
             {#if definition.type === "armour"}<small>AP {definition.ap} · Locations: {definition.protectedLocations?.join(", ")}</small>{/if}
           </div>
-          <div class="custom-entry-actions"><label>Quantity <input type="number" min="1" step="1" value={customQuantity[definition.id] ?? "1"} onchange={event => customQuantity[definition.id] = event.currentTarget.value}></label>
-            <button type="button" disabled={definition.priceCp === null || Number(customQuantity[definition.id] ?? "1") < 1 || definition.priceCp * Number(customQuantity[definition.id] ?? "1") > availableBalanceCp} onclick={() => buyCustom(definition)}>{definition.type === "service" ? "Buy / record expense" : "Buy"}</button>
-            {#if definition.type !== "service"}<button type="button" onclick={() => giftCustom(definition)}>Add without paying</button>{/if}
+          <div class="custom-entry-actions"><label>Quantity <input type="number" min="1" max={MAX_EQUIPMENT_STACK_QUANTITY} step="1" value={customQuantity[definition.id] ?? "1"} onchange={event => customQuantity[definition.id] = event.currentTarget.value}></label>
+            <button type="button" disabled={definition.priceCp === null || Number(customQuantity[definition.id] ?? "1") < 1 || (definition.type !== "service" && Number(customQuantity[definition.id] ?? "1") > MAX_EQUIPMENT_STACK_QUANTITY) || definition.priceCp * Number(customQuantity[definition.id] ?? "1") > availableBalanceCp} onclick={() => buyCustom(definition)}>{definition.type === "service" ? "Buy / record expense" : "Buy"}</button>
+            {#if definition.type !== "service"}<button type="button" disabled={Number(customQuantity[definition.id] ?? "1") < 1 || Number(customQuantity[definition.id] ?? "1") > MAX_EQUIPMENT_STACK_QUANTITY} onclick={() => giftCustom(definition)}>Add without paying</button>{/if}
             <button type="button" onclick={() => resetCustomForm(definition)}>Edit</button><button type="button" class="ghost" onclick={() => removeCustomDefinition(definition)}>Remove definition</button>
           </div></li>
         {/each}
@@ -662,7 +662,7 @@
                 <div class="purchase-controls">
                   <div class="acquisition-toolbar">
                     <div class="purchase-values">
-                      <label class="quantity-control">Quantity <input class="quantity-input" aria-label={`Quantity of ${displayCatalogueEquipmentName(record)}`} aria-invalid={amount(record.id) < 1} aria-describedby={amount(record.id) < 1 ? `quantity-error-${record.id}` : undefined} type="number" min="1" step="1" value={quantity[record.id] ?? "1"} onchange={event => quantity[record.id] = event.currentTarget.value}></label>
+                      <label class="quantity-control">Quantity <input class="quantity-input" aria-label={`Quantity of ${displayCatalogueEquipmentName(record)}`} aria-invalid={amount(record.id) < 1} aria-describedby={amount(record.id) < 1 ? `quantity-error-${record.id}` : undefined} type="number" min="1" max={MAX_EQUIPMENT_STACK_QUANTITY} step="1" value={quantity[record.id] ?? "1"} onchange={event => quantity[record.id] = event.currentTarget.value}></label>
                       {#if unavailable}<label class="gm-price-control">GM price (CP) {#if record.category === "armour"}<small>per protected location</small>{/if}<input aria-label={`GM price in CP${record.category === "armour" ? " per location " : " "}for ${displayCatalogueEquipmentName(record)}`} type="number" min="0" step="1" value={gmPrice[record.id] ?? ""} onchange={event => gmPrice[record.id] = event.currentTarget.value} placeholder="Required"><small>Enter 0 only when the GM approves a free item.</small></label>{/if}
                       {#if amount(record.id) > 0 && (!unavailable || customCp(record.id) !== undefined)}
                         {@const totalCp = (priceFor(record) ?? 0) * amount(record.id)}
@@ -680,7 +680,7 @@
                     </div>
                   {/if}
                   </div>
-                  {#if amount(record.id) < 1}<p class="balance-warning" id={`quantity-error-${record.id}`} role="status">Enter a positive whole quantity.</p>{/if}
+                  {#if amount(record.id) < 1}<p class="balance-warning" id={`quantity-error-${record.id}`} role="status">Enter a whole quantity from 1 to {MAX_EQUIPMENT_STACK_QUANTITY}.</p>{/if}
                   {#if unavailable && gmPrice[record.id] !== undefined && gmPrice[record.id] !== "" && customCp(record.id) === undefined}<p class="balance-warning" role="status">Enter a whole number of CP that is zero or more.</p>{/if}
                   {#if amount(record.id) > 0 && priceFor(record) !== undefined && priceFor(record)! * amount(record.id) > availableBalanceCp}<p class="balance-warning" role="status">This costs more than your available funds. Reduce the quantity or ask the GM about the price.</p>{/if}
                 </div>

@@ -46,6 +46,9 @@ export interface InventoryState {
   equipmentTransactions: InventoryTransaction[];
 }
 
+/** Keep per-unit equipment controls and sheet rows within a practical stack size. */
+export const MAX_EQUIPMENT_STACK_QUANTITY = 100;
+
 /** Character-local presentation order for the Owned equipment table. */
 export function normalizeInventoryOrder(order: unknown, inventory: readonly InventoryItem[]): string[] {
   const available = new Set(inventory.map(item => item.id));
@@ -65,6 +68,7 @@ export function moveInventoryItem(inventory: readonly InventoryItem[], order: un
 }
 
 const validInt = (value: unknown, minimum = 0): value is number => Number.isSafeInteger(value) && (value as number) >= minimum;
+const validInventoryQuantity = (value: unknown): value is number => validInt(value, 1) && value <= MAX_EQUIPMENT_STACK_QUANTITY;
 const uid = () => globalThis.crypto?.randomUUID?.() ?? `equipment-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 const encumbranceForRecord = (record: EquipmentSourceRecord) => record.enc_candidate ?? record.base_enc_per_location ?? null;
 export function inventoryItemMaximumHp(item: InventoryItem): number | undefined {
@@ -112,7 +116,7 @@ export function normalizeInventoryState(value: unknown): InventoryState {
   const inventory = Array.isArray(saved.inventory) ? saved.inventory.flatMap(item => {
     if (!item || typeof item !== "object") return [];
     const row = item as InventoryItem;
-    if (typeof row.name !== "string" || !validInt(row.quantity, 1)) return [];
+    if (typeof row.name !== "string" || !validInventoryQuantity(row.quantity)) return [];
     const catalogueRecord = typeof row.catalogueId === "string"
       ? EQUIPMENT_CATALOGUE.find(entry => entry.source.id === row.catalogueId)?.source
       : undefined;
@@ -236,7 +240,7 @@ export function addPurchase(
   recordedAt?: string,
   armourSelection?: ArmourAcquisitionSelection,
 ): InventoryState {
-  if (!validInt(quantity, 1)) throw new Error("Quantity must be a positive integer");
+  if (!validInventoryQuantity(quantity)) throw new Error(`Quantity must be a positive integer no greater than ${MAX_EQUIPMENT_STACK_QUANTITY}`);
   const locationCount = record.category === "armour" ? armourSelection?.locations.length ?? 0 : 1;
   if (record.category === "armour" && locationCount < 1) throw new Error("Select at least one protected hit location.");
   if (!Number.isSafeInteger(quantity * locationCount)) throw new Error("Total price is too large");
@@ -253,7 +257,7 @@ export function addPurchase(
       && item.armour.locations.join("|") === armourSelection.locations.join("|"))));
   const sourceIds = [...new Set([...(existing?.sourceIds ?? []), record.id])];
   if (existing) {
-    if (!Number.isSafeInteger(existing.quantity + quantity)) throw new Error("Quantity is too large");
+    if (!validInventoryQuantity(existing.quantity + quantity)) throw new Error(`Stack quantity cannot exceed ${MAX_EQUIPMENT_STACK_QUANTITY}`);
     existing.quantity += quantity;
     existing.sourceIds = sourceIds;
   } else inventory.push({ id: uid(), catalogueId: record.id, sourceIds, ...(group ? { physicalItemKey: group } : {}),
@@ -269,7 +273,7 @@ export function addPurchase(
 }
 
 export function addGift(state: InventoryState, record: EquipmentSourceRecord, quantity: number, acquiredAs: "gifted" | "inherited" | "granted", armourSelection?: ArmourAcquisitionSelection): InventoryState {
-  if (!validInt(quantity, 1)) throw new Error("Quantity must be a positive integer");
+  if (!validInventoryQuantity(quantity)) throw new Error(`Quantity must be a positive integer no greater than ${MAX_EQUIPMENT_STACK_QUANTITY}`);
   if (record.category === "armour" && !armourSelection?.locations.length) throw new Error("Select at least one protected hit location.");
   const armourConfig = record.category === "armour" ? newArmourConfig(record.id, "worn", armourSelection) : undefined;
   const encPerUnit = armourConfig?.construction && armourConfig.material
@@ -280,7 +284,7 @@ export function addGift(state: InventoryState, record: EquipmentSourceRecord, qu
     && (!armourSelection || (item.armour?.material === armourSelection.material
       && item.armour.locations.join("|") === armourSelection.locations.join("|"))));
   if (existing) {
-    if (!Number.isSafeInteger(existing.quantity + quantity)) throw new Error("Quantity is too large");
+    if (!validInventoryQuantity(existing.quantity + quantity)) throw new Error(`Stack quantity cannot exceed ${MAX_EQUIPMENT_STACK_QUANTITY}`);
     return { ...state, inventory: state.inventory.map(item => item.id === existing.id
       ? { ...item, quantity: item.quantity + quantity, sourceIds: [...new Set([...item.sourceIds, record.id])] } : item) };
   }
@@ -307,7 +311,7 @@ export function removeInventoryItem(state: InventoryState, id: string): Inventor
 }
 
 export function changeInventoryItem(state: InventoryState, id: string, update: Partial<Pick<InventoryItem, "quantity" | "state" | "encPerUnit" | "encumbranceExempt" | "currentHp">> & { currentHpByUnit?: number[]; armour?: Partial<Omit<ArmourPiece, "id">> }): InventoryState {
-  if (update.quantity !== undefined && !validInt(update.quantity, 1)) throw new Error("Quantity must be a positive integer");
+  if (update.quantity !== undefined && !validInventoryQuantity(update.quantity)) throw new Error(`Quantity must be a positive integer no greater than ${MAX_EQUIPMENT_STACK_QUANTITY}`);
   if (update.encPerUnit !== undefined && update.encPerUnit !== null && (!Number.isFinite(update.encPerUnit) || update.encPerUnit < 0)) throw new Error("ENC must be a non-negative number");
   const updatedItem = state.inventory.find(item => item.id === id);
   if (update.currentHp !== undefined && updatedItem && updatedItem.quantity > 1) {

@@ -15,6 +15,7 @@ import { encumbranceSummary } from "./encumbrance";
 import { HIT_LOCATIONS, fullArmourEncumbrance, summarizeArmour } from "./armour-rules";
 import { rankTitle } from "./organisations";
 import { devotionalPoolMaximum } from "./theism";
+import { MAX_EQUIPMENT_STACK_QUANTITY } from "./equipment-inventory";
 
 /** The official sheet's printed Standard Skills; Resistances and Native Tongue are printed elsewhere. */
 export const SHEET_STANDARD_SKILLS = STANDARD.map(([name]) => name).filter(name =>
@@ -285,6 +286,9 @@ export function buildSheetData(source: SheetSource): SheetData {
       : catalogue?.category === "ranged" ? "ranged"
         : catalogue && ["one_handed", "two_handed", "shields"].includes(catalogue.category) ? "melee" : "";
     if (!category) return [];
+    if (item.quantity > MAX_EQUIPMENT_STACK_QUANTITY) {
+      throw new Error(`Weapon stack quantity exceeds the maximum of ${MAX_EQUIPMENT_STACK_QUANTITY}`);
+    }
     const profile = catalogue?.combat_profile_candidate;
     const rangedStats = category === "ranged" && catalogue ? RANGED_WEAPON_STATS[catalogue.id] : undefined;
     const traits = category === "melee" && catalogue ? coreWeaponTraits(catalogue.source_line) : "";
