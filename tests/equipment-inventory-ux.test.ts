@@ -48,6 +48,7 @@ test("equipment starts with two activities and puts the character summary in own
   expect(inventory).toContain('class="compact-number"');
   expect(inventory).toContain('<table class="sheet-table inventory-table">');
   expect(inventory).toContain("<th scope=\"col\">ENC/Item</th>");
+  expect(inventory).toContain("<th scope=\"col\">Current HP</th>");
   expect(inventory).toContain("<th scope=\"col\">ENC Exempt</th>");
   expect(inventory).toContain("ENC Exempt");
   expect(inventory).toContain('aria-label={`Remove ${item.name}`}');
@@ -60,8 +61,9 @@ test("equipment starts with two activities and puts the character summary in own
   expect(inventory).toContain(".inventory-table th:nth-child(2) { width:4.5rem; }");
   expect(inventory).toContain(".inventory-table th:nth-child(3) { width:7rem; }");
   expect(inventory).toContain(".inventory-table th:nth-child(4) { width:6.5rem; }");
-  expect(inventory).toContain(".inventory-table th:nth-child(5) { width:6rem; }");
-  expect(inventory).toContain(".inventory-table th:nth-child(6) { width:8rem; }");
+  expect(inventory).toContain(".inventory-table th:nth-child(5) { width:5rem; }");
+  expect(inventory).toContain(".inventory-table th:nth-child(6) { width:6rem; }");
+  expect(inventory).toContain(".inventory-table th:nth-child(7) { width:8rem; }");
   expect(inventory).toContain(".inventory-reorder-actions .reorder-button { box-sizing:border-box; width:1.5rem; min-width:1.5rem; padding:.2rem; }");
   expect(inventory).toContain("{#each orderedInventory as item, index (item.id)}");
   expect(inventory).toContain('aria-label={`Move ${item.name} up`}');
@@ -214,7 +216,7 @@ test("custom and catalogue armour share a responsive accessible hit-location gri
 test("owned armour opens in an accessible full-width detail row with focused disclosures", () => {
   expect(inventory).toContain('class="armour-editor-toggle" aria-expanded={openArmourEditorId === item.id}');
   expect(inventory).toContain('aria-controls={`owned-armour-editor-${item.id}`}');
-  expect(inventory).toContain('<tr class="armour-detail-row"><td colspan="6">');
+  expect(inventory).toContain('<tr class="armour-detail-row"><td colspan="7">');
   expect(inventory).toContain('<section class="armour-editor" id={`owned-armour-editor-${item.id}`}');
   expect(inventory).toContain('<div class="armour-editor-heading"><h6>Armour properties</h6>');
   expect(inventory).toContain('class="material-override owned-material-override"');
