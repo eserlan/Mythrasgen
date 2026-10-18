@@ -26,6 +26,9 @@ describe("display settings interface", () => {
     expect(app).toContain('("titles-and-appendix");');
     expect(app).toContain("onclick={openPrintDialog}");
     expect(app).toContain("onclick={print}");
+    expect(app).toContain("Download Character");
+    expect(app).toContain("Editable PDF");
+    expect(app).toContain("Markdown (.md)");
     expect(app).toContain("Cancel</button>");
   });
 

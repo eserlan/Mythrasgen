@@ -58,6 +58,30 @@
     printDialog.close();
     try { await printCharacterSheet(mode); } catch { alert("Could not create the character sheet PDF."); }
   }
+  async function downloadCharacter(format: "pdf" | "markdown") {
+    const source = currentSheetSource();
+    const data = buildSheetData(source);
+    try {
+      const { characterFilename, characterMarkdown, renderEditableCharacterSheet } = await import("./lib/character-export");
+      let blob: Blob, filename: string;
+      if (format === "pdf") {
+        const { default: templateUrl } = await import("./assets/mythras-character-sheet.pdf?url");
+        const template = new Uint8Array(await (await fetch(templateUrl)).arrayBuffer());
+        const bytes = await renderEditableCharacterSheet(data, { template });
+        blob = new Blob([bytes as BlobPart], { type: "application/pdf" });
+        filename = characterFilename(source.char.name, ".pdf");
+      } else {
+        blob = new Blob([characterMarkdown(data, source.char)], { type: "text/markdown;charset=utf-8" });
+        filename = characterFilename(source.char.name, ".md");
+      }
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url; link.download = filename; link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 5 * 60_000);
+    } catch {
+      alert(`Could not download the character as ${format === "pdf" ? "an editable PDF" : "Markdown"}.`);
+    }
+  }
   const newChar = () => { createCharacter(); char.home = false; showLibrary = false; };
 </script>
 
@@ -123,6 +147,11 @@
       <label><input type="radio" name="print-mode" value="notes-only" bind:group={printMode} /><span><strong>Character sheet with Magic notes only</strong><small>Official sheet with ability names and available rules notes; overflow is marked on the sheet.</small></span></label>
       <label><input type="radio" name="print-mode" value="appendix-only" bind:group={printMode} /><span><strong>Magic Appendix only</strong><small>Complete detailed reference pages without the official character sheet. If no abilities are recorded, prints the two-page sheet.</small></span></label>
     </fieldset>
+    <section class="character-downloads" aria-labelledby="download-character-title">
+      <h3 id="download-character-title">Download Character</h3>
+      <p>Save the active character to this device.</p>
+      <div><button type="button" class="secondary" onclick={() => downloadCharacter("pdf")}>Editable PDF</button><button type="button" class="secondary" onclick={() => downloadCharacter("markdown")}>Markdown (.md)</button></div>
+    </section>
     <footer><button type="button" class="secondary" onclick={() => printDialog.close()}>Cancel</button><button type="button" class="primary" onclick={print}>Print</button></footer>
   </form>
 </dialog>
