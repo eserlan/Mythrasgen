@@ -131,6 +131,30 @@ describe("character downloads", () => {
     expect(reopened.getForm().getTextField("skill.professional.15.name").getText()).toBe("Saved blank row");
   });
 
+  test("debug outlines apply only to page-one text and checkbox widgets", async () => {
+    reset(false);
+    const bytes = await renderEditableCharacterSheet(buildSheetData(currentSheetSource()), { template, debugPage1Outlines: true });
+    const form = (await PDFDocument.load(bytes)).getForm();
+    const widget = (name: string) => (form.getField(name) as unknown as {
+      acroField: { getWidgets(): Array<{
+        getBorderStyle(): { getWidth(): number | undefined } | undefined;
+        getAppearanceCharacteristics(): { getBorderColor(): number[] | undefined } | undefined;
+      }> };
+    }).acroField.getWidgets()[0]!;
+    const borderColor = (name: string) => widget(name).getAppearanceCharacteristics()?.getBorderColor();
+    const borderWidth = (name: string) => widget(name).getBorderStyle()?.getWidth() ?? 0;
+
+    expect(borderWidth("character.name")).toBeCloseTo(0.6);
+    expect(borderColor("character.name")).toEqual([0.9, 0, 0]);
+    expect(borderWidth("checkboxes.characteristic.str")).toBeCloseTo(0.6);
+    expect(borderColor("checkboxes.characteristic.str")).toEqual([0, 0, 0.9]);
+
+    expect(borderWidth("combat_style.1.name")).toBe(0);
+    expect(borderColor("combat_style.1.name")).toBeUndefined();
+    expect(borderWidth("checkboxes.combat_style.1")).toBe(0);
+    expect(borderColor("checkboxes.combat_style.1")).toBeUndefined();
+  });
+
   test("exports distinct recorded weapon HP values and leaves the print renderer independent", async () => {
     reset(false);
     char.name = "Rook";
