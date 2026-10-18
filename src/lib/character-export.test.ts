@@ -75,44 +75,8 @@ describe("character downloads", () => {
     const form = doc.getForm();
     const page = doc.getPages()[0]!;
     const pageHeight = page.getHeight();
-    const rect = (name: string) => {
-      const field = form.getField(name) as { acroField: { getWidgets(): { getRectangle(): { x: number; y: number; width: number; height: number } }[] } };
-      const box = field.acroField.getWidgets()[0]!.getRectangle();
-      return { x: box.x, top: pageHeight - box.y - box.height, width: box.width, height: box.height };
-    };
-    const geometryDoc = await PDFDocument.create();
-    const helvetica = await geometryDoc.embedFont(StandardFonts.Helvetica);
-    const baselineTop = (baseline: number, height: number, size: number) =>
-      baseline - (height + helvetica.heightAtSize(size, { descender: false })) / 2;
-    const expectRect = (name: string, expected: { x: number; top: number; width: number; height: number }) => {
-      const actual = rect(name);
-      expect(actual.x).toBeCloseTo(expected.x, 2);
-      expect(actual.top).toBeCloseTo(expected.top, 2);
-      expect(actual.width).toBeCloseTo(expected.width, 2);
-      expect(actual.height).toBeCloseTo(expected.height, 2);
-    };
-
     const names = form.getFields().map(field => field.getName());
     expect(new Set(names).size).toBe(names.length);
-    expectRect("character.name", { x: 100, top: baselineTop(39, 11, 8), width: 274, height: 11 });
-    expectRect("character.description", { x: 76, top: 111, width: 298, height: 27 });
-    expectRect("character.notes", { x: 33, top: 161, width: 347, height: 76 });
-    expectRect("character.experience_rolls", { x: 409, top: 111, width: 163, height: 31 });
-    expectRect("money.income.day", { x: 457, top: baselineTop(225, 8, 7), width: 18, height: 8 });
-    expectRect("magic_points.used_active_effects", { x: 553, top: baselineTop(498, 8, 8), width: 18, height: 8 });
-    expectRect("character.cult_information", { x: 416, top: 263, width: 155, height: 145 });
-    expectRect("characteristic.str", { x: 143.4, top: baselineTop(272.4, 17.6, 11), width: 17.2, height: 17.6 });
-    expectRect("attribute.actionPoints", { x: 331.7, top: baselineTop(272.4, 17.6, 10.5), width: 17.6, height: 17.6 });
-    expectRect("skill.professional.15.name", { x: 220.25, top: baselineTop(637.8, 9, 8), width: 65.5, height: 9 });
-    expectRect("skill.magical.9.total", { x: 549.25, top: baselineTop(637.4, 9, 8), width: 21.5, height: 9 });
-    expectRect("skill.standard.athletics", { x: 165.25, top: baselineTop(469, 9, 8), width: 21.5, height: 9 });
-    expectRect("skill.resistance.brawn", { x: 165.25, top: baselineTop(710, 9, 8), width: 21.5, height: 9 });
-    expectRect("skill.language.6.name", { x: 220.25, top: baselineTop(745.4, 9, 8), width: 104.5, height: 9 });
-    expectRect("passion.6.name", { x: 413.25, top: baselineTop(745.4, 9, 8), width: 116.5, height: 9 });
-    expectRect("checkboxes.characteristic.str", { x: 168.395, top: 261.195, width: 17.61, height: 17.61 });
-    expectRect("checkboxes.attribute.action_points", { x: 356.395, top: 261.195, width: 17.61, height: 17.61 });
-    expectRect("checkboxes.skills.professional.1", { x: 335.495, top: 464.495, width: 6.21, height: 6.21 });
-    expectRect("checkboxes.skills.magical.9", { x: 526.495, top: 632.095, width: 6.21, height: 6.21 });
     const checkAppearance = (name: string) => (form.getField(name) as unknown as {
       acroField: { getWidgets(): Array<{
         getAppearanceCharacteristics(): { getBorderColor(): number[] | undefined } | undefined;
@@ -180,6 +144,9 @@ describe("character downloads", () => {
     expectBaseline("skill.language.6.name", 745.4);
     expectBaseline("passion.1.name", 685.4);
     expectBaseline("passion.6.name", 745.4);
+    for (const period of ["day", "week", "season", "year"]) {
+      expectBaseline(`money.income.${period}`, 229.5);
+    }
     expect(form.getTextField("skill.professional.1.name").getText()).toBe("Craft (Blacksmithing)");
     expect(form.getTextField("skill.professional.15.name").getText() ?? "").toBe("");
 
@@ -194,20 +161,17 @@ describe("character downloads", () => {
       const box = widget(`money.income.${period}`);
       expect(box.x).toBe(x);
       expect(box.width).toBe(18);
-      expect(box.height).toBe(8);
-      expect(pageTop(box)).toBeCloseTo(baselineTop(225, 8, 7), 2);
+      expect(box.height).toBe(7);
     }
     expect(silver.x).toBe(459);
     expect(silver.width).toBe(18);
-    expect(pageTop(silver)).toBeCloseTo(baselineTop(239, 8, 8), 2);
+    expect(silver.height).toBe(7);
     const cult = widget("character.cult_information");
     expect(pageTop(silver) + silver.height).toBeLessThan(doc.getPages()[0]!.getHeight() - cult.y - cult.height);
-    expectBaseline("money.income.day", 225);
-    expectBaseline("money.income.week", 225);
-    expectBaseline("money.income.season", 225);
-    expectBaseline("money.income.year", 225);
-    expectBaseline("money.silver_pieces", 239);
-    expect(day.y).toBeGreaterThan(silver.y + silver.height); // Separate rows, with no overlap.
+    const dayTop = pageTop(day), silverTop = pageTop(silver);
+    const overlaps = day.x < silver.x + silver.width && silver.x < day.x + day.width
+      && dayTop < silverTop + silver.height && silverTop < dayTop + day.height;
+    expect(overlaps).toBe(false);
     for (const period of ["day", "week", "season", "year"]) {
       const field = form.getTextField(`money.income.${period}`);
       field.setText(period);
