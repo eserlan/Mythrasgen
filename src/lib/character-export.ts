@@ -24,35 +24,37 @@ const fixedRect = (x: number, x2: number, top: number, height: number): Page1Rec
 const insetRect = (rect: Page1Rect, insetX: number, insetY: number): Page1Rect => ({
   x: rect.x + insetX, x2: rect.x2 - insetX, top: rect.top + insetY, height: rect.height - insetY * 2,
 });
-const ruledRect = (x: number, x2: number, baseline: number): Page1Rect => fixedRect(x + 1.25, x2 - 1.25, baseline - 5, 9);
+// PDF text appearances are vertically centred inside their widgets. Keep the
+// click target above each printed rule so the rule remains below the glyphs.
+const ruledRect = (x: number, x2: number, baseline: number): Page1Rect => fixedRect(x + 1.25, x2 - 1.25, baseline - 8, 7);
 
 /** Page 1 widget extents, measured against the official A4 template (top-left origin). */
 const PAGE_1_LAYOUT = {
-  characterName: fixedRect(100, 374, 31, 11),
-  playerName: fixedRect(76, 202, 47, 11),
-  raceCulture: fixedRect(264, 374, 47, 11),
-  gender: fixedRect(60, 110, 63, 11),
-  frame: fixedRect(148, 202, 63, 11),
-  homeland: fixedRect(252, 374, 63, 11),
-  age: fixedRect(48, 110, 79, 11),
-  height: fixedRect(152, 202, 79, 11),
-  career: fixedRect(240, 374, 79, 11),
-  handedness: fixedRect(76, 110, 95, 11),
-  weight: fixedRect(152, 202, 95, 11),
-  socialClass: fixedRect(260, 374, 95, 11),
+  characterName: fixedRect(100, 374, 32.5, 8),
+  playerName: fixedRect(76, 202, 48.5, 8),
+  raceCulture: fixedRect(264, 374, 48.5, 8),
+  gender: fixedRect(60, 110, 64.5, 8),
+  frame: fixedRect(148, 202, 64.5, 8),
+  homeland: fixedRect(252, 374, 64.5, 8),
+  age: fixedRect(48, 110, 80.5, 8),
+  height: fixedRect(152, 202, 80.5, 8),
+  career: fixedRect(240, 374, 80.5, 8),
+  handedness: fixedRect(76, 110, 96.5, 8),
+  weight: fixedRect(152, 202, 96.5, 8),
+  socialClass: fixedRect(260, 374, 96.5, 8),
   description: fixedRect(76, 374, 111, 27),
   notes: insetRect(fixedRect(31, 382, 158, 82), 2, 3),
   experienceRolls: insetRect(fixedRect(407, 574, 109, 35), 2, 2),
   money: insetRect(fixedRect(407, 574, 156, 57), 2, 2),
-  moneyIncomeDay: insetRect(fixedRect(456, 476, 218, 10), 1, 1),
-  moneyIncomeWeek: insetRect(fixedRect(486, 506, 218, 10), 1, 1),
-  moneyIncomeSeason: insetRect(fixedRect(516, 536, 218, 10), 1, 1),
-  moneyIncomeYear: insetRect(fixedRect(546, 566, 218, 10), 1, 1),
-  moneySilverPieces: insetRect(fixedRect(458, 478, 232, 10), 1, 1),
-  usedMagicPoints: insetRect(fixedRect(552, 572, 490, 10), 1, 1),
+  moneyIncomeDay: insetRect(fixedRect(456, 476, 224, 8), 1, 0.5),
+  moneyIncomeWeek: insetRect(fixedRect(486, 506, 224, 8), 1, 0.5),
+  moneyIncomeSeason: insetRect(fixedRect(516, 536, 224, 8), 1, 0.5),
+  moneyIncomeYear: insetRect(fixedRect(546, 566, 224, 8), 1, 0.5),
+  moneySilverPieces: insetRect(fixedRect(458, 478, 224, 8), 1, 0.5),
+  usedMagicPoints: insetRect(fixedRect(552, 572, 490, 7), 1, 0),
   cultInformation: insetRect(fixedRect(413, 574, 260, 151), 3, 3),
-  devotionalPoolCurrent: insetRect(fixedRect(508, 532, 417, 10), 1, 1),
-  devotionalPoolMaximum: insetRect(fixedRect(550, 570, 417, 10), 1, 1),
+  devotionalPoolCurrent: insetRect(fixedRect(508, 532, 415, 7), 1, 0),
+  devotionalPoolMaximum: insetRect(fixedRect(550, 570, 415, 7), 1, 0),
   characteristicCircle: insetRect(fixedRect(142, 162, 259.8, 20.4), 1.4, 1.4),
   attributeCircle: insetRect(fixedRect(330.3, 350.7, 259.8, 20.4), 1.4, 1.4),
   standardSkillValues: [164, 188] as const,
@@ -64,9 +66,9 @@ const PAGE_1_LAYOUT = {
   magicalBase: [487, 529] as const,
   magicalTotal: [548, 572] as const,
   languageName: [219, 326] as const,
-  languageNativeName: [251, 321] as const,
+  languageNativeName: [251, 315] as const,
   languageTotal: [355, 380] as const,
-  passionName: [412, 531] as const,
+  passionName: [412, 527] as const,
   passionTotal: [548, 572] as const,
   characteristicCheckboxSize: 17.6,
   tableCheckboxSize: 6.2,
@@ -141,7 +143,7 @@ function formFields(data: SheetData): ExportField[] {
     const row = data.passions[index];
     const nameRect = ruledRect(...PAGE_1_LAYOUT.passionName, 685.4 + index * 12);
     const totalRect = ruledRect(...PAGE_1_LAYOUT.passionTotal, 685.4 + index * 12);
-    add(`passion.${index + 1}.name`, 0, row?.label ?? "", nameRect.x, nameRect.x2, 685.4 + index * 12, 8, false, nameRect.height, nameRect.top);
+    add(`passion.${index + 1}.name`, 0, row?.label ?? "", nameRect.x, nameRect.x2, 685.4 + index * 12, 7.2, false, nameRect.height, nameRect.top);
     add(`passion.${index + 1}.value`, 0, row?.total ?? "", totalRect.x, totalRect.x2, 685.4 + index * 12, 8, false, totalRect.height, totalRect.top);
   }
 
@@ -253,7 +255,10 @@ export async function renderEditableCharacterSheet(data: SheetData, options: { t
     if (seen.has(field.name)) throw new Error(`Duplicate PDF form field: ${field.name}`);
     seen.add(field.name);
     const input = form.createTextField(field.name);
-    if (field.multiline) input.enableMultiline();
+    if (field.multiline) {
+      input.enableMultiline();
+      input.enableScrolling();
+    }
     if (centeredField(field.name)) input.setAlignment(TextAlignment.Center);
     const layout = field.page === 0 && field.top === undefined
       ? lineRect(field.x, field.x2, field.baseline)
@@ -271,8 +276,11 @@ export async function renderEditableCharacterSheet(data: SheetData, options: { t
     // flattened line made long background notes collapse to tiny type.
     const measuredValue = field.multiline ? field.value.split(/\r?\n/).reduce((longest, line) =>
       font.widthOfTextAtSize(line, requestedSize) > font.widthOfTextAtSize(longest, requestedSize) ? line : longest, "") : field.value;
-    const minimumSize = field.multiline ? Math.min(7.5, requestedSize) : 5;
-    const actualSize = measuredValue ? Math.min(requestedSize,
+    const minimumSize = 5;
+    // Multiline widgets wrap at their own width. Shrinking them against the
+    // unwrapped paragraph width made long notes unreadably small; keep their
+    // chosen readable size and retain the complete value for scrolling/editing.
+    const actualSize = field.multiline ? requestedSize : measuredValue ? Math.min(requestedSize,
       Math.max(minimumSize, requestedSize * maxWidth / Math.max(1, font.widthOfTextAtSize(measuredValue, requestedSize)))) : requestedSize;
     input.setFontSize(actualSize);
     const value = [...field.value].map(char => {

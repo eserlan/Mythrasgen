@@ -90,21 +90,24 @@ describe("character downloads", () => {
 
     const names = form.getFields().map(field => field.getName());
     expect(new Set(names).size).toBe(names.length);
-    expectRect("character.name", { x: 100, top: 31, width: 274, height: 11 });
+    expectRect("character.name", { x: 100, top: 32.5, width: 274, height: 8 });
     expectRect("character.description", { x: 76, top: 111, width: 298, height: 27 });
     expectRect("character.notes", { x: 33, top: 161, width: 347, height: 76 });
     expectRect("character.experience_rolls", { x: 409, top: 111, width: 163, height: 31 });
-    expectRect("money.income.day", { x: 457, top: 219, width: 18, height: 8 });
-    expectRect("magic_points.used_active_effects", { x: 553, top: 491, width: 18, height: 8 });
+    expectRect("money.income.day", { x: 457, top: 224.5, width: 18, height: 7 });
+    expectRect("money.silver_pieces", { x: 459, top: 224.5, width: 18, height: 7 });
+    expectRect("magic_points.used_active_effects", { x: 553, top: 490, width: 18, height: 7 });
     expectRect("character.cult_information", { x: 416, top: 263, width: 155, height: 145 });
+    expectRect("magic.devotional_pool_current", { x: 509, top: 415, width: 22, height: 7 });
+    expectRect("magic.devotional_pool_maximum", { x: 551, top: 415, width: 18, height: 7 });
     expectRect("characteristic.str", { x: 143.4, top: 261.2, width: 17.2, height: 17.6 });
     expectRect("attribute.actionPoints", { x: 331.7, top: 261.2, width: 17.6, height: 17.6 });
-    expectRect("skill.professional.15.name", { x: 220.25, top: 632.8, width: 65.5, height: 9 });
-    expectRect("skill.magical.9.total", { x: 549.25, top: 536.4 + 8 * 12, width: 21.5, height: 9 });
-    expectRect("skill.standard.athletics", { x: 165.25, top: 464, width: 21.5, height: 9 });
-    expectRect("skill.resistance.brawn", { x: 165.25, top: 705, width: 21.5, height: 9 });
-    expectRect("skill.language.6.name", { x: 220.25, top: 680.4 + 5 * 12, width: 104.5, height: 9 });
-    expectRect("passion.6.name", { x: 413.25, top: 680.4 + 5 * 12, width: 116.5, height: 9 });
+    expectRect("skill.professional.15.name", { x: 220.25, top: 632.8 - 3, width: 65.5, height: 7 });
+    expectRect("skill.magical.9.total", { x: 549.25, top: 536.4 + 8 * 12 - 3, width: 21.5, height: 7 });
+    expectRect("skill.standard.athletics", { x: 165.25, top: 461, width: 21.5, height: 7 });
+    expectRect("skill.resistance.brawn", { x: 165.25, top: 702, width: 21.5, height: 7 });
+    expectRect("skill.language.6.name", { x: 220.25, top: 680.4 + 5 * 12 - 3, width: 104.5, height: 7 });
+    expectRect("passion.6.name", { x: 413.25, top: 680.4 + 5 * 12 - 3, width: 112.5, height: 7 });
     expectRect("checkboxes.characteristic.str", { x: 168.395, top: 261.195, width: 17.61, height: 17.61 });
     expectRect("checkboxes.attribute.action_points", { x: 356.395, top: 261.195, width: 17.61, height: 17.61 });
     expectRect("checkboxes.skills.professional.1", { x: 335.495, top: 464.495, width: 6.21, height: 6.21 });
@@ -184,17 +187,23 @@ describe("character downloads", () => {
     const form = doc.getForm();
     const noteValue = data.notes.join("\n");
     expect(form.getTextField("character.notes").getText()).toBe(noteValue);
+    expect(form.getTextField("character.notes").isScrollable()).toBe(true);
+    expect((form.getTextField("character.notes") as unknown as { acroField: { getDefaultAppearance(): string | undefined } }).acroField.getDefaultAppearance()).toContain("8.5 Tf");
 
     const rect = (name: string) => form.getTextField(name).acroField.getWidgets()[0]!.getRectangle();
     const passionName = rect("passion.2.name"), passionPercent = rect("passion.2.value");
     expect(passionName.x + passionName.width).toBeLessThan(passionPercent.x);
+    expect(passionName.x + passionName.width).toBeLessThan(548);
     expect(rect("skill.language.1.name").x).toBeGreaterThan(247);
+    expect(rect("skill.language.1.name").x + rect("skill.language.1.name").width).toBeLessThan(321);
     expect(rect("skill.professional.1.name").x).toBeGreaterThan(219);
     expect(form.getTextField("skill.professional.1.name").getText()).toBe("Invocation (Bright)");
     expect(form.getTextField("skill.language.1.name").getText()).toBe("Common");
+    expect((form.getTextField("passion.1.name") as unknown as { acroField: { getDefaultAppearance(): string | undefined } }).acroField.getDefaultAppearance()).toContain("7.2 Tf");
 
     const reopened = await PDFDocument.load(await doc.save());
     expect(reopened.getForm().getTextField("character.notes").getText()).toBe(noteValue);
+    expect(reopened.getForm().getTextField("character.notes").isScrollable()).toBe(true);
     expect(reopened.getForm().getTextField("passion.2.name").getText()).toBe("Hate (The Usurper's Entire House)");
   });
 
