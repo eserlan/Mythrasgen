@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { EQUIPMENT_CATALOGUE } from "./equipment-catalogue";
 import { HIT_LOCATIONS, summarizeArmour } from "./armour-rules";
 import { carriedLoad } from "./encumbrance";
-import { addExpense, addGift, addPurchase, changeInventoryItem, ledgerSpentCp, moveInventoryItem, normalizeInventoryOrder, normalizeInventoryState, reconcileBalance, refundPurchase, removeInventoryItem, type InventoryState } from "./equipment-inventory";
+import { addExpense, addGift, addPurchase, changeInventoryItem, ledgerSpentCp, MAX_EQUIPMENT_STACK_QUANTITY, moveInventoryItem, normalizeInventoryOrder, normalizeInventoryState, reconcileBalance, refundPurchase, removeInventoryItem, type InventoryState } from "./equipment-inventory";
 
 const item = (id: string) => {
   const found = EQUIPMENT_CATALOGUE.find(entry => entry.source.id === id);
@@ -132,6 +132,41 @@ describe("Page VIII equipment ledger", () => {
     const unknown = item("one_handed-dagger");
     expect(unknown.enc_candidate).toBeUndefined();
     expect(addPurchase(blank(), unknown, 1).inventory[0]).toMatchObject({ encPerUnit: null, encSource: "unresolved" });
+  });
+
+  test("preserves recorded current weapon HP when restoring an inventory save", () => {
+    const state = addGift(blank(), item("one_handed-battleaxe"), 1, "gifted");
+    const damaged = changeInventoryItem(state, state.inventory[0]!.id, { currentHp: 3 });
+    expect(normalizeInventoryState(structuredClone(damaged)).inventory[0]).toMatchObject({ currentHp: 3 });
+    expect(() => changeInventoryItem(state, state.inventory[0]!.id, { currentHp: 9 })).toThrow("maximum HP");
+    expect(() => changeInventoryItem(state, state.inventory[0]!.id, { currentHp: 1.5 })).toThrow("maximum HP");
+  });
+
+  test("tracks and restores current HP independently for every weapon in a stack", () => {
+    const state = addGift(blank(), item("one_handed-battleaxe"), 2, "gifted");
+    const damaged = changeInventoryItem(state, state.inventory[0]!.id, { currentHpByUnit: [8, 3] });
+    expect(normalizeInventoryState(structuredClone(damaged)).inventory[0]).toMatchObject({ quantity: 2, currentHpByUnit: [8, 3] });
+    const legacyStack = normalizeInventoryState({ inventory: [{ ...state.inventory[0], currentHp: 4 }], equipmentTransactions: [] });
+    expect(legacyStack.inventory[0]).toMatchObject({ currentHpByUnit: [4, 4] });
+    expect(() => changeInventoryItem(state, state.inventory[0]!.id, { currentHpByUnit: [8] })).toThrow("one valid whole number per item");
+    expect(() => changeInventoryItem(state, state.inventory[0]!.id, { currentHpByUnit: [8, 9] })).toThrow("maximum HP");
+    expect(() => changeInventoryItem(state, state.inventory[0]!.id, { currentHp: 8 })).toThrow("per physical item");
+  });
+
+  test("bounds inventory stacks before per-unit controls or sheet rows can expand them", () => {
+    const battleaxe = item("one_handed-battleaxe");
+    expect(MAX_EQUIPMENT_STACK_QUANTITY).toBe(100);
+    expect(() => addGift(blank(), battleaxe, MAX_EQUIPMENT_STACK_QUANTITY + 1, "gifted")).toThrow("no greater than 100");
+    expect(() => addPurchase(blank(), battleaxe, MAX_EQUIPMENT_STACK_QUANTITY + 1)).toThrow("no greater than 100");
+
+    const stack = addGift(blank(), battleaxe, 1, "gifted");
+    expect(() => addGift(stack, battleaxe, MAX_EQUIPMENT_STACK_QUANTITY, "gifted")).toThrow("Stack quantity cannot exceed 100");
+    expect(() => changeInventoryItem(stack, stack.inventory[0]!.id, { quantity: MAX_EQUIPMENT_STACK_QUANTITY + 1 }))
+      .toThrow("no greater than 100");
+    const purchased = addPurchase(blank(), battleaxe, 1);
+    expect(() => addPurchase(purchased, battleaxe, MAX_EQUIPMENT_STACK_QUANTITY)).toThrow("Stack quantity cannot exceed 100");
+    expect(normalizeInventoryState({ inventory: [{ ...stack.inventory[0], quantity: MAX_EQUIPMENT_STACK_QUANTITY + 1 }] }).inventory)
+      .toEqual([]);
   });
 
   test("removal does not refund; an explicit refund is a separate transaction", () => {

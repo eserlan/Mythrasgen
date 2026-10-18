@@ -2,6 +2,7 @@ import { EQUIPMENT_CATALOGUE, EQUIPMENT_CATALOGUE_VERSION, createEquipmentPurcha
 import type { ArmourPiece, ArmourConstructionId, ArmourMaterialId, CompatibilityState, FitState, HitLocationName } from "./armour-rules";
 import { ARMOUR_CONSTRUCTIONS, ARMOUR_MATERIALS, HIT_LOCATIONS, armourEncumbrance, armourMaterialCompatibility, standardArmourMaterial } from "./armour-rules";
 import type { CustomEquipmentDefinition } from "./custom-equipment";
+import { RANGED_WEAPON_STATS } from "./ranged-weapons";
 
 export type EquipmentState = "carried" | "worn" | "stored";
 export type EquipmentAcquisition = "purchased" | "gifted" | "inherited" | "granted";
@@ -18,6 +19,10 @@ export interface InventoryItem {
   /** ENC per unit. Null means unknown; it is never treated as zero. */
   encPerUnit: number | null;
   encSource: EncumbranceValueSource;
+  /** Current structural HP when damage has been recorded; omitted means undamaged. */
+  currentHp?: number;
+  /** Current structural HP for each physical unit in a quantity stack. */
+  currentHpByUnit?: number[];
   /** Everyday clothing does not count toward load; otherwise zero-ENC stacks count in groups of 20. */
   encumbranceExempt?: boolean;
   armour?: Omit<ArmourPiece, "id">;
@@ -41,6 +46,9 @@ export interface InventoryState {
   equipmentTransactions: InventoryTransaction[];
 }
 
+/** Keep per-unit equipment controls and sheet rows within a practical stack size. */
+export const MAX_EQUIPMENT_STACK_QUANTITY = 100;
+
 /** Character-local presentation order for the Owned equipment table. */
 export function normalizeInventoryOrder(order: unknown, inventory: readonly InventoryItem[]): string[] {
   const available = new Set(inventory.map(item => item.id));
@@ -60,8 +68,20 @@ export function moveInventoryItem(inventory: readonly InventoryItem[], order: un
 }
 
 const validInt = (value: unknown, minimum = 0): value is number => Number.isSafeInteger(value) && (value as number) >= minimum;
+const validInventoryQuantity = (value: unknown): value is number => validInt(value, 1) && value <= MAX_EQUIPMENT_STACK_QUANTITY;
 const uid = () => globalThis.crypto?.randomUUID?.() ?? `equipment-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 const encumbranceForRecord = (record: EquipmentSourceRecord) => record.enc_candidate ?? record.base_enc_per_location ?? null;
+export function inventoryItemMaximumHp(item: InventoryItem): number | undefined {
+  if (typeof item.customItem?.hp === "number" && Number.isSafeInteger(item.customItem.hp) && item.customItem.hp >= 0) return item.customItem.hp;
+  const record = typeof item.catalogueId === "string"
+    ? EQUIPMENT_CATALOGUE.find(entry => entry.source.id === item.catalogueId)?.source
+    : undefined;
+  if (record?.category === "ranged") {
+    const hp = RANGED_WEAPON_STATS[record.id]?.hp;
+    if (hp?.status === "value") return hp.value;
+  }
+  return record?.hp_candidate;
+}
 const armourConstructionForCatalogue: Record<string, ArmourConstructionId> = {
   "armour-natural-cured": "natural_cured", "armour-padded-quilted": "padded_quilted", "armour-laminated": "laminated",
   "armour-scaled": "scaled", "armour-half-plate": "half_plate", "armour-mail": "mail",
@@ -96,7 +116,7 @@ export function normalizeInventoryState(value: unknown): InventoryState {
   const inventory = Array.isArray(saved.inventory) ? saved.inventory.flatMap(item => {
     if (!item || typeof item !== "object") return [];
     const row = item as InventoryItem;
-    if (typeof row.name !== "string" || !validInt(row.quantity, 1)) return [];
+    if (typeof row.name !== "string" || !validInventoryQuantity(row.quantity)) return [];
     const catalogueRecord = typeof row.catalogueId === "string"
       ? EQUIPMENT_CATALOGUE.find(entry => entry.source.id === row.catalogueId)?.source
       : undefined;
@@ -124,6 +144,10 @@ export function normalizeInventoryState(value: unknown): InventoryState {
       state: ["carried", "worn", "stored"].includes(row.state) ? row.state : "carried",
       encPerUnit,
       encSource,
+      ...(typeof row.currentHp === "number" && Number.isSafeInteger(row.currentHp) && row.currentHp >= 0
+        ? { currentHp: row.currentHp } : {}),
+      ...(Array.isArray(row.currentHpByUnit) && row.currentHpByUnit.length === row.quantity
+        && row.currentHpByUnit.every(hp => validInt(hp)) ? { currentHpByUnit: [...row.currentHpByUnit] } : {}),
       ...(typeof row.encumbranceExempt === "boolean" ? { encumbranceExempt: row.encumbranceExempt } : {}),
       ...(row.customItem && typeof row.customItem === "object" ? { customItem: row.customItem } : {}),
       ...(row.armour && typeof row.armour === "object" ? { armour: {
@@ -146,6 +170,18 @@ export function normalizeInventoryState(value: unknown): InventoryState {
         ...(typeof row.armour.apOverride === "number" && row.armour.apOverride >= 0 ? { apOverride: row.armour.apOverride } : {}),
       } } : {}),
     } as InventoryItem;
+    const maximumHp = inventoryItemMaximumHp(normalizedItem);
+    if (normalizedItem.currentHp !== undefined && maximumHp !== undefined && normalizedItem.currentHp > maximumHp) {
+      delete normalizedItem.currentHp;
+    }
+    if (normalizedItem.currentHpByUnit) {
+      if (maximumHp !== undefined && normalizedItem.currentHpByUnit.some(hp => hp > maximumHp)) delete normalizedItem.currentHpByUnit;
+      else delete normalizedItem.currentHp;
+    }
+    if (normalizedItem.currentHpByUnit === undefined && normalizedItem.quantity > 1 && normalizedItem.currentHp !== undefined) {
+      normalizedItem.currentHpByUnit = Array(normalizedItem.quantity).fill(normalizedItem.currentHp);
+      delete normalizedItem.currentHp;
+    }
     if (!normalizedItem.armour && identifiableConstruction) {
       normalizedItem.armour = newArmourConfig(normalizedItem.catalogueId ?? "", normalizedItem.state, undefined, identifiableConstruction);
     }
@@ -204,7 +240,7 @@ export function addPurchase(
   recordedAt?: string,
   armourSelection?: ArmourAcquisitionSelection,
 ): InventoryState {
-  if (!validInt(quantity, 1)) throw new Error("Quantity must be a positive integer");
+  if (!validInventoryQuantity(quantity)) throw new Error(`Quantity must be a positive integer no greater than ${MAX_EQUIPMENT_STACK_QUANTITY}`);
   const locationCount = record.category === "armour" ? armourSelection?.locations.length ?? 0 : 1;
   if (record.category === "armour" && locationCount < 1) throw new Error("Select at least one protected hit location.");
   if (!Number.isSafeInteger(quantity * locationCount)) throw new Error("Total price is too large");
@@ -221,7 +257,7 @@ export function addPurchase(
       && item.armour.locations.join("|") === armourSelection.locations.join("|"))));
   const sourceIds = [...new Set([...(existing?.sourceIds ?? []), record.id])];
   if (existing) {
-    if (!Number.isSafeInteger(existing.quantity + quantity)) throw new Error("Quantity is too large");
+    if (!validInventoryQuantity(existing.quantity + quantity)) throw new Error(`Stack quantity cannot exceed ${MAX_EQUIPMENT_STACK_QUANTITY}`);
     existing.quantity += quantity;
     existing.sourceIds = sourceIds;
   } else inventory.push({ id: uid(), catalogueId: record.id, sourceIds, ...(group ? { physicalItemKey: group } : {}),
@@ -237,7 +273,7 @@ export function addPurchase(
 }
 
 export function addGift(state: InventoryState, record: EquipmentSourceRecord, quantity: number, acquiredAs: "gifted" | "inherited" | "granted", armourSelection?: ArmourAcquisitionSelection): InventoryState {
-  if (!validInt(quantity, 1)) throw new Error("Quantity must be a positive integer");
+  if (!validInventoryQuantity(quantity)) throw new Error(`Quantity must be a positive integer no greater than ${MAX_EQUIPMENT_STACK_QUANTITY}`);
   if (record.category === "armour" && !armourSelection?.locations.length) throw new Error("Select at least one protected hit location.");
   const armourConfig = record.category === "armour" ? newArmourConfig(record.id, "worn", armourSelection) : undefined;
   const encPerUnit = armourConfig?.construction && armourConfig.material
@@ -248,7 +284,7 @@ export function addGift(state: InventoryState, record: EquipmentSourceRecord, qu
     && (!armourSelection || (item.armour?.material === armourSelection.material
       && item.armour.locations.join("|") === armourSelection.locations.join("|"))));
   if (existing) {
-    if (!Number.isSafeInteger(existing.quantity + quantity)) throw new Error("Quantity is too large");
+    if (!validInventoryQuantity(existing.quantity + quantity)) throw new Error(`Stack quantity cannot exceed ${MAX_EQUIPMENT_STACK_QUANTITY}`);
     return { ...state, inventory: state.inventory.map(item => item.id === existing.id
       ? { ...item, quantity: item.quantity + quantity, sourceIds: [...new Set([...item.sourceIds, record.id])] } : item) };
   }
@@ -274,9 +310,22 @@ export function removeInventoryItem(state: InventoryState, id: string): Inventor
   return { ...state, inventory: state.inventory.filter(item => item.id !== id) };
 }
 
-export function changeInventoryItem(state: InventoryState, id: string, update: Partial<Pick<InventoryItem, "quantity" | "state" | "encPerUnit" | "encumbranceExempt">> & { armour?: Partial<Omit<ArmourPiece, "id">> }): InventoryState {
-  if (update.quantity !== undefined && !validInt(update.quantity, 1)) throw new Error("Quantity must be a positive integer");
+export function changeInventoryItem(state: InventoryState, id: string, update: Partial<Pick<InventoryItem, "quantity" | "state" | "encPerUnit" | "encumbranceExempt" | "currentHp">> & { currentHpByUnit?: number[]; armour?: Partial<Omit<ArmourPiece, "id">> }): InventoryState {
+  if (update.quantity !== undefined && !validInventoryQuantity(update.quantity)) throw new Error(`Quantity must be a positive integer no greater than ${MAX_EQUIPMENT_STACK_QUANTITY}`);
   if (update.encPerUnit !== undefined && update.encPerUnit !== null && (!Number.isFinite(update.encPerUnit) || update.encPerUnit < 0)) throw new Error("ENC must be a non-negative number");
+  const updatedItem = state.inventory.find(item => item.id === id);
+  if (update.currentHp !== undefined && updatedItem && updatedItem.quantity > 1) {
+    throw new Error("Update current HP per physical item in this quantity stack");
+  }
+  if (update.currentHp !== undefined && (!validInt(update.currentHp)
+      || (updatedItem && inventoryItemMaximumHp(updatedItem) !== undefined && update.currentHp > inventoryItemMaximumHp(updatedItem)!))) {
+    throw new Error("Current HP must be a whole number from zero up to the item's maximum HP");
+  }
+  if (update.currentHpByUnit !== undefined && (!updatedItem || update.currentHpByUnit.length !== updatedItem.quantity
+      || !update.currentHpByUnit.every(hp => validInt(hp)
+        && (inventoryItemMaximumHp(updatedItem) === undefined || hp <= inventoryItemMaximumHp(updatedItem)!)))) {
+    throw new Error("Current HP must include one valid whole number per item up to its maximum HP");
+  }
   const { armour: armourUpdate, ...fields } = update;
   return { ...state, inventory: state.inventory.map(item => {
     if (item.id !== id) return item;
@@ -286,7 +335,13 @@ export function changeInventoryItem(state: InventoryState, id: string, update: P
     const armourEncChanged = !!armourUpdate && ["construction", "material", "encOverride"].some(key => Object.hasOwn(armourUpdate, key));
     const derivedArmourEnc = armour?.encOverride ?? (armour?.construction && armour.material
       ? armourEncumbrance(armour.construction, armour.material) : null);
+    const currentHpByUnit = fields.quantity !== undefined && item.currentHpByUnit
+      ? Array.from({ length: fields.quantity }, (_, index) => item.currentHpByUnit![index] ?? inventoryItemMaximumHp(item) ?? item.currentHpByUnit!.at(-1)!)
+      : fields.currentHp !== undefined ? undefined : item.currentHpByUnit;
     return { ...item, ...fields,
+      ...(fields.quantity !== undefined && item.currentHpByUnit ? { currentHpByUnit } : {}),
+      ...(fields.currentHp !== undefined && item.currentHpByUnit ? { currentHpByUnit: undefined } : {}),
+      ...(fields.currentHpByUnit !== undefined ? { currentHp: undefined } : {}),
       ...(armourChanged ? { armour } : {}),
       ...(armourEncChanged ? { encPerUnit: derivedArmourEnc, encSource: derivedArmourEnc === null ? "unresolved" as const : armour?.encOverride !== undefined ? "gm_override" as const : "catalogue_candidate" as const } : {}),
       ...(Object.hasOwn(update, "encPerUnit") ? { encSource: update.encPerUnit === null ? "unresolved" as const : "gm_override" as const } : {}) };

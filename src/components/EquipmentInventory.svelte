@@ -5,7 +5,7 @@
   import { acquireEquipment, char, deleteInventoryItem, equipmentAvailableCp, equipmentBalanceCp, equipmentMoneyIsOverridden, equipmentMoneyValueCp, moveOwnedInventoryItem, purchaseEquipment, recordEquipmentExpense, resetEquipmentMoney, setEquipmentMoney, updateInventoryItem } from "../lib/store.svelte";
   import { carriedLoad, encumbranceSummary } from "../lib/encumbrance";
   import { encumbranceThresholdRows } from "../lib/encumbrance-presentation";
-  import { normalizeInventoryOrder } from "../lib/equipment-inventory";
+  import { inventoryItemMaximumHp, MAX_EQUIPMENT_STACK_QUANTITY, normalizeInventoryOrder } from "../lib/equipment-inventory";
   import { ARMOUR_CONSTRUCTIONS, ARMOUR_MATERIALS, HIT_LOCATIONS, armourEncumbrance, armourMaterialCompatibility, fullArmourEncumbrance, standardArmourMaterial, summarizeArmour, type ArmourConstructionId, type ArmourMaterialId, type HitLocationName } from "../lib/armour-rules";
   import { validateCustomEquipment, type CustomEquipmentDefinition, type CustomEquipmentType } from "../lib/custom-equipment";
   import { acquireCustomEquipment, deleteCustomEquipment, purchaseCustomEquipment, saveCustomEquipment } from "../lib/store.svelte";
@@ -164,7 +164,7 @@
   };
   const amount = (id: string) => {
     const parsed = Number(quantity[id] || 1);
-    return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : 0;
+    return Number.isSafeInteger(parsed) && parsed > 0 && parsed <= MAX_EQUIPMENT_STACK_QUANTITY ? parsed : 0;
   };
   const customCp = (id: string) => {
     if (gmPrice[id] === undefined || gmPrice[id] === "") return undefined;
@@ -230,6 +230,11 @@
   })))));
   const inventoryEncLabel = (item: typeof char.background.inventory[number]) => item.armour ? "ENC per covered location" : "ENC per item";
   const catalogueRecordFor = (item: typeof char.background.inventory[number]) => EQUIPMENT_CATALOGUE.find(record => record.source.id === item.catalogueId)?.source;
+  const itemHasStructuralHp = (item: typeof char.background.inventory[number]) => {
+    const category = catalogueRecordFor(item)?.category;
+    return ["one_handed", "two_handed", "shields", "ranged"].includes(category ?? "")
+      || item.customItem?.type === "weapon" || item.customItem?.type === "shield";
+  };
   const ownedWeaponRows = $derived(char.background.inventory.flatMap(item => {
     const record = catalogueRecordFor(item);
     const custom = item.customItem;
@@ -320,11 +325,18 @@
   }
   function editInventoryQuantity(itemId: string, itemName: string, value: string) {
     const parsed = Number(value);
-    if (!Number.isSafeInteger(parsed) || parsed < 1) {
-      message = `${itemName}: enter a positive whole quantity.`;
+    if (!Number.isSafeInteger(parsed) || parsed < 1 || parsed > MAX_EQUIPMENT_STACK_QUANTITY) {
+      message = `${itemName}: enter a whole quantity from 1 to ${MAX_EQUIPMENT_STACK_QUANTITY}.`;
       return;
     }
     saveInventoryChange(itemId, itemName, { quantity: parsed });
+  }
+  function saveUnitCurrentHp(item: typeof char.background.inventory[number], unitIndex: number, value: string, maxHp: number | undefined) {
+    const values = item.currentHpByUnit ?? Array.from({ length: item.quantity }, (_, index) =>
+      index === 0 && item.currentHp !== undefined ? item.currentHp : maxHp ?? 0);
+    const next = [...values];
+    next[unitIndex] = value === "" ? maxHp ?? 0 : Number(value);
+    saveInventoryChange(item.id, item.name, { currentHpByUnit: next });
   }
 </script>
 
@@ -355,20 +367,27 @@
     <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
     <div class="table-scroll inventory-scroll" role="region" aria-label="Owned equipment inventory" tabindex="0">
     <table class="sheet-table inventory-table">
-      <thead><tr><th scope="col">Item</th><th scope="col">Quantity</th><th scope="col">State</th><th scope="col">ENC/Item</th><th scope="col">ENC Exempt</th><th scope="col">Actions</th></tr></thead>
+      <thead><tr><th scope="col">Item</th><th scope="col">Quantity</th><th scope="col">State</th><th scope="col">ENC/Item</th><th scope="col">Current HP</th><th scope="col">ENC Exempt</th><th scope="col">Actions</th></tr></thead>
       <tbody>
       {#each orderedInventory as item, index (item.id)}
         <tr>
           <th scope="row" data-label="Item"><div class="owned-item-line"><span class="owned-name">{item.name}{#if item.customItem} <span class="tag">Custom</span>{/if}</span>
             {#if item.armour}<button type="button" class="armour-editor-toggle" aria-expanded={openArmourEditorId === item.id} aria-controls={`owned-armour-editor-${item.id}`} onclick={() => openArmourEditorId = openArmourEditorId === item.id ? null : item.id}>Armour locations and fit</button>{/if}
           </div></th>
-          <td data-label="Quantity"><label class="sr-only" for={`owned-quantity-${item.id}`}>Quantity of {item.name}</label><input id={`owned-quantity-${item.id}`} class="compact-number" aria-label={`Quantity of ${item.name}`} type="number" min="1" step="1" value={item.quantity} onchange={event => editInventoryQuantity(item.id, item.name, event.currentTarget.value)}></td>
+          <td data-label="Quantity"><label class="sr-only" for={`owned-quantity-${item.id}`}>Quantity of {item.name}</label><input id={`owned-quantity-${item.id}`} class="compact-number" aria-label={`Quantity of ${item.name}`} type="number" min="1" max={MAX_EQUIPMENT_STACK_QUANTITY} step="1" value={item.quantity} onchange={event => editInventoryQuantity(item.id, item.name, event.currentTarget.value)}></td>
           <td data-label="State"><label class="sr-only" for={`owned-state-${item.id}`}>State of {item.name}</label><select class="state-select" id={`owned-state-${item.id}`} aria-label={`State of ${item.name}`} value={item.state} onchange={event => saveInventoryChange(item.id, item.name, { state: event.currentTarget.value as "carried" | "worn" | "stored" })}>
                   <option value="carried">Carried</option><option value="worn">Worn</option><option value="stored">Stored</option>
           </select></td>
           <td data-label="ENC/Item"><label class="sr-only" for={`owned-enc-${item.id}`}>{inventoryEncLabel(item)} for {item.name}</label>
             <input id={`owned-enc-${item.id}`} class="compact-number" aria-label={`${inventoryEncLabel(item)} for ${item.name}`} type="number" min="0" step="0.25" value={item.armour ? item.armour.encOverride ?? "" : item.encPerUnit ?? ""} placeholder={item.armour ? "Derived" : "Unknown"} onchange={event => saveInventoryChange(item.id, item.name, item.armour ? { armour: { encOverride: event.currentTarget.value === "" ? undefined : Number(event.currentTarget.value) } } : { encPerUnit: event.currentTarget.value === "" ? null : Number(event.currentTarget.value) })}>
           </td>
+          <td data-label="Current HP">{#if itemHasStructuralHp(item)}{@const maxHp = inventoryItemMaximumHp(item)}
+            <div class="hp-unit-controls">{#each Array.from({ length: item.quantity }, (_, unitIndex) => unitIndex) as unitIndex (unitIndex)}
+              {@const unitHp = item.currentHpByUnit?.[unitIndex] ?? (unitIndex === 0 ? item.currentHp : undefined) ?? maxHp}
+              <label class="sr-only" for={`owned-current-hp-${item.id}-${unitIndex}`}>Current HP for {item.name}{item.quantity > 1 ? `, item ${unitIndex + 1}` : ""}</label>
+              <input id={`owned-current-hp-${item.id}-${unitIndex}`} class="compact-number" aria-label={`Current HP for ${item.name}${item.quantity > 1 ? `, item ${unitIndex + 1}` : ""}`} type="number" min="0" max={maxHp} step="1" value={unitHp ?? ""} placeholder={maxHp === undefined ? "Unknown" : String(maxHp)} onchange={event => saveUnitCurrentHp(item, unitIndex, event.currentTarget.value, maxHp)}>
+            {/each}</div>
+          {/if}</td>
           <td data-label="ENC Exempt"><label class="exemption-control"><input type="checkbox" aria-label={`Exempt ${item.name} from load`} checked={!!item.encumbranceExempt} onchange={event => saveInventoryChange(item.id, item.name, { encumbranceExempt: event.currentTarget.checked })}></label></td>
           <td class="row-actions" data-label="Actions"><div class="inventory-reorder-actions">
             <button type="button" class="ghost reorder-button" aria-label={`Move ${item.name} up`} title="Move up" disabled={index === 0} onclick={() => moveOwnedInventoryItem(item.id, -1)}>▲</button>
@@ -378,7 +397,7 @@
         </tr>
         {#if item.armour && openArmourEditorId === item.id}
           {@const ownedMaterialNeedsApproval = !!(item.armour.construction && item.armour.material && armourMaterialCompatibility(item.armour.construction, item.armour.material) !== "compatible")}
-          <tr class="armour-detail-row"><td colspan="6">
+          <tr class="armour-detail-row"><td colspan="7">
             <section class="armour-editor" id={`owned-armour-editor-${item.id}`} aria-label={`Armour locations and fit for ${item.name}`}>
               <div class="armour-editor-heading"><h6>Armour properties</h6>
                 <label class="material-override owned-material-override"><input type="checkbox" checked={!!item.armour.gmCompatibilityOverride} disabled={!!item.armour.gmCompatibilityOverride && ownedMaterialNeedsApproval} onchange={event => setOwnedArmourOverride(item, event.currentTarget.checked)}> <span>Allow Nonstandard Material — GM Approval</span></label>
@@ -545,9 +564,9 @@
             {#if definition.traits}<small>GM-defined traits: {definition.traits}</small>{/if}
             {#if definition.type === "armour"}<small>AP {definition.ap} · Locations: {definition.protectedLocations?.join(", ")}</small>{/if}
           </div>
-          <div class="custom-entry-actions"><label>Quantity <input type="number" min="1" step="1" value={customQuantity[definition.id] ?? "1"} onchange={event => customQuantity[definition.id] = event.currentTarget.value}></label>
-            <button type="button" disabled={definition.priceCp === null || Number(customQuantity[definition.id] ?? "1") < 1 || definition.priceCp * Number(customQuantity[definition.id] ?? "1") > availableBalanceCp} onclick={() => buyCustom(definition)}>{definition.type === "service" ? "Buy / record expense" : "Buy"}</button>
-            {#if definition.type !== "service"}<button type="button" onclick={() => giftCustom(definition)}>Add without paying</button>{/if}
+          <div class="custom-entry-actions"><label>Quantity <input type="number" min="1" max={MAX_EQUIPMENT_STACK_QUANTITY} step="1" value={customQuantity[definition.id] ?? "1"} onchange={event => customQuantity[definition.id] = event.currentTarget.value}></label>
+            <button type="button" disabled={definition.priceCp === null || Number(customQuantity[definition.id] ?? "1") < 1 || (definition.type !== "service" && Number(customQuantity[definition.id] ?? "1") > MAX_EQUIPMENT_STACK_QUANTITY) || definition.priceCp * Number(customQuantity[definition.id] ?? "1") > availableBalanceCp} onclick={() => buyCustom(definition)}>{definition.type === "service" ? "Buy / record expense" : "Buy"}</button>
+            {#if definition.type !== "service"}<button type="button" disabled={Number(customQuantity[definition.id] ?? "1") < 1 || Number(customQuantity[definition.id] ?? "1") > MAX_EQUIPMENT_STACK_QUANTITY} onclick={() => giftCustom(definition)}>Add without paying</button>{/if}
             <button type="button" onclick={() => resetCustomForm(definition)}>Edit</button><button type="button" class="ghost" onclick={() => removeCustomDefinition(definition)}>Remove definition</button>
           </div></li>
         {/each}
@@ -643,7 +662,7 @@
                 <div class="purchase-controls">
                   <div class="acquisition-toolbar">
                     <div class="purchase-values">
-                      <label class="quantity-control">Quantity <input class="quantity-input" aria-label={`Quantity of ${displayCatalogueEquipmentName(record)}`} aria-invalid={amount(record.id) < 1} aria-describedby={amount(record.id) < 1 ? `quantity-error-${record.id}` : undefined} type="number" min="1" step="1" value={quantity[record.id] ?? "1"} onchange={event => quantity[record.id] = event.currentTarget.value}></label>
+                      <label class="quantity-control">Quantity <input class="quantity-input" aria-label={`Quantity of ${displayCatalogueEquipmentName(record)}`} aria-invalid={amount(record.id) < 1} aria-describedby={amount(record.id) < 1 ? `quantity-error-${record.id}` : undefined} type="number" min="1" max={MAX_EQUIPMENT_STACK_QUANTITY} step="1" value={quantity[record.id] ?? "1"} onchange={event => quantity[record.id] = event.currentTarget.value}></label>
                       {#if unavailable}<label class="gm-price-control">GM price (CP) {#if record.category === "armour"}<small>per protected location</small>{/if}<input aria-label={`GM price in CP${record.category === "armour" ? " per location " : " "}for ${displayCatalogueEquipmentName(record)}`} type="number" min="0" step="1" value={gmPrice[record.id] ?? ""} onchange={event => gmPrice[record.id] = event.currentTarget.value} placeholder="Required"><small>Enter 0 only when the GM approves a free item.</small></label>{/if}
                       {#if amount(record.id) > 0 && (!unavailable || customCp(record.id) !== undefined)}
                         {@const totalCp = (priceFor(record) ?? 0) * amount(record.id)}
@@ -661,7 +680,7 @@
                     </div>
                   {/if}
                   </div>
-                  {#if amount(record.id) < 1}<p class="balance-warning" id={`quantity-error-${record.id}`} role="status">Enter a positive whole quantity.</p>{/if}
+                  {#if amount(record.id) < 1}<p class="balance-warning" id={`quantity-error-${record.id}`} role="status">Enter a whole quantity from 1 to {MAX_EQUIPMENT_STACK_QUANTITY}.</p>{/if}
                   {#if unavailable && gmPrice[record.id] !== undefined && gmPrice[record.id] !== "" && customCp(record.id) === undefined}<p class="balance-warning" role="status">Enter a whole number of CP that is zero or more.</p>{/if}
                   {#if amount(record.id) > 0 && priceFor(record) !== undefined && priceFor(record)! * amount(record.id) > availableBalanceCp}<p class="balance-warning" role="status">This costs more than your available funds. Reduce the quantity or ask the GM about the price.</p>{/if}
                 </div>
@@ -712,8 +731,9 @@
   .inventory-table th:nth-child(2) { width:4.5rem; }
   .inventory-table th:nth-child(3) { width:7rem; }
   .inventory-table th:nth-child(4) { width:6.5rem; }
-  .inventory-table th:nth-child(5) { width:6rem; }
-  .inventory-table th:nth-child(6) { width:8rem; }
+  .inventory-table th:nth-child(5) { width:5rem; }
+  .inventory-table th:nth-child(6) { width:6rem; }
+  .inventory-table th:nth-child(7) { width:8rem; }
   .weapon-table { min-width:0; table-layout:fixed; font-size:.78rem; line-height:1.25; }
   .weapon-table th,.weapon-table td { padding:.35rem .3rem; overflow-wrap:anywhere; }
   .weapon-table thead th { white-space:normal; }
@@ -745,6 +765,8 @@
   .armour-secondary-disclosure p { margin:.55rem 0 0; }
   .inventory-table th,.inventory-table td { vertical-align:middle; }
   .inventory-table td > .compact-number { box-sizing:border-box; width:4rem; min-height:2.5rem; }
+  .hp-unit-controls { display:flex; flex-wrap:wrap; gap:.2rem; }
+  .hp-unit-controls .compact-number { box-sizing:border-box; width:3.5rem; min-height:2.5rem; }
   .inventory-table td > .state-select { box-sizing:border-box; width:100%; min-width:0; min-height:2.5rem; }
   .inventory-table td[data-label="Quantity"] > .compact-number { width:3.5rem; }
   .row-actions button { min-height:2.5rem; }

@@ -4,7 +4,7 @@ import { inflateSync } from "node:zlib";
 import { PDFArray, PDFDocument, PDFRawStream, StandardFonts } from "pdf-lib";
 
 Object.defineProperty(globalThis, "$state", { value: <T>(value: T) => value, configurable: true });
-const { char, replace, reset } = await import("./store.svelte");
+const { char, replace, reset, updateInventoryItem } = await import("./store.svelte");
 const { buildMagicEntries, buildSheetData, SHEET_HIT_LOCATIONS } = await import("./sheet-data");
 const { currentSheetSource } = await import("./sheet-source");
 const { circleTextPlacement, renderCharacterSheet } = await import("./sheet-pdf");
@@ -137,6 +137,85 @@ describe("printable character sheet data", () => {
     }
   });
 
+  test("prints initial and current weapon HP in separate halves for melee, shields, and ranged rows", async () => {
+    reset(false);
+    const ids = ["one_handed-battleaxe", "shields-viking", "ranged-long-bow"];
+    char.background.inventory = ids.map(catalogueId => {
+      const catalogue = EQUIPMENT_CATALOGUE.find(entry => entry.source.id === catalogueId)!.source;
+      return {
+        id: `owned-hp-${catalogueId}`, catalogueId, sourceIds: [catalogueId], name: catalogue.name, quantity: 1,
+        acquiredAs: "gifted" as const, state: "carried" as const,
+        encPerUnit: catalogue.enc_candidate ?? null,
+        encSource: catalogue.enc_candidate === undefined ? "unresolved" as const : "catalogue_candidate" as const,
+      };
+    });
+    updateInventoryItem("owned-hp-shields-viking", { currentHp: 10 });
+    replace(structuredClone(char));
+    const data = buildSheetData(currentSheetSource());
+    expect(data.weapons.map(({ name, hp, currentHp }) => ({ name, hp, currentHp }))).toEqual([
+      { name: "Battleaxe", hp: "8", currentHp: "8" },
+      { name: "Viking Shield", hp: "12", currentHp: "10" },
+      { name: "Long bow", hp: "7", currentHp: "7" },
+    ]);
+
+    const pdf = await renderCharacterSheet(data, { template, mode: "titles-only" });
+    const placements = (await renderedTextPlacementsByPage(pdf))[1]!;
+    const helvetica = await (await PDFDocument.create()).embedFont(StandardFonts.Helvetica);
+    const rows = [
+      { label: "Battleaxe", initial: "8", current: "8", baseline: 626.6 },
+      { label: "Viking Shield", initial: "12", current: "10", baseline: 638.6 },
+      { label: "Long bow", initial: "7", current: "7", baseline: 722.6 },
+    ];
+    for (const row of rows) {
+      const y = 841.89 - row.baseline;
+      const hpRuns = placements.filter(run => Math.abs(run.y - y) < 0.01 && run.x >= 500 && run.x < 540);
+      expect(hpRuns.map(run => run.text)).toEqual([row.initial, row.current]);
+      expect(hpRuns[0]!.x + helvetica.widthOfTextAtSize(row.initial, 8.5) / 2).toBeCloseTo(510.5, 5);
+      expect(hpRuns[1]!.x + helvetica.widthOfTextAtSize(row.current, 8.5) / 2).toBeCloseTo(531.5, 5);
+    }
+  });
+
+  test("prints each weapon in a quantity stack with its own current HP", async () => {
+    reset(false);
+    const catalogueId = "one_handed-battleaxe";
+    const catalogue = EQUIPMENT_CATALOGUE.find(entry => entry.source.id === catalogueId)!.source;
+    char.background.inventory = [{
+      id: "owned-battleaxe-stack", catalogueId, sourceIds: [catalogueId], name: catalogue.name, quantity: 2,
+      acquiredAs: "gifted", state: "carried", encPerUnit: catalogue.enc_candidate ?? null,
+      encSource: "catalogue_candidate", currentHpByUnit: [8, 5],
+    }];
+    updateInventoryItem("owned-battleaxe-stack", { currentHpByUnit: [8, 5] });
+    replace(structuredClone(char));
+    const data = buildSheetData(currentSheetSource());
+    expect(data.weapons.map(({ name, hp, currentHp }) => ({ name, hp, currentHp }))).toEqual([
+      { name: "Battleaxe #1", hp: "8", currentHp: "8" },
+      { name: "Battleaxe #2", hp: "8", currentHp: "5" },
+    ]);
+
+    const pdf = await renderCharacterSheet(data, { template, mode: "titles-only" });
+    const placements = (await renderedTextPlacementsByPage(pdf))[1]!;
+    const helvetica = await (await PDFDocument.create()).embedFont(StandardFonts.Helvetica);
+    for (const [label, current] of [["Battleaxe #1", "8"], ["Battleaxe #2", "5"]]) {
+      const nameRun = placements.find(run => run.text === label);
+      expect(nameRun).toBeDefined();
+      const hpRuns = placements.filter(run => Math.abs(run.y - nameRun!.y) < 0.01 && run.x >= 500 && run.x < 540);
+      expect(hpRuns.map(run => run.text)).toEqual(["8", current]);
+      expect(hpRuns[1]!.x + helvetica.widthOfTextAtSize(current, 8.5) / 2).toBeCloseTo(531.5, 5);
+    }
+  });
+
+  test("guards sheet weapon expansion against oversized stacks", () => {
+    reset(false);
+    const catalogueId = "one_handed-battleaxe";
+    const catalogue = EQUIPMENT_CATALOGUE.find(entry => entry.source.id === catalogueId)!.source;
+    char.background.inventory = [{
+      id: "oversized-battleaxe-stack", catalogueId, sourceIds: [catalogueId], name: catalogue.name, quantity: 101,
+      acquiredAs: "gifted", state: "carried", encPerUnit: catalogue.enc_candidate ?? null, encSource: "catalogue_candidate",
+    }];
+    expect(() => buildSheetData(currentSheetSource())).toThrow("Weapon stack quantity exceeds the maximum of 100");
+    reset(false);
+  });
+
   test("preserves custom equipment names that match a shield name", () => {
     reset(false);
     char.background.inventory = [{ id: "custom-viking", catalogueId: null, sourceIds: [], name: "Viking", quantity: 1,
@@ -185,7 +264,10 @@ describe("printable character sheet data", () => {
     }];
     const data = buildSheetData(currentSheetSource());
     expect(data.equipment).toEqual([{ name: "Rapier ×2", enc: "2" }]);
-    expect(data.weapons).toEqual([expect.objectContaining({ name: "Rapier ×2", damage: "1d8", size: "M", reach: "M", ap: "0", hp: "8", enc: "2", ranged: false })]);
+    expect(data.weapons).toEqual([
+      expect.objectContaining({ name: "Rapier #1", damage: "1d8", size: "M", reach: "M", ap: "0", hp: "8", enc: "1", ranged: false }),
+      expect.objectContaining({ name: "Rapier #2", damage: "1d8", size: "M", reach: "M", ap: "0", hp: "8", enc: "1", ranged: false }),
+    ]);
     expect(data.combatStyles).toEqual([]);
   });
 

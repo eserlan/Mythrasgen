@@ -15,6 +15,7 @@ import { encumbranceSummary } from "./encumbrance";
 import { HIT_LOCATIONS, fullArmourEncumbrance, summarizeArmour } from "./armour-rules";
 import { rankTitle } from "./organisations";
 import { devotionalPoolMaximum } from "./theism";
+import { MAX_EQUIPMENT_STACK_QUANTITY } from "./equipment-inventory";
 
 /** The official sheet's printed Standard Skills; Resistances and Native Tongue are printed elsewhere. */
 export const SHEET_STANDARD_SKILLS = STANDARD.map(([name]) => name).filter(name =>
@@ -67,7 +68,7 @@ export interface SheetData {
   hitLocations: Record<string, string>;
   equipment: { name: string; enc: string }[];
   armour: { name: string; ap: string; enc: string }[];
-  weapons: { name: string; damage: string; size: string; reach: string; traits: string; force: string; damageModifier: string; range: string; load: string; combatEffects: string; ap: string; hp: string; enc: string; ranged: boolean }[];
+  weapons: { name: string; damage: string; size: string; reach: string; traits: string; force: string; damageModifier: string; range: string; load: string; combatEffects: string; ap: string; hp: string; currentHp: string; enc: string; ranged: boolean }[];
   encumbrance: { armour: string; armourPenalty: string; total: string; burdened: string; overloaded: string };
   combatStyles: { name: string; weapons: string; traits: string; percentage: string }[];
 }
@@ -285,11 +286,18 @@ export function buildSheetData(source: SheetSource): SheetData {
       : catalogue?.category === "ranged" ? "ranged"
         : catalogue && ["one_handed", "two_handed", "shields"].includes(catalogue.category) ? "melee" : "";
     if (!category) return [];
+    if (item.quantity > MAX_EQUIPMENT_STACK_QUANTITY) {
+      throw new Error(`Weapon stack quantity exceeds the maximum of ${MAX_EQUIPMENT_STACK_QUANTITY}`);
+    }
     const profile = catalogue?.combat_profile_candidate;
     const rangedStats = category === "ranged" && catalogue ? RANGED_WEAPON_STATS[catalogue.id] : undefined;
     const traits = category === "melee" && catalogue ? coreWeaponTraits(catalogue.source_line) : "";
-    return [{
-      name: `${clean(displayEquipmentName(item.name, catalogue?.category))}${item.quantity > 1 ? ` ×${item.quantity}` : ""}`,
+    const hp = custom?.hp !== undefined ? String(custom.hp) : rangedStats ? rangedText(rangedStats.hp) : catalogue?.hp_candidate === undefined ? "" : String(catalogue.hp_candidate);
+    const baseName = clean(displayEquipmentName(item.name, catalogue?.category));
+    const unitHpValues = item.currentHpByUnit ?? Array.from({ length: item.quantity }, (_, index) =>
+      index === 0 && item.currentHp !== undefined ? item.currentHp : undefined);
+    return Array.from({ length: item.quantity }, (_, unitIndex) => ({
+      name: `${baseName}${item.quantity > 1 ? ` #${unitIndex + 1}` : ""}`,
       damage: rangedStats ? rangedText(rangedStats.damage) : custom?.damage ?? profile?.damage ?? "",
       size: custom?.size ?? profile?.size ?? "", reach: custom?.reach ?? profile?.reach ?? "", traits,
       force: rangedStats ? rangedText(rangedStats.force) : "",
@@ -299,11 +307,12 @@ export function buildSheetData(source: SheetSource): SheetData {
       // The ranged table supplies its listed effects; do not duplicate weapon Traits or invent melee effects.
       combatEffects: rangedStats ? rangedText(rangedStats.combatEffects) : "",
       ap: custom?.ap !== undefined ? String(custom.ap) : rangedStats ? rangedText(rangedStats.ap) : catalogue?.ap_candidate === undefined ? "" : String(catalogue.ap_candidate),
-      hp: custom?.hp !== undefined ? String(custom.hp) : rangedStats ? rangedText(rangedStats.hp) : catalogue?.hp_candidate === undefined ? "" : String(catalogue.hp_candidate),
-      enc: item.encPerUnit !== null ? formatNumber(item.encPerUnit * item.quantity)
+      hp,
+      currentHp: unitHpValues[unitIndex] === undefined ? hp : String(unitHpValues[unitIndex]),
+      enc: item.encPerUnit !== null ? formatNumber(item.encPerUnit)
         : rangedStats ? rangedText(rangedStats.enc) : catalogue?.enc_candidate === undefined ? "" : String(catalogue.enc_candidate),
       ranged: category === "ranged",
-    }];
+    }));
   });
   const load = encumbranceSummary(inventory, char.chars.STR);
   const armourEnc = armourSummary.fullWornEnc;
