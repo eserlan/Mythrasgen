@@ -280,8 +280,13 @@ export async function renderEditableCharacterSheet(data: SheetData, options: { t
     // centering the font's ascender box vertically. Place page-one widgets
     // from the printed text baseline so that appearance metrics, not the
     // widget rectangle's center, determine where the value sits on the rule.
+    // The official template's horizontal rules are writing lines, not text
+    // strike-throughs. pdf-lib vertically centres glyphs in the widget; its
+    // font-height approximation otherwise leaves the rendered text on the rule.
+    // Lift only page-one single-line appearances (not multiline notes or page 2).
+    const PAGE_1_RULE_CLEARANCE = 2.5;
     const top = field.page === 0 && !field.multiline
-      ? field.baseline - (height + font.heightAtSize(actualSize, { descender: false })) / 2
+      ? field.baseline - (height + font.heightAtSize(actualSize, { descender: false })) / 2 - PAGE_1_RULE_CLEARANCE
       : layout.top;
     input.addToPage(doc.getPages()[field.page]!, {
       x: layout.x, y: PAGE_HEIGHT - top - height, width: layout.x2 - layout.x, height,
