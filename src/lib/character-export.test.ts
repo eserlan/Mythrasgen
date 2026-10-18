@@ -144,6 +144,9 @@ describe("character downloads", () => {
     expectBaseline("skill.language.6.name", 745.4);
     expectBaseline("passion.1.name", 685.4);
     expectBaseline("passion.6.name", 745.4);
+    for (const period of ["day", "week", "season", "year"]) {
+      expectBaseline(`money.income.${period}`, 229.5);
+    }
     expect(form.getTextField("skill.professional.1.name").getText()).toBe("Craft (Blacksmithing)");
     expect(form.getTextField("skill.professional.15.name").getText() ?? "").toBe("");
 

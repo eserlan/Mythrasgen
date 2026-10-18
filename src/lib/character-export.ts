@@ -46,7 +46,7 @@ const PAGE_1_LAYOUT = {
   notes: insetRect(fixedRect(31, 382, 158, 82), 2, 3),
   experienceRolls: insetRect(fixedRect(407, 574, 109, 35), 2, 2),
   money: insetRect(fixedRect(407, 574, 156, 57), 2, 2),
-  moneyIncomeDay: insetRect(fixedRect(456, 476, 218.5, 8), 1, 0.5),
+  moneyIncomeDay: insetRect(fixedRect(456, 476, 224, 8), 1, 0.5),
   moneyIncomeWeek: insetRect(fixedRect(486, 506, 224, 8), 1, 0.5),
   moneyIncomeSeason: insetRect(fixedRect(516, 536, 224, 8), 1, 0.5),
   moneyIncomeYear: insetRect(fixedRect(546, 566, 224, 8), 1, 0.5),
