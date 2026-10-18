@@ -50,7 +50,6 @@ const PAGE_1_LAYOUT = {
   moneyIncomeWeek: insetRect(fixedRect(486, 506, 224, 8), 1, 0.5),
   moneyIncomeSeason: insetRect(fixedRect(516, 536, 224, 8), 1, 0.5),
   moneyIncomeYear: insetRect(fixedRect(546, 566, 224, 8), 1, 0.5),
-  moneySilverPieces: insetRect(fixedRect(458, 478, 231.5, 8), 1, 0.5),
   usedMagicPoints: insetRect(fixedRect(552, 572, 490, 7), 1, 0),
   cultInformation: insetRect(fixedRect(413, 574, 260, 151), 3, 3),
   devotionalPoolCurrent: insetRect(fixedRect(508, 532, 415, 7), 1, 0),
@@ -98,7 +97,8 @@ function formFields(data: SheetData): ExportField[] {
     const rect = incomeRects[index]!;
     add(`money.income.${period}`, 0, "", rect.x, rect.x2, rect.top + rect.height - 2, 7, false, rect.height, rect.top);
   });
-  add("money.silver_pieces", 0, "", PAGE_1_LAYOUT.moneySilverPieces.x, PAGE_1_LAYOUT.moneySilverPieces.x2, 239, 8, false, PAGE_1_LAYOUT.moneySilverPieces.height, PAGE_1_LAYOUT.moneySilverPieces.top);
+  // Keep only the four printed income cells. A former one-off
+  // money.silver_pieces widget had no source value and sat below the day cell.
   add("character.cult_information", 0, data.cult.flatMap(entry => [entry.heading, ...entry.paragraphs]).join("\n"), PAGE_1_LAYOUT.cultInformation.x, PAGE_1_LAYOUT.cultInformation.x2, 278, 7, true, PAGE_1_LAYOUT.cultInformation.height, PAGE_1_LAYOUT.cultInformation.top);
   add("magic_points.used_active_effects", 0, "", PAGE_1_LAYOUT.usedMagicPoints.x, PAGE_1_LAYOUT.usedMagicPoints.x2, 498, 8, false, PAGE_1_LAYOUT.usedMagicPoints.height, PAGE_1_LAYOUT.usedMagicPoints.top);
   add("magic.devotional_pool_current", 0, data.devotionalPool.current, PAGE_1_LAYOUT.devotionalPoolCurrent.x, PAGE_1_LAYOUT.devotionalPoolCurrent.x2, 423, 8, false, PAGE_1_LAYOUT.devotionalPoolCurrent.height, PAGE_1_LAYOUT.devotionalPoolCurrent.top);

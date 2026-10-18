@@ -153,25 +153,31 @@ describe("character downloads", () => {
     const names = form.getFields().map(field => field.getName());
     const incomeNames = names.filter(name => /^money\.income\.(day|week|season|year)$/.test(name)).sort();
     expect(incomeNames).toEqual(["money.income.day", "money.income.season", "money.income.week", "money.income.year"]);
-    expect(names.filter(name => name === "money.silver_pieces")).toHaveLength(1);
+    expect(names.filter(name => name.startsWith("money.income."))).toHaveLength(4);
+    expect(names).not.toContain("money.silver_pieces");
     const widget = (name: string) => form.getTextField(name).acroField.getWidgets()[0]!.getRectangle();
-    const day = widget("money.income.day"), silver = widget("money.silver_pieces");
     const pageTop = (box: { y: number; height: number }) => doc.getPages()[0]!.getHeight() - box.y - box.height;
     for (const [period, x] of [["day", 457], ["week", 487], ["season", 517], ["year", 547]] as const) {
-      const box = widget(`money.income.${period}`);
+      const field = form.getTextField(`money.income.${period}`);
+      const widgets = field.acroField.getWidgets();
+      expect(widgets).toHaveLength(1);
+      const box = widgets[0]!.getRectangle();
       expect(box.x).toBe(x);
       expect(box.width).toBe(18);
       expect(box.height).toBe(7);
+      // The four template entries share one printed row above the Silver Pieces line.
+      // In top-left page coordinates the writable strip is y=223..231 pt.
+      expect(pageTop(box)).toBeGreaterThanOrEqual(223);
+      expect(pageTop(box) + box.height).toBeLessThanOrEqual(231);
+      expect(pageTop(box) + box.height).toBeLessThan(239); // Official Money & Wealth bottom border.
+      expect(pageTop(box)).toBeCloseTo(223.487, 2);
     }
-    expect(silver.x).toBe(459);
-    expect(silver.width).toBe(18);
-    expect(silver.height).toBe(7);
     const cult = widget("character.cult_information");
-    expect(pageTop(silver) + silver.height).toBeLessThan(doc.getPages()[0]!.getHeight() - cult.y - cult.height);
-    const dayTop = pageTop(day), silverTop = pageTop(silver);
-    const overlaps = day.x < silver.x + silver.width && silver.x < day.x + day.width
-      && dayTop < silverTop + silver.height && silverTop < dayTop + day.height;
-    expect(overlaps).toBe(false);
+    const cultTop = doc.getPages()[0]!.getHeight() - cult.y - cult.height;
+    for (const period of ["day", "week", "season", "year"]) {
+      const box = widget(`money.income.${period}`);
+      expect(pageTop(box) + box.height).toBeLessThan(cultTop);
+    }
     for (const period of ["day", "week", "season", "year"]) {
       const field = form.getTextField(`money.income.${period}`);
       field.setText(period);
