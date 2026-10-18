@@ -18,35 +18,93 @@ const stylesRows = rows(528.4, 12, 4);
 interface ExportField { name: string; page: 0 | 1; value: string; x: number; x2: number; baseline: number; size?: number; multiline?: boolean; height?: number; top?: number }
 interface ExportCheck { name: string; page: 0 | 1; x: number; y: number; size: number }
 
-/** Coordinates intentionally share the official print renderer's field map. */
+type Page1Rect = { x: number; x2: number; top: number; height: number };
+const lineRect = (x: number, x2: number, baseline: number): Page1Rect => ({ x, x2, top: baseline - 6, height: 11 });
+const fixedRect = (x: number, x2: number, top: number, height: number): Page1Rect => ({ x, x2, top, height });
+
+/** Page 1 widget extents, measured against the official A4 template (top-left origin). */
+const PAGE_1_LAYOUT = {
+  characterName: fixedRect(100, 374, 31, 11),
+  playerName: fixedRect(76, 202, 47, 11),
+  raceCulture: fixedRect(264, 374, 47, 11),
+  gender: fixedRect(60, 110, 63, 11),
+  frame: fixedRect(148, 202, 63, 11),
+  homeland: fixedRect(252, 374, 63, 11),
+  age: fixedRect(48, 110, 79, 11),
+  height: fixedRect(152, 202, 79, 11),
+  career: fixedRect(240, 374, 79, 11),
+  handedness: fixedRect(76, 110, 95, 11),
+  weight: fixedRect(152, 202, 95, 11),
+  socialClass: fixedRect(260, 374, 95, 11),
+  description: fixedRect(76, 374, 111, 27),
+  notes: fixedRect(31, 382, 164, 70),
+  experienceRolls: fixedRect(407, 574, 113, 26),
+  money: fixedRect(407, 574, 164, 44),
+  moneyIncomeDay: fixedRect(456, 476, 218, 10),
+  moneyIncomeWeek: fixedRect(486, 506, 218, 10),
+  moneyIncomeSeason: fixedRect(516, 536, 218, 10),
+  moneyIncomeYear: fixedRect(546, 566, 218, 10),
+  moneySilverPieces: fixedRect(458, 478, 232, 10),
+  usedMagicPoints: fixedRect(552, 572, 490, 10),
+  cultInformation: fixedRect(415, 571, 260, 151),
+  devotionalPoolCurrent: fixedRect(508, 532, 417, 10),
+  devotionalPoolMaximum: fixedRect(550, 570, 417, 10),
+  characteristicCircle: fixedRect(142, 162, 259.8, 20.4),
+  attributeCircle: fixedRect(330.3, 350.7, 259.8, 20.4),
+  standardSkillValues: [164, 188] as const,
+  resistanceValues: [164, 188] as const,
+  professionalName: [219, 287] as const,
+  professionalBase: [291, 328] as const,
+  professionalTotal: [355, 380] as const,
+  magicalName: [411, 480] as const,
+  magicalBase: [487, 529] as const,
+  magicalTotal: [548, 572] as const,
+  languageName: [219, 326] as const,
+  languageNativeName: [247, 325] as const,
+  languageTotal: [355, 380] as const,
+  passionName: [411, 535] as const,
+  passionTotal: [548, 572] as const,
+  characteristicCheckboxSize: 20.4,
+  tableCheckboxSize: 7.2,
+} as const;
+
+/** Build named form controls while keeping the editable-page geometry independent of print text placement. */
 function formFields(data: SheetData): ExportField[] {
   const fields: ExportField[] = [];
   const add = (name: string, page: 0 | 1, value: string, x: number, x2: number, baseline: number, size = 8, multiline = false, height?: number, top?: number) =>
     fields.push({ name, page, value, x, x2, baseline, size, multiline, height, top });
   const identity = data.identity;
-  [
-    ["character.name", identity.name, 100, 374, 37.6], ["character.player", identity.player, 76, 202, 53.6], ["character.race_culture", identity.race, 264, 374, 53.6],
-    ["character.gender", identity.gender, 60, 110, 69.6], ["character.frame", identity.frame, 148, 202, 69.6], ["character.homeland", identity.homeland, 252, 374, 69.6],
-    ["character.age", identity.age, 48, 110, 85.6], ["character.height", identity.height, 152, 202, 85.6], ["character.career", identity.career, 240, 374, 85.6],
-    ["character.handedness", identity.handedness, 76, 110, 101.6], ["character.weight", identity.weight, 152, 202, 101.6], ["character.social_class", identity.socialClass, 260, 374, 101.6],
-  ].forEach(([name, value, x, x2, y]) => add(String(name), 0, String(value), Number(x), Number(x2), Number(y)));
-  add("character.description", 0, identity.description, 28, 374, 124, 8, true, 25);
-  add("character.notes", 0, data.notes.join("\n"), 30, 380, 176, 8, true, 70);
-  add("character.experience_rolls", 0, "", 413, 574, 122, 8, true, 65);
-  add("character.money", 0, data.money.join("\n"), 413, 574, 192, 8, true, 34);
-  ["day", "week", "season", "year"].forEach((period, index) => add(`money.income.${period}`, 0, "", 445 + index * 33, 466 + index * 33, 291, 7));
-  add("money.silver_pieces", 0, "", 452, 572, 311, 8);
-  add("character.cult_information", 0, data.cult.flatMap(entry => [entry.heading, ...entry.paragraphs]).join("\n"), 419, 568, 278, 7, true, 113);
-  add("magic.devotional_pool_current", 0, data.devotionalPool.current, 507, 532, 423, 8);
-  add("magic.devotional_pool_maximum", 0, data.devotionalPool.maximum, 542, 570, 423, 8);
+  const identityFields = [
+    ["character.name", identity.name, PAGE_1_LAYOUT.characterName], ["character.player", identity.player, PAGE_1_LAYOUT.playerName],
+    ["character.race_culture", identity.race, PAGE_1_LAYOUT.raceCulture], ["character.gender", identity.gender, PAGE_1_LAYOUT.gender],
+    ["character.frame", identity.frame, PAGE_1_LAYOUT.frame], ["character.homeland", identity.homeland, PAGE_1_LAYOUT.homeland],
+    ["character.age", identity.age, PAGE_1_LAYOUT.age], ["character.height", identity.height, PAGE_1_LAYOUT.height],
+    ["character.career", identity.career, PAGE_1_LAYOUT.career], ["character.handedness", identity.handedness, PAGE_1_LAYOUT.handedness],
+    ["character.weight", identity.weight, PAGE_1_LAYOUT.weight], ["character.social_class", identity.socialClass, PAGE_1_LAYOUT.socialClass],
+  ] as const;
+  identityFields.forEach(([name, value, rect]) => add(name, 0, value, rect.x, rect.x2, rect.top + 8, 8, false, rect.height, rect.top));
+  add("character.description", 0, identity.description, PAGE_1_LAYOUT.description.x, PAGE_1_LAYOUT.description.x2, 124, 8, true, PAGE_1_LAYOUT.description.height, PAGE_1_LAYOUT.description.top);
+  add("character.notes", 0, data.notes.join("\n"), 31, 382, 176, 8, true, PAGE_1_LAYOUT.notes.height, PAGE_1_LAYOUT.notes.top);
+  add("character.experience_rolls", 0, "", 407, 574, 122, 8, true, PAGE_1_LAYOUT.experienceRolls.height, PAGE_1_LAYOUT.experienceRolls.top);
+  add("character.money", 0, data.money.join("\n"), 407, 574, 192, 8, true, PAGE_1_LAYOUT.money.height, PAGE_1_LAYOUT.money.top);
+  const incomeRects = [PAGE_1_LAYOUT.moneyIncomeDay, PAGE_1_LAYOUT.moneyIncomeWeek, PAGE_1_LAYOUT.moneyIncomeSeason, PAGE_1_LAYOUT.moneyIncomeYear];
+  ["day", "week", "season", "year"].forEach((period, index) => {
+    const rect = incomeRects[index]!;
+    add(`money.income.${period}`, 0, "", rect.x, rect.x2, rect.top + rect.height - 2, 7, false, rect.height, rect.top);
+  });
+  add("money.silver_pieces", 0, "", PAGE_1_LAYOUT.moneySilverPieces.x, PAGE_1_LAYOUT.moneySilverPieces.x2, 239, 8, false, PAGE_1_LAYOUT.moneySilverPieces.height, PAGE_1_LAYOUT.moneySilverPieces.top);
+  add("character.cult_information", 0, data.cult.flatMap(entry => [entry.heading, ...entry.paragraphs]).join("\n"), 415, 571, 278, 7, true, PAGE_1_LAYOUT.cultInformation.height, PAGE_1_LAYOUT.cultInformation.top);
+  add("magic_points.used_active_effects", 0, "", PAGE_1_LAYOUT.usedMagicPoints.x, PAGE_1_LAYOUT.usedMagicPoints.x2, 498, 8, false, PAGE_1_LAYOUT.usedMagicPoints.height, PAGE_1_LAYOUT.usedMagicPoints.top);
+  add("magic.devotional_pool_current", 0, data.devotionalPool.current, PAGE_1_LAYOUT.devotionalPoolCurrent.x, PAGE_1_LAYOUT.devotionalPoolCurrent.x2, 423, 8, false, PAGE_1_LAYOUT.devotionalPoolCurrent.height, PAGE_1_LAYOUT.devotionalPoolCurrent.top);
+  add("magic.devotional_pool_maximum", 0, data.devotionalPool.maximum, PAGE_1_LAYOUT.devotionalPoolMaximum.x, PAGE_1_LAYOUT.devotionalPoolMaximum.x2, 423, 8, false, PAGE_1_LAYOUT.devotionalPoolMaximum.height, PAGE_1_LAYOUT.devotionalPoolMaximum.top);
 
   const stats = Object.entries(data.characteristics);
-  stats.forEach(([name, value], index) => add(`characteristic.${name.toLowerCase()}`, 0, value, 142, 162, 272.4 + index * 24.2, 13, false, 20.4, 259.8 + index * 24.2));
+  stats.forEach(([name, value], index) => add(`characteristic.${name.toLowerCase()}`, 0, value, PAGE_1_LAYOUT.characteristicCircle.x, PAGE_1_LAYOUT.characteristicCircle.x2, 272.4 + index * 24.2, 13, false, PAGE_1_LAYOUT.characteristicCircle.height, PAGE_1_LAYOUT.characteristicCircle.top + index * 24.2));
   const attributes = Object.entries(data.attributes);
-  attributes.forEach(([name, value], index) => add(`attribute.${name}`, 0, value, 330.3, 350.7, 272.4 + index * 24.2, 12, false, 20.4, 259.8 + index * 24.2));
+  attributes.forEach(([name, value], index) => add(`attribute.${name}`, 0, value, PAGE_1_LAYOUT.attributeCircle.x, PAGE_1_LAYOUT.attributeCircle.x2, 272.4 + index * 24.2, 12, false, PAGE_1_LAYOUT.attributeCircle.height, PAGE_1_LAYOUT.attributeCircle.top + index * 24.2));
   const standard = Object.entries(data.standard);
-  standard.forEach(([name, value], index) => add(`skill.standard.${slug(name)}`, 0, value, 164, 188, skillRows[index]!, 8));
-  Object.entries(data.resistances).forEach(([name, value], index) => add(`skill.resistance.${slug(name)}`, 0, value, 164, 188, 710 + index * 12, 8));
+  standard.forEach(([name, value], index) => add(`skill.standard.${slug(name)}`, 0, value, ...PAGE_1_LAYOUT.standardSkillValues, skillRows[index]!, 8));
+  Object.entries(data.resistances).forEach(([name, value], index) => add(`skill.resistance.${slug(name)}`, 0, value, ...PAGE_1_LAYOUT.resistanceValues, 710 + index * 12, 8));
 
   const skillGroup = (group: SheetData["professional"], prefix: string, capacity: number, ys: number[], cols: [number, number, number, number, number, number]) => {
     for (let index = 0; index < capacity; index++) {
@@ -56,17 +114,20 @@ function formFields(data: SheetData): ExportField[] {
       add(`${prefix}.${index + 1}.total`, 0, row?.total ?? "", cols[4], cols[5], ys[index]!, 8);
     }
   };
-  skillGroup(data.professional, "skill.professional", professionalRows.length, professionalRows, [219, 287, 291, 328, 355, 380]);
-  skillGroup(data.magical, "skill.magical", magicalRows.length, magicalRows, [411, 480, 487, 529, 548, 572]);
+  skillGroup(data.professional, "skill.professional", professionalRows.length, professionalRows,
+    [...PAGE_1_LAYOUT.professionalName, ...PAGE_1_LAYOUT.professionalBase, ...PAGE_1_LAYOUT.professionalTotal]);
+  skillGroup(data.magical, "skill.magical", magicalRows.length, magicalRows,
+    [...PAGE_1_LAYOUT.magicalName, ...PAGE_1_LAYOUT.magicalBase, ...PAGE_1_LAYOUT.magicalTotal]);
   for (let index = 0; index < languageRows.length; index++) {
     const row = data.languages[index];
-    add(`skill.language.${index + 1}.name`, 0, row?.name ?? "", row?.native ? 247 : 219, 326, languageRows[index]!);
-    add(`skill.language.${index + 1}.total`, 0, row?.total ?? "", 355, 380, languageRows[index]!, 8);
+    const [nameLeft, nameRight] = row?.native ? PAGE_1_LAYOUT.languageNativeName : PAGE_1_LAYOUT.languageName;
+    add(`skill.language.${index + 1}.name`, 0, row?.name ?? "", nameLeft, nameRight, languageRows[index]!);
+    add(`skill.language.${index + 1}.total`, 0, row?.total ?? "", ...PAGE_1_LAYOUT.languageTotal, languageRows[index]!, 8);
   }
   for (let index = 0; index < 6; index++) {
     const row = data.passions[index];
-    add(`passion.${index + 1}.name`, 0, row?.label ?? "", 411, 535, 685.4 + index * 12);
-    add(`passion.${index + 1}.value`, 0, row?.total ?? "", 548, 572, 685.4 + index * 12, 8);
+    add(`passion.${index + 1}.name`, 0, row?.label ?? "", ...PAGE_1_LAYOUT.passionName, 685.4 + index * 12);
+    add(`passion.${index + 1}.value`, 0, row?.total ?? "", ...PAGE_1_LAYOUT.passionTotal, 685.4 + index * 12, 8);
   }
 
   // The print renderer has thirteen ruled lines in this panel; preserve each as an independent editable slot.
@@ -147,14 +208,15 @@ const centeredField = (name: string) => name.startsWith("characteristic.") || na
 function checkboxes(): ExportCheck[] {
   const checks: ExportCheck[] = [];
   const add = (name: string, page: 0 | 1, x: number, top: number, size = 8) => checks.push({ name, page, x, y: PAGE_HEIGHT - top - size, size });
-  ["str", "con", "siz", "dex", "int", "pow", "cha"].forEach((name, i) => add(`checkboxes.characteristic.${name}`, 0, 167, 266.4 + i * 24.2));
-  ["action_points", "damage_modifier", "experience_modifier", "healing_rate", "initiative", "luck_points", "movement"].forEach((name, i) => add(`checkboxes.attribute.${name}`, 0, 355, 266.4 + i * 24.2));
+  const tableCheckboxSize = PAGE_1_LAYOUT.tableCheckboxSize;
+  ["str", "con", "siz", "dex", "int", "pow", "cha"].forEach((name, i) => add(`checkboxes.characteristic.${name}`, 0, 167, 259.8 + i * 24.2, PAGE_1_LAYOUT.characteristicCheckboxSize));
+  ["action_points", "damage_modifier", "experience_modifier", "healing_rate", "initiative", "luck_points", "movement"].forEach((name, i) => add(`checkboxes.attribute.${name}`, 0, 355, 259.8 + i * 24.2, PAGE_1_LAYOUT.characteristicCheckboxSize));
   const skillNames = ["athletics", "boating", "conceal", "customs", "dance", "deceit", "drive", "first_aid", "influence", "insight", "locale", "perception", "ride", "sing", "stealth", "swim", "unarmed"];
-  skillNames.forEach((name, i) => add(`checkboxes.skills.standard.${name}`, 0, 145, 464 + i * 12));
-  ["brawn", "endurance", "evade", "willpower"].forEach((name, i) => add(`checkboxes.skills.resistance.${name}`, 0, 145, 704 + i * 12));
-  for (let i = 0; i < 15; i++) add(`checkboxes.skills.professional.${i + 1}`, 0, 333, 464 + i * 12);
-  for (let i = 0; i < 9; i++) add(`checkboxes.skills.magical.${i + 1}`, 0, 526, 535.6 + i * 12);
-  for (let i = 0; i < 6; i++) add(`checkboxes.skills.language.${i + 1}`, 0, 333, 680 + i * 12);
+  skillNames.forEach((name, i) => add(`checkboxes.skills.standard.${name}`, 0, 145, 464 + i * 12, tableCheckboxSize));
+  ["brawn", "endurance", "evade", "willpower"].forEach((name, i) => add(`checkboxes.skills.resistance.${name}`, 0, 145, 704 + i * 12, tableCheckboxSize));
+  for (let i = 0; i < 15; i++) add(`checkboxes.skills.professional.${i + 1}`, 0, 335, 464 + i * 12, tableCheckboxSize);
+  for (let i = 0; i < 9; i++) add(`checkboxes.skills.magical.${i + 1}`, 0, 526, 535.6 + i * 12, tableCheckboxSize);
+  for (let i = 0; i < 6; i++) add(`checkboxes.skills.language.${i + 1}`, 0, 335, 680 + i * 12, tableCheckboxSize);
   for (let i = 0; i < 4; i++) add(`checkboxes.combat_style.${i + 1}`, 1, 333, 522.6 + i * 12);
   const fatigueTop = 57;
   for (let i = 0; i < 10; i++) add(`checkboxes.fatigue.${i + 1}`, 1, 410, fatigueTop + i * 21.2);
@@ -162,7 +224,7 @@ function checkboxes(): ExportCheck[] {
 }
 
 /** Adds real AcroForm text controls over the same two-page official print output. */
-export async function renderEditableCharacterSheet(data: SheetData, options: { template: Uint8Array | ArrayBuffer }): Promise<Uint8Array> {
+export async function renderEditableCharacterSheet(data: SheetData, options: { template: Uint8Array | ArrayBuffer; debugPage1Outlines?: boolean }): Promise<Uint8Array> {
   // Starting from the original artwork keeps fields genuinely editable: clearing
   // a value cannot reveal a flattened copy underneath it.
   const doc = await PDFDocument.load(options.template);
@@ -176,10 +238,15 @@ export async function renderEditableCharacterSheet(data: SheetData, options: { t
     const input = form.createTextField(field.name);
     if (field.multiline) input.enableMultiline();
     if (centeredField(field.name)) input.setAlignment(TextAlignment.Center);
-    const height = field.height ?? 10;
+    const layout = field.page === 0 && field.top === undefined
+      ? lineRect(field.x, field.x2, field.baseline)
+      : { x: field.x, x2: field.x2, top: field.top ?? field.baseline, height: field.height ?? 10 };
+    const height = layout.height;
     input.addToPage(doc.getPages()[field.page]!, {
-      x: field.x, y: PAGE_HEIGHT - (field.top ?? field.baseline) - height, width: field.x2 - field.x, height,
-      borderWidth: 0, borderColor: undefined, backgroundColor: undefined, textColor: rgb(0, 0, 0), font,
+      x: layout.x, y: PAGE_HEIGHT - layout.top - height, width: layout.x2 - layout.x, height,
+      borderWidth: field.page === 0 && options.debugPage1Outlines ? 0.6 : 0,
+      borderColor: field.page === 0 && options.debugPage1Outlines ? rgb(0.9, 0, 0) : undefined,
+      backgroundColor: undefined, textColor: rgb(0, 0, 0), font,
     });
     const maxWidth = Math.max(1, field.x2 - field.x - 2);
     const actualSize = field.value ? Math.min(field.size ?? 8, Math.max(5, (field.size ?? 8) * maxWidth / font.widthOfTextAtSize(field.value.replace(/\s+/g, " "), field.size ?? 8))) : field.size ?? 8;
@@ -194,7 +261,9 @@ export async function renderEditableCharacterSheet(data: SheetData, options: { t
     const checkbox = form.createCheckBox(spec.name);
     checkbox.addToPage(doc.getPages()[spec.page]!, {
       x: spec.x, y: spec.y, width: spec.size, height: spec.size,
-      borderWidth: 0, borderColor: undefined, backgroundColor: undefined,
+      borderWidth: spec.page === 0 && options.debugPage1Outlines ? 0.6 : 0,
+      borderColor: spec.page === 0 && options.debugPage1Outlines ? rgb(0, 0, 0.9) : undefined,
+      backgroundColor: undefined,
     });
   }
   form.updateFieldAppearances(font);
