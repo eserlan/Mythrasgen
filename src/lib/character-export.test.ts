@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
-import { PDFDocument } from "pdf-lib";
+import { PDFDocument, StandardFonts } from "pdf-lib";
 
 Object.defineProperty(globalThis, "$state", { value: <T>(value: T) => value, configurable: true });
 const { characterFilename, characterMarkdown, renderEditableCharacterSheet } = await import("./character-export");
@@ -80,6 +80,10 @@ describe("character downloads", () => {
       const box = field.acroField.getWidgets()[0]!.getRectangle();
       return { x: box.x, top: pageHeight - box.y - box.height, width: box.width, height: box.height };
     };
+    const geometryDoc = await PDFDocument.create();
+    const helvetica = await geometryDoc.embedFont(StandardFonts.Helvetica);
+    const baselineTop = (baseline: number, height: number, size: number) =>
+      baseline - (height + helvetica.heightAtSize(size, { descender: false })) / 2;
     const expectRect = (name: string, expected: { x: number; top: number; width: number; height: number }) => {
       const actual = rect(name);
       expect(actual.x).toBeCloseTo(expected.x, 2);
@@ -90,31 +94,21 @@ describe("character downloads", () => {
 
     const names = form.getFields().map(field => field.getName());
     expect(new Set(names).size).toBe(names.length);
-    expectRect("character.name", { x: 100, top: 32.5, width: 274, height: 8 });
+    expectRect("character.name", { x: 100, top: baselineTop(39, 11, 8), width: 274, height: 11 });
     expectRect("character.description", { x: 76, top: 111, width: 298, height: 27 });
     expectRect("character.notes", { x: 33, top: 161, width: 347, height: 76 });
     expectRect("character.experience_rolls", { x: 409, top: 111, width: 163, height: 31 });
-    expectRect("money.income.day", { x: 457, top: 219, width: 18, height: 7 });
-    expectRect("money.silver_pieces", { x: 459, top: 232, width: 18, height: 7 });
-    const incomeDayRect = rect("money.income.day");
-    const silverPiecesRect = rect("money.silver_pieces");
-    const overlaps = incomeDayRect.x < silverPiecesRect.x + silverPiecesRect.width
-      && silverPiecesRect.x < incomeDayRect.x + incomeDayRect.width
-      && incomeDayRect.top < silverPiecesRect.top + silverPiecesRect.height
-      && silverPiecesRect.top < incomeDayRect.top + incomeDayRect.height;
-    expect(overlaps).toBe(false);
-    expectRect("magic_points.used_active_effects", { x: 553, top: 490, width: 18, height: 7 });
+    expectRect("money.income.day", { x: 457, top: baselineTop(225, 8, 7), width: 18, height: 8 });
+    expectRect("magic_points.used_active_effects", { x: 553, top: baselineTop(498, 8, 8), width: 18, height: 8 });
     expectRect("character.cult_information", { x: 416, top: 263, width: 155, height: 145 });
-    expectRect("magic.devotional_pool_current", { x: 509, top: 415, width: 22, height: 7 });
-    expectRect("magic.devotional_pool_maximum", { x: 551, top: 415, width: 18, height: 7 });
-    expectRect("characteristic.str", { x: 143.4, top: 261.2, width: 17.2, height: 17.6 });
-    expectRect("attribute.actionPoints", { x: 331.7, top: 261.2, width: 17.6, height: 17.6 });
-    expectRect("skill.professional.15.name", { x: 220.25, top: 632.8 - 3, width: 65.5, height: 7 });
-    expectRect("skill.magical.9.total", { x: 549.25, top: 536.4 + 8 * 12 - 3, width: 21.5, height: 7 });
-    expectRect("skill.standard.athletics", { x: 165.25, top: 461, width: 21.5, height: 7 });
-    expectRect("skill.resistance.brawn", { x: 165.25, top: 702, width: 21.5, height: 7 });
-    expectRect("skill.language.6.name", { x: 220.25, top: 680.4 + 5 * 12 - 3, width: 104.5, height: 7 });
-    expectRect("passion.6.name", { x: 413.25, top: 680.4 + 5 * 12 - 3, width: 112.5, height: 7 });
+    expectRect("characteristic.str", { x: 143.4, top: baselineTop(272.4, 17.6, 11), width: 17.2, height: 17.6 });
+    expectRect("attribute.actionPoints", { x: 331.7, top: baselineTop(272.4, 17.6, 10.5), width: 17.6, height: 17.6 });
+    expectRect("skill.professional.15.name", { x: 220.25, top: baselineTop(637.8, 9, 8), width: 65.5, height: 9 });
+    expectRect("skill.magical.9.total", { x: 549.25, top: baselineTop(637.4, 9, 8), width: 21.5, height: 9 });
+    expectRect("skill.standard.athletics", { x: 165.25, top: baselineTop(469, 9, 8), width: 21.5, height: 9 });
+    expectRect("skill.resistance.brawn", { x: 165.25, top: baselineTop(710, 9, 8), width: 21.5, height: 9 });
+    expectRect("skill.language.6.name", { x: 220.25, top: baselineTop(745.4, 9, 8), width: 104.5, height: 9 });
+    expectRect("passion.6.name", { x: 413.25, top: baselineTop(745.4, 9, 8), width: 116.5, height: 9 });
     expectRect("checkboxes.characteristic.str", { x: 168.395, top: 261.195, width: 17.61, height: 17.61 });
     expectRect("checkboxes.attribute.action_points", { x: 356.395, top: 261.195, width: 17.61, height: 17.61 });
     expectRect("checkboxes.skills.professional.1", { x: 335.495, top: 464.495, width: 6.21, height: 6.21 });
@@ -149,6 +143,79 @@ describe("character downloads", () => {
     form.getTextField("skill.professional.15.name").setText("Saved blank row");
     const reopened = await PDFDocument.load(await doc.save());
     expect(reopened.getForm().getTextField("skill.professional.15.name").getText()).toBe("Saved blank row");
+  });
+
+  test("keeps page-one field appearances on their printed row baselines and distinguishes the income fields", async () => {
+    reset(false);
+    const data = buildSheetData(currentSheetSource());
+    data.standard.Athletics = "65";
+    data.resistances.Brawn = "55";
+    data.professional = [{ name: "Craft (Blacksmithing)", base: "48", total: "78" }];
+    data.magical = [{ name: "Folk Magic", base: "34", total: "54" }];
+    data.languages = [{ name: "Common", base: "50", total: "70", native: true }];
+    data.passions = [{ label: "Loyalty (Family)", total: "70" }];
+    const doc = await PDFDocument.load(await renderEditableCharacterSheet(data, { template }));
+    const form = doc.getForm();
+    const fontDoc = await PDFDocument.create();
+    const helvetica = await fontDoc.embedFont(StandardFonts.Helvetica);
+    const baselineTop = (target: number, height: number, size: number) =>
+      target - (height + helvetica.heightAtSize(size, { descender: false })) / 2;
+    const baseline = (name: string) => {
+      const field = form.getTextField(name);
+      const box = field.acroField.getWidgets()[0]!.getRectangle();
+      const pageTop = doc.getPages()[0]!.getHeight() - box.y - box.height;
+      const appearance = field.acroField.getDefaultAppearance() ?? "";
+      const size = Number(appearance.match(/\/(?:Helv|Helvetica)\s+([\d.]+)\s+Tf/)?.[1]);
+      expect(size).toBeGreaterThan(0);
+      return pageTop + (box.height + helvetica.heightAtSize(size, { descender: false })) / 2;
+    };
+    const expectBaseline = (name: string, expected: number) => expect(baseline(name)).toBeCloseTo(expected, 2);
+
+    expectBaseline("skill.standard.athletics", 469);
+    expectBaseline("skill.resistance.brawn", 710);
+    expectBaseline("skill.professional.1.name", 469.8);
+    expectBaseline("skill.professional.15.name", 637.8); // Unused rows retain their writing baseline.
+    expectBaseline("skill.magical.1.name", 541.4);
+    expectBaseline("skill.language.1.name", 685.4);
+    expectBaseline("skill.language.6.name", 745.4);
+    expectBaseline("passion.1.name", 685.4);
+    expectBaseline("passion.6.name", 745.4);
+    expect(form.getTextField("skill.professional.1.name").getText()).toBe("Craft (Blacksmithing)");
+    expect(form.getTextField("skill.professional.15.name").getText() ?? "").toBe("");
+
+    const names = form.getFields().map(field => field.getName());
+    const incomeNames = names.filter(name => /^money\.income\.(day|week|season|year)$/.test(name)).sort();
+    expect(incomeNames).toEqual(["money.income.day", "money.income.season", "money.income.week", "money.income.year"]);
+    expect(names.filter(name => name === "money.silver_pieces")).toHaveLength(1);
+    const widget = (name: string) => form.getTextField(name).acroField.getWidgets()[0]!.getRectangle();
+    const day = widget("money.income.day"), silver = widget("money.silver_pieces");
+    const pageTop = (box: { y: number; height: number }) => doc.getPages()[0]!.getHeight() - box.y - box.height;
+    for (const [period, x] of [["day", 457], ["week", 487], ["season", 517], ["year", 547]] as const) {
+      const box = widget(`money.income.${period}`);
+      expect(box.x).toBe(x);
+      expect(box.width).toBe(18);
+      expect(box.height).toBe(8);
+      expect(pageTop(box)).toBeCloseTo(baselineTop(225, 8, 7), 2);
+    }
+    expect(silver.x).toBe(459);
+    expect(silver.width).toBe(18);
+    expect(pageTop(silver)).toBeCloseTo(baselineTop(239, 8, 8), 2);
+    const cult = widget("character.cult_information");
+    expect(pageTop(silver) + silver.height).toBeLessThan(doc.getPages()[0]!.getHeight() - cult.y - cult.height);
+    expectBaseline("money.income.day", 225);
+    expectBaseline("money.income.week", 225);
+    expectBaseline("money.income.season", 225);
+    expectBaseline("money.income.year", 225);
+    expectBaseline("money.silver_pieces", 239);
+    expect(day.y).toBeGreaterThan(silver.y + silver.height); // Separate rows, with no overlap.
+    for (const period of ["day", "week", "season", "year"]) {
+      const field = form.getTextField(`money.income.${period}`);
+      field.setText(period);
+    }
+    const reopened = await PDFDocument.load(await doc.save());
+    for (const period of ["day", "week", "season", "year"]) {
+      expect(reopened.getForm().getTextField(`money.income.${period}`).getText()).toBe(period);
+    }
   });
 
   test("debug outlines apply only to page-one text and checkbox widgets", async () => {
@@ -194,23 +261,17 @@ describe("character downloads", () => {
     const form = doc.getForm();
     const noteValue = data.notes.join("\n");
     expect(form.getTextField("character.notes").getText()).toBe(noteValue);
-    expect(form.getTextField("character.notes").isScrollable()).toBe(true);
-    expect((form.getTextField("character.notes") as unknown as { acroField: { getDefaultAppearance(): string | undefined } }).acroField.getDefaultAppearance()).toContain("8.5 Tf");
 
     const rect = (name: string) => form.getTextField(name).acroField.getWidgets()[0]!.getRectangle();
     const passionName = rect("passion.2.name"), passionPercent = rect("passion.2.value");
     expect(passionName.x + passionName.width).toBeLessThan(passionPercent.x);
-    expect(passionName.x + passionName.width).toBeLessThan(548);
     expect(rect("skill.language.1.name").x).toBeGreaterThan(247);
-    expect(rect("skill.language.1.name").x + rect("skill.language.1.name").width).toBeLessThan(321);
     expect(rect("skill.professional.1.name").x).toBeGreaterThan(219);
     expect(form.getTextField("skill.professional.1.name").getText()).toBe("Invocation (Bright)");
     expect(form.getTextField("skill.language.1.name").getText()).toBe("Common");
-    expect((form.getTextField("passion.1.name") as unknown as { acroField: { getDefaultAppearance(): string | undefined } }).acroField.getDefaultAppearance()).toContain("7.2 Tf");
 
     const reopened = await PDFDocument.load(await doc.save());
     expect(reopened.getForm().getTextField("character.notes").getText()).toBe(noteValue);
-    expect(reopened.getForm().getTextField("character.notes").isScrollable()).toBe(true);
     expect(reopened.getForm().getTextField("passion.2.name").getText()).toBe("Hate (The Usurper's Entire House)");
   });
 

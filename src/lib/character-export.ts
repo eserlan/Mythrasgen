@@ -264,12 +264,6 @@ export async function renderEditableCharacterSheet(data: SheetData, options: { t
       ? lineRect(field.x, field.x2, field.baseline)
       : { x: field.x, x2: field.x2, top: field.top ?? field.baseline, height: field.height ?? 10 };
     const height = layout.height;
-    input.addToPage(doc.getPages()[field.page]!, {
-      x: layout.x, y: PAGE_HEIGHT - layout.top - height, width: layout.x2 - layout.x, height,
-      borderWidth: field.page === 0 && options.debugPage1Outlines ? 0.6 : 0,
-      borderColor: field.page === 0 && options.debugPage1Outlines ? rgb(0.9, 0, 0) : undefined,
-      backgroundColor: undefined, textColor: rgb(0, 0, 0), font,
-    });
     const maxWidth = Math.max(1, field.x2 - field.x - (field.page === 0 ? 4 : 2));
     const requestedSize = field.size ?? 8;
     // Multiline values wrap in the widget. Measuring all paragraphs as one
@@ -282,6 +276,19 @@ export async function renderEditableCharacterSheet(data: SheetData, options: { t
     // chosen readable size and retain the complete value for scrolling/editing.
     const actualSize = field.multiline ? requestedSize : measuredValue ? Math.min(requestedSize,
       Math.max(minimumSize, requestedSize * maxWidth / Math.max(1, font.widthOfTextAtSize(measuredValue, requestedSize)))) : requestedSize;
+    // pdf-lib lays out single-line appearance text inside a one-point inset,
+    // centering the font's ascender box vertically. Place page-one widgets
+    // from the printed text baseline so that appearance metrics, not the
+    // widget rectangle's center, determine where the value sits on the rule.
+    const top = field.page === 0 && !field.multiline
+      ? field.baseline - (height + font.heightAtSize(actualSize, { descender: false })) / 2
+      : layout.top;
+    input.addToPage(doc.getPages()[field.page]!, {
+      x: layout.x, y: PAGE_HEIGHT - top - height, width: layout.x2 - layout.x, height,
+      borderWidth: field.page === 0 && options.debugPage1Outlines ? 0.6 : 0,
+      borderColor: field.page === 0 && options.debugPage1Outlines ? rgb(0.9, 0, 0) : undefined,
+      backgroundColor: undefined, textColor: rgb(0, 0, 0), font,
+    });
     input.setFontSize(actualSize);
     const value = [...field.value].map(char => {
       if (char === "\n" && field.multiline) return char;
