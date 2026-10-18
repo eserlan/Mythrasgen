@@ -92,21 +92,31 @@ describe("character downloads", () => {
     expect(new Set(names).size).toBe(names.length);
     expectRect("character.name", { x: 100, top: 31, width: 274, height: 11 });
     expectRect("character.description", { x: 76, top: 111, width: 298, height: 27 });
-    expectRect("character.notes", { x: 31, top: 164, width: 351, height: 70 });
-    expectRect("character.experience_rolls", { x: 407, top: 113, width: 167, height: 26 });
-    expectRect("money.income.day", { x: 456, top: 218, width: 20, height: 10 });
-    expectRect("magic_points.used_active_effects", { x: 552, top: 490, width: 20, height: 10 });
-    expectRect("character.cult_information", { x: 415, top: 260, width: 156, height: 151 });
-    expectRect("characteristic.str", { x: 142, top: 259.8, width: 20, height: 20.4 });
-    expectRect("attribute.actionPoints", { x: 330.3, top: 259.8, width: 20.4, height: 20.4 });
-    expectRect("skill.professional.15.name", { x: 219, top: 631.8, width: 68, height: 11 });
-    expectRect("skill.magical.9.total", { x: 548, top: 631.4, width: 24, height: 11 });
-    expectRect("skill.language.6.name", { x: 219, top: 739.4, width: 107, height: 11 });
-    expectRect("passion.6.name", { x: 411, top: 739.4, width: 124, height: 11 });
-    expectRect("checkboxes.characteristic.str", { x: 167, top: 259.8, width: 20.4, height: 20.4 });
-    expectRect("checkboxes.attribute.action_points", { x: 355, top: 259.8, width: 20.4, height: 20.4 });
-    expectRect("checkboxes.skills.professional.1", { x: 335, top: 464, width: 7.2, height: 7.2 });
-    expectRect("checkboxes.skills.magical.9", { x: 526, top: 631.6, width: 7.2, height: 7.2 });
+    expectRect("character.notes", { x: 33, top: 161, width: 347, height: 76 });
+    expectRect("character.experience_rolls", { x: 409, top: 111, width: 163, height: 31 });
+    expectRect("money.income.day", { x: 457, top: 219, width: 18, height: 8 });
+    expectRect("magic_points.used_active_effects", { x: 553, top: 491, width: 18, height: 8 });
+    expectRect("character.cult_information", { x: 416, top: 263, width: 155, height: 145 });
+    expectRect("characteristic.str", { x: 143.4, top: 261.2, width: 17.2, height: 17.6 });
+    expectRect("attribute.actionPoints", { x: 331.7, top: 261.2, width: 17.6, height: 17.6 });
+    expectRect("skill.professional.15.name", { x: 220.25, top: 632.8, width: 65.5, height: 9 });
+    expectRect("skill.magical.9.total", { x: 549.25, top: 536.4 + 8 * 12, width: 21.5, height: 9 });
+    expectRect("skill.standard.athletics", { x: 165.25, top: 464, width: 21.5, height: 9 });
+    expectRect("skill.resistance.brawn", { x: 165.25, top: 705, width: 21.5, height: 9 });
+    expectRect("skill.language.6.name", { x: 220.25, top: 680.4 + 5 * 12, width: 104.5, height: 9 });
+    expectRect("passion.6.name", { x: 413.25, top: 680.4 + 5 * 12, width: 116.5, height: 9 });
+    expectRect("checkboxes.characteristic.str", { x: 168.395, top: 261.195, width: 17.61, height: 17.61 });
+    expectRect("checkboxes.attribute.action_points", { x: 356.395, top: 261.195, width: 17.61, height: 17.61 });
+    expectRect("checkboxes.skills.professional.1", { x: 335.495, top: 464.495, width: 6.21, height: 6.21 });
+    expectRect("checkboxes.skills.magical.9", { x: 526.495, top: 632.095, width: 6.21, height: 6.21 });
+    const checkAppearance = (name: string) => (form.getField(name) as unknown as {
+      acroField: { getWidgets(): Array<{
+        getAppearanceCharacteristics(): { getBorderColor(): number[] | undefined } | undefined;
+        getBorderStyle(): { getWidth(): number | undefined } | undefined;
+      }> };
+    }).acroField.getWidgets()[0]!;
+    expect(checkAppearance("checkboxes.characteristic.str").getBorderStyle()?.getWidth()).toBeCloseTo(0.01);
+    expect(checkAppearance("checkboxes.skills.standard.athletics").getAppearanceCharacteristics()?.getBorderColor()).toEqual([1, 1, 1]);
 
     // Every editable annotation remains inside the A4 page, including empty rows.
     const page1Field = (name: string) => name.startsWith("character.") || name.startsWith("money.")
@@ -153,6 +163,39 @@ describe("character downloads", () => {
     expect(borderColor("combat_style.1.name")).toBeUndefined();
     expect(borderWidth("checkboxes.combat_style.1")).toBe(0);
     expect(borderColor("checkboxes.combat_style.1")).toBeUndefined();
+  });
+
+  test("keeps long editable notes legible and confines long labels to their page-one columns", async () => {
+    reset(false);
+    const data = buildSheetData(currentSheetSource());
+    data.notes = [
+      "A long background note describing a complicated family history, several migrations, and the character's obligations to the people who raised them.",
+      "A second paragraph records training, local customs, and unresolved promises that should remain available when the PDF is edited later.",
+      "A third paragraph makes sure wrapping uses the Notes box height without reducing every line to tiny text.",
+    ];
+    data.professional = [{ name: "Invocation (Bright)", base: "78", total: "108" }];
+    data.languages[0] = { ...data.languages[0]!, name: "Common", native: true };
+    data.passions = [
+      { label: "Love (My Family and Homeland)", total: "91" },
+      { label: "Hate (The Usurper's Entire House)", total: "84" },
+    ];
+    const bytes = await renderEditableCharacterSheet(data, { template });
+    const doc = await PDFDocument.load(bytes);
+    const form = doc.getForm();
+    const noteValue = data.notes.join("\n");
+    expect(form.getTextField("character.notes").getText()).toBe(noteValue);
+
+    const rect = (name: string) => form.getTextField(name).acroField.getWidgets()[0]!.getRectangle();
+    const passionName = rect("passion.2.name"), passionPercent = rect("passion.2.value");
+    expect(passionName.x + passionName.width).toBeLessThan(passionPercent.x);
+    expect(rect("skill.language.1.name").x).toBeGreaterThan(247);
+    expect(rect("skill.professional.1.name").x).toBeGreaterThan(219);
+    expect(form.getTextField("skill.professional.1.name").getText()).toBe("Invocation (Bright)");
+    expect(form.getTextField("skill.language.1.name").getText()).toBe("Common");
+
+    const reopened = await PDFDocument.load(await doc.save());
+    expect(reopened.getForm().getTextField("character.notes").getText()).toBe(noteValue);
+    expect(reopened.getForm().getTextField("passion.2.name").getText()).toBe("Hate (The Usurper's Entire House)");
   });
 
   test("exports distinct recorded weapon HP values and leaves the print renderer independent", async () => {

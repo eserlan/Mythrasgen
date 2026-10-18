@@ -21,6 +21,10 @@ interface ExportCheck { name: string; page: 0 | 1; x: number; y: number; size: n
 type Page1Rect = { x: number; x2: number; top: number; height: number };
 const lineRect = (x: number, x2: number, baseline: number): Page1Rect => ({ x, x2, top: baseline - 6, height: 11 });
 const fixedRect = (x: number, x2: number, top: number, height: number): Page1Rect => ({ x, x2, top, height });
+const insetRect = (rect: Page1Rect, insetX: number, insetY: number): Page1Rect => ({
+  x: rect.x + insetX, x2: rect.x2 - insetX, top: rect.top + insetY, height: rect.height - insetY * 2,
+});
+const ruledRect = (x: number, x2: number, baseline: number): Page1Rect => fixedRect(x + 1.25, x2 - 1.25, baseline - 5, 9);
 
 /** Page 1 widget extents, measured against the official A4 template (top-left origin). */
 const PAGE_1_LAYOUT = {
@@ -37,20 +41,20 @@ const PAGE_1_LAYOUT = {
   weight: fixedRect(152, 202, 95, 11),
   socialClass: fixedRect(260, 374, 95, 11),
   description: fixedRect(76, 374, 111, 27),
-  notes: fixedRect(31, 382, 164, 70),
-  experienceRolls: fixedRect(407, 574, 113, 26),
-  money: fixedRect(407, 574, 164, 44),
-  moneyIncomeDay: fixedRect(456, 476, 218, 10),
-  moneyIncomeWeek: fixedRect(486, 506, 218, 10),
-  moneyIncomeSeason: fixedRect(516, 536, 218, 10),
-  moneyIncomeYear: fixedRect(546, 566, 218, 10),
-  moneySilverPieces: fixedRect(458, 478, 232, 10),
-  usedMagicPoints: fixedRect(552, 572, 490, 10),
-  cultInformation: fixedRect(415, 571, 260, 151),
-  devotionalPoolCurrent: fixedRect(508, 532, 417, 10),
-  devotionalPoolMaximum: fixedRect(550, 570, 417, 10),
-  characteristicCircle: fixedRect(142, 162, 259.8, 20.4),
-  attributeCircle: fixedRect(330.3, 350.7, 259.8, 20.4),
+  notes: insetRect(fixedRect(31, 382, 158, 82), 2, 3),
+  experienceRolls: insetRect(fixedRect(407, 574, 109, 35), 2, 2),
+  money: insetRect(fixedRect(407, 574, 156, 57), 2, 2),
+  moneyIncomeDay: insetRect(fixedRect(456, 476, 218, 10), 1, 1),
+  moneyIncomeWeek: insetRect(fixedRect(486, 506, 218, 10), 1, 1),
+  moneyIncomeSeason: insetRect(fixedRect(516, 536, 218, 10), 1, 1),
+  moneyIncomeYear: insetRect(fixedRect(546, 566, 218, 10), 1, 1),
+  moneySilverPieces: insetRect(fixedRect(458, 478, 232, 10), 1, 1),
+  usedMagicPoints: insetRect(fixedRect(552, 572, 490, 10), 1, 1),
+  cultInformation: insetRect(fixedRect(413, 574, 260, 151), 3, 3),
+  devotionalPoolCurrent: insetRect(fixedRect(508, 532, 417, 10), 1, 1),
+  devotionalPoolMaximum: insetRect(fixedRect(550, 570, 417, 10), 1, 1),
+  characteristicCircle: insetRect(fixedRect(142, 162, 259.8, 20.4), 1.4, 1.4),
+  attributeCircle: insetRect(fixedRect(330.3, 350.7, 259.8, 20.4), 1.4, 1.4),
   standardSkillValues: [164, 188] as const,
   resistanceValues: [164, 188] as const,
   professionalName: [219, 287] as const,
@@ -60,12 +64,12 @@ const PAGE_1_LAYOUT = {
   magicalBase: [487, 529] as const,
   magicalTotal: [548, 572] as const,
   languageName: [219, 326] as const,
-  languageNativeName: [247, 325] as const,
+  languageNativeName: [251, 321] as const,
   languageTotal: [355, 380] as const,
-  passionName: [411, 535] as const,
+  passionName: [412, 531] as const,
   passionTotal: [548, 572] as const,
-  characteristicCheckboxSize: 20.4,
-  tableCheckboxSize: 7.2,
+  characteristicCheckboxSize: 17.6,
+  tableCheckboxSize: 6.2,
 } as const;
 
 /** Build named form controls while keeping the editable-page geometry independent of print text placement. */
@@ -84,34 +88,41 @@ function formFields(data: SheetData): ExportField[] {
   ] as const;
   identityFields.forEach(([name, value, rect]) => add(name, 0, value, rect.x, rect.x2, rect.top + 8, 8, false, rect.height, rect.top));
   add("character.description", 0, identity.description, PAGE_1_LAYOUT.description.x, PAGE_1_LAYOUT.description.x2, 124, 8, true, PAGE_1_LAYOUT.description.height, PAGE_1_LAYOUT.description.top);
-  add("character.notes", 0, data.notes.join("\n"), 31, 382, 176, 8, true, PAGE_1_LAYOUT.notes.height, PAGE_1_LAYOUT.notes.top);
-  add("character.experience_rolls", 0, "", 407, 574, 122, 8, true, PAGE_1_LAYOUT.experienceRolls.height, PAGE_1_LAYOUT.experienceRolls.top);
-  add("character.money", 0, data.money.join("\n"), 407, 574, 192, 8, true, PAGE_1_LAYOUT.money.height, PAGE_1_LAYOUT.money.top);
+  add("character.notes", 0, data.notes.join("\n"), PAGE_1_LAYOUT.notes.x, PAGE_1_LAYOUT.notes.x2, 176, 8.5, true, PAGE_1_LAYOUT.notes.height, PAGE_1_LAYOUT.notes.top);
+  add("character.experience_rolls", 0, "", PAGE_1_LAYOUT.experienceRolls.x, PAGE_1_LAYOUT.experienceRolls.x2, 122, 8, true, PAGE_1_LAYOUT.experienceRolls.height, PAGE_1_LAYOUT.experienceRolls.top);
+  add("character.money", 0, data.money.join("\n"), PAGE_1_LAYOUT.money.x, PAGE_1_LAYOUT.money.x2, 192, 8, true, PAGE_1_LAYOUT.money.height, PAGE_1_LAYOUT.money.top);
   const incomeRects = [PAGE_1_LAYOUT.moneyIncomeDay, PAGE_1_LAYOUT.moneyIncomeWeek, PAGE_1_LAYOUT.moneyIncomeSeason, PAGE_1_LAYOUT.moneyIncomeYear];
   ["day", "week", "season", "year"].forEach((period, index) => {
     const rect = incomeRects[index]!;
     add(`money.income.${period}`, 0, "", rect.x, rect.x2, rect.top + rect.height - 2, 7, false, rect.height, rect.top);
   });
   add("money.silver_pieces", 0, "", PAGE_1_LAYOUT.moneySilverPieces.x, PAGE_1_LAYOUT.moneySilverPieces.x2, 239, 8, false, PAGE_1_LAYOUT.moneySilverPieces.height, PAGE_1_LAYOUT.moneySilverPieces.top);
-  add("character.cult_information", 0, data.cult.flatMap(entry => [entry.heading, ...entry.paragraphs]).join("\n"), 415, 571, 278, 7, true, PAGE_1_LAYOUT.cultInformation.height, PAGE_1_LAYOUT.cultInformation.top);
+  add("character.cult_information", 0, data.cult.flatMap(entry => [entry.heading, ...entry.paragraphs]).join("\n"), PAGE_1_LAYOUT.cultInformation.x, PAGE_1_LAYOUT.cultInformation.x2, 278, 7, true, PAGE_1_LAYOUT.cultInformation.height, PAGE_1_LAYOUT.cultInformation.top);
   add("magic_points.used_active_effects", 0, "", PAGE_1_LAYOUT.usedMagicPoints.x, PAGE_1_LAYOUT.usedMagicPoints.x2, 498, 8, false, PAGE_1_LAYOUT.usedMagicPoints.height, PAGE_1_LAYOUT.usedMagicPoints.top);
   add("magic.devotional_pool_current", 0, data.devotionalPool.current, PAGE_1_LAYOUT.devotionalPoolCurrent.x, PAGE_1_LAYOUT.devotionalPoolCurrent.x2, 423, 8, false, PAGE_1_LAYOUT.devotionalPoolCurrent.height, PAGE_1_LAYOUT.devotionalPoolCurrent.top);
   add("magic.devotional_pool_maximum", 0, data.devotionalPool.maximum, PAGE_1_LAYOUT.devotionalPoolMaximum.x, PAGE_1_LAYOUT.devotionalPoolMaximum.x2, 423, 8, false, PAGE_1_LAYOUT.devotionalPoolMaximum.height, PAGE_1_LAYOUT.devotionalPoolMaximum.top);
 
   const stats = Object.entries(data.characteristics);
-  stats.forEach(([name, value], index) => add(`characteristic.${name.toLowerCase()}`, 0, value, PAGE_1_LAYOUT.characteristicCircle.x, PAGE_1_LAYOUT.characteristicCircle.x2, 272.4 + index * 24.2, 13, false, PAGE_1_LAYOUT.characteristicCircle.height, PAGE_1_LAYOUT.characteristicCircle.top + index * 24.2));
+  stats.forEach(([name, value], index) => add(`characteristic.${name.toLowerCase()}`, 0, value, PAGE_1_LAYOUT.characteristicCircle.x, PAGE_1_LAYOUT.characteristicCircle.x2, 272.4 + index * 24.2, 11, false, PAGE_1_LAYOUT.characteristicCircle.height, PAGE_1_LAYOUT.characteristicCircle.top + index * 24.2));
   const attributes = Object.entries(data.attributes);
-  attributes.forEach(([name, value], index) => add(`attribute.${name}`, 0, value, PAGE_1_LAYOUT.attributeCircle.x, PAGE_1_LAYOUT.attributeCircle.x2, 272.4 + index * 24.2, 12, false, PAGE_1_LAYOUT.attributeCircle.height, PAGE_1_LAYOUT.attributeCircle.top + index * 24.2));
+  attributes.forEach(([name, value], index) => add(`attribute.${name}`, 0, value, PAGE_1_LAYOUT.attributeCircle.x, PAGE_1_LAYOUT.attributeCircle.x2, 272.4 + index * 24.2, 10.5, false, PAGE_1_LAYOUT.attributeCircle.height, PAGE_1_LAYOUT.attributeCircle.top + index * 24.2));
   const standard = Object.entries(data.standard);
-  standard.forEach(([name, value], index) => add(`skill.standard.${slug(name)}`, 0, value, ...PAGE_1_LAYOUT.standardSkillValues, skillRows[index]!, 8));
-  Object.entries(data.resistances).forEach(([name, value], index) => add(`skill.resistance.${slug(name)}`, 0, value, ...PAGE_1_LAYOUT.resistanceValues, 710 + index * 12, 8));
+  standard.forEach(([name, value], index) => {
+    const rect = ruledRect(...PAGE_1_LAYOUT.standardSkillValues, skillRows[index]!);
+    add(`skill.standard.${slug(name)}`, 0, value, rect.x, rect.x2, skillRows[index]!, 8, false, rect.height, rect.top);
+  });
+  Object.entries(data.resistances).forEach(([name, value], index) => {
+    const baseline = 710 + index * 12, rect = ruledRect(...PAGE_1_LAYOUT.resistanceValues, baseline);
+    add(`skill.resistance.${slug(name)}`, 0, value, rect.x, rect.x2, baseline, 8, false, rect.height, rect.top);
+  });
 
   const skillGroup = (group: SheetData["professional"], prefix: string, capacity: number, ys: number[], cols: [number, number, number, number, number, number]) => {
     for (let index = 0; index < capacity; index++) {
       const row = group[index];
-      add(`${prefix}.${index + 1}.name`, 0, row?.name ?? "", cols[0], cols[1], ys[index]!);
-      add(`${prefix}.${index + 1}.base`, 0, row?.base ?? "", cols[2], cols[3], ys[index]!, 8);
-      add(`${prefix}.${index + 1}.total`, 0, row?.total ?? "", cols[4], cols[5], ys[index]!, 8);
+      for (const [suffix, left, right, size] of [["name", cols[0], cols[1], 8], ["base", cols[2], cols[3], 8], ["total", cols[4], cols[5], 8]] as const) {
+        const rect = ruledRect(left, right, ys[index]!);
+        add(`${prefix}.${index + 1}.${suffix}`, 0, row?.[suffix] ?? "", rect.x, rect.x2, ys[index]!, size, false, rect.height, rect.top);
+      }
     }
   };
   skillGroup(data.professional, "skill.professional", professionalRows.length, professionalRows,
@@ -121,13 +132,17 @@ function formFields(data: SheetData): ExportField[] {
   for (let index = 0; index < languageRows.length; index++) {
     const row = data.languages[index];
     const [nameLeft, nameRight] = row?.native ? PAGE_1_LAYOUT.languageNativeName : PAGE_1_LAYOUT.languageName;
-    add(`skill.language.${index + 1}.name`, 0, row?.name ?? "", nameLeft, nameRight, languageRows[index]!);
-    add(`skill.language.${index + 1}.total`, 0, row?.total ?? "", ...PAGE_1_LAYOUT.languageTotal, languageRows[index]!, 8);
+    const nameRect = ruledRect(nameLeft, nameRight, languageRows[index]!);
+    const totalRect = ruledRect(...PAGE_1_LAYOUT.languageTotal, languageRows[index]!);
+    add(`skill.language.${index + 1}.name`, 0, row?.name ?? "", nameRect.x, nameRect.x2, languageRows[index]!, 8, false, nameRect.height, nameRect.top);
+    add(`skill.language.${index + 1}.total`, 0, row?.total ?? "", totalRect.x, totalRect.x2, languageRows[index]!, 8, false, totalRect.height, totalRect.top);
   }
   for (let index = 0; index < 6; index++) {
     const row = data.passions[index];
-    add(`passion.${index + 1}.name`, 0, row?.label ?? "", ...PAGE_1_LAYOUT.passionName, 685.4 + index * 12);
-    add(`passion.${index + 1}.value`, 0, row?.total ?? "", ...PAGE_1_LAYOUT.passionTotal, 685.4 + index * 12, 8);
+    const nameRect = ruledRect(...PAGE_1_LAYOUT.passionName, 685.4 + index * 12);
+    const totalRect = ruledRect(...PAGE_1_LAYOUT.passionTotal, 685.4 + index * 12);
+    add(`passion.${index + 1}.name`, 0, row?.label ?? "", nameRect.x, nameRect.x2, 685.4 + index * 12, 8, false, nameRect.height, nameRect.top);
+    add(`passion.${index + 1}.value`, 0, row?.total ?? "", totalRect.x, totalRect.x2, 685.4 + index * 12, 8, false, totalRect.height, totalRect.top);
   }
 
   // The print renderer has thirteen ruled lines in this panel; preserve each as an independent editable slot.
@@ -209,14 +224,16 @@ function checkboxes(): ExportCheck[] {
   const checks: ExportCheck[] = [];
   const add = (name: string, page: 0 | 1, x: number, top: number, size = 8) => checks.push({ name, page, x, y: PAGE_HEIGHT - top - size, size });
   const tableCheckboxSize = PAGE_1_LAYOUT.tableCheckboxSize;
-  ["str", "con", "siz", "dex", "int", "pow", "cha"].forEach((name, i) => add(`checkboxes.characteristic.${name}`, 0, 167, 259.8 + i * 24.2, PAGE_1_LAYOUT.characteristicCheckboxSize));
-  ["action_points", "damage_modifier", "experience_modifier", "healing_rate", "initiative", "luck_points", "movement"].forEach((name, i) => add(`checkboxes.attribute.${name}`, 0, 355, 259.8 + i * 24.2, PAGE_1_LAYOUT.characteristicCheckboxSize));
+  const squareInset = (20.4 - PAGE_1_LAYOUT.characteristicCheckboxSize) / 2;
+  ["str", "con", "siz", "dex", "int", "pow", "cha"].forEach((name, i) => add(`checkboxes.characteristic.${name}`, 0, 167 + squareInset, 259.8 + i * 24.2 + squareInset, PAGE_1_LAYOUT.characteristicCheckboxSize));
+  ["action_points", "damage_modifier", "experience_modifier", "healing_rate", "initiative", "luck_points", "movement"].forEach((name, i) => add(`checkboxes.attribute.${name}`, 0, 355 + squareInset, 259.8 + i * 24.2 + squareInset, PAGE_1_LAYOUT.characteristicCheckboxSize));
+  const tableInset = 0.5;
   const skillNames = ["athletics", "boating", "conceal", "customs", "dance", "deceit", "drive", "first_aid", "influence", "insight", "locale", "perception", "ride", "sing", "stealth", "swim", "unarmed"];
-  skillNames.forEach((name, i) => add(`checkboxes.skills.standard.${name}`, 0, 145, 464 + i * 12, tableCheckboxSize));
-  ["brawn", "endurance", "evade", "willpower"].forEach((name, i) => add(`checkboxes.skills.resistance.${name}`, 0, 145, 704 + i * 12, tableCheckboxSize));
-  for (let i = 0; i < 15; i++) add(`checkboxes.skills.professional.${i + 1}`, 0, 335, 464 + i * 12, tableCheckboxSize);
-  for (let i = 0; i < 9; i++) add(`checkboxes.skills.magical.${i + 1}`, 0, 526, 535.6 + i * 12, tableCheckboxSize);
-  for (let i = 0; i < 6; i++) add(`checkboxes.skills.language.${i + 1}`, 0, 335, 680 + i * 12, tableCheckboxSize);
+  skillNames.forEach((name, i) => add(`checkboxes.skills.standard.${name}`, 0, 145 + tableInset, 464 + i * 12 + tableInset, tableCheckboxSize));
+  ["brawn", "endurance", "evade", "willpower"].forEach((name, i) => add(`checkboxes.skills.resistance.${name}`, 0, 145 + tableInset, 704 + i * 12 + tableInset, tableCheckboxSize));
+  for (let i = 0; i < 15; i++) add(`checkboxes.skills.professional.${i + 1}`, 0, 335 + tableInset, 464 + i * 12 + tableInset, tableCheckboxSize);
+  for (let i = 0; i < 9; i++) add(`checkboxes.skills.magical.${i + 1}`, 0, 526 + tableInset, 535.6 + i * 12 + tableInset, tableCheckboxSize);
+  for (let i = 0; i < 6; i++) add(`checkboxes.skills.language.${i + 1}`, 0, 335 + tableInset, 680 + i * 12 + tableInset, tableCheckboxSize);
   for (let i = 0; i < 4; i++) add(`checkboxes.combat_style.${i + 1}`, 1, 333, 522.6 + i * 12);
   const fatigueTop = 57;
   for (let i = 0; i < 10; i++) add(`checkboxes.fatigue.${i + 1}`, 1, 410, fatigueTop + i * 21.2);
@@ -248,8 +265,15 @@ export async function renderEditableCharacterSheet(data: SheetData, options: { t
       borderColor: field.page === 0 && options.debugPage1Outlines ? rgb(0.9, 0, 0) : undefined,
       backgroundColor: undefined, textColor: rgb(0, 0, 0), font,
     });
-    const maxWidth = Math.max(1, field.x2 - field.x - 2);
-    const actualSize = field.value ? Math.min(field.size ?? 8, Math.max(5, (field.size ?? 8) * maxWidth / font.widthOfTextAtSize(field.value.replace(/\s+/g, " "), field.size ?? 8))) : field.size ?? 8;
+    const maxWidth = Math.max(1, field.x2 - field.x - (field.page === 0 ? 4 : 2));
+    const requestedSize = field.size ?? 8;
+    // Multiline values wrap in the widget. Measuring all paragraphs as one
+    // flattened line made long background notes collapse to tiny type.
+    const measuredValue = field.multiline ? field.value.split(/\r?\n/).reduce((longest, line) =>
+      font.widthOfTextAtSize(line, requestedSize) > font.widthOfTextAtSize(longest, requestedSize) ? line : longest, "") : field.value;
+    const minimumSize = field.multiline ? Math.min(7.5, requestedSize) : 5;
+    const actualSize = measuredValue ? Math.min(requestedSize,
+      Math.max(minimumSize, requestedSize * maxWidth / Math.max(1, font.widthOfTextAtSize(measuredValue, requestedSize)))) : requestedSize;
     input.setFontSize(actualSize);
     const value = [...field.value].map(char => {
       if (char === "\n" && field.multiline) return char;
@@ -261,8 +285,11 @@ export async function renderEditableCharacterSheet(data: SheetData, options: { t
     const checkbox = form.createCheckBox(spec.name);
     checkbox.addToPage(doc.getPages()[spec.page]!, {
       x: spec.x, y: spec.y, width: spec.size, height: spec.size,
-      borderWidth: spec.page === 0 && options.debugPage1Outlines ? 0.6 : 0,
-      borderColor: spec.page === 0 && options.debugPage1Outlines ? rgb(0, 0, 0.9) : undefined,
+      // A zero-width checkbox stroke becomes a device-width hairline in PDF
+      // viewers. Use a subpixel white stroke so only the template's printed
+      // square remains visible around the inset click target.
+      borderWidth: spec.page === 0 ? (options.debugPage1Outlines ? 0.6 : 0.01) : 0,
+      borderColor: spec.page === 0 ? (options.debugPage1Outlines ? rgb(0, 0, 0.9) : rgb(1, 1, 1)) : undefined,
       backgroundColor: undefined,
     });
   }
