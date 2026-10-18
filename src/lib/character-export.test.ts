@@ -94,8 +94,15 @@ describe("character downloads", () => {
     expectRect("character.description", { x: 76, top: 111, width: 298, height: 27 });
     expectRect("character.notes", { x: 33, top: 161, width: 347, height: 76 });
     expectRect("character.experience_rolls", { x: 409, top: 111, width: 163, height: 31 });
-    expectRect("money.income.day", { x: 457, top: 224.5, width: 18, height: 7 });
-    expectRect("money.silver_pieces", { x: 459, top: 224.5, width: 18, height: 7 });
+    expectRect("money.income.day", { x: 457, top: 219, width: 18, height: 7 });
+    expectRect("money.silver_pieces", { x: 459, top: 232, width: 18, height: 7 });
+    const incomeDayRect = rect("money.income.day");
+    const silverPiecesRect = rect("money.silver_pieces");
+    const overlaps = incomeDayRect.x < silverPiecesRect.x + silverPiecesRect.width
+      && silverPiecesRect.x < incomeDayRect.x + incomeDayRect.width
+      && incomeDayRect.top < silverPiecesRect.top + silverPiecesRect.height
+      && silverPiecesRect.top < incomeDayRect.top + incomeDayRect.height;
+    expect(overlaps).toBe(false);
     expectRect("magic_points.used_active_effects", { x: 553, top: 490, width: 18, height: 7 });
     expectRect("character.cult_information", { x: 416, top: 263, width: 155, height: 145 });
     expectRect("magic.devotional_pool_current", { x: 509, top: 415, width: 22, height: 7 });
