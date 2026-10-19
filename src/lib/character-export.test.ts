@@ -245,6 +245,69 @@ describe("character downloads", () => {
     expect(reopened.getForm().getTextField("passion.2.name").getText()).toBe("Hate (The Usurper's Entire House)");
   });
 
+  test("places Character Details text above each printed writing rule without clipping descenders", async () => {
+    reset(false);
+    const data = buildSheetData(currentSheetSource());
+    Object.assign(data.identity, { name: "Freddy Unwin", player: "Gwyn", race: "Human / Civilised", gender: "Male", frame: "Lithe",
+      homeland: "Meeros", age: "24", height: "178 cm", career: "Sorcerer", handedness: "Right", weight: "70 kg", socialClass: "Gentry" });
+    const doc = await PDFDocument.load(await renderEditableCharacterSheet(data, { template }));
+    const form = doc.getForm();
+    const font = await doc.embedFont(StandardFonts.Helvetica);
+    const pageHeight = doc.getPage(0).getHeight();
+    // Rule tops measured from the official template, in top-origin points.
+    const rules: Record<string, number> = {
+      name: 38.8, player: 54.8, race_culture: 54.8, gender: 70.8, frame: 70.8, homeland: 70.8,
+      age: 86.8, height: 86.8, career: 86.8, handedness: 102.8, weight: 102.8, social_class: 102.8,
+    };
+    for (const [key, ruleTop] of Object.entries(rules)) {
+      const field = form.getTextField(`character.${key}`);
+      const rect = field.acroField.getWidgets()[0]!.getRectangle();
+      const size = Number(/([\d.]+) Tf/.exec(field.acroField.getDefaultAppearance() ?? "")?.[1]);
+      // pdf-lib's single-line appearance: 1pt inset, ascender box centred vertically.
+      const baseline = rect.y + rect.height / 2 - font.heightAtSize(size, { descender: false }) / 2;
+      const descenderBottom = baseline - (font.heightAtSize(size) - font.heightAtSize(size, { descender: false }));
+      expect(field.getText()).toBeTruthy();
+      expect(rect.y).toBeGreaterThanOrEqual(pageHeight - ruleTop - 0.01);
+      expect(descenderBottom).toBeGreaterThanOrEqual(rect.y + 1 - 0.01);
+      expect(baseline - (pageHeight - ruleTop)).toBeLessThan(4);
+    }
+  });
+
+  test("shrinks long Notes to fit their printed box and continues overflow on an editable page", async () => {
+    reset(false);
+    const data = buildSheetData(currentSheetSource());
+    const paragraph = (index: number) => `${index}. Background: grew up in the river quarter, apprenticed to a hedge wizard, fled after an accident with a summoning circle and now wanders looking for answers.`;
+    const fontSize = (field: ReturnType<ReturnType<PDFDocument["getForm"]>["getTextField"]>) =>
+      Number(/([\d.]+) Tf/.exec(field.acroField.getDefaultAppearance() ?? "")?.[1]);
+
+    data.notes = Array.from({ length: 5 }, (_, index) => paragraph(index + 1));
+    let doc = await PDFDocument.load(await renderEditableCharacterSheet(data, { template }));
+    expect(doc.getPageCount()).toBe(2);
+    expect(doc.getForm().getTextField("character.notes").getText()).toBe(data.notes.join("\n"));
+    expect(fontSize(doc.getForm().getTextField("character.notes"))).toBeLessThan(8.5);
+    expect(fontSize(doc.getForm().getTextField("character.notes"))).toBeGreaterThanOrEqual(6);
+
+    data.notes = Array.from({ length: 12 }, (_, index) => paragraph(index + 1));
+    doc = await PDFDocument.load(await (await PDFDocument.load(await renderEditableCharacterSheet(data, { template }))).save());
+    expect(doc.getPageCount()).toBe(3);
+    const kept = doc.getForm().getTextField("character.notes").getText()!;
+    const rest = doc.getForm().getTextField("character.notes_continued").getText()!;
+    expect(kept.endsWith("(Continued on page 3: Notes, continued)")).toBe(true);
+    const words = (text: string) => text.split(/\s+/).filter(Boolean);
+    const shown = kept.slice(0, kept.lastIndexOf("\n"));
+    expect([...words(shown), ...words(rest)]).toEqual(words(data.notes.join("\n")));
+    expect(fontSize(doc.getForm().getTextField("character.notes"))).toBe(6);
+
+    data.notes = [];
+    doc = await PDFDocument.load(await renderEditableCharacterSheet(data, { template }));
+    expect(doc.getPageCount()).toBe(2);
+    const empty = doc.getForm().getTextField("character.notes");
+    expect(empty.isReadOnly()).toBe(false);
+    empty.setText("Player-written note");
+    const reopened = await PDFDocument.load(await doc.save());
+    expect(reopened.getForm().getTextField("character.notes").getText()).toBe("Player-written note");
+  });
+
   test("exports distinct recorded weapon HP values and leaves the print renderer independent", async () => {
     reset(false);
     char.name = "Rook";

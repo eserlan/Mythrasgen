@@ -1,4 +1,5 @@
-import { PDFDocument, StandardFonts, TextAlignment, rgb } from "pdf-lib";
+import { PDFDocument, StandardFonts, TextAlignment, layoutMultilineText, rgb } from "pdf-lib";
+import type { PDFFont } from "pdf-lib";
 import type { SheetData } from "./sheet-data";
 import type { Character } from "./store.svelte";
 import { resolveBackgroundEvent } from "./background-rules";
@@ -15,7 +16,7 @@ const meleeRows = rows(626.6, 12, 7);
 const rangedRows = rows(722.6, 12, 3);
 const stylesRows = rows(528.4, 12, 4);
 
-interface ExportField { name: string; page: 0 | 1; value: string; x: number; x2: number; baseline: number; size?: number; multiline?: boolean; height?: number; top?: number }
+interface ExportField { name: string; page: 0 | 1; value: string; x: number; x2: number; baseline: number; size?: number; multiline?: boolean; height?: number; top?: number; fixed?: boolean }
 interface ExportCheck { name: string; page: 0 | 1; x: number; y: number; size: number }
 
 type Page1Rect = { x: number; x2: number; top: number; height: number };
@@ -27,21 +28,27 @@ const insetRect = (rect: Page1Rect, insetX: number, insetY: number): Page1Rect =
 // PDF text appearances are vertically centred inside their widgets. Keep the
 // click target above each printed rule so the rule remains below the glyphs.
 const ruledRect = (x: number, x2: number, baseline: number): Page1Rect => fixedRect(x + 1.25, x2 - 1.25, baseline - 8, 7);
+// Character Details widgets sit wholly above their writing rule. pdf-lib
+// centres single-line glyphs (baseline = height / 2 - 0.359 * size) inside a
+// 1pt clip inset, so 12pt leaves room for 8pt descenders above the rule.
+const HEADER_FIELD_HEIGHT = 12;
+const headerRect = (x: number, x2: number, rule: number): Page1Rect => fixedRect(x, x2, rule - HEADER_FIELD_HEIGHT, HEADER_FIELD_HEIGHT);
 
 /** Page 1 widget extents, measured against the official A4 template (top-left origin). */
 const PAGE_1_LAYOUT = {
-  characterName: fixedRect(100, 374, 32.5, 8),
-  playerName: fixedRect(76, 202, 48.5, 8),
-  raceCulture: fixedRect(264, 374, 48.5, 8),
-  gender: fixedRect(60, 110, 64.5, 8),
-  frame: fixedRect(148, 202, 64.5, 8),
-  homeland: fixedRect(252, 374, 64.5, 8),
-  age: fixedRect(48, 110, 80.5, 8),
-  height: fixedRect(152, 202, 80.5, 8),
-  career: fixedRect(240, 374, 80.5, 8),
-  handedness: fixedRect(76, 110, 96.5, 8),
-  weight: fixedRect(152, 202, 96.5, 8),
-  socialClass: fixedRect(260, 374, 96.5, 8),
+  // Rule tops measured from the template: 38.8, then every 16pt to 102.8.
+  characterName: headerRect(100, 374, 38.8),
+  playerName: headerRect(76, 202, 54.8),
+  raceCulture: headerRect(264, 374, 54.8),
+  gender: headerRect(60, 110, 70.8),
+  frame: headerRect(148, 202, 70.8),
+  homeland: headerRect(252, 374, 70.8),
+  age: headerRect(48, 110, 86.8),
+  height: headerRect(152, 202, 86.8),
+  career: headerRect(240, 374, 86.8),
+  handedness: headerRect(76, 110, 102.8),
+  weight: headerRect(152, 202, 102.8),
+  socialClass: headerRect(260, 374, 102.8),
   description: fixedRect(76, 374, 111, 27),
   notes: insetRect(fixedRect(31, 382, 158, 82), 2, 3),
   experienceRolls: insetRect(fixedRect(407, 574, 109, 35), 2, 2),
@@ -87,7 +94,10 @@ function formFields(data: SheetData): ExportField[] {
     ["character.career", identity.career, PAGE_1_LAYOUT.career], ["character.handedness", identity.handedness, PAGE_1_LAYOUT.handedness],
     ["character.weight", identity.weight, PAGE_1_LAYOUT.weight], ["character.social_class", identity.socialClass, PAGE_1_LAYOUT.socialClass],
   ] as const;
-  identityFields.forEach(([name, value, rect]) => add(name, 0, value, rect.x, rect.x2, rect.top + 8, 8, false, rect.height, rect.top));
+  identityFields.forEach(([name, value, rect]) => {
+    add(name, 0, value, rect.x, rect.x2, rect.top + rect.height, 8, false, rect.height, rect.top);
+    fields.at(-1)!.fixed = true;
+  });
   add("character.description", 0, identity.description, PAGE_1_LAYOUT.description.x, PAGE_1_LAYOUT.description.x2, 124, 8, true, PAGE_1_LAYOUT.description.height, PAGE_1_LAYOUT.description.top);
   add("character.notes", 0, data.notes.join("\n"), PAGE_1_LAYOUT.notes.x, PAGE_1_LAYOUT.notes.x2, 176, 8.5, true, PAGE_1_LAYOUT.notes.height, PAGE_1_LAYOUT.notes.top);
   add("character.experience_rolls", 0, "", PAGE_1_LAYOUT.experienceRolls.x, PAGE_1_LAYOUT.experienceRolls.x2, 122, 8, true, PAGE_1_LAYOUT.experienceRolls.height, PAGE_1_LAYOUT.experienceRolls.top);
@@ -242,6 +252,60 @@ function checkboxes(): ExportCheck[] {
   return checks;
 }
 
+const NOTES_FIELD = "character.notes";
+const NOTES_MIN_SIZE = 6;
+const NOTES_CONTINUED_MARKER = "(Continued on page 3: Notes, continued)";
+
+/** True when pdf-lib's own multiline appearance layout keeps every line, descenders included, inside the widget. */
+function multilineFits(text: string, font: PDFFont, size: number, width: number, height: number, borderWidth = 0): boolean {
+  const inset = borderWidth + 1;
+  const bounds = { x: inset, y: inset, width: width - inset * 2, height: height - inset * 2 };
+  const { lines } = layoutMultilineText(text, { alignment: TextAlignment.Left, font, fontSize: size, bounds });
+  const descent = font.heightAtSize(size) - font.heightAtSize(size, { descender: false });
+  const last = lines.at(-1);
+  return !last || last.y - descent >= bounds.y - 0.01;
+}
+
+/**
+ * Chooses the largest readable size at which the whole text fits. Text that
+ * cannot fit even at the minimum size is split at a word boundary; the rest is
+ * returned for a continuation page instead of being clipped or truncated.
+ */
+function fitMultiline(text: string, font: PDFFont, preferred: number, width: number, height: number, borderWidth = 0): { size: number; kept: string; rest: string } {
+  for (let size = preferred; size >= NOTES_MIN_SIZE; size -= 0.25) {
+    if (multilineFits(text, font, size, width, height, borderWidth)) return { size, kept: text, rest: "" };
+  }
+  const boundaries = [...text.matchAll(/\s+/g)].map(match => match.index!);
+  const keptAt = (index: number) => `${text.slice(0, index).trimEnd()}\n${NOTES_CONTINUED_MARKER}`;
+  let low = 0, high = boundaries.length - 1, best = -1;
+  while (low <= high) {
+    const mid = (low + high) >> 1;
+    if (multilineFits(keptAt(boundaries[mid]!), font, NOTES_MIN_SIZE, width, height, borderWidth)) { best = mid; low = mid + 1; } else high = mid - 1;
+  }
+  const cut = best < 0 ? 0 : boundaries[best]!;
+  return { size: NOTES_MIN_SIZE, kept: cut ? keptAt(cut) : NOTES_CONTINUED_MARKER, rest: text.slice(cut).trim() };
+}
+
+/** Appends an editable continuation page so overflowing Notes stay printable. */
+async function addNotesContinuation(doc: PDFDocument, font: PDFFont, name: string, text: string) {
+  const [width, height] = [doc.getPages()[0]!.getWidth(), PAGE_HEIGHT];
+  const page = doc.addPage([width, height]);
+  const bold = await doc.embedFont(StandardFonts.HelveticaBold);
+  page.drawText("Notes (Background, Culture, Family, …) — continued", { x: 40, y: height - 52, size: 14, font: bold, color: rgb(0, 0, 0) });
+  if (name) page.drawText([...name].map(char => { try { font.encodeText(char); return char; } catch { return "?"; } }).join(""), { x: 40, y: height - 68, size: 10, font, color: rgb(0, 0, 0) });
+  const box = { x: 40, y: 40, width: width - 80, height: height - 120 };
+  page.drawRectangle({ ...box, borderWidth: 0.75, borderColor: rgb(0, 0, 0) });
+  const field = doc.getForm().createTextField("character.notes_continued");
+  field.enableMultiline();
+  field.enableScrolling();
+  field.addToPage(page, { x: box.x + 4, y: box.y + 4, width: box.width - 8, height: box.height - 8, borderWidth: 0, borderColor: undefined, backgroundColor: undefined, textColor: rgb(0, 0, 0), font });
+  const fit = fitMultiline(text, font, 9, box.width - 8, box.height - 8);
+  field.setFontSize(fit.size);
+  // A single page holds far more than any generated background; keep the
+  // complete remainder in the field even in the unlikely event it scrolls.
+  field.setText(text);
+}
+
 /** Adds real AcroForm text controls over the same two-page official print output. */
 export async function renderEditableCharacterSheet(data: SheetData, options: { template: Uint8Array | ArrayBuffer; debugPage1Outlines?: boolean }): Promise<Uint8Array> {
   // Starting from the original artwork keeps fields genuinely editable: clearing
@@ -251,6 +315,7 @@ export async function renderEditableCharacterSheet(data: SheetData, options: { t
   const form = doc.getForm();
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const seen = new Set<string>();
+  let notesContinuation = "";
   for (const field of formFields(data)) {
     if (seen.has(field.name)) throw new Error(`Duplicate PDF form field: ${field.name}`);
     seen.add(field.name);
@@ -271,31 +336,41 @@ export async function renderEditableCharacterSheet(data: SheetData, options: { t
     const measuredValue = field.multiline ? field.value.split(/\r?\n/).reduce((longest, line) =>
       font.widthOfTextAtSize(line, requestedSize) > font.widthOfTextAtSize(longest, requestedSize) ? line : longest, "") : field.value;
     const minimumSize = 5;
-    // Multiline widgets wrap at their own width. Shrinking them against the
-    // unwrapped paragraph width made long notes unreadably small; keep their
-    // chosen readable size and retain the complete value for scrolling/editing.
-    const actualSize = field.multiline ? requestedSize : measuredValue ? Math.min(requestedSize,
-      Math.max(minimumSize, requestedSize * maxWidth / Math.max(1, font.widthOfTextAtSize(measuredValue, requestedSize)))) : requestedSize;
+    let value = [...field.value].map(char => {
+      if (char === "\n" && field.multiline) return char;
+      try { font.encodeText(char); return char; } catch { return "?"; }
+    }).join("");
+    const borderWidth = field.page === 0 && options.debugPage1Outlines ? 0.6 : 0;
+    // Multiline widgets wrap at their own width, so shrinking them against the
+    // unwrapped paragraph width made long notes unreadably small. Other
+    // multiline fields keep their chosen size; Notes shrink by wrapped height
+    // and continue onto an extra page rather than being clipped.
+    let fittedSize: number | undefined;
+    if (field.name === NOTES_FIELD && value) {
+      const fit = fitMultiline(value, font, requestedSize, layout.x2 - layout.x, height, borderWidth);
+      fittedSize = fit.size;
+      value = fit.kept;
+      notesContinuation = fit.rest;
+    }
+    const actualSize = fittedSize ?? (field.multiline ? requestedSize : measuredValue ? Math.min(requestedSize,
+      Math.max(minimumSize, requestedSize * maxWidth / Math.max(1, font.widthOfTextAtSize(measuredValue, requestedSize)))) : requestedSize);
     // pdf-lib lays out single-line appearance text inside a one-point inset,
     // centering the font's ascender box vertically. Place page-one widgets
     // from the printed text baseline so that appearance metrics, not the
     // widget rectangle's center, determine where the value sits on the rule.
-    const top = field.page === 0 && !field.multiline
+    const top = field.page === 0 && !field.multiline && !field.fixed
       ? field.baseline - (height + font.heightAtSize(actualSize, { descender: false })) / 2
       : layout.top;
     input.addToPage(doc.getPages()[field.page]!, {
       x: layout.x, y: PAGE_HEIGHT - top - height, width: layout.x2 - layout.x, height,
-      borderWidth: field.page === 0 && options.debugPage1Outlines ? 0.6 : 0,
+      borderWidth,
       borderColor: field.page === 0 && options.debugPage1Outlines ? rgb(0.9, 0, 0) : undefined,
       backgroundColor: undefined, textColor: rgb(0, 0, 0), font,
     });
     input.setFontSize(actualSize);
-    const value = [...field.value].map(char => {
-      if (char === "\n" && field.multiline) return char;
-      try { font.encodeText(char); return char; } catch { return "?"; }
-    }).join("");
     if (value) input.setText(value);
   }
+  if (notesContinuation) await addNotesContinuation(doc, font, data.identity.name, notesContinuation);
   for (const spec of checkboxes()) {
     const checkbox = form.createCheckBox(spec.name);
     checkbox.addToPage(doc.getPages()[spec.page]!, {
