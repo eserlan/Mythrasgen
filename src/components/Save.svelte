@@ -1,13 +1,18 @@
 <script lang="ts">
+  import { onMount } from "svelte";
+
   let { onSave, onDownload, onBack }: {
     onSave: () => void;
     onDownload: (format: "pdf" | "markdown") => void;
     onBack: () => void;
   } = $props();
+
+  let heading: HTMLHeadingElement;
+  onMount(() => heading.focus());
 </script>
 
 <section class="save-page page" aria-labelledby="save-title">
-  <div class="head"><span class="numeral" aria-hidden="true">↓</span><div><h2 id="save-title">Save Character</h2><p class="intro">Save the active character to this device.</p></div></div>
+  <div class="head"><span class="numeral" aria-hidden="true">↓</span><div><h2 id="save-title" bind:this={heading} tabindex="-1">Save Character</h2><p class="intro">Save the active character to this device.</p></div></div>
   <div class="card save-card">
     <section class="save-option" aria-labelledby="save-character-title">
       <h3 id="save-character-title">Character data</h3>

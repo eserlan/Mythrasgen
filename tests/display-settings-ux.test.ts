@@ -36,6 +36,9 @@ describe("display settings interface", () => {
   test("Save screen contains one copy of each active-character export", () => {
     expect(app).toContain('<button aria-current={showSave ? "page" : undefined} onclick={() => { showSave = true;');
     expect(app).toContain("<Save onSave={save} onDownload={downloadCharacter}");
+    expect(save).toContain('import { onMount } from "svelte";');
+    expect(save).toContain("onMount(() => heading.focus());");
+    expect(save).toContain('<h2 id="save-title" bind:this={heading} tabindex="-1">Save Character</h2>');
     expect(save.match(/>Download Character</g)).toHaveLength(1);
     expect(save).toContain("Save the active character to this device.");
     expect(save.match(/>Editable PDF</g)).toHaveLength(1);
