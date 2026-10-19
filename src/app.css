@@ -394,6 +394,11 @@ svg.body text{text-anchor:middle;fill:var(--fg)}svg.body .hp{font:700 15px var(-
 .settings-preview-controls{display:flex;align-items:end;flex-wrap:wrap;gap:12px}
 .settings-preview-controls .field{flex:1 1 220px}
 .settings-actions{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:16px}
+.save-card{display:grid;gap:20px}
+.save-option+.save-option{border-top:1px solid var(--line);padding-top:18px}
+.save-option h3{margin:0 0 6px}
+.save-option p{margin:0 0 12px;color:var(--mute)}
+.save-actions{display:flex;flex-wrap:wrap;gap:8px}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 
 /* print: a plain ink-on-paper sheet */

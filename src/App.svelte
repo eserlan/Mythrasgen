@@ -11,6 +11,7 @@
   import Magic from "./components/Magic.svelte";
   import Combat from "./components/Combat.svelte";
   import Characters from "./components/Characters.svelte";
+  import Save from "./components/Save.svelte";
   import Settings from "./components/Settings.svelte";
   import { applyDisplaySettings, loadDisplaySettings, saveDisplaySettings } from "./lib/display-settings";
   import { canFinishPointBuy } from "./lib/calc";
@@ -19,6 +20,7 @@
 
   let open = $state(false);
   let showLibrary = $state(false);
+  let showSave = $state(false);
   let showSettings = $state(false);
   let displaySettings = $state(loadDisplaySettings());
   let printMode = $state<"titles-and-appendix" | "titles-only" | "notes-and-appendix" | "notes-only" | "appendix-only">("titles-and-appendix");
@@ -90,18 +92,18 @@
 {:else}
 <header class="noprint" class:open>
   <div class="top">
-    <button class="brand" onclick={() => { char.home = true; showSettings = false; showLibrary = false; }} title="Back to the start"><span>◆</span> Mythras <em>Chargen</em></button>
+    <button class="brand" onclick={() => { char.home = true; showSettings = false; showLibrary = false; showSave = false; }} title="Back to the start"><span>◆</span> Mythras <em>Chargen</em></button>
     <button class="burger" aria-label="Menu" aria-expanded={open} onclick={() => (open = !open)}>☰</button>
     <div class="tools" role="presentation" onclick={() => (open = false)}>
-      <button onclick={() => { showLibrary = true; showSettings = false; }}>Characters</button>
-      <button aria-current={showSettings ? "page" : undefined} onclick={() => { showSettings = true; showLibrary = false; open = false; }}>Settings</button>
-      <button onclick={save}>Save</button>
+      <button onclick={() => { showLibrary = true; showSettings = false; showSave = false; }}>Characters</button>
+      <button aria-current={showSettings ? "page" : undefined} onclick={() => { showSettings = true; showLibrary = false; showSave = false; open = false; }}>Settings</button>
+      <button aria-current={showSave ? "page" : undefined} onclick={() => { showSave = true; showLibrary = false; showSettings = false; open = false; }}>Save</button>
       <label class="btn">Load<input type="file" accept=".json" hidden onchange={loadFile}></label>
       <button onclick={openPrintDialog} disabled={!canVisit(last)}>Print</button>
-      <button onclick={newChar}>New</button>
+      <button onclick={() => { newChar(); showSave = false; showSettings = false; }}>New</button>
     </div>
   </div>
-  {#if !showLibrary && !showSettings}
+  {#if !showLibrary && !showSettings && !showSave}
     <nav>
       {#each STEPS as s, i}
         <button class="step" class:on={i === char.step} class:done={i < char.step} disabled={!canVisit(i)} onclick={() => (char.step = i)}>
@@ -116,6 +118,8 @@
   <main><Settings settings={displaySettings} onChange={value => displaySettings = value} onReset={() => displaySettings = { textSize: "standard", fontStyle: "classic" }} onBack={() => showSettings = false} /></main>
 {:else if showLibrary}
   <main><Characters onOpen={() => (showLibrary = false)} onBack={() => (showLibrary = false)} /></main>
+{:else if showSave}
+  <main><Save onSave={save} onDownload={downloadCharacter} onBack={() => showSave = false} /></main>
 {:else}<main>
   {#key char.step}<div class="page">
   {#if char.step === 0}<Concept />
@@ -147,11 +151,6 @@
       <label><input type="radio" name="print-mode" value="notes-only" bind:group={printMode} /><span><strong>Character sheet with Magic notes only</strong><small>Official sheet with ability names and available rules notes; overflow is marked on the sheet.</small></span></label>
       <label><input type="radio" name="print-mode" value="appendix-only" bind:group={printMode} /><span><strong>Magic Appendix only</strong><small>Complete detailed reference pages without the official character sheet. If no abilities are recorded, prints the two-page sheet.</small></span></label>
     </fieldset>
-    <section class="character-downloads" aria-labelledby="download-character-title">
-      <h3 id="download-character-title">Download Character</h3>
-      <p>Save the active character to this device.</p>
-      <div><button type="button" class="secondary" onclick={() => downloadCharacter("pdf")}>Editable PDF</button><button type="button" class="secondary" onclick={() => downloadCharacter("markdown")}>Markdown (.md)</button></div>
-    </section>
     <footer><button type="button" class="secondary" onclick={() => printDialog.close()}>Cancel</button><button type="button" class="primary" onclick={print}>Print</button></footer>
   </form>
 </dialog>
