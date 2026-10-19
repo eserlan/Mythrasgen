@@ -5,6 +5,7 @@ import { compile } from "svelte/compiler";
 const app = readFileSync(new URL("../src/App.svelte", import.meta.url), "utf8");
 const landing = readFileSync(new URL("../src/components/Landing.svelte", import.meta.url), "utf8");
 const settings = readFileSync(new URL("../src/components/Settings.svelte", import.meta.url), "utf8");
+const save = readFileSync(new URL("../src/components/Save.svelte", import.meta.url), "utf8");
 const background = readFileSync(new URL("../src/components/Background.svelte", import.meta.url), "utf8");
 const css = readFileSync(new URL("../src/app.css", import.meta.url), "utf8");
 
@@ -26,10 +27,22 @@ describe("display settings interface", () => {
     expect(app).toContain('("titles-and-appendix");');
     expect(app).toContain("onclick={openPrintDialog}");
     expect(app).toContain("onclick={print}");
-    expect(app).toContain("Download Character");
-    expect(app).toContain("Editable PDF");
-    expect(app).toContain("Markdown (.md)");
+    expect(app).not.toContain("Download Character");
+    expect(app).not.toContain('downloadCharacter("pdf")');
+    expect(app).not.toContain('downloadCharacter("markdown")');
     expect(app).toContain("Cancel</button>");
+  });
+
+  test("Save screen contains one copy of each active-character export", () => {
+    expect(app).toContain('<button aria-current={showSave ? "page" : undefined} onclick={() => { showSave = true;');
+    expect(app).toContain("<Save onSave={save} onDownload={downloadCharacter}");
+    expect(save.match(/>Download Character</g)).toHaveLength(1);
+    expect(save).toContain("Save the active character to this device.");
+    expect(save.match(/>Editable PDF</g)).toHaveLength(1);
+    expect(save.match(/>Markdown \(.md\)<\/button>/g)).toHaveLength(1);
+    expect(save).toContain('onDownload("pdf")');
+    expect(save).toContain('onDownload("markdown")');
+    expect(compile(save, { filename: "src/components/Save.svelte", generate: "client" }).js.code).toContain("onDownload");
   });
 
   test("print dialog has responsive styling and visible keyboard focus", () => {
