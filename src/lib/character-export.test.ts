@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
-import { PDFDocument, StandardFonts } from "pdf-lib";
+import { inflateSync } from "node:zlib";
+import { PDFArray, PDFDocument, PDFRawStream, StandardFonts } from "pdf-lib";
 
 Object.defineProperty(globalThis, "$state", { value: <T>(value: T) => value, configurable: true });
 const { characterFilename, characterMarkdown, renderEditableCharacterSheet } = await import("./character-export");
@@ -9,6 +10,21 @@ const { currentSheetSource } = await import("./sheet-source");
 const { char, reset, replace } = await import("./store.svelte");
 const { EQUIPMENT_CATALOGUE } = await import("./equipment-catalogue");
 const template = readFileSync(new URL("../assets/mythras-character-sheet.pdf", import.meta.url));
+const renderedTextByPage = async (bytes: Uint8Array) => {
+  const doc = await PDFDocument.load(bytes);
+  return doc.getPages().map(page => {
+    const contents = page.node.Contents();
+    const streams = contents instanceof PDFArray ? contents.asArray() : contents ? [contents] : [];
+    return streams.flatMap(reference => {
+      const stream = doc.context.lookup(reference);
+      if (!(stream instanceof PDFRawStream)) return [];
+      try {
+        const content = inflateSync(stream.getContents()).toString("latin1");
+        return [...content.matchAll(/<([\da-f]+)>\s*Tj/gi)].map(([, hex]) => Buffer.from(hex, "hex").toString("latin1"));
+      } catch { return []; }
+    }).join(" ");
+  });
+};
 
 describe("character downloads", () => {
   test("sanitizes filenames and falls back for an empty name", () => {
@@ -67,6 +83,36 @@ describe("character downloads", () => {
     const saved = await doc.save();
     const reopened = await PDFDocument.load(saved);
     expect(reopened.getForm().getTextField("equipment.20.name").getText()).toBe("Added after export");
+  });
+
+  test("editable PDF appends the paginated magic appendix and preserves all official fields", async () => {
+    reset(false);
+    const data = buildSheetData(currentSheetSource());
+    const noMagic = await PDFDocument.load(await renderEditableCharacterSheet(data, { template }));
+    const officialFieldNames = noMagic.getForm().getFields().map(field => field.getName()).sort();
+    expect(noMagic.getPageCount()).toBe(2);
+
+    data.identity.name = "Appendix Character";
+    data.magic = Array.from({ length: 24 }, (_, index) => ({
+      tradition: index < 12 ? "Sorcery" : "Theism",
+      summary: `Ability ${index + 1}`,
+      detail: `Tradition — Ability ${index + 1}\nRules: ${"complete recorded detail ".repeat(55)}END-ABILITY-${index + 1}`,
+    }));
+    const bytes = await renderEditableCharacterSheet(data, { template });
+    const doc = await PDFDocument.load(bytes);
+    const form = doc.getForm();
+    expect(doc.getPageCount()).toBeGreaterThan(3);
+    expect(form.getFields().map(field => field.getName()).sort()).toEqual(officialFieldNames);
+    expect(form.getTextField("magic.sheet_line.13").getText()).toBe("Full descriptions: Magic Appendix");
+    const pageText = await renderedTextByPage(bytes);
+    expect(pageText[2]).toContain("Magic & Abilities");
+    expect(pageText.slice(2).join(" ")).toContain("END-ABILITY-1");
+    expect(pageText.slice(2).join(" ")).toContain("END-ABILITY-24");
+    expect(pageText.slice(2).join(" ")).not.toContain("omitted due to space");
+
+    form.getTextField("equipment.20.name").setText("Editable after appendix");
+    const reopened = await PDFDocument.load(await doc.save());
+    expect(reopened.getForm().getTextField("equipment.20.name").getText()).toBe("Editable after appendix");
   });
 
   test("page-one widgets fit the official writable areas and keep every blank slot editable", async () => {

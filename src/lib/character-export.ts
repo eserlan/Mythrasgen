@@ -4,6 +4,7 @@ import type { SheetData } from "./sheet-data";
 import { SHEET_HIT_LOCATIONS } from "./sheet-data";
 import type { Character } from "./store.svelte";
 import { resolveBackgroundEvent } from "./background-rules";
+import { appendMagicAppendix } from "./sheet-pdf";
 
 const PAGE_HEIGHT = 841.89;
 const rows = (start: number, gap: number, count: number) => Array.from({ length: count }, (_, index) => start + gap * index);
@@ -216,9 +217,13 @@ function formFields(data: SheetData): ExportField[] {
     magicGroups.set(entry.tradition, group);
   }
   const magicLines = [...magicGroups].flatMap(([tradition, entries]) => [tradition.toUpperCase(), ...entries]);
-  if (magicLines.length > p2.magicRules.length) {
-    const omitted = magicLines.length - (p2.magicRules.length - 1);
-    magicLines.splice(p2.magicRules.length - 1, magicLines.length, `Additional magic details omitted due to space (${omitted} lines)`);
+  if (data.magic.length) {
+    const appendixPointer = "Full descriptions: Magic Appendix";
+    if (magicLines.length >= p2.magicRules.length) {
+      magicLines.splice(p2.magicRules.length - 1, magicLines.length, appendixPointer);
+    } else {
+      magicLines.push(appendixPointer);
+    }
   }
   p2.magicRules.forEach((rule, index) => addRect(`magic.sheet_line.${index + 1}`, 1, magicLines[index] ?? "", onRuleRect(p2.magicLine, rule, 12), 7.5));
   const shift = (rect: Page1Rect, dy: number): Page1Rect => ({ ...rect, top: rect.top + dy });
@@ -445,6 +450,7 @@ export async function renderEditableCharacterSheet(data: SheetData, options: { t
     });
   }
   form.updateFieldAppearances(font);
+  await appendMagicAppendix(doc, data.identity.name, data.magic);
   return doc.save();
 }
 
