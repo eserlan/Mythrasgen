@@ -1,6 +1,7 @@
 import { PDFDocument, StandardFonts, TextAlignment, layoutMultilineText, rgb } from "pdf-lib";
 import type { PDFFont } from "pdf-lib";
 import type { SheetData } from "./sheet-data";
+import { SHEET_HIT_LOCATIONS } from "./sheet-data";
 import type { Character } from "./store.svelte";
 import { resolveBackgroundEvent } from "./background-rules";
 
@@ -10,11 +11,6 @@ const skillRows = rows(469, 12, 17);
 const professionalRows = rows(469.8, 12, 15);
 const magicalRows = rows(541.4, 12, 9);
 const languageRows = rows(685.4, 12, 6);
-const armourRows = rows(297.4, 24.2, 7);
-const equipmentRows = rows(290.4, 12, 20);
-const meleeRows = rows(626.6, 12, 7);
-const rangedRows = rows(722.6, 12, 3);
-const stylesRows = rows(528.4, 12, 4);
 
 interface ExportField { name: string; page: 0 | 1; value: string; x: number; x2: number; baseline: number; size?: number; multiline?: boolean; height?: number; top?: number; fixed?: boolean }
 interface ExportCheck { name: string; page: 0 | 1; x: number; y: number; size: number }
@@ -78,6 +74,57 @@ const PAGE_1_LAYOUT = {
   passionTotal: [548, 572] as const,
   characteristicCheckboxSize: 17.6,
   tableCheckboxSize: 6.2,
+} as const;
+
+// Page 2 writing-line widgets end inside the printed rule (0.4-0.5pt thick) so
+// 8pt descenders clear the 1pt clip inset and stay above the line, while the
+// box top stays below the previous 12pt-spaced rule.
+const PAGE_2_LINE_HEIGHT = 11.25;
+const onRuleRect = ([x, x2]: readonly [number, number], rule: number, height = PAGE_2_LINE_HEIGHT): Page1Rect =>
+  fixedRect(x + 0.5, x2 - 0.5, rule + 0.25 - height, height);
+// Checkbox widgets sit inside the printed square's ~0.5pt stroke so their
+// subpixel white border never splits the printed outline.
+const squareInside = (left: number, top: number, outer: number, inset = 1) =>
+  ({ x: left + inset, top: top + inset, size: outer - inset * 2 });
+
+/** Page 2 writing rules and artwork, measured from the official A4 template (top-left origin, rule tops). */
+const PAGE_2_LAYOUT = {
+  magicRules: rows(49.1, 16, 13),
+  magicLine: [27, 375] as const,
+  fatigueBox: (index: number) => squareInside(408.6, 56.5 + index * 20, 7.6),
+  // Hit location rows repeat every 24pt: Max HP circle centre (135, 296),
+  // HP rounded square x 161.6-180.4, y 285-307.
+  hitRowStep: 24,
+  maximumHp: fixedRect(128, 142, 289, 14),
+  currentHp: fixedRect(163.5, 178.5, 288, 16),
+  woundsRules: [471.6, 483.6] as const,
+  woundsLines: [[62.9, 187.1], [26.9, 187.1]] as const,
+  armourRules: rows(303.6, 24, 7),
+  armourName: [217.3, 313.5] as const,
+  // AP sits inside the printed shield (x 324.3-342.5, top 285 every 24pt).
+  armourAp: fixedRect(327, 340, 289.5, 12),
+  armourEnc: [352.3, 376.5] as const,
+  armourTotals: [471.6, 483.6] as const,
+  equipmentRules: rows(292, 12, 20),
+  equipmentName: [407.7, 535.9] as const,
+  equipmentEnc: [542.7, 566.9] as const,
+  loadRules: [544, 568, 580] as const,
+  // Rows 1-4 are free-form styles; row 5 is the template's printed "Unarmed".
+  styleRules: rows(529.8, 12, 5),
+  styleName: [26.9, 123.1] as const,
+  styleWeapons: [127.9, 268.1] as const,
+  styleTraits: [273.8, 324.2] as const,
+  styleValue: [352.9, 377.1] as const,
+  styleBox: (index: number) => squareInside(335.1, 522.8 + index * 12, 7.6),
+  meleeRules: rows(627, 12, 7),
+  rangedRules: rows(723, 12, 3),
+  weaponColumns: {
+    name: [26.9, 123.1], damage: [127.9, 176.1], size: [180.9, 205.1], reach: [208.9, 233.1], traits: [236.9, 325.1],
+    force: [180.9, 205.1], damage_modifier: [208.9, 233.1], range_close: [237.7, 253.9], range_medium: [257.9, 274.1],
+    range_long: [278, 294.3], load: [298.9, 323.1], combat_effects: [328.9, 469.1], ap: [474.9, 499.1],
+    // Initial and current HP flank the printed slash (x≈519-523).
+    initial_hp: [502.8, 519], current_hp: [522.9, 539.2], enc: [543.9, 568.1],
+  } as Record<string, readonly [number, number]>,
 } as const;
 
 /** Build named form controls while keeping the editable-page geometry independent of print text placement. */
@@ -157,7 +204,10 @@ function formFields(data: SheetData): ExportField[] {
     add(`passion.${index + 1}.value`, 0, row?.total ?? "", totalRect.x, totalRect.x2, 685.4 + index * 12, 8, false, totalRect.height, totalRect.top);
   }
 
-  // The print renderer has thirteen ruled lines in this panel; preserve each as an independent editable slot.
+  const p2 = PAGE_2_LAYOUT;
+  const addRect = (name: string, page: 0 | 1, value: string, rect: Page1Rect, size = 8) =>
+    add(name, page, value, rect.x, rect.x2, rect.top + rect.height, size, false, rect.height, rect.top);
+  // One editable slot per printed Magic & Abilities rule.
   const magicGroups = new Map<string, string[]>();
   for (const entry of data.magic) {
     const [title = entry.summary] = entry.detail.split("\n");
@@ -166,63 +216,68 @@ function formFields(data: SheetData): ExportField[] {
     magicGroups.set(entry.tradition, group);
   }
   const magicLines = [...magicGroups].flatMap(([tradition, entries]) => [tradition.toUpperCase(), ...entries]);
-  if (magicLines.length > 13) {
-    const omitted = magicLines.length - 12;
-    magicLines.splice(12, magicLines.length, `Additional magic details omitted due to space (${omitted} lines)`);
+  if (magicLines.length > p2.magicRules.length) {
+    const omitted = magicLines.length - (p2.magicRules.length - 1);
+    magicLines.splice(p2.magicRules.length - 1, magicLines.length, `Additional magic details omitted due to space (${omitted} lines)`);
   }
-  for (let index = 0; index < 13; index++) add(`magic.sheet_line.${index + 1}`, 1, magicLines[index] ?? "", 28, 372, 49 + index * 16, 7.5);
-  add("magic.used_magic_points", 1, "", 57, 187, 331, 8);
-  ["Head", "Left Arm", "Right Arm", "Chest", "Abdomen", "Left Leg", "Right Leg"].forEach((name, index) => {
-    add(`hit_location.${slug(name)}.maximum_hp`, 1, data.hitLocations[name] ?? "", 125.25, 146.75, 298.8 + index * 24.2, 13, false, 21.5, 288.05 + index * 24.2);
-    add(`hit_location.${slug(name)}.current_hp`, 1, "", 160, 182, 300 + index * 24.2, 8);
+  p2.magicRules.forEach((rule, index) => addRect(`magic.sheet_line.${index + 1}`, 1, magicLines[index] ?? "", onRuleRect(p2.magicLine, rule, 12), 7.5));
+  const shift = (rect: Page1Rect, dy: number): Page1Rect => ({ ...rect, top: rect.top + dy });
+  SHEET_HIT_LOCATIONS.forEach((name, index) => {
+    const dy = index * p2.hitRowStep;
+    addRect(`hit_location.${slug(name)}.maximum_hp`, 1, data.hitLocations[name] ?? "", shift(p2.maximumHp, dy), 11);
+    addRect(`hit_location.${slug(name)}.current_hp`, 1, "", shift(p2.currentHp, dy), 10);
   });
-  add("hit_locations.wounds", 1, "", 67, 189, 658, 8);
-  for (let index = 0; index < 7; index++) {
+  addRect("hit_locations.wounds", 1, "", onRuleRect(p2.woundsLines[0], p2.woundsRules[0]));
+  addRect("hit_locations.wounds_2", 1, "", onRuleRect(p2.woundsLines[1], p2.woundsRules[1]));
+  p2.armourRules.forEach((rule, index) => {
     const row = data.armour[index];
-    add(`armour.${index + 1}.name`, 1, row?.name ?? "", 216, 313, armourRows[index]!);
-    add(`armour.${index + 1}.ap`, 1, row?.ap ?? "", 321, 346, armourRows[index]!, 8);
-    add(`armour.${index + 1}.enc`, 1, row?.enc ?? "", 351, 375, armourRows[index]!, 8);
-  }
-  for (let index = 0; index < 20; index++) {
+    addRect(`armour.${index + 1}.name`, 1, row?.name ?? "", onRuleRect(p2.armourName, rule, 12));
+    addRect(`armour.${index + 1}.ap`, 1, row?.ap ?? "", shift(p2.armourAp, index * 24));
+    addRect(`armour.${index + 1}.enc`, 1, row?.enc ?? "", onRuleRect(p2.armourEnc, rule, 12));
+  });
+  addRect("armour.total_encumbrance", 1, data.encumbrance.armour, onRuleRect(p2.armourEnc, p2.armourTotals[0]));
+  addRect("armour.initiative_penalty", 1, data.encumbrance.armourPenalty, onRuleRect(p2.armourEnc, p2.armourTotals[1]));
+  p2.equipmentRules.forEach((rule, index) => {
     const row = data.equipment[index];
-    add(`equipment.${index + 1}.name`, 1, row?.name ?? "", 411, 535, equipmentRows[index]!);
-    add(`equipment.${index + 1}.enc`, 1, row?.enc ?? "", 541, 572, equipmentRows[index]!, 8);
-  }
-  add("armour.total_encumbrance", 1, data.encumbrance.armour, 351, 375, 471, 8);
-  add("armour.initiative_penalty", 1, data.encumbrance.armourPenalty, 351, 375, 483, 8);
-  [
-    ["load.total", data.encumbrance.total, 543], ["load.burdened", data.encumbrance.burdened, 567],
-    ["load.overloaded", data.encumbrance.overloaded, 579],
-  ].forEach(([name, value, y]) => add(String(name), 1, String(value), 540, 572, Number(y), 8));
+    addRect(`equipment.${index + 1}.name`, 1, row?.name ?? "", onRuleRect(p2.equipmentName, rule));
+    addRect(`equipment.${index + 1}.enc`, 1, row?.enc ?? "", onRuleRect(p2.equipmentEnc, rule));
+  });
+  ([["load.total", data.encumbrance.total], ["load.burdened", data.encumbrance.burdened], ["load.overloaded", data.encumbrance.overloaded]] as const)
+    .forEach(([name, value], index) => addRect(name, 1, value, onRuleRect(p2.equipmentEnc, p2.loadRules[index])));
+  // A style literally named Unarmed belongs on the template's printed Unarmed row.
+  const unarmed = data.combatStyles.find(style => /^unarmed$/i.test(style.name.trim()));
+  const styles = data.combatStyles.filter(style => style !== unarmed);
   for (let index = 0; index < 4; index++) {
-    const row = data.combatStyles[index];
-    add(`combat_style.${index + 1}.name`, 1, row?.name ?? "", 28, 122, stylesRows[index]!);
-    add(`combat_style.${index + 1}.weapons`, 1, row?.weapons ?? "", 129, 267, stylesRows[index]!);
-    add(`combat_style.${index + 1}.traits`, 1, row?.traits ?? "", 277, 326, stylesRows[index]!);
-    add(`combat_style.${index + 1}.value`, 1, row?.percentage ?? "", 356, 381, stylesRows[index]!, 8);
+    const row = styles[index], rule = p2.styleRules[index]!;
+    addRect(`combat_style.${index + 1}.name`, 1, row?.name ?? "", onRuleRect(p2.styleName, rule));
+    addRect(`combat_style.${index + 1}.weapons`, 1, row?.weapons ?? "", onRuleRect(p2.styleWeapons, rule));
+    addRect(`combat_style.${index + 1}.traits`, 1, row?.traits ?? "", onRuleRect(p2.styleTraits, rule), 7);
+    addRect(`combat_style.${index + 1}.value`, 1, row?.percentage ?? "", onRuleRect(p2.styleValue, rule));
   }
+  const unarmedRule = p2.styleRules[4]!;
+  addRect("combat_style.unarmed.weapons", 1, unarmed?.weapons ?? "", onRuleRect(p2.styleWeapons, unarmedRule));
+  addRect("combat_style.unarmed.traits", 1, unarmed?.traits ?? "", onRuleRect(p2.styleTraits, unarmedRule), 7);
+  addRect("combat_style.unarmed.value", 1, unarmed?.percentage ?? "", onRuleRect(p2.styleValue, unarmedRule));
 
-  const weaponFields = (ranged: boolean, count: number, ys: number[]) => {
+  const weaponFields = (ranged: boolean, rules: number[]) => {
     const weapons = data.weapons.filter(row => row.ranged === ranged);
-    for (let index = 0; index < count; index++) {
-      const row = weapons[index], y = ys[index]!;
-      const prefix = `weapon.${ranged ? "ranged" : "melee"}.${index + 1}`;
-      const cols: [string, number, number][] = [["name", 28, 123], ["damage", 128, 178]];
-      if (ranged) cols.push(["force", 181, 207], ["damage_modifier", 209, 235], ["range_close", 238, 256], ["range_medium", 258, 276], ["range_long", 278, 294], ["load", 299, 323], ["combat_effects", 329, 469]);
-      else cols.push(["size", 181, 207], ["reach", 209, 235], ["traits", 237, 325], ["combat_effects", 329, 469]);
-      cols.push(["ap", 475, 499], ["initial_hp", 503, 518], ["current_hp", 524, 539], ["enc", 544, 568]);
-      for (const [key, x, x2] of cols) {
+    const keys = ranged
+      ? ["name", "damage", "force", "damage_modifier", "range_close", "range_medium", "range_long", "load", "combat_effects", "ap", "initial_hp", "current_hp", "enc"]
+      : ["name", "damage", "size", "reach", "traits", "combat_effects", "ap", "initial_hp", "current_hp", "enc"];
+    rules.forEach((rule, index) => {
+      const row = weapons[index];
+      for (const key of keys) {
         let value = "";
         if (row) value = ({ name: row.name, damage: row.damage, force: row.force, damage_modifier: row.damageModifier,
           range_close: row.range.split("/")[0] ?? "", range_medium: row.range.split("/")[1] ?? "", range_long: row.range.split("/")[2] ?? "",
           load: row.load, combat_effects: row.combatEffects, size: row.size, reach: row.reach, traits: row.traits,
           ap: row.ap, initial_hp: row.hp, current_hp: row.currentHp, enc: row.enc } as Record<string, string>)[key] ?? "";
-        add(`${prefix}.${key}`, 1, value, x, x2, y, 8);
+        addRect(`weapon.${ranged ? "ranged" : "melee"}.${index + 1}.${key}`, 1, value, onRuleRect(p2.weaponColumns[key]!, rule));
       }
-    }
+    });
   };
-  weaponFields(false, 7, meleeRows);
-  weaponFields(true, 3, rangedRows);
+  weaponFields(false, p2.meleeRules);
+  weaponFields(true, p2.rangedRules);
   return fields;
 }
 
@@ -230,7 +285,8 @@ const slug = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, "_").
 const centeredField = (name: string) => name.startsWith("characteristic.") || name.startsWith("attribute.")
   || name.startsWith("hit_location.") || name.startsWith("skill.standard.") || name.startsWith("skill.resistance.")
   || /\.(?:base|total|value|ap|enc|damage|size|reach|force|damage_modifier|range_close|range_medium|range_long|load|initial_hp|current_hp)$/.test(name)
-  || name.startsWith("magic.devotional_pool_");
+  || name.startsWith("magic.devotional_pool_") || name.startsWith("load.")
+  || name === "armour.total_encumbrance" || name === "armour.initiative_penalty";
 
 function checkboxes(): ExportCheck[] {
   const checks: ExportCheck[] = [];
@@ -246,9 +302,14 @@ function checkboxes(): ExportCheck[] {
   for (let i = 0; i < 15; i++) add(`checkboxes.skills.professional.${i + 1}`, 0, 335 + tableInset, 464 + i * 12 + tableInset, tableCheckboxSize);
   for (let i = 0; i < 9; i++) add(`checkboxes.skills.magical.${i + 1}`, 0, 526 + tableInset, 535.6 + i * 12 + tableInset, tableCheckboxSize);
   for (let i = 0; i < 6; i++) add(`checkboxes.skills.language.${i + 1}`, 0, 335 + tableInset, 680 + i * 12 + tableInset, tableCheckboxSize);
-  for (let i = 0; i < 4; i++) add(`checkboxes.combat_style.${i + 1}`, 1, 333, 522.6 + i * 12);
-  const fatigueTop = 57;
-  for (let i = 0; i < 10; i++) add(`checkboxes.fatigue.${i + 1}`, 1, 410, fatigueTop + i * 21.2);
+  for (let i = 0; i < 5; i++) {
+    const box = PAGE_2_LAYOUT.styleBox(i);
+    add(i === 4 ? "checkboxes.combat_style.unarmed" : `checkboxes.combat_style.${i + 1}`, 1, box.x, box.top, box.size);
+  }
+  for (let i = 0; i < 10; i++) {
+    const box = PAGE_2_LAYOUT.fatigueBox(i);
+    add(`checkboxes.fatigue.${i + 1}`, 1, box.x, box.top, box.size);
+  }
   return checks;
 }
 
@@ -378,8 +439,8 @@ export async function renderEditableCharacterSheet(data: SheetData, options: { t
       // A zero-width checkbox stroke becomes a device-width hairline in PDF
       // viewers. Use a subpixel white stroke so only the template's printed
       // square remains visible around the inset click target.
-      borderWidth: spec.page === 0 ? (options.debugPage1Outlines ? 0.6 : 0.01) : 0,
-      borderColor: spec.page === 0 ? (options.debugPage1Outlines ? rgb(0, 0, 0.9) : rgb(1, 1, 1)) : undefined,
+      borderWidth: spec.page === 0 && options.debugPage1Outlines ? 0.6 : 0.01,
+      borderColor: spec.page === 0 && options.debugPage1Outlines ? rgb(0, 0, 0.9) : rgb(1, 1, 1),
       backgroundColor: undefined,
     });
   }

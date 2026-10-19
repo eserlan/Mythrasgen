@@ -56,10 +56,11 @@ describe("character downloads", () => {
     expect(form.getTextField("equipment.20.name").getText() ?? "").toBe("");
     const initialHpRect = form.getTextField("weapon.melee.1.initial_hp").acroField.getWidgets()[0]!.getRectangle();
     const currentHpRect = form.getTextField("weapon.melee.1.current_hp").acroField.getWidgets()[0]!.getRectangle();
-    expect(initialHpRect.x).toBe(503);
-    expect(initialHpRect.width).toBe(15);
-    expect(currentHpRect.x).toBe(524);
-    expect(currentHpRect.width).toBe(15);
+    // The printed HP slash spans x≈519-523; each half stays on its own side.
+    expect(initialHpRect.x).toBeGreaterThanOrEqual(502.8);
+    expect(initialHpRect.x + initialHpRect.width).toBeLessThanOrEqual(519);
+    expect(currentHpRect.x).toBeGreaterThanOrEqual(522.9);
+    expect(currentHpRect.x + currentHpRect.width).toBeLessThanOrEqual(539.2);
 
     // A previously blank field can be edited, saved and reopened as a form value.
     form.getTextField("equipment.20.name").setText("Added after export");
@@ -208,8 +209,9 @@ describe("character downloads", () => {
 
     expect(borderWidth("combat_style.1.name")).toBe(0);
     expect(borderColor("combat_style.1.name")).toBeUndefined();
-    expect(borderWidth("checkboxes.combat_style.1")).toBe(0);
-    expect(borderColor("checkboxes.combat_style.1")).toBeUndefined();
+    // Page-2 checkboxes use the same invisible subpixel white stroke as page 1.
+    expect(borderWidth("checkboxes.combat_style.1")).toBeCloseTo(0.01);
+    expect(borderColor("checkboxes.combat_style.1")).toEqual([1, 1, 1]);
   });
 
   test("keeps long editable notes legible and confines long labels to their page-one columns", async () => {
@@ -306,6 +308,100 @@ describe("character downloads", () => {
     empty.setText("Player-written note");
     const reopened = await PDFDocument.load(await doc.save());
     expect(reopened.getForm().getTextField("character.notes").getText()).toBe("Player-written note");
+  });
+
+  test("page-two widgets follow the measured template rules, artwork and printed squares", async () => {
+    reset(false);
+    const data = buildSheetData(currentSheetSource());
+    data.equipment = [{ name: "Rope, 10m (hemp)", enc: "2" }];
+    data.armour = [{ name: "Leather hauberk", ap: "2", enc: "1" }];
+    data.combatStyles = [{ name: "Unarmed", weapons: "Fists", traits: "", percentage: "40" }, { name: "Hunter", weapons: "Longbow", traits: "Skirmishing", percentage: "52" }];
+    const doc = await PDFDocument.load(await renderEditableCharacterSheet(data, { template }));
+    const form = doc.getForm();
+    const page2 = doc.getPage(1);
+    const pageHeight = page2.getHeight();
+    const onPage2 = new Set((page2.node.Annots()?.asArray() ?? []).map(ref => ref.toString()));
+    const widgets = form.getFields().flatMap(field => field.acroField.getWidgets()
+      .filter(widget => onPage2.has(doc.context.getObjectRef(widget.dict)?.toString() ?? ""))
+      .map(widget => ({ name: field.getName(), rect: widget.getRectangle() })));
+    const rect = (name: string) => widgets.find(widget => widget.name === name)!.rect;
+    const top = (r: { y: number; height: number }) => pageHeight - r.y - r.height;
+    const bottom = (r: { y: number }) => pageHeight - r.y;
+
+    // Every slot on the template, and nothing more: the stray used-MP widget is gone.
+    expect(widgets.filter(widget => widget.name.startsWith("magic.sheet_line.")).length).toBe(13);
+    expect(widgets.filter(widget => /^equipment\.\d+\.name$/.test(widget.name)).length).toBe(20);
+    expect(widgets.filter(widget => /^weapon\.melee\.\d+\.name$/.test(widget.name)).length).toBe(7);
+    expect(widgets.filter(widget => /^weapon\.ranged\.\d+\.name$/.test(widget.name)).length).toBe(3);
+    expect(widgets.filter(widget => widget.name.startsWith("checkboxes.fatigue.")).length).toBe(10);
+    expect(widgets.filter(widget => widget.name.startsWith("checkboxes.combat_style.")).length).toBe(5);
+    expect(widgets.some(widget => widget.name === "magic.used_magic_points")).toBe(false);
+
+    // Text slots end on their printed rule (rule tops measured from the template).
+    const ruled: [string, number][] = [
+      ["magic.sheet_line.1", 49.1], ["magic.sheet_line.13", 241.1], ["armour.1.name", 303.6], ["armour.7.enc", 447.6],
+      ["armour.total_encumbrance", 471.6], ["armour.initiative_penalty", 483.6], ["equipment.1.name", 292], ["equipment.20.enc", 520],
+      ["load.total", 544], ["load.burdened", 568], ["load.overloaded", 580], ["combat_style.1.name", 529.8], ["combat_style.unarmed.value", 577.8],
+      ["weapon.melee.1.name", 627], ["weapon.melee.7.enc", 699], ["weapon.ranged.1.range_close", 723], ["weapon.ranged.3.current_hp", 747],
+      ["hit_locations.wounds", 471.6], ["hit_locations.wounds_2", 483.6],
+    ];
+    for (const [name, rule] of ruled) {
+      const r = rect(name);
+      expect(bottom(r)).toBeGreaterThanOrEqual(rule);
+      expect(bottom(r)).toBeLessThanOrEqual(rule + 0.5);
+      expect(r.height).toBeGreaterThanOrEqual(11);
+    }
+    // 8pt descenders clear pdf-lib's 1pt clip inset in a 12pt-spaced row.
+    const font = await doc.embedFont(StandardFonts.Helvetica);
+    const equipment = rect("equipment.1.name");
+    const baseline = equipment.y + equipment.height / 2 - font.heightAtSize(8, { descender: false }) / 2;
+    expect(baseline - (font.heightAtSize(8) - font.heightAtSize(8, { descender: false }))).toBeGreaterThanOrEqual(equipment.y + 1);
+    // Melee row 7 stays above the Ranged Weapons heading.
+    expect(bottom(rect("weapon.melee.7.name"))).toBeLessThan(708);
+    expect(top(rect("weapon.ranged.1.name"))).toBeGreaterThan(709);
+
+    // Hit-location values sit inside the printed circle (centre 135, 296 + 24n; r≈10.3) and rounded square.
+    ["head", "left_arm", "right_arm", "chest", "abdomen", "left_leg", "right_leg"].forEach((location, index) => {
+      const max = rect(`hit_location.${location}.maximum_hp`), current = rect(`hit_location.${location}.current_hp`);
+      const centre = 296 + index * 24;
+      for (const [cx, cy] of [[max.x, top(max)], [max.x + max.width, top(max)], [max.x, bottom(max)], [max.x + max.width, bottom(max)]]) {
+        expect(Math.hypot(cx! - 135, cy! - centre)).toBeLessThanOrEqual(10.3);
+      }
+      expect(current.x).toBeGreaterThan(161.6);
+      expect(current.x + current.width).toBeLessThan(180.4);
+      expect(top(current)).toBeGreaterThan(285 + index * 24);
+      expect(bottom(current)).toBeLessThan(307 + index * 24);
+    });
+
+    // Checkboxes sit inside each printed square: fatigue x 408.6, every 20pt; styles x 335.1, every 12pt.
+    const inside = (name: string, left: number, squareTop: number) => {
+      const r = rect(name);
+      expect(r.x).toBeGreaterThan(left);
+      expect(r.x + r.width).toBeLessThan(left + 7.6);
+      expect(top(r)).toBeGreaterThan(squareTop);
+      expect(bottom(r)).toBeLessThan(squareTop + 7.6);
+    };
+    for (let index = 0; index < 10; index++) inside(`checkboxes.fatigue.${index + 1}`, 408.6, 56.5 + index * 20);
+    ["1", "2", "3", "4", "unarmed"].forEach((suffix, index) => inside(`checkboxes.combat_style.${suffix}`, 335.1, 522.8 + index * 12));
+
+    // No two page-2 widgets overlap.
+    for (let i = 0; i < widgets.length; i++) for (let j = i + 1; j < widgets.length; j++) {
+      const a = widgets[i]!.rect, b = widgets[j]!.rect;
+      const overlap = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x) > 0.01 && Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y) > 0.01;
+      if (overlap) throw new Error(`${widgets[i]!.name} overlaps ${widgets[j]!.name}`);
+    }
+
+    // A style named Unarmed fills the printed Unarmed row; the others keep rows 1-4.
+    expect(form.getTextField("combat_style.unarmed.weapons").getText()).toBe("Fists");
+    expect(form.getTextField("combat_style.unarmed.value").getText()).toBe("40");
+    expect(form.getTextField("combat_style.1.name").getText()).toBe("Hunter");
+
+    // Blank page-2 fields remain editable and survive save/reopen.
+    form.getTextField("hit_locations.wounds_2").setText("Concussion");
+    form.getCheckBox("checkboxes.fatigue.3").check();
+    const reopened = (await PDFDocument.load(await doc.save())).getForm();
+    expect(reopened.getTextField("hit_locations.wounds_2").getText()).toBe("Concussion");
+    expect(reopened.getCheckBox("checkboxes.fatigue.3").isChecked()).toBe(true);
   });
 
   test("exports distinct recorded weapon HP values and leaves the print renderer independent", async () => {
