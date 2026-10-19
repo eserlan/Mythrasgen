@@ -463,6 +463,14 @@ function addMagicAppendix(sheet: Sheet, name: string, entries: SheetData["magic"
   });
 }
 
+/** Append the same recorded-entry appendix used by the printable character sheet. */
+export async function appendMagicAppendix(doc: PDFDocument, name: string, entries: SheetData["magic"]) {
+  if (!entries.length) return;
+  const pages = doc.getPages();
+  const sheet = new Sheet(doc, pages, await doc.embedFont(StandardFonts.Helvetica), await doc.embedFont(StandardFonts.HelveticaBold));
+  addMagicAppendix(sheet, name, entries);
+}
+
 /** Populate the official two-page template. A clearly labelled supplement is appended only when text overflowed. */
 export async function renderCharacterSheet(data: SheetData, { template, mode = "titles-and-appendix" }: RenderOptions): Promise<Uint8Array> {
   const doc = await PDFDocument.load(template);
