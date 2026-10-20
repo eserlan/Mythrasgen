@@ -3,7 +3,7 @@
   --bg:#efe6d0;--bg2:#e4d8bb;--card:#f8f1df;--card2:#efe4c9;--fg:#2b2118;--mute:#6f604a;
   --acc:#8f2d1d;--bronze:#9a6b1f;--bronze2:#c79a4a;--line:#d3c5a4;--line2:#a88f5c;--ok:#4a7a3a;
   --shadow:0 1px 0 #fff8,0 8px 22px #5a431b1f;--noise:.07;
-  --font-display:Cinzel,"Trajan Pro",Georgia,serif;--font-body:"EB Garamond",Georgia,serif;
+  --font-display:"Cinzel Variable",Cinzel,"Trajan Pro",Georgia,serif;--font-body:"EB Garamond Variable","EB Garamond",Georgia,serif;
   --display:var(--font-display);--body:var(--font-body);
   --text-xs:.65rem;--text-sm:.85rem;--text-base:1.1rem;--text-lg:1.25rem;--text-xl:1.5rem;
   --line-height-body:1.5;--control-min-height:2.25rem;--content-spacing:1rem;
@@ -59,7 +59,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
 
 /* landing */
 .landing{min-height:100dvh;display:flex;flex-direction:column;justify-content:space-between;padding:18px 0}
-.hero{text-align:center;padding:28px 20px;max-width:720px;margin:0 auto;animation:rise .8s both}
+.hero{text-align:center;padding:28px 20px;max-width:720px;margin:0 auto;animation:slide-up .8s both}
 .medallion{width:min(200px,50vw);height:auto;filter:drop-shadow(0 6px 18px #0006);animation:spin-in 1.4s cubic-bezier(.2,.8,.2,1) both}
 .m-ring{fill:none;stroke:var(--bronze);stroke-width:2.5}.m-thin{fill:none;stroke:var(--line2);stroke-width:1}
 .m-tick{stroke:var(--bronze);stroke-width:2;stroke-linecap:round}.m-glyph{fill:none;stroke:var(--bronze2);stroke-width:7;stroke-linejoin:round;stroke-linecap:round}
@@ -72,6 +72,8 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
 .path b{font-family:var(--display);color:var(--bronze);margin-right:4px}
 .legal{text-align:center;font-size:.8rem;color:var(--mute);max-width:560px;margin:14px auto;padding:0 20px}
 @keyframes rise{from{opacity:0;transform:translateY(14px)}}
+/* The landing hero holds the LCP text, so it slides without fading in from invisible. */
+@keyframes slide-up{from{transform:translateY(14px)}}
 @keyframes spin-in{from{opacity:0;transform:rotate(-40deg) scale(.85)}}
 
 /* header & stepper */

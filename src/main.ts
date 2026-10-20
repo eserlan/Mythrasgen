@@ -1,4 +1,7 @@
 import { mount } from "svelte";
+import "@fontsource-variable/cinzel/wght.css";
+import "@fontsource-variable/eb-garamond/wght.css";
+import "@fontsource-variable/eb-garamond/wght-italic.css";
 import "./app.css";
 
 const target = document.getElementById("app");
