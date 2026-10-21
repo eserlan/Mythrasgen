@@ -1,4 +1,5 @@
 <script lang="ts">
+  import SiteFooter from "./SiteFooter.svelte";
   import { STEPS, ROMAN, char, createCharacter, hasProgress, replace } from "../lib/store.svelte";
 
   let { onLibrary, onSettings }: { onLibrary: () => void; onSettings: () => void } = $props();
@@ -47,7 +48,6 @@
       {#each STEPS as s, i}<li><b>{ROMAN[i]}</b> {s}</li>{/each}
     </ol>
   </div>
-  <p class="legal">Unofficial fan tool. Mythras is a trademark of The Design Mechanism; this site is not affiliated with or endorsed by them.
-    Your hero is saved only in this browser.</p>
+  <SiteFooter landing />
   <div class="meander" aria-hidden="true"></div>
 </div>
