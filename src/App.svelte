@@ -13,6 +13,7 @@
   import Characters from "./components/Characters.svelte";
   import Save from "./components/Save.svelte";
   import Settings from "./components/Settings.svelte";
+  import SiteFooter from "./components/SiteFooter.svelte";
   import { applyDisplaySettings, loadDisplaySettings, saveDisplaySettings } from "./lib/display-settings";
   import { canFinishPointBuy } from "./lib/calc";
   import { canVisitStep, isLandingView } from "./lib/navigation";
@@ -138,6 +139,7 @@
     {#if char.step < last}<button class="primary" disabled={!canVisit(char.step + 1)} onclick={() => (char.step += 1)}>{char.step === 1 && !canContinue ? "Finish characteristics" : char.step === 4 && !canComplete() ? "Spend all bonus points" : `${STEPS[char.step + 1]} →`}</button>{/if}
   </div>
 </main>{/if}
+<SiteFooter />
 {/if}
 
 <dialog class="print-dialog" bind:this={printDialog} aria-labelledby="print-dialog-title" onclick={event => { if (event.target === event.currentTarget) printDialog.close(); }}>

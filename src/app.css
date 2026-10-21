@@ -70,7 +70,11 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
 .cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
 .path{list-style:none;display:flex;flex-wrap:wrap;justify-content:center;gap:6px 22px;padding:0;margin:34px 0 0;color:var(--mute);font-size:.95rem}
 .path b{font-family:var(--display);color:var(--bronze);margin-right:4px}
-.legal{text-align:center;font-size:.8rem;color:var(--mute);max-width:560px;margin:14px auto;padding:0 20px}
+.site-footer{text-align:center;font-size:.8rem;color:var(--mute);max-width:560px;margin:14px auto;padding:0 20px}
+.site-footer p{margin:0 0 .4em}
+.site-footer a{color:inherit;text-decoration:underline;text-underline-offset:2px}
+.site-footer a:hover,.site-footer a:focus-visible{color:var(--acc)}
+main + .site-footer{margin-top:32px;padding-bottom:24px}
 @keyframes rise{from{opacity:0;transform:translateY(14px)}}
 /* The landing hero holds the LCP text, so it slides without fading in from invisible. */
 @keyframes slide-up{from{transform:translateY(14px)}}
